@@ -199,7 +199,7 @@ class OpenSim {
             return false;
         }
         
-        $port = $db_creds['port'] ?? 3306;
+        $port = empty($db_creds['port']) ? 3306 : $db_creds['port'];
         
         // Suppress connection errors
         $db_conn = @new mysqli($db_creds['host'], $db_creds['user'], $db_creds['pass'], $db_creds['name'], $port);
