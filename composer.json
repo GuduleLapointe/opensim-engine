@@ -10,7 +10,7 @@
     }
   ],
   "require": {
-    "php": ">=7.4",
+    "php": ">=7.3",
     "ext-gettext": "*",
     "laminas/laminas-escaper": "^2.12",
     "laminas/laminas-filter": "^2.24",
