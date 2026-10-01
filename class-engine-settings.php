@@ -72,17 +72,23 @@ class Engine_Settings {
         self::$config_dir = defined('OPENSIM_CONFIG_DIR') ? rtrim(OPENSIM_CONFIG_DIR, '/') : OPENSIM_ENGINE_PATH . '/config';
         self::$credentials_file = self::$config_dir . '/credentials.json';
 
-        self::ensure_config_directory();
+        // Reading never creates anything: the application creates the config
+        // directory when it sets itself up (see create_config_directory())
         self::setup_fields_config();
         self::load();
     }
     
     /**
-     * Ensure config directory exists and is properly secured
+     * Create the config directory and secure it.
+     *
+     * This is the recipe only, the engine never runs it by itself: the
+     * application calls it when it sets itself up.
+     *
+     * @return bool Success
      */
-    private static function ensure_config_directory() {
+    public static function create_config_directory() {
         if (!self::$config_dir) {
-            self::$config_dir = dirname($ini_file);
+            return false;
         }
         
         // Create directory if it doesn't exist with restrictive permissions
@@ -190,8 +196,10 @@ class Engine_Settings {
             return false;
         }
         
-        // Ensure config directory exists and is secured
-        self::ensure_config_directory();
+        if (!is_dir(self::$config_dir)) {
+            error_log("Engine_Settings: Config directory " . self::$config_dir . " does not exist, create it with create_config_directory()");
+            return false;
+        }
         
         $json_content = json_encode(self::$credentials, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         
@@ -632,6 +640,11 @@ class Engine_Settings {
     public static function save() {
         if (empty(self::$settings)) {
             return true; // Nothing to save
+        }
+        
+        if (!is_dir(self::$config_dir)) {
+            error_log("Engine_Settings: Config directory " . self::$config_dir . " does not exist, create it with create_config_directory()");
+            return false;
         }
         
         $success = true;
