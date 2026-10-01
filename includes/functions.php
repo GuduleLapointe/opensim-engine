@@ -200,7 +200,7 @@ function opensim_sanitize_uri( $url, $gatekeeperURL = null, $array_outout = fals
 		$split  = explode( ' ', $split[1] );
 		$port   = $split[0];
 		$region = $split[1];
-	} elseif ( preg_match( '/[a-z].*\.[a-z]/', $split[0] ) ) {
+	} elseif ( preg_match( '/[a-z].*\.[a-z]/i', $split[0] ) ) {
 			$host = array_shift( $split );
 		if ( preg_match( '/^[0-9]+$/', $split[0] ) ) {
 			$port = array_shift( $split );
