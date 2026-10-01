@@ -23,8 +23,11 @@ if (!defined('OPENSIM_ENGINE_VERSION')) {
     define('OPENSIM_ENGINE_VERSION', '1.0.0');
 }
 
-// Load Composer autoloader for engine dependencies (currently Laminas)
-require_once OPENSIM_ENGINE_PATH . '/vendor/autoload.php';
+// Composer autoloader of the engine dependencies when used standalone; when
+// the engine is itself a composer dependency, they are in the parent autoloader
+if (is_file(OPENSIM_ENGINE_PATH . '/vendor/autoload.php')) {
+    require_once OPENSIM_ENGINE_PATH . '/vendor/autoload.php';
+}
 
 // Engine autoloader (remove debug logs for production)
 spl_autoload_register(function ($class) {
@@ -37,7 +40,7 @@ spl_autoload_register(function ($class) {
 });
 
 // Load ONLY essential dependencies that are always needed
-require_once OPENSIM_ENGINE_PATH . '/opensim-rest/class-rest.php';
+// (OpenSim_Rest comes from the magicoli/opensim-rest-php package)
 require_once OPENSIM_ENGINE_PATH . '/includes/functions.php';
 
 # This doesn't work and requires more investigation. Commented and kept for future reference.
