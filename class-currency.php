@@ -345,8 +345,8 @@ class OpenSim_Currency {
                     $serverip    = $server_info['serverIP'];
                     $httpport    = $server_info['serverHttpPort'];
 
-                    $informurl    = "http://${serverip}:${httpport}/gloebit/buy_complete?agentId=${agentid}";
-                    $errorURI     = "${baseurl}?reset&r=&inform=$informurl";
+                    $informurl    = "http://{$serverip}:{$httpport}/gloebit/buy_complete?agentId={$agentid}";
+                    $errorURI     = "{$baseurl}?reset&r=&inform=$informurl";
                     $errorMessage = 'Click OK to finish the transaction on Gloebit website.';
                     break;
 

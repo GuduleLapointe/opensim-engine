@@ -317,13 +317,13 @@ class OpenSim_Search
 
         $terms = array();
         if ( $flags & pow( 2, 24 ) ) {
-            $terms[] = "${table}mature = 'PG'";
+            $terms[] = "{$table}mature = 'PG'";
         }
         if ( $flags & pow( 2, 25 ) ) {
-            $terms[] = "${table}mature = 'Mature'";
+            $terms[] = "{$table}mature = 'Mature'";
         }
         if ( $flags & pow( 2, 26 ) ) {
-            $terms[] = "${table}mature = 'Adult'";
+            $terms[] = "{$table}mature = 'Adult'";
         }
 
         return OSPDO::join_query_conditions($terms, 'OR');

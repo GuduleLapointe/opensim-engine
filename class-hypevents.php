@@ -247,6 +247,16 @@ class OpenSim_HypEvents {
     }
 
     /**
+     * Replace the characters ISO-8859-1 cannot represent by "?".
+     *
+     * @param string $text The text to clean.
+     * @return string
+     */
+    private static function latin1_only( $text ) {
+        return mb_convert_encoding( mb_convert_encoding( $text, 'ISO-8859-1', 'UTF-8' ), 'UTF-8', 'ISO-8859-1' );
+    }
+
+    /**
      * Process a single event.
      *
      * This method processes a single event, extracting relevant information
@@ -287,10 +297,10 @@ class OpenSim_HypEvents {
 
         $slurl       = opensim_format_tp( $hypevent['hgurl'], TPLINK_TXT );
         $links       = opensim_format_tp( $hypevent['hgurl'], TPLINK_APPTP + TPLINK_HOP );
-        $description = strip_tags( html_entity_decode( utf8_encode( utf8_decode( $hypevent['description'] ) ) ) );
+        $description = strip_tags( html_entity_decode( self::latin1_only( $hypevent['description'] ) ) );
         $description = "$links\n\n$description";
         // $title = utf8_encode(utf8_decode($hypevent['title']));
-        $title = strip_tags( utf8_encode( utf8_decode( $hypevent['title'] ) ) );
+        $title = strip_tags( self::latin1_only( $hypevent['title'] ) );
 
         $fields = array(
             'owneruuid'     => self::NULL_KEY, // Not implemented
