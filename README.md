@@ -52,7 +52,7 @@ The code has been **battle-tested** across different implementations before bein
 
 ## Requirements
 
-PHP 8.2 or newer, with the `curl`, `filter`, `gettext`, `intl`, `json`, `mbstring`, `mysqli`, `pdo`, `session` and `simplexml` extensions. The `xmlrpc_*` functions removed from PHP 8 are provided by the polyfill of the engine.
+PHP 8.2 or newer, with the `curl`, `filter`, `gettext`, `intl`, `json`, `mbstring`, `mysqli`, `pdo`, `session` and `simplexml` extensions. The `xmlrpc_*` functions removed from PHP 8 are not an extension to install: the engine uses them, and the application loads a polyfill (`includes/xmlrpc-polyfill.php` of opensim-helpers, built on `phpxmlrpc/phpxmlrpc`).
 
 On Debian and Ubuntu: `sudo apt install php-cli php-curl php-intl php-mbstring php-mysql php-xml`, the other extensions come with `php-common` and `php-cli`.
 
