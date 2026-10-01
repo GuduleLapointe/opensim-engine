@@ -21,7 +21,7 @@
     "ext-pdo": "*",
     "ext-session": "*",
     "ext-simplexml": "*",
-    "laminas/laminas-escaper": "2.19.x-dev",
+    "laminas/laminas-escaper": "^2.12@stable",
     "magicoli/opensim-rest-php": "dev-opensim-kit",
     "phpxmlrpc/phpxmlrpc": "^4.11"
   },

@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b51b35a76bc2182c2f015b63f611a32d",
+    "content-hash": "bcc8572ffcd29e2f0f3075728edf21d8",
     "packages": [
         {
             "name": "laminas/laminas-escaper",
-            "version": "2.19.x-dev",
+            "version": "2.18.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/laminas/laminas-escaper.git",
-                "reference": "f506f3545a706ec9416baf2a3ebcc1e5ce070783"
+                "reference": "06f211dfffff18d91844c1f55250d5d13c007e18"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/laminas/laminas-escaper/zipball/f506f3545a706ec9416baf2a3ebcc1e5ce070783",
-                "reference": "f506f3545a706ec9416baf2a3ebcc1e5ce070783",
+                "url": "https://api.github.com/repos/laminas/laminas-escaper/zipball/06f211dfffff18d91844c1f55250d5d13c007e18",
+                "reference": "06f211dfffff18d91844c1f55250d5d13c007e18",
                 "shasum": ""
             },
             "require": {
@@ -29,13 +29,12 @@
                 "zendframework/zend-escaper": "*"
             },
             "require-dev": {
-                "infection/infection": "^0.32.0",
+                "infection/infection": "^0.31.0",
                 "laminas/laminas-coding-standard": "~3.1.0",
                 "phpunit/phpunit": "^11.5.42",
                 "psalm/plugin-phpunit": "^0.19.5",
                 "vimeo/psalm": "^6.13.1"
             },
-            "default-branch": true,
             "type": "library",
             "autoload": {
                 "psr-4": {
@@ -62,11 +61,11 @@
             },
             "funding": [
                 {
-                    "url": "https://crowdfunding.linuxfoundation.org/initiatives/laminas-project",
-                    "type": "custom"
+                    "url": "https://funding.communitybridge.org/projects/laminas-project",
+                    "type": "community_bridge"
                 }
             ],
-            "time": "2026-09-28T00:30:51+00:00"
+            "time": "2025-10-14T18:31:13+00:00"
         },
         {
             "name": "magicoli/opensim-rest-php",
@@ -4571,7 +4570,7 @@
     "aliases": [],
     "minimum-stability": "dev",
     "stability-flags": {
-        "laminas/laminas-escaper": 20,
+        "laminas/laminas-escaper": 0,
         "magicoli/opensim-rest-php": 20,
         "phpcompatibility/php-compatibility": 20
     },
