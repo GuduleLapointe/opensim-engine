@@ -50,6 +50,12 @@ The code has been **battle-tested** across different implementations before bein
 - **[W4OS WordPress Plugin](https://github.com/GuduleLapointe/w4os/)** - Complete WordPress integration for OpenSim grids. **Best for:** Complete integration in a WordPress website.
 - **[OpenSim Helpers](https://github.com/magicoli/opensim-helpers)** - Provides mainly helpers/ required by OpenSim grids to function properly, as well as minimal webui features. **Best for:** Separate helpers management, with minimal integration with the website.
 
+## Requirements
+
+PHP 8.2 or newer, with the `curl`, `filter`, `gettext`, `intl`, `json`, `mbstring`, `mysqli`, `pdo`, `session` and `simplexml` extensions. The `xmlrpc_*` functions removed from PHP 8 are provided by the polyfill of the engine.
+
+On Debian and Ubuntu: `sudo apt install php-cli php-curl php-intl php-mbstring php-mysql php-xml`, the other extensions come with `php-common` and `php-cli`.
+
 ## 🛠️ Developer Installation
 
 ### As Composer Package

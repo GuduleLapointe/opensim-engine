@@ -10,14 +10,29 @@
     }
   ],
   "require": {
-    "php": ">=7.3",
+    "php": ">=8.2",
+    "ext-curl": "*",
+    "ext-filter": "*",
     "ext-gettext": "*",
+    "ext-intl": "*",
+    "ext-json": "*",
+    "ext-mbstring": "*",
+    "ext-mysqli": "*",
+    "ext-pdo": "*",
+    "ext-session": "*",
+    "ext-simplexml": "*",
     "laminas/laminas-escaper": "^2.12",
     "laminas/laminas-filter": "^2.24",
     "magicoli/opensim-rest-php": "dev-dev",
     "phpxmlrpc/phpxmlrpc": "^4.11"
   },
-  "require-dev": {},
+  "require-dev": {
+    "dealerdirect/phpcodesniffer-composer-installer": "^1.2",
+    "magicoli/pest-failure-summary": "^1.0",
+    "pestphp/pest": "^3.0",
+    "phpcompatibility/php-compatibility": "dev-develop",
+    "squizlabs/php_codesniffer": "^4.0"
+  },
   "repositories": [
     {
       "type": "path",
@@ -44,6 +59,16 @@
   },
   "config": {
     "optimize-autoloader": true,
-    "classmap-authoritative": true
+    "classmap-authoritative": true,
+    "platform": {
+      "php": "8.2.0"
+    },
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true,
+      "pestphp/pest-plugin": true
+    }
+  },
+  "scripts": {
+    "test": "pest"
   }
 }
