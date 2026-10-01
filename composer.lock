@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "c39ffeeed11f6490d5052ffc696e3767",
+    "content-hash": "b212ced6d25135ff142d9fbe85bc2ff0",
     "packages": [
         {
             "name": "laminas/laminas-escaper",
@@ -301,7 +301,7 @@
             "dist": {
                 "type": "path",
                 "url": "../opensim-rest-php",
-                "reference": "634bc26b4c93e5394cdef7d3b767e8aeafec7f1a"
+                "reference": "165b92aa3a913e6e3f4716f1caec86c244eeae6b"
             },
             "require-dev": {
                 "clue/phar-composer": "^1.4"
@@ -446,7 +446,8 @@
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
-        "php": ">=7.4"
+        "php": ">=7.4",
+        "ext-gettext": "*"
     },
     "platform-dev": {},
     "plugin-api-version": "2.9.0"
