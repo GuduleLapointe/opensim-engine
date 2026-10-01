@@ -10,3 +10,4 @@ tmp/
 /config/*
 !/config/.htaccess
 vendor/
+.DS_Store
