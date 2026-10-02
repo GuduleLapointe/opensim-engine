@@ -1,5 +1,9 @@
 ## Changelog
 
+### Unreleased
+
+- new `OpenSim_Kit` reads what the OpenSim kit knows of a grid, for the projects that run next to it: the profile of `opensim.conf`, the Robust config of the grid (constants expanded) and its `helpers.ini`; it gives the settings of the helpers, the constants their scripts expect, and the public path of each service, which `helpers.ini` can change (`[Urls] search = "/search"`)
+
 ### 3.0.0-beta.1
 
 First beta of the 3.0 engine, used by opensim-helpers and the OpenSim kit.
