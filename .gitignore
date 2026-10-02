@@ -11,3 +11,4 @@ tmp/
 !/config/.htaccess
 vendor/
 .DS_Store
+.zed/
