@@ -1,7 +1,7 @@
 <?php
 /**
  * W4OS Search Engine
- * 
+ *
  * Core search functionality for avatars, regions, events, etc.
  */
 
@@ -10,13 +10,14 @@ class OpenSim_Search
     private static $instance = null;
     private static $db;
     private static $db_creds = null;
-    
+
     private static $events_table;
     private static $regions_table;
     private static $hypevents_url;
     private static $tables;
 
-    private function __construct() {
+    private function __construct()
+    {
         // Initialize database connection
         self::db();
 
@@ -24,7 +25,7 @@ class OpenSim_Search
         self::$events_table = Engine_Settings::get('engine.Search.SearchEventsTable', 'events');
         $this->fix_region_table_name();
 
-        self::$tables = array(
+        self::$tables = [
             'allparcels',
             'classifieds',
             self::$events_table,
@@ -34,45 +35,46 @@ class OpenSim_Search
             'parcelsales',
             'popularplaces',
             self::$regions_table,
-        );
+        ];
 
         // Make sure tables exist
-        if ( ! self::$db->tables_exist( self::$tables ) ) {
-            error_log( 'Creating missing OpenSimSearch tables in search database' );
+        if (!self::$db->tables_exist(self::$tables)) {
+            error_log('Creating missing OpenSimSearch tables in search database');
             $this->create_tables();
         }
 
         // DB update 1 add gatekeeperURL to existing tables
-        if ( ! count( self::$db->query( "SHOW COLUMNS FROM `parcels` LIKE 'gatekeeperURL'" )->fetchAll() ) ) {
+        if (!count(self::$db->query("SHOW COLUMNS FROM `parcels` LIKE 'gatekeeperURL'")->fetchAll())) {
             $this->db_update_1();
         }
 
         // DB update 2 add imageUUID to parcels table
-        if ( ! count( self::$db->query( "SHOW COLUMNS FROM `parcels` LIKE 'imageUUID'" )->fetchAll() ) ) {
+        if (!count(self::$db->query("SHOW COLUMNS FROM `parcels` LIKE 'imageUUID'")->fetchAll())) {
             $this->db_update_2();
         }
     }
 
     /**
      * Fixes the region table name based on the database structure.
-     * 
+     *
      * This method checks if the 'regions' table exists and has a 'uuid' column.
      * If it does, it uses 'regionsregister' as the table name to avoid conflicts
      * with OpenSim's robust regions table.
      * If the 'regions' table does not exist or does not have the 'uuid' column,
      * it uses 'regions' as the table name.
      */
-    private function fix_region_table_name() {
-        if(! self::db()) {
+    private function fix_region_table_name()
+    {
+        if (!self::db()) {
             error_log('[ERROR] ' . __METHOD__ . ' Database connection is not established.');
             return false;
         }
 
         $regions_table = Engine_Settings::get('engine.Search.SearchRegionsTable', 'regions');
 
-        if($regions_table == 'regions' && self::$db->tables_exist( array( 'regions' ) ) ) {
-            $formatCheck   = self::$db->query( "SHOW COLUMNS FROM regions LIKE 'uuid'" );
-            $regions_table = ( $formatCheck->rowCount() == 0 ) ? $regions_table : 'regionsregister';
+        if ($regions_table == 'regions' && self::$db->tables_exist(['regions'])) {
+            $formatCheck = self::$db->query("SHOW COLUMNS FROM regions LIKE 'uuid'");
+            $regions_table = $formatCheck->rowCount() == 0 ? $regions_table : 'regionsregister';
         }
 
         self::$regions_table = $regions_table;
@@ -83,15 +85,16 @@ class OpenSim_Search
     {
         if (self::$instance === null) {
             self::$instance = new self();
-        }    
+        }
         return self::$instance;
-    }    
-    
-    public static function db() {
-        if( self::$db ) {
+    }
+
+    public static function db()
+    {
+        if (self::$db) {
             return self::$db;
         }
-        if( self::$db === false ) {
+        if (self::$db === false) {
             // Don't check again if already failed
             return false;
         }
@@ -100,7 +103,7 @@ class OpenSim_Search
 
         // Get SearchDB credentials from settings, fallback to main robust db
         self::$db_creds = Engine_Settings::get('engine.Search.SearchDB');
-        
+
         if (self::$db_creds) {
             self::$db = new OpenSim_Database(self::$db_creds);
         } else {
@@ -117,8 +120,9 @@ class OpenSim_Search
         return self::$db;
     }
 
-    private function create_tables() {
-        if(! self::db() ) {
+    private function create_tables()
+    {
+        if (!self::db()) {
             error_log('[ERROR] ' . __METHOD__ . ' Database connection failed.');
             return;
         }
@@ -265,7 +269,7 @@ class OpenSim_Search
                 `owneruuid` char(36) NOT NULL,
                 `gatekeeperURL` varchar(255),
                 PRIMARY KEY  (`regionUUID`)
-            ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci"
+            ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci",
         ];
 
         foreach ($sql_statements as $sql) {
@@ -284,54 +288,58 @@ class OpenSim_Search
         return true;
     }
 
-    private function db_update_1() {
-        if(! self::db() ) {
+    private function db_update_1()
+    {
+        if (!self::db()) {
             error_log('[ERROR] ' . __METHOD__ . ' Database connection failed.');
             return;
         }
         error_log('[NOTICE] ' . __METHOD__ . ' Update schema: add gatekeeperURL column to existing tables');
 
-        foreach ( self::$tables as $table ) {
-            if ( ! count( self::$db->query( "SHOW COLUMNS FROM `$table` LIKE 'gatekeeperURL'" )->fetchAll() ) ) {
-                self::$db->query( "ALTER TABLE $table ADD gatekeeperURL varchar(255)" );
+        foreach (self::$tables as $table) {
+            if (!count(self::$db->query("SHOW COLUMNS FROM `$table` LIKE 'gatekeeperURL'")->fetchAll())) {
+                self::$db->query("ALTER TABLE $table ADD gatekeeperURL varchar(255)");
             }
         }
     }
 
-    function ossearch_db_update_2() {
-        if(! self::db() ) {
+    function ossearch_db_update_2()
+    {
+        if (!self::db()) {
             error_log('[ERROR] ' . __METHOD__ . ' Database connection failed.');
             return;
         }
         error_log('[NOTICE] ' . __METHOD__ . ' Update schema: add imageUUID column to parcels table');
 
-        if ( ! count( self::$db->query( "SHOW COLUMNS FROM `parcels` LIKE 'imageUUID'" )->fetchAll() ) ) {
-            self::$db->query( 'ALTER TABLE parcels ADD imageUUID char(36)' );
+        if (!count(self::$db->query("SHOW COLUMNS FROM `parcels` LIKE 'imageUUID'")->fetchAll())) {
+            self::$db->query('ALTER TABLE parcels ADD imageUUID char(36)');
         }
     }
 
-    static function rating_flags_to_query( $flags, $table = '' ) {
-        if ( ! empty( $table ) ) {
+    static function rating_flags_to_query($flags, $table = '')
+    {
+        if (!empty($table)) {
             $table = "$table.";
         }
 
-        $terms = array();
-        if ( $flags & pow( 2, 24 ) ) {
+        $terms = [];
+        if ($flags & pow(2, 24)) {
             $terms[] = "{$table}mature = 'PG'";
         }
-        if ( $flags & pow( 2, 25 ) ) {
+        if ($flags & pow(2, 25)) {
             $terms[] = "{$table}mature = 'Mature'";
         }
-        if ( $flags & pow( 2, 26 ) ) {
+        if ($flags & pow(2, 26)) {
             $terms[] = "{$table}mature = 'Adult'";
         }
 
         return OSPDO::join_query_conditions($terms, 'OR');
     }
 
-    public static function unregister_host( $hostname, $port ) {
+    public static function unregister_host($hostname, $port)
+    {
         // Ensure database connection is established
-        if(! self::db()) {
+        if (!self::db()) {
             error_log('[ERROR] ' . __METHOD__ . ' Database connection failed.');
             return;
         }
@@ -340,23 +348,30 @@ class OpenSim_Search
         self::$db->prepareAndExecute(
             'DELETE FROM hostsregister
         WHERE host = :host AND port = :port',
-            array(
+            [
                 'host' => $hostname,
                 'port' => $port,
-            )
+            ],
         );
 
-        $query = self::$db->prepareAndExecute( 'SELECT regionUUID FROM ' . self::$regions_table . ' WHERE url = ?', array( "http://$hostname:$port/" ) );
-        if ( $query ) {
+        $query = self::$db->prepareAndExecute('SELECT regionUUID FROM ' . self::$regions_table . ' WHERE url = ?', [
+            "http://$hostname:$port/",
+        ]);
+        if ($query) {
             $regions = $query->fetchAll();
-            foreach ( $regions as $region ) {
+            foreach ($regions as $region) {
                 $regionUUID = $region[0];
-                self::$db->prepareAndExecute( 'DELETE pop FROM popularplaces AS pop INNER JOIN parcels AS par ON pop.parcelUUID = par.parcelUUID WHERE regionUUID = ?', array( $regionUUID ) );
-                self::$db->prepareAndExecute( 'DELETE FROM parcels WHERE regionUUID = ?', array( $regionUUID ) );
-                self::$db->prepareAndExecute( 'DELETE FROM allparcels WHERE regionUUID = ?', array( $regionUUID ) );
-                self::$db->prepareAndExecute( 'DELETE FROM parcelsales WHERE regionUUID = ?', array( $regionUUID ) );
-                self::$db->prepareAndExecute( 'DELETE FROM objects WHERE regionuuid = ?', array( $regionUUID ) );
-                self::$db->prepareAndExecute( 'DELETE FROM ' . self::$regions_table . ' WHERE regionUUID = ?', array( $regionUUID ) );
+                self::$db->prepareAndExecute(
+                    'DELETE pop FROM popularplaces AS pop INNER JOIN parcels AS par ON pop.parcelUUID = par.parcelUUID WHERE regionUUID = ?',
+                    [$regionUUID],
+                );
+                self::$db->prepareAndExecute('DELETE FROM parcels WHERE regionUUID = ?', [$regionUUID]);
+                self::$db->prepareAndExecute('DELETE FROM allparcels WHERE regionUUID = ?', [$regionUUID]);
+                self::$db->prepareAndExecute('DELETE FROM parcelsales WHERE regionUUID = ?', [$regionUUID]);
+                self::$db->prepareAndExecute('DELETE FROM objects WHERE regionuuid = ?', [$regionUUID]);
+                self::$db->prepareAndExecute('DELETE FROM ' . self::$regions_table . ' WHERE regionUUID = ?', [
+                    $regionUUID,
+                ]);
             }
         }
     }

@@ -1,17 +1,17 @@
 <?php
 /**
  * OpenSimulator Engine Bootstrap
- * 
+ *
  * Core OpenSimulator communication engine without framework dependencies.
  * This file sets up the engine that can be used by WordPress, API, or standalone.
- * 
+ *
  * The engine is totally independant from whichever library or projects includs it.
  * So nothing in engine can depend or rely on a parent project like WordPress or Helpers.
  */
 
 // Prevent direct access
 if (!defined('ABSPATH') && !defined('OPENSIM_ENGINE')) {
-    exit;
+    exit();
 }
 
 // Define engine constants
@@ -32,7 +32,11 @@ if (is_file(OPENSIM_ENGINE_PATH . '/vendor/autoload.php')) {
 // Engine autoloader (remove debug logs for production)
 spl_autoload_register(function ($class) {
     if (strpos($class, 'OpenSim_') === 0) {
-        $file = OPENSIM_ENGINE_PATH . '/class-' . strtolower(str_replace('_', '-', str_replace('OpenSim_', '', $class))) . '.php';
+        $file =
+            OPENSIM_ENGINE_PATH .
+            '/class-' .
+            strtolower(str_replace('_', '-', str_replace('OpenSim_', '', $class))) .
+            '.php';
         if (file_exists($file)) {
             require $file;
         }
@@ -46,7 +50,7 @@ require_once OPENSIM_ENGINE_PATH . '/includes/functions.php';
 # This doesn't work and requires more investigation. Commented and kept for future reference.
 # In the meantime, we keep our dependency to php-xmlrpc extension
 // Load XML-RPC compatibility layer if the extension is not available
-// if (!function_exists('xmlrpc_encode') || !function_exists('xmlrpc_server_create')) { 
+// if (!function_exists('xmlrpc_encode') || !function_exists('xmlrpc_server_create')) {
 //     require_once OPENSIM_ENGINE_PATH . '/includes/library-xmlrpc.php';
 // }
 
@@ -81,7 +85,7 @@ if (defined('OPENSIM_ENGINE_DEBUG') && OPENSIM_ENGINE_DEBUG) {
 
 // All other classes now loaded via autoloader:
 // - OpenSim_Avatar
-// - OpenSim_Region  
+// - OpenSim_Region
 // - OpenSim_Search
 // - OpenSim_Economy
 // - OpenSim_Grid

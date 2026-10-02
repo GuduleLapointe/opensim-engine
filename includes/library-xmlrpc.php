@@ -1,10 +1,10 @@
 <?php
 /**
  * XML-RPC Library Functions
- * 
+ *
  * Replace the deprecated php xmlrpc extension with phpxmlrpc/phpxmlrpc library.
  * This file provides drop-in replacements for all standard xmlrpc_* functions.
- * 
+ *
  * @see https://github.com/gggeek/phpxmlrpc
  * @see https://php.watch/versions/8.0/xmlrpc
  */
@@ -28,20 +28,22 @@ use PhpXmlRpc\Encoder;
 
 /**
  * Create a new xmlrpc server
- * 
+ *
  * @return Server
  */
-function xmlrpc_server_create() {
+function xmlrpc_server_create()
+{
     return new Server();
 }
 
 /**
  * Destroy an XML-RPC server
- * 
+ *
  * @param Server $server The server instance to destroy
  * @return bool Always returns TRUE
  */
-function xmlrpc_server_destroy($server) {
+function xmlrpc_server_destroy($server)
+{
     // PhpXmlRpc doesn't require explicit destruction
     return true;
 }
@@ -54,11 +56,12 @@ function xmlrpc_server_destroy($server) {
  * @param string $function The PHP function name
  * @return bool Returns TRUE on success or FALSE on failure
  */
-function xmlrpc_server_register_method($server, $method, $function) {
+function xmlrpc_server_register_method($server, $method, $function)
+{
     if (!($server instanceof Server)) {
         return false;
     }
-    
+
     $server->addHandler($method, $function);
     return true;
 }
@@ -70,9 +73,10 @@ function xmlrpc_server_register_method($server, $method, $function) {
  * @param string $encoding Character encoding (unused in this implementation)
  * @return mixed PHP value
  */
-function xmlrpc_decode($xml, $encoding = "iso-8859-1") {
+function xmlrpc_decode($xml, $encoding = 'iso-8859-1')
+{
     $encoder = new Encoder();
-    
+
     // Handle string input (XML data)
     if (is_string($xml)) {
         // Check if it's actually XML content
@@ -85,7 +89,7 @@ function xmlrpc_decode($xml, $encoding = "iso-8859-1") {
                 } else {
                     return [
                         'faultCode' => $resp->faultCode(),
-                        'faultString' => $resp->faultString()
+                        'faultString' => $resp->faultString(),
                     ];
                 }
             } catch (\Exception $e) {
@@ -100,14 +104,14 @@ function xmlrpc_decode($xml, $encoding = "iso-8859-1") {
                         } else {
                             return [
                                 'faultCode' => $result->faultCode(),
-                                'faultString' => $result->faultString()
+                                'faultString' => $result->faultString(),
                             ];
                         }
                     }
                     return $result;
                 } catch (\Exception $e2) {
                     // If all XML parsing fails, return the original string
-                    error_log("XML-RPC decoding error: " . $e2->getMessage());
+                    error_log('XML-RPC decoding error: ' . $e2->getMessage());
                     return $xml;
                 }
             }
@@ -116,12 +120,12 @@ function xmlrpc_decode($xml, $encoding = "iso-8859-1") {
             return $xml;
         }
     }
-    
+
     // For PhpXmlRpc\Value objects
     if ($xml instanceof \PhpXmlRpc\Value) {
         return $encoder->decode($xml);
     }
-    
+
     // For other values, just return as is
     return $xml;
 }
@@ -132,7 +136,8 @@ function xmlrpc_decode($xml, $encoding = "iso-8859-1") {
  * @param mixed $value The value to encode
  * @return string XML-RPC representation
  */
-function xmlrpc_encode($value) {
+function xmlrpc_encode($value)
+{
     $encoder = new Encoder();
     return $encoder->encode($value);
 }
@@ -145,14 +150,15 @@ function xmlrpc_encode($value) {
  * @param array $output_options (unused in this implementation)
  * @return string XML representation of the request
  */
-function xmlrpc_encode_request($method, $params, $output_options = []) {
+function xmlrpc_encode_request($method, $params, $output_options = [])
+{
     $encoder = new Encoder();
     $paramValues = [];
-    
-    foreach ((array)$params as $param) {
+
+    foreach ((array) $params as $param) {
         $paramValues[] = $encoder->encode($param);
     }
-    
+
     $request = new Request($method, $paramValues);
     return $request->serialize();
 }
@@ -163,8 +169,9 @@ function xmlrpc_encode_request($method, $params, $output_options = []) {
  * @param array $arg The XML-RPC value
  * @return bool TRUE if the argument is an XML-RPC fault
  */
-function xmlrpc_is_fault($arg) {
-    return (is_array($arg) && isset($arg['faultCode']) && isset($arg['faultString']));
+function xmlrpc_is_fault($arg)
+{
+    return is_array($arg) && isset($arg['faultCode']) && isset($arg['faultString']);
 }
 
 /**
@@ -176,17 +183,18 @@ function xmlrpc_is_fault($arg) {
  * @param array $output_options (unused in this implementation)
  * @return mixed The response
  */
-function xmlrpc_server_call_method($server, $request, $user_data, $output_options = []) {
+function xmlrpc_server_call_method($server, $request, $user_data, $output_options = [])
+{
     if (!($server instanceof Server)) {
         return false;
     }
-    
+
     // Process the request and get the response as a string
     $response = $server->service($request, true);
-    
+
     // Output the response directly
     echo $response;
-    
+
     return true;
 }
 
@@ -194,7 +202,8 @@ function xmlrpc_server_call_method($server, $request, $user_data, $output_option
  * Add introspection documentation for an XML-RPC method
  * (Not fully implemented, as it's not used in the currency.php)
  */
-function xmlrpc_server_register_introspection_callback($server, $function) {
+function xmlrpc_server_register_introspection_callback($server, $function)
+{
     // Not fully implemented as it's not used in the OpenSim code
     return true;
 }

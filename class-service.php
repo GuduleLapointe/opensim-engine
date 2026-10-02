@@ -12,18 +12,20 @@
  * @version 0.1
  */
 
-class OpenSim_Service {
+class OpenSim_Service
+{
     protected $serviceURI;
     protected $credentials;
     protected $serviceType;
 
-    protected static $consoles = array(); // Ensure each console is initialized only once
-    protected static $dbs = array();      // Ensure each db is initialized only once
+    protected static $consoles = []; // Ensure each console is initialized only once
+    protected static $dbs = []; // Ensure each db is initialized only once
 
     protected $console;
     public $db;
 
-    public function __construct($serviceURI = null, $credentials = null) {
+    public function __construct($serviceURI = null, $credentials = null)
+    {
         if ($serviceURI) {
             $this->serviceURI = $serviceURI;
             $this->credentials = $credentials;
@@ -35,7 +37,8 @@ class OpenSim_Service {
     /**
      * Initialize database connection
      */
-    public function init_db() {
+    public function init_db()
+    {
         if ($this->db) {
             return $this->db;
         }
@@ -59,7 +62,7 @@ class OpenSim_Service {
                 $this->db = false;
             }
         }
-        
+
         if ($this->db) {
             self::$dbs[$this->serviceURI] = $this->db;
         }
@@ -69,7 +72,8 @@ class OpenSim_Service {
     /**
      * Initialize console connection
      */
-    public function init_console() {
+    public function init_console()
+    {
         if ($this->console) {
             return $this->console;
         }
@@ -83,15 +87,15 @@ class OpenSim_Service {
             return false;
         }
 
-        $rest_args = array(
-            'uri'         => $console_creds['host'] . ':' . $console_creds['port'],
+        $rest_args = [
+            'uri' => $console_creds['host'] . ':' . $console_creds['port'],
             'ConsoleUser' => $console_creds['user'],
             'ConsolePass' => $console_creds['pass'],
-        );
+        ];
 
         $this->console = false;
         $rest = new OpenSim_Rest($rest_args);
-        
+
         if ($this->is_rest_error($rest->error ?? null)) {
             error_log(__METHOD__ . ' ' . $this->get_error_message($rest->error));
             $response = $rest->error;
@@ -111,15 +115,17 @@ class OpenSim_Service {
     /**
      * Check if console is connected
      */
-    public function console_connected() {
-        return ($this->console && $this->console !== false);
+    public function console_connected()
+    {
+        return $this->console && $this->console !== false;
     }
 
     /**
      * Check if database is connected
      */
-    public function db_connected() {
-        return ($this->db->ready ?? false);
+    public function db_connected()
+    {
+        return $this->db->ready ?? false;
     }
 
     /**
@@ -129,7 +135,8 @@ class OpenSim_Service {
      * @param string $command
      * @return mixed Error on failure, boolean on status, or response array
      */
-    public function console($command = null) {
+    public function console($command = null)
+    {
         if (empty($this->serviceURI) || empty($this->credentials)) {
             error_log(__METHOD__ . ' missing arguments to use console.');
             return false;
@@ -156,7 +163,7 @@ class OpenSim_Service {
                 return $response;
             }
         } else {
-            return ($this->console) ? true : false;
+            return $this->console ? true : false;
         }
     }
 
@@ -164,7 +171,8 @@ class OpenSim_Service {
      * Framework-agnostic error checking
      * Override in framework-specific implementations
      */
-    protected function is_error($obj) {
+    protected function is_error($obj)
+    {
         return false;
     }
 
@@ -172,7 +180,8 @@ class OpenSim_Service {
      * Framework-agnostic REST error checking
      * Override in framework-specific implementations
      */
-    protected function is_rest_error($obj) {
+    protected function is_rest_error($obj)
+    {
         return function_exists('is_opensim_rest_error') ? is_opensim_rest_error($obj) : false;
     }
 
@@ -180,7 +189,8 @@ class OpenSim_Service {
      * Framework-agnostic error message extraction
      * Override in framework-specific implementations
      */
-    protected function get_error_message($error) {
+    protected function get_error_message($error)
+    {
         if (is_object($error) && method_exists($error, 'getMessage')) {
             return $error->getMessage();
         }
@@ -191,14 +201,16 @@ class OpenSim_Service {
      * Framework-agnostic error creation
      * Override in framework-specific implementations
      */
-    protected function create_error($code, $message) {
-        return array('error' => $code, 'message' => $message);
+    protected function create_error($code, $message)
+    {
+        return ['error' => $code, 'message' => $message];
     }
 
     /**
      * Get service URI
      */
-    public function get_service_uri() {
+    public function get_service_uri()
+    {
         return $this->serviceURI;
     }
 }
