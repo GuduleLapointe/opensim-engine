@@ -182,6 +182,9 @@ class OpenSim_Kit
     /**
      * What the helpers of a grid need, from its Robust config and its helpers.ini.
      *
+     * helpers.ini can carry everything the helpers need (grid_name, login_uri, web_url, [robust_db]), so the
+     * web server user does not have to read the Robust config, which holds more than the helpers need.
+     *
      * The databases are the one of Robust unless helpers.ini gives another ([search_db], [currency_db],
      * [offline_db], [opensim_db] with hostname, prefix (the database), user, password).
      *
@@ -201,9 +204,12 @@ class OpenSim_Kit
         $robust = self::read_ini($grids[$nick]);
         $helpers = self::read_ini(dirname($grids[$nick]) . '/helpers.ini');
         $options = $helpers['Helpers'] ?? [];
-        $weburl = rtrim($robust['Const']['WebURL'] ?? '', '/');
+        $weburl = rtrim($options['web_url'] ?? ($robust['Const']['WebURL'] ?? ''), '/');
 
         $database = self::connection($robust['DatabaseService']['ConnectionString'] ?? '');
+        foreach (['hostname', 'prefix', 'user', 'password'] as $key) {
+            $database[$key] = $helpers['robust_db'][$key] ?? $database[$key];
+        }
         $databases = ['robust_db' => $database];
         foreach (['opensim_db', 'search_db', 'currency_db', 'offline_db'] as $name) {
             $given = $helpers[$name] ?? [];

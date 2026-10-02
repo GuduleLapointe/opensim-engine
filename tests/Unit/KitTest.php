@@ -116,6 +116,31 @@ describe('OpenSim_Kit', function () {
         expect($constants['CURRENCY_HELPER_URL'])->toBe('https://play.example.org/helper/currency.php');
     });
 
+    test('does not need the Robust config when helpers.ini has what the helpers need', function () {
+        [$conf, $grid] = kit_tree(<<<'INI'
+        [Helpers]
+        grid_name = "Alpha"
+        login_uri = "http://play.example.org:8002"
+        web_url = "https://play.example.org"
+        [robust_db]
+        hostname = "localhost"
+        prefix = "alpha_robust"
+        user = "helpers"
+        password = "pw"
+        INI);
+        chmod("$grid/Robust.HG.ini", 0o000);
+
+        $settings = OpenSim_Kit::settings(null, $conf);
+        $unreadable = !is_readable("$grid/Robust.HG.ini");
+        chmod("$grid/Robust.HG.ini", 0o644);
+
+        expect($settings['web_url'])->toBe('https://play.example.org');
+        expect($settings['databases']['robust_db']['user'])->toBe('helpers');
+        expect($settings['login_uri'])->toBe('http://play.example.org:8002');
+        // (as root, a file nobody can read is read anyway, and the test proves nothing more)
+        expect($unreadable || posix_geteuid() === 0)->toBeTrue();
+    });
+
     test('has the constants the helper scripts expect', function () {
         [$conf] = kit_tree();
 
