@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "3939d95ab9908f5cbb3905bf0d7d2dd7",
+    "content-hash": "bcc8572ffcd29e2f0f3075728edf21d8",
     "packages": [
         {
             "name": "laminas/laminas-escaper",
@@ -69,7 +69,7 @@
         },
         {
             "name": "magicoli/opensim-rest-php",
-            "version": "1.1.0",
+            "version": "dev-opensim-kit",
             "source": {
                 "type": "git",
                 "url": "https://github.com/GuduleLapointe/opensim-rest-php.git",
@@ -4571,6 +4571,7 @@
     "minimum-stability": "dev",
     "stability-flags": {
         "laminas/laminas-escaper": 0,
+        "magicoli/opensim-rest-php": 20,
         "phpcompatibility/php-compatibility": 20
     },
     "prefer-stable": false,
@@ -4592,5 +4593,5 @@
     "platform-overrides": {
         "php": "8.2.0"
     },
-    "plugin-api-version": "2.9.0"
+    "plugin-api-version": "2.6.0"
 }
