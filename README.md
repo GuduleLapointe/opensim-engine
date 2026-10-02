@@ -1,9 +1,12 @@
 # OpenSimulator Engine
 
-![Version 3.0.0-dev](https://badgen.net/badge/Version/3.0.0-dev/blue)
-![Stable none](https://badgen.net/badge/Stable/none/green)
-![Requires PHP 7.4](https://badgen.net/badge/PHP/7.4+/7884bf)
-![License AGPLv3](https://badgen.net/badge/License/AGPLv3/552b55)
+![Stable](https://img.shields.io/github/release/GuduleLapointe/opensim-engine?label=stable&color=green&include_prerelease)
+![GitHub Tag](https://img.shields.io/github/tag/GuduleLapointe/opensim-engine?label=latest&include_prereleases)
+![GitHub commits since latest release](https://img.shields.io/github/commits-since/GuduleLapointe/opensim-engine/latest?label=dev)
+![PHP](https://img.shields.io/badge/PHP-8.2+-7884bf)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-552b55)](LICENSE)
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/GuduleLapointe/opensim-engine/total)
+[![Donate](https://img.shields.io/badge/-Donate-yellow)](https://magiiic.org/donate/)
 
 **Framework-agnostic PHP library for OpenSimulator grid management**
 
@@ -36,9 +39,8 @@ The code has been **battle-tested** across different implementations before bein
 - ❌ No WordPress or other CMS/framework dependencies
 - ❌ No standalone application functionality
 
-
-
 ### **For Developers:**
+
 - Use this engine to build your own OpenSim management applications
 - Integrate OpenSim functionality into existing PHP projects
 - Create custom grid administration tools
@@ -59,16 +61,19 @@ On Debian and Ubuntu: `sudo apt install php-cli php-curl php-intl php-mbstring p
 ## 🛠️ Developer Installation
 
 ### As Composer Package
+
 ```bash
 composer require magicoli/opensim-engine
 ```
 
 ### As Git Submodule
+
 ```bash
 git submodule add https://github.com/magicoli/opensim-engine.git engine
 ```
 
 ### Usage in Code
+
 ```php
 // Bootstrap the engine
 require_once 'engine/bootstrap.php';
@@ -87,6 +92,7 @@ require_once 'engine/bootstrap.php';
 ## 🤝 Contributing
 
 This library follows strict architectural principles:
+
 - Framework-agnostic (no WordPress, no Laravel, etc.)
 - Pure data processing (no HTTP input/output)
 - Explicit data passing (no global variables)
