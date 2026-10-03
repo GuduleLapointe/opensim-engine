@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "bcc8572ffcd29e2f0f3075728edf21d8",
+    "content-hash": "80892a24d26075b8b2511a49c1cf6757",
     "packages": [
         {
             "name": "laminas/laminas-escaper",
@@ -69,16 +69,16 @@
         },
         {
             "name": "magicoli/opensim-rest-php",
-            "version": "dev-opensim-kit",
+            "version": "1.1.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/GuduleLapointe/opensim-rest-php.git",
-                "reference": "4896afdf2ef8ff57c5b8ead6167779f1d2394fcb"
+                "reference": "8b364e03d731ca5f7bbbb46a4f00054043706759"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/GuduleLapointe/opensim-rest-php/zipball/4896afdf2ef8ff57c5b8ead6167779f1d2394fcb",
-                "reference": "4896afdf2ef8ff57c5b8ead6167779f1d2394fcb",
+                "url": "https://api.github.com/repos/GuduleLapointe/opensim-rest-php/zipball/8b364e03d731ca5f7bbbb46a4f00054043706759",
+                "reference": "8b364e03d731ca5f7bbbb46a4f00054043706759",
                 "shasum": ""
             },
             "require": {
@@ -106,16 +106,16 @@
             ],
             "authors": [
                 {
-                    "name": "Olivier van Helden",
-                    "email": "olivier@van-helden.net"
+                    "name": "Gudule Lapointe",
+                    "email": "gudule@speculoos.world"
                 }
             ],
             "description": "OpenSimulator REST PHP library and command-line client",
             "support": {
                 "issues": "https://github.com/GuduleLapointe/opensim-rest-php/issues",
-                "source": "https://github.com/GuduleLapointe/opensim-rest-php/tree/1.1.0"
+                "source": "https://github.com/GuduleLapointe/opensim-rest-php/tree/1.1.1"
             },
-            "time": "2026-10-02T08:02:58+00:00"
+            "time": "2026-10-03T21:54:32+00:00"
         },
         {
             "name": "phpxmlrpc/phpxmlrpc",
@@ -481,16 +481,16 @@
         },
         {
             "name": "filp/whoops",
-            "version": "2.18.5",
+            "version": "2.18.6",
             "source": {
                 "type": "git",
                 "url": "https://github.com/filp/whoops.git",
-                "reference": "baec851ad6ae00db8bd0fdd30d208afc1b71c56e"
+                "reference": "7d0a2cde892089bb09372f4366e9b960eb3001a9"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/filp/whoops/zipball/baec851ad6ae00db8bd0fdd30d208afc1b71c56e",
-                "reference": "baec851ad6ae00db8bd0fdd30d208afc1b71c56e",
+                "url": "https://api.github.com/repos/filp/whoops/zipball/7d0a2cde892089bb09372f4366e9b960eb3001a9",
+                "reference": "7d0a2cde892089bb09372f4366e9b960eb3001a9",
                 "shasum": ""
             },
             "require": {
@@ -540,7 +540,7 @@
             ],
             "support": {
                 "issues": "https://github.com/filp/whoops/issues",
-                "source": "https://github.com/filp/whoops/tree/2.18.5"
+                "source": "https://github.com/filp/whoops/tree/2.18.6"
             },
             "funding": [
                 {
@@ -548,7 +548,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-09-18T12:00:00+00:00"
+            "time": "2026-10-03T17:03:57+00:00"
         },
         {
             "name": "jean85/pretty-package-versions",
@@ -1656,12 +1656,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpDocumentor/ReflectionDocBlock.git",
-                "reference": "b4206928e89352bfbab176cd12bcd3e4e942c104"
+                "reference": "8426ea0fc242413c930d2d2508684efaae4b0a17"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpDocumentor/ReflectionDocBlock/zipball/b4206928e89352bfbab176cd12bcd3e4e942c104",
-                "reference": "b4206928e89352bfbab176cd12bcd3e4e942c104",
+                "url": "https://api.github.com/repos/phpDocumentor/ReflectionDocBlock/zipball/8426ea0fc242413c930d2d2508684efaae4b0a17",
+                "reference": "8426ea0fc242413c930d2d2508684efaae4b0a17",
                 "shasum": ""
             },
             "require": {
@@ -1714,7 +1714,7 @@
                 "issues": "https://github.com/phpDocumentor/ReflectionDocBlock/issues",
                 "source": "https://github.com/phpDocumentor/ReflectionDocBlock/tree/6.x"
             },
-            "time": "2026-09-28T21:18:14+00:00"
+            "time": "2026-10-02T17:20:47+00:00"
         },
         {
             "name": "phpdocumentor/type-resolver",
@@ -1781,12 +1781,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpstan/phpdoc-parser.git",
-                "reference": "1427af4647235b4a73b13940b1f1258d3584f36e"
+                "reference": "258e6ffb932b51ad13da0cb86bfc3a4f828bf64b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpstan/phpdoc-parser/zipball/1427af4647235b4a73b13940b1f1258d3584f36e",
-                "reference": "1427af4647235b4a73b13940b1f1258d3584f36e",
+                "url": "https://api.github.com/repos/phpstan/phpdoc-parser/zipball/258e6ffb932b51ad13da0cb86bfc3a4f828bf64b",
+                "reference": "258e6ffb932b51ad13da0cb86bfc3a4f828bf64b",
                 "shasum": ""
             },
             "require": {
@@ -1821,7 +1821,7 @@
                 "issues": "https://github.com/phpstan/phpdoc-parser/issues",
                 "source": "https://github.com/phpstan/phpdoc-parser/tree/2.3.x"
             },
-            "time": "2026-09-27T20:07:45+00:00"
+            "time": "2026-10-03T15:54:55+00:00"
         },
         {
             "name": "phpunit/php-code-coverage",
@@ -4306,12 +4306,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/string.git",
-                "reference": "882966d426bc1adca99128e216162a3db4cf0e2d"
+                "reference": "9bc35d074ad16a58c21cd52b18c5cacc4f4c3981"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/string/zipball/882966d426bc1adca99128e216162a3db4cf0e2d",
-                "reference": "882966d426bc1adca99128e216162a3db4cf0e2d",
+                "url": "https://api.github.com/repos/symfony/string/zipball/9bc35d074ad16a58c21cd52b18c5cacc4f4c3981",
+                "reference": "9bc35d074ad16a58c21cd52b18c5cacc4f4c3981",
                 "shasum": ""
             },
             "require": {
@@ -4389,7 +4389,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-09-30T16:17:19+00:00"
+            "time": "2026-10-03T15:15:30+00:00"
         },
         {
             "name": "ta-tikoma/phpunit-architecture-test",
@@ -4571,7 +4571,6 @@
     "minimum-stability": "dev",
     "stability-flags": {
         "laminas/laminas-escaper": 0,
-        "magicoli/opensim-rest-php": 20,
         "phpcompatibility/php-compatibility": 20
     },
     "prefer-stable": false,
@@ -4593,5 +4592,5 @@
     "platform-overrides": {
         "php": "8.2.0"
     },
-    "plugin-api-version": "2.6.0"
+    "plugin-api-version": "2.9.0"
 }
