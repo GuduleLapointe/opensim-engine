@@ -2,6 +2,7 @@
 
 ### Unreleased
 
+- new `OpenSim_Oar` works with OpenSimulator archives: `pack` makes one from a folder laid out as its content (plain ustar entries, which OpenSimulator reads, not the extended ones the tar of macOS adds), `entries`, `info`, `check` and `unpack` read them (control file, number of objects, parcels and assets, XML that does not parse, entries out of their folder)
 - new `OpenSim_Kit` reads what the OpenSim kit knows of a grid, for the projects that run next to it: the profile of `opensim.conf`, the Robust config of the grid (constants expanded) and its `helpers.ini`; it gives the settings of the helpers, the constants their scripts expect, and the public path of each service, which `helpers.ini` can change (`[Urls] search = "/search"`)
 
 ### 3.0.0-beta.1

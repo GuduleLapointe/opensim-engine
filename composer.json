@@ -39,7 +39,8 @@
             "OpenSim\\Engine\\": "src/"
         },
         "classmap": [
-            "class-kit.php"
+            "class-kit.php",
+            "class-oar.php"
         ],
         "files": [
             "includes/functions-escaping.php"
