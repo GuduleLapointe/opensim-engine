@@ -12,3 +12,5 @@ tmp/
 vendor/
 .DS_Store
 .zed/
+/build/
+/dist/

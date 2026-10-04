@@ -1,5 +1,9 @@
 ## Changelog
 
+### Unreleased
+
+- new: `dev/build.sh` makes the Debian package and the zip
+
 ### 3.0.0-beta.2
 
 - new: `OpenSim_Oar` packs, reads and checks OpenSimulator archives (plain ustar entries)

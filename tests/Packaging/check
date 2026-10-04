@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Tries the files of dist/ (made by dev/build.sh) in a clean container (podman): the Debian package installs with the
+# package it needs and loads as an unprivileged user, the zip is used without composer. Exits non-zero when a check fails.
+#
+#   tests/Packaging/check [base image]       default: Debian 12; docker.io/library/ubuntu:24.04 for another
+#   DEPS=folder                              where the Debian packages of the other projects are (default: ../opensim-rest-php/dist)
+
+set -e
+BASE=${1:-docker.io/library/debian:bookworm}
+cd "$(dirname "$0")/../.."
+DEPS=${DEPS:-$PWD/../opensim-rest-php/dist}
+
+podman run --rm --memory=400m -v "$PWD/dist:/dist:ro" -v "$DEPS:/deps:ro" "$BASE" bash -c '
+status=0
+check() { if eval "$2"; then echo "   ok: $1"; else echo "   FAILED: $1"; status=1; fi; }
+loads() { php -r "define(\"OPENSIM_ENGINE\", true); require \"$1/bootstrap.php\"; exit(class_exists(\"OpenSim_Rest\") && class_exists(\"OpenSim_Database\") ? 0 : 1);"; }
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -qq >/dev/null
+apt-get install -y -qq unzip /deps/*.deb /dist/*.deb >/dev/null 2>&1
+
+check "the package is installed, it depends on opensim-rest-php" "dpkg -s opensim-engine | grep -q \"^Depends:.*opensim-rest-php\""
+check "its files are in /usr/share/opensim-engine" "[ -f /usr/share/opensim-engine/bootstrap.php ] && [ -f /usr/share/opensim-engine/vendor/autoload.php ]"
+check "rest-php comes from its own package, by a link" "[ -L /usr/share/opensim-engine/vendor/magicoli/opensim-rest-php ] && [ -f /usr/share/opensim-engine/vendor/magicoli/opensim-rest-php/class-rest.php ]"
+check "the engine loads, with its dependencies" "loads /usr/share/opensim-engine"
+check "it loads as an unprivileged user, it writes nothing" "runuser -u nobody -- php -r \"define(\\\"OPENSIM_ENGINE\\\", true); require \\\"/usr/share/opensim-engine/bootstrap.php\\\"; echo 1;\" | grep -q 1"
+
+mkdir /tmp/zip && cd /tmp/zip && unzip -q /dist/*.zip
+check "the zip has the engine and its vendor folder" "[ -f opensim-engine/bootstrap.php ] && [ -f opensim-engine/vendor/autoload.php ]"
+check "the zip has rest-php in its vendor folder, as files" "[ ! -L opensim-engine/vendor/magicoli/opensim-rest-php ] && [ -f opensim-engine/vendor/magicoli/opensim-rest-php/class-rest.php ]"
+check "the zip has no composer.lock, no tests of the engine" "[ ! -e opensim-engine/composer.lock ] && [ ! -e opensim-engine/tests ]"
+check "the engine loads from the zip" "loads /tmp/zip/opensim-engine"
+exit $status'

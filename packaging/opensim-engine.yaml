@@ -1,0 +1,36 @@
+# The framework-agnostic core of the OpenSimulator web tools, built by dev/build.sh (or apt-package) from
+# build/opensim-engine, prepared by packaging/build. ${VERSION} comes from packaging/version.
+# The files and their vendor folder in /usr/share/opensim-engine; the projects of the family it needs are
+# their own packages (opensim-rest-php), linked into its vendor folder.
+name: opensim-engine
+arch: all
+platform: linux
+version: ${VERSION}
+version_schema: semver
+section: php
+priority: optional
+maintainer: Gudule Lapointe <gudule@speculoos.world>
+description: |-
+  OpenSimulator engine for PHP
+  Framework-agnostic PHP classes to talk to OpenSimulator and Robust
+  (database, economy, search, REST console, XML-RPC), used by the helpers
+  and by web applications. Installed in /usr/share/opensim-engine.
+homepage: https://github.com/GuduleLapointe/opensim-engine
+license: AGPL-3.0-or-later
+
+depends:
+  - opensim-rest-php
+  - php-cli (>= 2:8.2)
+  - php-curl
+  - php-intl
+  - php-mbstring
+  - php-mysql
+  - php-xml
+
+contents:
+  - src: build/opensim-engine
+    dst: /usr/share/opensim-engine
+    type: tree
+  - src: /usr/share/opensim-rest-php
+    dst: /usr/share/opensim-engine/vendor/magicoli/opensim-rest-php
+    type: symlink
