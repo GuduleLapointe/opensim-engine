@@ -14,6 +14,8 @@ mkdir -p dist
 for format in $formats; do
     case $format in
         deb)
+            # dist/ holds the build just made, not the former ones
+            rm -f dist/opensim-engine_*.deb
             packaging/build
             set -a
             # shellcheck disable=SC1091
@@ -22,6 +24,7 @@ for format in $formats; do
             nfpm package --config packaging/opensim-engine.yaml --packager deb --target dist/
             ;;
         zip)
+            rm -f dist/opensim-engine-*.zip
             packaging/zip
             ;;
         *)
