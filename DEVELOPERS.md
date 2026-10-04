@@ -1,17 +1,13 @@
 # OpenSim Engine Development Rules
 
-Although this library is primarily designed to be used with W4OS WordPress plugin 
-and the OpenSim Helpers project, it can also be used independently. Therefore, it 
-is important to follow the rules below to ensure that the code remains generic 
-and does not depend on WordPress or the Helpers library.
+Although this library is primarily designed to be used with W4OS WordPress plugin and the OpenSim Helpers project, it can also be used independently. Therefore, it is important to follow the rules below to ensure that the code remains generic and does not depend on WordPress or the Helpers library.
 
 **The Engine is a pure library responsible for data manipulation and storage only.**
-It should never accept HTTP input nor provide HTTP output. All requests must be made 
-by calling internal methods and functions, and all responses must be returned by 
-those methods and functions. It is not responsible for user interactions.
+It should never accept HTTP input nor provide HTTP output. All requests must be made by calling internal methods and functions, and all responses must be returned by those methods and functions. It is not responsible for user interactions.
 
 When working on files in the `engine/` directory:
 
+- **never use code or concepts related to projects consuming this library**, it must be generic and work with any project.
 - Use only generic PHP - no WordPress functions, no Helpers functions
 - No `w4os`, `wordpress` or `helpers` references in variable names or constants
 - Class names: `Engine_*`, `OpenSim_*`
@@ -20,6 +16,7 @@ When working on files in the `engine/` directory:
 - All methods should work standalone without the need of usual parents like w4os plugin or Helpers
 
 ## Example Patterns
+
 ```php
 // Good - Generic
 Engine_Settings::get('database_host')
@@ -30,7 +27,7 @@ function process_avatar($avatar_data, $db_config) {
     // Work with provided data
 }
 
-// Bad - WordPress specific  
+// Bad - WordPress specific
 get_option('w4os_database_host')
 $wp_data = $_SESSION['w4os_wizard_data']
 
