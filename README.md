@@ -58,13 +58,7 @@ PHP 8.2 or newer, with the `curl`, `filter`, `gettext`, `intl`, `json`, `mbstrin
 
 On Debian and Ubuntu: `sudo apt install php-cli php-curl php-intl php-mbstring php-mysql php-xml`, the other extensions come with `php-common` and `php-cli`.
 
-## With the OpenSim kit
-
-An application that runs next to the [OpenSim kit](https://github.com/GuduleLapointe/opensim-kit) (the helpers, a web application) does not need its own configuration: `OpenSim_Kit` reads what the kit knows of a grid, read only: the profile (`/etc/opensim/opensim.conf`, or `OPENSIM_CONF`), the Robust config of the grid and its `helpers.ini` (`/etc/opensim/grids/<grid>/helpers.ini`). `OpenSim_Kit::settings()` gives the grid, its URLs, its databases and the options of its web side, `OpenSim_Kit::script_path()` the public path of a service (`[Urls]` of `helpers.ini`), `OpenSim_Kit::define_constants()` the constants the scripts of the helpers expect.
-
-The grid is the one asked, else `OPENSIM_GRID` (a constant, the environment, or a variable of the web server: the virtual host of a grid sets it), else the only grid of the profile.
-
-`OpenSim_Oar` makes, reads and checks OpenSimulator archives (`pack`, `entries`, `info`, `check`, `unpack`), which the kit uses for the objects it loads in new regions.
+`OpenSim_Oar` makes, reads and checks OpenSimulator archives (`pack`, `entries`, `info`, `check`, `unpack`).
 
 ## 🛠️ Developer Installation
 
