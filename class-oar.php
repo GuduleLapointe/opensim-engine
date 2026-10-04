@@ -119,7 +119,16 @@ class OpenSim_Oar
      */
     public static function info(string $oar): array
     {
-        $info = ['version' => '', 'size' => null, 'assets_included' => null, 'objects' => 0, 'parcels' => 0, 'assets' => 0, 'terrains' => 0, 'settings' => 0];
+        $info = [
+            'version' => '',
+            'size' => null,
+            'assets_included' => null,
+            'objects' => 0,
+            'parcels' => 0,
+            'assets' => 0,
+            'terrains' => 0,
+            'settings' => 0,
+        ];
         $control = null;
         foreach (self::read($oar) as $name => $content) {
             if ($name === self::CONTROL) {
@@ -188,8 +197,12 @@ class OpenSim_Oar
         }
 
         $control = isset($entries[self::CONTROL]) ? self::xml($entries[self::CONTROL]) : null;
-        if ($control !== null && isset($control->assets_included)
-            && strtolower(trim((string) $control->assets_included)) === 'true' && $assets === 0) {
+        if (
+            $control !== null &&
+            isset($control->assets_included) &&
+            strtolower(trim((string) $control->assets_included)) === 'true' &&
+            $assets === 0
+        ) {
             $problems[] = 'the archive says assets are included, and has none';
         }
 
@@ -231,7 +244,8 @@ class OpenSim_Oar
             $content = substr($tar, $offset + 512, $size);
             $offset += 512 + (int) (ceil($size / 512) * 512);
 
-            if ($type === 'L') { // GNU long name: the name of the next entry
+            if ($type === 'L') {
+                // GNU long name: the name of the next entry
                 $longName = rtrim($content, "\0");
                 continue;
             }
