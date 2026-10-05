@@ -1,5 +1,5 @@
 # The framework-agnostic core of the OpenSimulator web tools, built by dev/build.sh (or apt-package) from
-# build/opensim-engine, prepared by packaging/build. ${VERSION} comes from packaging/version.
+# build/opensim-engine, prepared by packaging/build. ${VERSION} comes from build-tools.
 # The files and their vendor folder in /usr/share/opensim-engine; the projects of the family it needs are
 # their own packages (opensim-rest-php), linked into its vendor folder.
 name: opensim-engine
