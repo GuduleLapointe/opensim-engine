@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "af61fc89e164d62dfd0d8c1094aa9661",
+    "content-hash": "a4faed47928d7bb507e18602b9bebb26",
     "packages": [
         {
             "name": "laminas/laminas-escaper",
@@ -69,11 +69,17 @@
         },
         {
             "name": "magicoli/opensim-rest-php",
-            "version": "dev-opensim-kit",
+            "version": "1.1.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/GuduleLapointe/opensim-rest-php.git",
+                "reference": "eb5bb4c31576e655a196e976eb7622d8a1b95fab"
+            },
             "dist": {
-                "type": "path",
-                "url": "../opensim-rest-php",
-                "reference": "96a6903289c0ad109f9dff8ce6a44bd024bffe1d"
+                "type": "zip",
+                "url": "https://api.github.com/repos/GuduleLapointe/opensim-rest-php/zipball/eb5bb4c31576e655a196e976eb7622d8a1b95fab",
+                "reference": "eb5bb4c31576e655a196e976eb7622d8a1b95fab",
+                "shasum": ""
             },
             "require": {
                 "ext-curl": "*",
@@ -83,7 +89,6 @@
             },
             "require-dev": {
                 "dealerdirect/phpcodesniffer-composer-installer": "^1.2",
-                "magicoli/bash-tools": "^1.0.6",
                 "magicoli/pest-failure-summary": "^1.0",
                 "pestphp/pest": "^3.0",
                 "phpcompatibility/php-compatibility": "dev-develop",
@@ -95,11 +100,7 @@
                     "class-rest.php"
                 ]
             },
-            "scripts": {
-                "test": [
-                    "pest"
-                ]
-            },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "AGPL-3.0-or-later"
             ],
@@ -110,10 +111,11 @@
                 }
             ],
             "description": "OpenSimulator REST PHP library and command-line client",
-            "transport-options": {
-                "symlink": true,
-                "relative": true
-            }
+            "support": {
+                "issues": "https://github.com/GuduleLapointe/opensim-rest-php/issues",
+                "source": "https://github.com/GuduleLapointe/opensim-rest-php/tree/1.1.2"
+            },
+            "time": "2026-10-05T13:28:37+00:00"
         },
         {
             "name": "phpxmlrpc/phpxmlrpc",
@@ -4620,7 +4622,6 @@
     "minimum-stability": "dev",
     "stability-flags": {
         "laminas/laminas-escaper": 0,
-        "magicoli/opensim-rest-php": 20,
         "phpcompatibility/php-compatibility": 20
     },
     "prefer-stable": false,
