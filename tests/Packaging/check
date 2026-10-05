@@ -4,13 +4,22 @@
 #
 #   tests/Packaging/check [base image]       default: Debian 12; docker.io/library/ubuntu:24.04 for another
 #   DEPS=folder                              where the Debian packages of the other projects are (default: ../opensim-rest-php/dist)
+#   CONTAINER_CONNECTION=name                run it on the podman of another machine
+#   MEMORY=400m                              memory of the container
 
-set -e
+set -eo pipefail
 BASE=${1:-docker.io/library/debian:bookworm}
 cd "$(dirname "$0")/../.."
 DEPS=${DEPS:-$PWD/../opensim-rest-php/dist}
 
-podman run --rm --memory=400m -v "$PWD/dist:/dist:ro" -v "$DEPS:/deps:ro" "$BASE" bash -c '
+# What the container needs is sent to it as a tar stream, so it can run on any machine:
+# CONTAINER_CONNECTION=name (see podman system connection) uses the podman of another one
+stage=$(mktemp -d)
+trap 'rm -rf "$stage"' EXIT
+ln -s "$PWD/dist" "$stage/dist"
+ln -s "$DEPS" "$stage/deps"
+COPYFILE_DISABLE=1 tar -chf - -C "$stage" dist deps | podman run --rm -i --memory="${MEMORY:-400m}" "$BASE" bash -c '
+tar -xf - --no-same-owner --warning=no-unknown-keyword -C /
 status=0
 check() { if eval "$2"; then echo "   ok: $1"; else echo "   FAILED: $1"; status=1; fi; }
 loads() { php -r "define(\"OPENSIM_ENGINE\", true); require \"$1/bootstrap.php\"; exit(class_exists(\"OpenSim_Rest\") && class_exists(\"OpenSim_Database\") ? 0 : 1);"; }
