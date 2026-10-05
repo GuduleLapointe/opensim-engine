@@ -2,7 +2,7 @@
 
 ### Unreleased
 
-- new: `dev/switch.sh` and `dev/release.sh`, the steps of a release
+- new: `dev/release.sh` makes the whole release, `dev/switch.sh` the composer part
 - new: `dev/build.sh` makes the Debian package and the zip
 
 ### 3.0.0-beta.2
