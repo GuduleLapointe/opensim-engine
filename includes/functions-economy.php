@@ -23,18 +23,33 @@ if (!defined('OPENSIM_ENGINE')) {
     die('This file cannot be accessed directly.');
 }
 if (!php_has('xmlrpc')) {
-    osDie('[ERROR] XML-RPC extension is not available. Please enable it in your PHP configuration.');
+    osDie('XML-RPC extension is not available. Please enable it in your PHP configuration.', 503);
 }
 if (!php_has('curl')) {
-    osDie('[ERROR] cURL extension is not available. Please enable it in your PHP configuration.');
+    osDie('cURL extension is not available. Please enable it in your PHP configuration.', 503);
 }
 
+/**
+ * The database of an OpenSim service (PresenceService, GridService...): the one the consumer says, with its function db_for()
+ * when it has one (a service may have a database of its own), else the default handle of the engine.
+ *
+ * @param  string|null $service the section of the service in the Robust config
+ * @return object|null
+ */
+function opensim_db_for($service = null)
+{
+    if (function_exists('db_for')) {
+        return db_for($service);
+    }
+
+    return $GLOBALS['OpenSimDB'] ?? ($GLOBALS['robust_db'] ?? null);
+}
+
+// The economy has its own database when the grid says so (CURRENCY_DB_*), the default one otherwise
 if (defined('CURRENCY_DB_HOST')) {
-    $CurrencyDB = new OSPDO(
-        'mysql:host=' . CURRENCY_DB_HOST . ';dbname=' . CURRENCY_DB_NAME,
-        CURRENCY_DB_USER,
-        CURRENCY_DB_PASS,
-    );
+    $CurrencyDB = new OSPDO('mysql:host=' . CURRENCY_DB_HOST . ';dbname=' . CURRENCY_DB_NAME, CURRENCY_DB_USER, CURRENCY_DB_PASS);
+} elseif (isset($OpenSimDB)) {
+    $CurrencyDB = &$OpenSimDB;
 } else {
     $CurrencyDB = &$robust_db;
 }
@@ -169,21 +184,24 @@ function currency_set_currency_balance($agentID, $amount, &$deprecated = null)
     global $CurrencyDB;
     $balances_table = CURRENCY_MONEY_TBL;
 
-    $CurrencyDB->query("LOCK TABLES $balances_table");
-    $currentbalance = $CurrencyDB->prepareAndExecute("SELECT balance FROM $balances_table WHERE user = :user", [
-        'user' => $agentID,
-    ]);
-    if ($currentbalance) {
-        [$cash] = $currentbalance->fetch();
-        $balance = (int) $cash + (int) $amount;
-        $result = $CurrencyDB->prepareAndExecute("UPDATE $balances_table SET balance = :balance WHERE user = :user", [
-            'balance' => $balance,
+    $CurrencyDB->query("LOCK TABLES $balances_table WRITE");
+    try {
+        $currentbalance = $CurrencyDB->prepareAndExecute("SELECT balance FROM $balances_table WHERE user = :user", [
             'user' => $agentID,
         ]);
-    } else {
-        $result = false;
+        $row = $currentbalance ? $currentbalance->fetch() : false;
+        if ($row) {
+            $balance = (int) $row[0] + (int) $amount;
+            $result = $CurrencyDB->prepareAndExecute("UPDATE $balances_table SET balance = :balance WHERE user = :user", [
+                'balance' => $balance,
+                'user' => $agentID,
+            ]);
+        } else {
+            $result = false;
+        }
+    } finally {
+        $CurrencyDB->query('UNLOCK TABLES');
     }
-    $CurrencyDB->query("UNLOCK TABLES $balances_table");
     return $result;
 }
 
@@ -402,12 +420,7 @@ function currency_get_balance($agentID, $secureID = null)
 
 function currency_get_confirm_value($ipAddress)
 {
-    // TODO:
-    // Option to force key to be something else than default
-    $key = empty(CURRENCY_SCRIPT_KEY) ? '1234567883789' : CURRENCY_SCRIPT_KEY;
-    $confirmvalue = md5($key . '_' . $ipAddress);
-
-    return $confirmvalue;
+    return md5(trim((string) CURRENCY_SCRIPT_KEY) . '_' . $ipAddress);
 }
 
 function currency_process_transaction($avatarID, $cost, $ipAddress)
@@ -427,7 +440,8 @@ function currency_process_transaction($avatarID, $cost, $ipAddress)
 
 function currency_virtual_to_real($amount)
 {
-    $cost = (int) ((CURRENCY_RATE / CURRENCY_RATE_PER) * 100 * $amount);
+    $per = (float) CURRENCY_RATE_PER;
+    $cost = $per > 0 ? (int) ((CURRENCY_RATE / $per) * 100 * $amount) : 0;
 
     return $cost;
 }
@@ -475,17 +489,17 @@ function currency_xmlrpc_call($host, $port, $uri, $request)
  */
 function opensim_get_avatar_session($agentID, &$deprecated = null)
 {
-    $robust_db = OpenSim_Robust::db();
-    if (!$robust_db) {
-        return false;
-    }
     if (!is_uuid($agentID)) {
         return null;
     }
 
-    $result = $robust_db->query("SELECT RegionID,SessionID,SecureSessionID FROM Presence WHERE UserID='$agentID'");
-    if ($result) {
-        [$RegionID, $SessionID, $SecureSessionID] = $result->fetch();
+    // Who is where: the database of the presence service
+    $result = opensim_db_for('PresenceService')->prepareAndExecute(
+        'SELECT RegionID,SessionID,SecureSessionID FROM Presence WHERE UserID = :user',
+        ['user' => $agentID],
+    );
+    if ($result && ($row = $result->fetch())) {
+        [$RegionID, $SessionID, $SecureSessionID] = $row;
     } else {
         return [];
     }
@@ -499,40 +513,39 @@ function opensim_get_avatar_session($agentID, &$deprecated = null)
 
 function opensim_set_current_region($agentID, $regionid, &$deprecated = null)
 {
-    $robust_db = OpenSim_Robust::db();
-    if (!$robust_db) {
-        return false;
-    }
-
     if (!is_uuid($agentID) or !is_uuid($regionid)) {
         return false;
     }
 
-    $sql = "UPDATE Presence SET RegionID='$regionid' WHERE UserID='$agentID'";
-    $result = $robust_db->query($sql);
-    if (!$result) {
-        return false;
-    }
-    return true;
+    $result = opensim_db_for('PresenceService')->prepareAndExecute('UPDATE Presence SET RegionID = :region WHERE UserID = :user', [
+        'region' => $regionid,
+        'user' => $agentID,
+    ]);
+
+    return (bool) $result;
 }
 
 function opensim_get_server_info($userid, &$deprecated = null)
 {
-    $robust_db = OpenSim_Robust::db();
-    if (!$robust_db) {
-        return false;
-    }
     if (!is_uuid($userid)) {
         return [];
     }
 
-    $result = $robust_db->query(
-        "SELECT serverIP,serverHttpPort,serverURI,regionSecret
-    FROM GridUser INNER JOIN regions ON regions.uuid=GridUser.LastRegionID
-    WHERE GridUser.UserID='$userid'",
+    // The last region of the user is in the database of the grid users, the region in the one of the grid service: two
+    // databases that may not be the same, so no join
+    $user = opensim_db_for('GridUserService')->prepareAndExecute('SELECT LastRegionID FROM GridUser WHERE UserID = :user', [
+        'user' => $userid,
+    ]);
+    $region = $user ? $user->fetchColumn() : false;
+    if (!$region) {
+        return [];
+    }
+    $result = opensim_db_for('GridService')->prepareAndExecute(
+        'SELECT serverIP,serverHttpPort,serverURI,regionSecret FROM regions WHERE uuid = :uuid',
+        ['uuid' => $region],
     );
-    if ($result) {
-        [$serverip, $httpport, $serveruri, $secret] = $result->fetch();
+    if ($result && ($row = $result->fetch())) {
+        [$serverip, $httpport, $serveruri, $secret] = $row;
     } else {
         return [];
     }
@@ -546,42 +559,32 @@ function opensim_get_server_info($userid, &$deprecated = null)
 
 function opensim_check_secure_session($agentID, $regionid, $secure, &$deprecated = null)
 {
-    $robust_db = OpenSim_Robust::db();
-    if (!$robust_db) {
-        return false;
-    }
     if (!is_uuid($agentID) or !is_uuid($secure)) {
         return false;
     }
 
-    $sql = "SELECT UserID FROM Presence WHERE UserID='$agentID' AND SecureSessionID='$secure'";
+    $sql = 'SELECT UserID FROM Presence WHERE UserID = :user AND SecureSessionID = :secure';
+    $values = ['user' => $agentID, 'secure' => $secure];
     if (is_uuid($regionid)) {
-        $sql = $sql . " AND RegionID='$regionid'";
+        $sql .= ' AND RegionID = :region';
+        $values['region'] = $regionid;
     }
 
-    $result = $robust_db->query($sql);
-    if (!$result) {
+    $result = opensim_db_for('PresenceService')->prepareAndExecute($sql, $values);
+    if (!$result || !($row = $result->fetch())) {
         return false;
     }
 
-    [$UUID] = $result->fetch();
-    if ($UUID != $agentID) {
-        return false;
-    }
-    return true;
+    return $row[0] == $agentID;
 }
 
 function opensim_check_region_secret($regionID, $secret, &$deprecated = null)
 {
-    $robust_db = OpenSim_Robust::db();
-    if (!$robust_db) {
-        return false;
-    }
     if (!is_uuid($regionID)) {
         return false;
     }
 
-    $result = $robust_db->prepareAndExecute(
+    $result = opensim_db_for('GridService')->prepareAndExecute(
         'SELECT UUID FROM regions WHERE UUID=:uuid AND regionSecret=:regionSecret',
         [
             'uuid' => $regionID,
@@ -596,4 +599,51 @@ function opensim_check_region_secret($regionID, $secret, &$deprecated = null)
     }
 
     return false;
+}
+
+/** What the database of the grid knows of one of its regions (by UUID): name, handle and address. */
+function opensim_get_region_info($regionID, &$deprecated = null)
+{
+    if (!is_uuid($regionID)) {
+        return null;
+    }
+
+    // The regions: the database of the grid service
+    $result = opensim_db_for('GridService')->prepareAndExecute(
+        'SELECT regionName, regionHandle, serverIP, serverHttpPort, serverURI FROM regions WHERE uuid = :uuid',
+        ['uuid' => $regionID],
+    );
+    $row = $result ? $result->fetch(PDO::FETCH_ASSOC) : false;
+    if (!$row) {
+        return null;
+    }
+
+    return [
+        'regionName' => $row['regionName'],
+        'regionHandle' => $row['regionHandle'],
+        'serverIP' => $row['serverIP'],
+        'serverHttpPort' => $row['serverHttpPort'],
+        'serverURI' => $row['serverURI'],
+    ];
+}
+
+/**
+ * Whether the grid has the key that ties a quote of currency to its purchase (the script key of the MoneyServer, in its
+ * MoneyServer.ini). There is no default: a key everybody knows protects nothing.
+ */
+function currency_has_key()
+{
+    return defined('CURRENCY_SCRIPT_KEY') && trim((string) CURRENCY_SCRIPT_KEY) !== '';
+}
+
+/** A random UUID (version 4), the identifier of a transaction. */
+if (!function_exists('make_random_guid')) {
+    function make_random_guid()
+    {
+        $bytes = random_bytes(16);
+        $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
+        $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
+
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($bytes), 4));
+    }
 }

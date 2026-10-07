@@ -9,10 +9,8 @@
  * @see https://php.watch/versions/8.0/xmlrpc
  */
 
-// Check if the XML RPC is already available, if so, don't override the functions
-if (function_exists('xmlrpc_encode') && !defined('OS_XMLRPC_FORCE_REPLACE')) {
-    return;
-}
+// Include this file only when the extension is missing: its functions are declared as soon as it is compiled, a check here
+// would come too late to avoid redeclaring those of the extension (`if (!function_exists('xmlrpc_encode')) { require_once ... }`).
 
 // Check that the PhpXmlRpc library is available
 if (!class_exists('\\PhpXmlRpc\\Value')) {
@@ -62,8 +60,41 @@ function xmlrpc_server_register_method($server, $method, $function)
         return false;
     }
 
-    $server->addHandler($method, $function);
+    // The extension calls function($method_name, $params, $user_data) and takes a PHP value as the answer;
+    // the library calls it with the request and wants a response: this is the one in the other.
+    $server->addToMap($method, function ($request) use ($method, $function) {
+        $encoder = new Encoder();
+        $params = [];
+        for ($i = 0; $i < $request->getNumParams(); $i++) {
+            $params[] = $encoder->decode($request->getParam($i));
+        }
+        try {
+            $result = $function($method, $params, xmlrpc_server_user_data());
+        } catch (\Throwable $e) {
+            error_log("xmlrpc $method: " . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+            throw $e;
+        }
+
+        return new Response($encoder->encode($result));
+    });
+
     return true;
+}
+
+/**
+ * The user data of the call being served, which xmlrpc_server_call_method gives to the methods.
+ *
+ * @param mixed $set When given, the data of the call
+ * @return mixed
+ */
+function xmlrpc_server_user_data($set = null)
+{
+    static $data = null;
+    if (func_num_args() > 0) {
+        $data = $set;
+    }
+
+    return $data;
 }
 
 /**
@@ -77,53 +108,48 @@ function xmlrpc_decode($xml, $encoding = 'iso-8859-1')
 {
     $encoder = new Encoder();
 
+    // For PhpXmlRpc\Value objects
+    if ($xml instanceof \PhpXmlRpc\Value) {
+        return $encoder->decode($xml);
+    }
+
     // Handle string input (XML data)
     if (is_string($xml)) {
         // Check if it's actually XML content
         if (preg_match('/<\?xml|<methodResponse|<methodCall|<value/', $xml)) {
             try {
-                // Try to decode it as XML-RPC response
-                $resp = new Response($xml);
-                if ($resp->faultCode() === 0) {
-                    return $encoder->decode($resp->value());
-                } else {
-                    return [
-                        'faultCode' => $resp->faultCode(),
-                        'faultString' => $resp->faultString(),
-                    ];
-                }
-            } catch (\Exception $e) {
-                // If direct response decoding fails, try using decodeXml
-                try {
-                    $result = $encoder->decodeXml($xml);
-                    if ($result instanceof \PhpXmlRpc\Value) {
-                        return $encoder->decode($result);
-                    } elseif ($result instanceof \PhpXmlRpc\Response) {
-                        if ($result->faultCode() === 0) {
-                            return $encoder->decode($result->value());
-                        } else {
-                            return [
-                                'faultCode' => $result->faultCode(),
-                                'faultString' => $result->faultString(),
-                            ];
-                        }
+                $result = $encoder->decodeXml($xml);
+                if ($result instanceof \PhpXmlRpc\Value) {
+                    return $encoder->decode($result);
+                } elseif ($result instanceof \PhpXmlRpc\Response) {
+                    if ($result->faultCode() === 0) {
+                        return $encoder->decode($result->value());
                     }
-                    return $result;
-                } catch (\Exception $e2) {
-                    // If all XML parsing fails, return the original string
-                    error_log('XML-RPC decoding error: ' . $e2->getMessage());
-                    return $xml;
+
+                    return [
+                        'faultCode' => $result->faultCode(),
+                        'faultString' => $result->faultString(),
+                    ];
+                } elseif ($result instanceof \PhpXmlRpc\Request) {
+                    $params = [];
+                    for ($i = 0; $i < $result->getNumParams(); $i++) {
+                        $params[] = $encoder->decode($result->getParam($i));
+                    }
+
+                    return $params;
                 }
+
+                // Not XML-RPC after all: the string as it came
+                return $result === false || $result === null ? $xml : $result;
+            } catch (\Exception $e) {
+                error_log('XML-RPC decoding error: ' . $e->getMessage());
+
+                return $xml;
             }
         } else {
             // Not valid XML, just return the string
             return $xml;
         }
-    }
-
-    // For PhpXmlRpc\Value objects
-    if ($xml instanceof \PhpXmlRpc\Value) {
-        return $encoder->decode($xml);
     }
 
     // For other values, just return as is
@@ -138,8 +164,13 @@ function xmlrpc_decode($xml, $encoding = 'iso-8859-1')
  */
 function xmlrpc_encode($value)
 {
+    // Like the extension: the XML of the value as the parameters of a response, not the value object
     $encoder = new Encoder();
-    return $encoder->encode($value);
+
+    return '<?xml version="1.0" encoding="utf-8" ?>' .
+        "\n<params>\n<param>\n" .
+        $encoder->encode($value)->serialize() .
+        "</param>\n</params>\n";
 }
 
 /**
@@ -189,11 +220,14 @@ function xmlrpc_server_call_method($server, $request, $user_data, $output_option
         return false;
     }
 
-    // Process the request and get the response as a string
-    $response = $server->service($request, true);
+    xmlrpc_server_user_data($user_data);
 
-    // Output the response directly
-    echo $response;
+    // As the extension leaves the printing to the methods, what a method prints is the answer, one document: the one of the
+    // library is printed for a method that prints nothing and returns its answer
+    ob_start();
+    $response = $server->service($request, true);
+    $printed = ob_get_clean();
+    echo $printed !== '' ? $printed : $response;
 
     return true;
 }
