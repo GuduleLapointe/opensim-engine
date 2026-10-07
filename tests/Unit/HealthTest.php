@@ -4,9 +4,10 @@
  * settings named as the ini files name them.
  */
 
+require_once dirname(__DIR__, 2) . '/class-config.php';
 require_once dirname(__DIR__, 2) . '/class-health.php';
 
-/** A web server that answers the code its path says: /200, /404, /500, /redirect (to /200), /redirect404 (to /404); a POST is a 200. */
+/** A web server that answers the code its path says: /200, /404, /500, /redirect (to /200), /redirect404 (to /404); /needs-data refuses (400) what has no data. */
 function code_server(): array
 {
     $dir = sys_get_temp_dir() . '/code-server-' . bin2hex(random_bytes(4));
@@ -16,7 +17,7 @@ function code_server(): array
         '<?php $path = trim(parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH), "/");
         if ($path === "redirect") { header("Location: /200", true, 308); return; }
         if ($path === "redirect404") { header("Location: /404", true, 308); return; }
-        if ($path === "post-only") { http_response_code($_SERVER["REQUEST_METHOD"] === "POST" ? 200 : 405); return; }
+        if ($path === "needs-data") { http_response_code(file_get_contents("php://input") === "" && empty($_SERVER["QUERY_STRING"]) ? 400 : 200); return; }
         http_response_code(is_numeric($path) ? (int) $path : 200); echo str_repeat("x", 5000);',
     );
     $socket = stream_socket_server('tcp://127.0.0.1:0');
@@ -112,21 +113,58 @@ describe('An address', function () {
             ->not->toHaveKeys(['method', 'probe', 'skip', 'expect', 'body']);
     });
 
-    test('is asked as the service wants it: a call that makes sense for an API that answers one, bare for one that cannot be called bare', function () {
+    test('is asked twice when it is a service: with nothing, it must refuse, with what it wants, it must answer', function () {
         [$process, $port] = code_server();
-        $row = OpenSim_Health::api('SearchURL', "http://127.0.0.1:$port/post-only", 'dir_places_query', ['text' => 'a'], 'API');
-        $bare = OpenSim_Health::bare('OfflineMessageURL', "http://127.0.0.1:$port/post-only");
-        $groups = OpenSim_Health::answers([['title' => 'API', 'rows' => [$row, $bare]]]);
+        $url = "http://127.0.0.1:$port/needs-data";
+        $groups = OpenSim_Health::answers([
+            [
+                'title' => 'Services',
+                'rows' => [
+                    ...OpenSim_Health::xmlrpc('SearchURL', $url, 'dir_places_query', ['text' => 'a']),
+                    ...OpenSim_Health::post('OfflineMessageURL', $url, '<x/>'),
+                    ...OpenSim_Health::query('DATA_SRV_a', $url, 'service=offline'),
+                    // A service that answers a call with nothing in it is not one that works: it is red
+                    ...OpenSim_Health::xmlrpc('Lazy', "http://127.0.0.1:$port/200", 'm', []),
+                ],
+            ],
+        ]);
         proc_terminate($process);
-        [$api, $refused] = $groups[0]['rows'];
+        $rows = $groups[0]['rows'];
+        $of = fn(string $label, string $tag) => array_values(array_filter($rows, fn($row) => $row['label'] === $label && $row['tag'] === $tag))[0];
 
-        // The call that makes sense gets its 200, the bare one is refused (405) and that is what is expected
-        expect($api)
-            ->toMatchArray(['label' => 'SearchURL', 'tag' => 'API', 'status' => '200', 'level' => 'ok'])
-            ->and($refused)
-            ->toMatchArray(['label' => 'OfflineMessageURL', 'status' => '405', 'level' => 'ok'])
-            ->not->toHaveKey('tag');
-        expect($row['body'])->toContain('<methodName>dir_places_query</methodName>');
+        expect($of('SearchURL', 'without data'))
+            ->toMatchArray(['status' => '400', 'level' => 'ok'])
+            ->and($of('SearchURL', 'with valid XMLRPC request'))
+            ->toMatchArray(['status' => '200', 'level' => 'ok'])
+            ->and($of('OfflineMessageURL', 'without data')['level'])
+            ->toBe('ok')
+            ->and($of('OfflineMessageURL', 'with valid post data'))
+            ->toMatchArray(['status' => '200', 'level' => 'ok'])
+            ->and($of('DATA_SRV_a', 'without data')['level'])
+            ->toBe('ok')
+            ->and($of('DATA_SRV_a', 'with valid query'))
+            ->toMatchArray(['status' => '200', 'level' => 'ok'])
+            ->and($of('Lazy', 'without data'))
+            ->toMatchArray(['status' => '200', 'level' => 'error']);
+    });
+
+    test('is asked with the data in the right place: the body for a post, the query for a get, a path after the address when it takes one', function () {
+        [$search, $good] = OpenSim_Health::xmlrpc('SearchURL', 'https://play.example.org/helpers/query.php', 'dir_places_query', ['text' => 'a']);
+        [$offline, $retrieve] = OpenSim_Health::post('OfflineMessageURL', 'https://play.example.org/helpers/offline.php', '<UUID/>', 'RetrieveMessages/');
+        [$bare, $registered] = OpenSim_Health::query('DATA_SRV_a', 'https://play.example.org/helpers/register.php', 'service=offline&host=x');
+
+        expect($search)
+            ->toMatchArray(['method' => 'post', 'body' => '', 'expect' => [400, 405], 'tag' => 'without data'])
+            ->and($good)
+            ->toMatchArray(['method' => 'xmlrpc', 'tag' => 'with valid XMLRPC request'])
+            ->and($good['body'])
+            ->toContain('<methodName>dir_places_query</methodName>')
+            ->and($retrieve)
+            ->toMatchArray(['method' => 'post', 'body' => '<UUID/>', 'probe' => 'https://play.example.org/helpers/offline.php/RetrieveMessages/', 'url' => 'https://play.example.org/helpers/offline.php'])
+            ->and($bare)
+            ->toMatchArray(['method' => 'get', 'tag' => 'without data'])
+            ->and($registered)
+            ->toMatchArray(['method' => 'get', 'tag' => 'with valid query', 'probe' => 'https://play.example.org/helpers/register.php?service=offline&host=x']);
     });
 });
 
@@ -159,89 +197,37 @@ describe('An address with a certificate this server does not trust', function ()
 });
 
 describe('The sections of a grid', function () {
-    /** What a grid says, as the ini files give it. */
-    $in = fn(array $sections, array $more = []) => ['sources' => ['Robust.HG.ini' => $sections]] + $more;
-    $by = fn(array $groups) => array_column(array_map(fn($g) => ['title' => $g['title'], 'rows' => array_column($g['rows'], null, 'label')], $groups), 'rows', 'title');
+    /** A config as the files give it: Robust.HG.ini has all of it, as in the tests of the sections. */
+    $config = fn(array $sections, array $roles = []) => new OpenSim_Config(['Robust' => $sections] + $roles, ['Robust' => '/etc/opensim/grids/alpha/Robust.HG.ini']);
+    $in = fn(array $sections, array $more = []) => ['config' => $config($sections)] + $more;
+    $by = fn(array $groups) => array_column(array_map(fn($g) => ['title' => $g['file'] . ' ' . $g['title'], 'rows' => $g['rows']], $groups), 'rows', 'title');
+    $live = ['gridname' => 'Alpha World', 'login' => 'http://play.example.org:8002/', 'economy' => 'https://play.example.org/helpers', 'welcome' => 'https://play.example.org/welcome', 'web_profile_url' => 'https://play.example.org/profile/[AGENT_NAME]'];
 
-    test('are by file, named as the ini files do, every address of [GridInfoService] in them, the expected ones first', function () use ($in, $by) {
-        $groups = OpenSim_Health::grid(
-            $in(
-                [
-                    'GridInfoService' => [
-                        'gridname' => 'Alpha',
-                        'login' => 'http://play.example.org:8002/',
-                        'economy' => 'https://play.example.org/helpers',
-                        'web_profile_url' => 'https://play.example.org/profile/[AGENT_NAME]',
-                        'partner' => 'https://partner.example.org/',
-                    ],
-                    'LoginService' => ['DestinationGuide' => 'https://play.example.org/helpers/guide.php'],
-                    'DataSnapshot' => ['DATA_SRV_Alpha' => 'https://play.example.org/helpers/register.php'],
-                ],
-                ['login' => 'http://play.example.org:8002/'],
-            ),
-        );
-        $rows = $by($groups);
+    test('start with what the grid says, the address of login first, which is asked even when the grid says nothing', function () use ($by) {
+        $groups = OpenSim_Health::grid(['live' => ['gridname' => 'Alpha World', 'welcome' => 'https://play.example.org/welcome', 'login' => 'http://play.example.org:8002/'], 'login' => 'http://play.example.org:8002/']);
+        $rows = array_column($groups[0]['rows'], null, 'label');
 
-        expect(array_map(fn($g) => $g['file'] . ' ' . $g['title'], $groups))
-            ->toBe(['Robust.HG.ini [GridInfoService]', 'Robust.HG.ini [LoginService]', 'OpenSim.ini [Search]', 'OpenSim.ini [DataSnapshot]', 'OpenSim.ini [Messaging]', 'MoneyServer.ini [MoneyServer]'])
-            // The ones of Robust.HG.ini.example, not what the example does not have (uas is the one of a standalone)
-            ->and(array_keys($rows['[GridInfoService]']))
-            ->toBe(['login', 'gatekeeper', 'welcome', 'economy', 'about', 'register', 'help', 'password', 'GridStatus', 'GridStatusRSS', 'web_profile_url', 'SearchURL', 'partner'])
-            ->and($rows['[GridInfoService]']['partner']['url'])
-            ->toBe('https://partner.example.org/')
-            ->and($rows['[GridInfoService]']['about']['url'])
-            ->toBe('')
-            ->and(array_keys($rows['[LoginService]']))
-            ->toBe(['DestinationGuide', 'MessageUrl'])
-            ->and(array_keys($rows['[DataSnapshot]']))
-            ->toBe(['DATA_SRV_Alpha']);
-    });
-
-    test('are in the file of Robust the grid has, whichever it is', function () use ($by) {
-        $file = fn(array $sources) => OpenSim_Health::grid(['sources' => $sources])[0]['file'];
-
-        expect($file(['Robust.ini' => []]))
-            ->toBe('Robust.ini')
-            ->and($file(['sims/one.ini' => [], 'Robust.HG.ini' => []]))
-            ->toBe('Robust.HG.ini')
-            ->and($file([]))
-            ->toBe('Robust.ini');
-    });
-
-    test('tell the two SearchURL apart, the web page in Robust and the service of OpenSim, each in its own section and asked its own way', function () use ($in) {
-        $groups = OpenSim_Health::grid($in(['GridInfoService' => ['SearchURL' => 'https://play.example.org/search/'], 'Search' => ['SearchURL' => 'https://play.example.org/helpers/query.php']]));
-        $search = fn($title) => array_values(array_filter(array_merge(...array_column(array_filter($groups, fn($g) => $g['title'] === $title), 'rows')), fn($row) => $row['label'] === 'SearchURL'));
-        $web = $search('[GridInfoService]');
-        $api = $search('[Search]');
-
-        // One row each: a page that is read, a call that makes sense that is answered
-        expect($web)
-            ->toHaveCount(1)
-            ->and($web[0])
-            ->toMatchArray(['url' => 'https://play.example.org/search/', 'tag' => 'Web search', 'method' => 'get'])
-            ->and($api)
-            ->toHaveCount(1)
-            ->and($api[0])
-            ->toMatchArray(['url' => 'https://play.example.org/helpers/query.php', 'tag' => 'API', 'method' => 'xmlrpc'])
-            ->and($api[0]['body'])
-            ->toContain('<methodName>dir_places_query</methodName>')
-            ->and(array_column(array_filter($groups, fn($g) => $g['title'] === '[Search]'), 'file'))
-            ->toBe(['OpenSim.ini']);
-    });
-
-    test('ask the grid info for the addresses of the grid, and expect a teapot where the viewers only add a name', function () use ($in, $by) {
-        $rows = $by(OpenSim_Health::grid($in(['GridInfoService' => ['economy' => 'https://play.example.org/helpers']], ['login' => 'http://play.example.org:8002/'])))['[GridInfoService]'];
-
-        expect($rows['login'])
+        expect(count($groups))
+            ->toBe(1)
+            ->and($groups[0]['file'])
+            ->toBe('get_grid_info')
+            ->and(array_column($groups[0]['rows'], 'label'))
+            ->toBe(['login', 'welcome', 'gridname'])
+            // The addresses are asked, a name is only shown
+            ->and($rows['login'])
             ->toMatchArray(['url' => 'http://play.example.org:8002/', 'probe' => 'http://play.example.org:8002/get_grid_info'])
-            ->and($rows['economy']['expect'])
-            ->toBe([418]);
+            ->and($rows['gridname'])
+            ->toMatchArray(['url' => '', 'text' => 'Alpha World', 'level' => 'none']);
+
+        // The grid does not answer: its login address is there all the same, to be asked
+        $down = OpenSim_Health::grid(['login' => 'http://play.example.org:8002/']);
+
+        expect(array_column($down[0]['rows'], 'label'))->toBe(['login']);
     });
 
-    test('ask the profile with the name of an avatar of the grid, and without any name, which is not a page (a teapot)', function () use ($in) {
-        $info = ['GridInfoService' => ['web_profile_url' => 'https://play.example.org/profile/[AGENT_NAME]']];
+    test('ask the profile with the name of an avatar of the grid, and without any name, which is not a page (a teapot)', function () use ($live) {
         $profile = fn(array $groups) => array_values(array_filter($groups[0]['rows'], fn($row) => $row['label'] === 'web_profile_url'));
-        $with = $profile(OpenSim_Health::grid($in($info, ['owner' => 'Jane.Doe'])));
+        $with = $profile(OpenSim_Health::grid(['live' => $live, 'owner' => 'Jane.Doe']));
 
         expect($with)
             ->toHaveCount(2)
@@ -252,13 +238,119 @@ describe('The sections of a grid', function () {
             ->toMatchArray(['url' => 'https://play.example.org/profile', 'expect' => [418]]);
 
         // No account to read: the one with a name is not asked
-        $none = $profile(OpenSim_Health::grid($in($info)));
+        $none = $profile(OpenSim_Health::grid(['live' => $live]));
 
         expect($none[0])->toHaveKey('skip')->and($none[1]['url'])->toBe('https://play.example.org/profile');
     });
 
+    test('expect a teapot where the viewers only add a name, and tell the web search from the API', function () use ($live) {
+        $rows = array_column(OpenSim_Health::grid(['live' => $live + ['SearchURL' => 'https://play.example.org/search/']])[0]['rows'], null, 'label');
+
+        expect($rows['economy']['expect'])->toBe([418])->and($rows['SearchURL'])->toMatchArray(['tag' => 'Web search', 'method' => 'get']);
+    });
+
+    test('are the ones of the config by file, named as the ini files do, when there is one, the expected addresses of [GridInfoService] first', function () use ($in, $by, $live) {
+        $groups = OpenSim_Health::grid(
+            $in(
+                [
+                    'GridInfoService' => ['gridname' => 'Alpha World', 'economy' => 'https://play.example.org/helpers', 'partner' => 'https://partner.example.org/'],
+                    'LoginService' => ['DestinationGuide' => 'https://play.example.org/helpers/guide.php'],
+                    'DataSnapshot' => ['DATA_SRV_Alpha' => 'https://play.example.org/helpers/register.php'],
+                ],
+                ['live' => $live],
+            ),
+        );
+        $rows = $by($groups);
+
+        expect(array_map(fn($g) => $g['file'] . ' ' . $g['title'], $groups))
+            ->toBe(['get_grid_info ', 'Robust.HG.ini [GridInfoService]', 'Robust.HG.ini [LoginService]', 'OpenSim.ini [Search]', 'OpenSim.ini [DataSnapshot]', 'OpenSim.ini [Messaging]', 'MoneyServer.ini [MoneyServer]'])
+            // The ones of Robust.HG.ini.example, not what the example does not have (uas is the one of a standalone)
+            ->and(array_column($rows['Robust.HG.ini [GridInfoService]'], 'label'))
+            ->toBe(['login', 'gatekeeper', 'welcome', 'economy', 'about', 'register', 'help', 'password', 'GridStatus', 'GridStatusRSS', 'web_profile_url', 'SearchURL', 'gridname', 'partner'])
+            ->and(array_column($rows['Robust.HG.ini [LoginService]'], 'label'))
+            ->toBe(['DestinationGuide', 'MessageUrl']);
+    });
+
+    test('compare what the grid says with what the config says: the same is fine, a difference is an error that says what the grid says', function () use ($in, $by, $live) {
+        $rows = array_column(
+            $by(
+                OpenSim_Health::grid(
+                    $in(['GridInfoService' => ['gridname' => 'Alpha World', 'login' => 'http://play.example.org:8002', 'economy' => 'https://other.example.org/helpers', 'about' => 'https://play.example.org/about'], 'Search' => []], ['live' => $live]),
+                ),
+            )['Robust.HG.ini [GridInfoService]'],
+            null,
+            'label',
+        );
+
+        expect($rows['login'])
+            ->toMatchArray(['level' => 'ok', 'status' => 'OK', 'url' => 'http://play.example.org:8002'])
+            ->and($rows['gridname'])
+            ->toMatchArray(['level' => 'ok', 'status' => 'OK', 'text' => 'Alpha World'])
+            // The config says one thing and the grid another: a restart not done, or a config that does not reach it
+            ->and($rows['economy'])
+            ->toMatchArray(['level' => 'error', 'status' => 'differs', 'url' => 'https://other.example.org/helpers', 'detail' => 'get_grid_info: https://play.example.org/helpers'])
+            // The config says it and the grid does not
+            ->and($rows['about'])
+            ->toMatchArray(['level' => 'error', 'status' => 'differs', 'detail' => 'get_grid_info: '])
+            // Nothing in the config: nothing to compare
+            ->and($rows['help'])
+            ->toMatchArray(['level' => 'none', 'url' => '']);
+    });
+
+    test('ask the addresses of the config from here when the grid does not answer, nothing to compare with', function () use ($in, $by) {
+        $rows = array_column($by(OpenSim_Health::grid($in(['GridInfoService' => ['economy' => 'https://play.example.org/helpers']])))['Robust.HG.ini [GridInfoService]'], null, 'label');
+
+        expect($rows['economy'])->toMatchArray(['url' => 'https://play.example.org/helpers', 'method' => 'get', 'expect' => [418]]);
+    });
+
+    test('have no file of Robust in them when this machine has none, the grid info and the rest are there all the same', function () use ($live) {
+        $config = new OpenSim_Config(['Helpers' => ['Search' => ['SearchURL' => 'https://play.example.org/helpers/query.php']]]);
+        $groups = OpenSim_Health::grid(['config' => $config, 'live' => $live]);
+
+        expect(array_column($groups, 'file'))->toBe(['get_grid_info', 'OpenSim.ini', 'OpenSim.ini', 'OpenSim.ini', 'MoneyServer.ini']);
+    });
+
+    test('are in the file of Robust the grid has, whichever it is', function () use ($in) {
+        $file = fn($robust) => OpenSim_Health::names($robust === null ? null : new OpenSim_Config(['Robust' => []], ['Robust' => "/etc/$robust"]))['robust'];
+
+        expect($file('Robust.ini'))->toBe('Robust.ini')->and($file('Robust.HG.ini'))->toBe('Robust.HG.ini')->and($file(null))->toBe('Robust.ini');
+    });
+
+    test('call each service the OpenSim.ini gives twice, in its own section: the search (Search), the registration (DataSnapshot), the offline messages (Messaging)', function () use ($in, $by) {
+        $rows = $by(
+            OpenSim_Health::grid(
+                $in(['Search' => ['SearchURL' => 'https://play.example.org/helpers/query.php'], 'DataSnapshot' => ['DATA_SRV_a' => 'https://play.example.org/helpers/register.php'], 'Messaging' => ['OfflineMessageURL' => 'https://play.example.org/helpers/offline.php']]),
+            ),
+        );
+        $tags = fn(string $section) => array_column($rows["OpenSim.ini $section"], 'tag');
+
+        expect($tags('[Search]'))
+            ->toBe(['without data', 'with valid XMLRPC request'])
+            ->and($tags('[DataSnapshot]'))
+            ->toBe(['without data', 'with valid query'])
+            ->and($tags('[Messaging]'))
+            ->toBe(['without data', 'with valid post data'])
+            // The web search of Robust is not among them: it is another setting, in another file
+            ->and(array_column($rows['OpenSim.ini [Search]'], 'label'))
+            ->toBe(['SearchURL', 'SearchURL']);
+    });
+
+    test('have the two SearchURL apart: the web page of the grid info, the service of OpenSim', function () use ($in, $by, $live) {
+        $groups = OpenSim_Health::grid($in(['GridInfoService' => ['SearchURL' => 'https://play.example.org/search/'], 'Search' => ['SearchURL' => 'https://play.example.org/helpers/query.php']], ['live' => $live + ['SearchURL' => 'https://play.example.org/search/']]));
+        $where = [];
+        foreach ($groups as $group) {
+            foreach ($group['rows'] as $row) {
+                if ($row['label'] === 'SearchURL') {
+                    $where[] = $group['file'] . ' ' . $group['title'] . ' ' . ($row['tag'] ?? '');
+                }
+            }
+        }
+
+        expect($where)->toBe(['get_grid_info  Web search', 'Robust.HG.ini [GridInfoService] ', 'OpenSim.ini [Search] without data', 'OpenSim.ini [Search] with valid XMLRPC request']);
+    });
+
     test('say whether the grid has the key of its currency, never what it is, and an error for a grid with a currency that has none', function () use ($in, $by) {
-        $row = fn(array $sections) => $by(OpenSim_Health::grid($in($sections)))['[MoneyServer]']['MoneyScriptAccessKey'];
+        $row = fn(array $sections) => array_column($by(OpenSim_Health::grid($in($sections)))['MoneyServer.ini [MoneyServer]'], null, 'label')['MoneyScriptAccessKey'];
         $key = ['MoneyServer' => ['MoneyScriptAccessKey' => 'a-secret-key']];
 
         expect($row($key))

@@ -5,11 +5,14 @@
  * data and gives data (groups of rows), it shows nothing.
  *
  * A group is a section of the ini files (its title is the name of the section) of one file (its `file`), and a row a setting of
- * it, its label the key as the ini files write it: whoever reads a check must not wonder where to look for a setting. An address
- * is asked where its redirections lead, what counts is what it answers (the certificate is only reported, with `cert`), and what
- * is right for an address is what is expected of it: a page answers 2xx, a service that cannot be called without parameters
- * answers an error when it is, a service called with parameters that make sense answers 200, an address that is not a page
- * answers 418, a teapot.
+ * it, its label the key as the ini files write it: whoever reads a check must not wonder where to look for a setting. The first
+ * group is what the grid says at its login address (get_grid_info), which works without any local config; the files of the config
+ * come next, when there is one, and what the grid says is compared with what they say (a difference means a restart is needed, or
+ * a problem of config).
+ *
+ * An address is asked where its redirections lead, what counts is what it answers (the certificate is only reported, with
+ * `cert`), and what is right for an address is what is expected of it: a page answers 2xx, an address that is not a page answers
+ * 418 (a teapot), a service is called twice, with nothing (it must refuse) and with what it expects (it must answer 200).
  *
  * @package magicoli/opensim-engine
  * @license AGPLv3
@@ -29,128 +32,122 @@ class OpenSim_Health
     /** The addresses of the grid itself, which answer at /get_grid_info. */
     const GRID_ADDRESSES = ['login', 'gatekeeper'];
 
-    /** What a service answers to a call without its parameters or with the wrong method. */
+    /** What a service answers to a call with nothing in it, or with the wrong method. */
     const BARE = [400, 405];
 
     /** What an address that is not a page answers: not served, and not an error (a teapot). */
     const TEAPOT = [418];
 
+    /** An identifier that is a UUID and nobody has, to ask for what an avatar has (nothing). */
+    const UNKNOWN_AVATAR = '00000000-0000-4000-8000-000000000000';
+
     /**
-     * The names of the files the settings of a grid are in: the one of Robust (Robust.HG.ini, Robust.ini...), the one of the
+     * The names of the files the settings of a grid are in: the one of Robust (Robust.HG.ini, Robust.ini), the one of the
      * simulators and the one of the money server.
      *
-     * @param  array $sources the ini files as read, file => section => key => value
+     * @param  OpenSim_Config|null $config
      * @return array{robust:string,opensim:string,money:string}
      */
-    public static function names($sources)
+    public static function names($config)
     {
-        $robust = 'Robust.ini';
-        foreach (array_keys($sources) as $file) {
-            if (preg_match('/^Robust.*\.ini$/i', basename((string) $file))) {
-                $robust = basename((string) $file);
-                break;
-            }
-        }
+        $robust = $config ? $config->file('Robust') : null;
 
-        return ['robust' => $robust, 'opensim' => 'OpenSim.ini', 'money' => 'MoneyServer.ini'];
+        return ['robust' => $robust ? basename($robust) : 'Robust.ini', 'opensim' => 'OpenSim.ini', 'money' => 'MoneyServer.ini'];
     }
 
     /**
-     * The addresses to ask, as groups of rows, from the settings of the grid: the files they are in, the sections of each, the
-     * addresses they give, and the ones that are expected and not given, empty.
+     * The addresses to ask, as groups of rows: what the grid says (get_grid_info), then, when the config of the grid is there, the
+     * files it is in, the sections of each, the addresses they give, and the ones that are expected and not given, empty.
      *
-     * @param  array{sources?:array,live?:array,login?:?string,owner?:?string,null_key?:string} $in
-     *   - sources: the ini files as read, file => section => key => value
-     *   - live:    what the grid says at /get_grid_info
-     *   - login:   the login address
-     *   - owner:   the name (Firstname.Lastname) of an avatar of the grid, to ask a profile for
+     * @param  array{config?:?OpenSim_Config,live?:array,login?:?string,owner?:?string} $in
+     *   - config: the config of the grid (null when this machine has none)
+     *   - live:   what the grid says at /get_grid_info, key => value
+     *   - login:  the login address
+     *   - owner:  the name (Firstname.Lastname) of an avatar of the grid, to ask a profile for
      * @return list<array{file:string,title:string,rows:list<array<string,mixed>>}>
      */
     public static function grid($in)
     {
-        $sources = $in['sources'] ?? [];
-        $live = $in['live'] ?? [];
-        $login = $in['login'] ?? null;
+        $config = $in['config'] ?? null;
+        $live = array_filter($in['live'] ?? [], 'is_string');
+        $login = (string) ($in['login'] ?? '');
         $owner = $in['owner'] ?? null;
-        $null = $in['null_key'] ?? '00000000-0000-0000-0000-000000000000';
-        $get = fn($section, $key) => (string) self::value($sources, $section, $key);
-        $file = self::names($sources);
-
+        $file = self::names($config);
         $groups = [];
 
-        // What the viewers read at the login address (/get_grid_info), else what the config of Robust says: every address of it
-        $info = [];
-        foreach ($sources as $ini) {
-            foreach ($ini['GridInfoService'] ?? [] as $key => $value) {
-                if (self::is_url($value)) {
-                    $info[$key] ??= $value;
-                }
-            }
+        // What the grid says: every value of get_grid_info, the login address first (it is where it is asked, and it is asked even
+        // when the grid does not answer). The addresses are asked, the other values are shown
+        if ($login !== '') {
+            $live['login'] = $login;
         }
-        foreach ($live as $key => $value) {
-            if (is_string($value) && self::is_url($value)) {
-                $info[$key] = $value;
-            }
-        }
-        if ($login) {
-            $info['login'] = (string) $login;
-        }
+        $keys = array_values(array_unique(array_merge(array_intersect(self::GRID_INFO, array_keys($live)), array_keys($live))));
         $rows = [];
-        foreach (array_values(array_unique(array_merge(self::GRID_INFO, array_keys($info)))) as $key) {
-            $value = (string) ($info[$key] ?? '');
-            $row = ['label' => $key, 'url' => $value, 'method' => 'get'];
-            if (in_array($key, self::GRID_ADDRESSES, true) && $value !== '') {
-                // What answers at these addresses is the grid info, the first thing the viewers ask
-                $row['probe'] = rtrim($value, '/') . '/get_grid_info';
-            } elseif ($key === 'economy') {
-                // The address of the helpers, to which the viewers add the name of the script: no page of its own
-                $row['expect'] = self::TEAPOT;
-            } elseif ($key === 'SearchURL') {
-                // The web page of the search, not the service the simulators call
-                $row['tag'] = 'Web search';
-            } elseif (str_contains($value, '[AGENT_NAME]')) {
-                // The profile: with the name of an avatar (there is always one, its owner), and without any name
-                $with = $row;
-                if ($owner === null) {
-                    $with['skip'] = true;
-                } else {
-                    $with['url'] = str_replace('[AGENT_NAME]', $owner, $value);
-                }
-                $rows[] = $with;
-                $row['url'] = rtrim((string) preg_replace('#\[AGENT_NAME\].*$#', '', $value), '/');
-                $row['expect'] = self::TEAPOT;
-            }
-            $rows[] = $row;
+        foreach ($keys as $key) {
+            array_push($rows, ...self::address($key, $live[$key], $owner));
         }
-        $groups[] = ['file' => $file['robust'], 'title' => '[GridInfoService]', 'rows' => $rows];
+        if ($rows) {
+            $groups[] = ['file' => 'get_grid_info', 'title' => '', 'rows' => $rows];
+        }
+        if (!$config) {
+            return $groups;
+        }
 
-        $groups[] = [
-            'file' => $file['robust'],
-            'title' => '[LoginService]',
-            'rows' => [
-                ['label' => 'DestinationGuide', 'url' => $get('LoginService', 'DestinationGuide'), 'method' => 'get'],
-                ['label' => 'MessageUrl', 'url' => $get('LoginService', 'MessageUrl'), 'method' => 'get'],
-            ],
-        ];
+        // The Robust config: what it says of the grid, compared with what the grid says. A difference is a restart that was not
+        // done, or a setting that does not reach the grid
+        if ($config->has('Robust')) {
+            $given = array_filter($config->section('GridInfoService'), fn($value) => $value !== '');
+            $rows = [];
+            foreach (array_values(array_unique(array_merge(self::GRID_INFO, array_keys($given)))) as $key) {
+                $value = (string) ($given[$key] ?? '');
+                if ($value === '' || !$live) {
+                    // Nothing to compare with when the grid does not answer: the addresses are asked from here
+                    array_push($rows, ...self::address($key, $value, $owner));
+                    continue;
+                }
+                $same = isset($live[$key]) && rtrim($live[$key], '/') === rtrim($value, '/');
+                $rows[] = [
+                    'label' => $key,
+                    (self::is_url($value) ? 'url' : 'text') => $value,
+                    'level' => $same ? 'ok' : 'error',
+                    'status' => $same ? _('OK') : _('differs'),
+                    'ms' => null,
+                ] + ($same ? [] : ['detail' => 'get_grid_info: ' . ($live[$key] ?? '')]);
+            }
+            $groups[] = ['file' => $file['robust'], 'title' => '[GridInfoService]', 'rows' => $rows];
+            $groups[] = [
+                'file' => $file['robust'],
+                'title' => '[LoginService]',
+                'rows' => [
+                    ...self::address('DestinationGuide', (string) $config->find('LoginService', 'DestinationGuide'), $owner),
+                    ...self::address('MessageUrl', (string) $config->find('LoginService', 'MessageUrl'), $owner),
+                ],
+            ];
+        }
 
         // What the simulators call (OpenSim.ini): the search, the registration on a directory, the offline messages
+        $search = (string) $config->find('Search', 'SearchURL');
         $groups[] = [
             'file' => $file['opensim'],
             'title' => '[Search]',
-            'rows' => [self::api('SearchURL', $get('Search', 'SearchURL'), 'dir_places_query', ['flags' => 0, 'text' => 'health', 'query_start' => '0'], 'API')],
+            'rows' => $search === '' ? [self::empty_row('SearchURL')] : self::xmlrpc('SearchURL', $search, 'dir_places_query', ['flags' => 0, 'text' => 'health', 'query_start' => '0']),
         ];
         $rows = [];
-        foreach (self::keys($sources, 'DataSnapshot', '/^DATA_SRV_/') as $key => $url) {
-            $rows[] = self::bare($key, $url);
+        foreach ($config->keys('DataSnapshot', '/^DATA_SRV_/') as $key => $url) {
+            array_push($rows, ...self::query($key, $url, 'service=offline&host=health.invalid&port=1'));
         }
-        $groups[] = ['file' => $file['opensim'], 'title' => '[DataSnapshot]', 'rows' => $rows ?: [self::bare('DATA_SRV_*', '')]];
-        $groups[] = ['file' => $file['opensim'], 'title' => '[Messaging]', 'rows' => [self::bare('OfflineMessageURL', $get('Messaging', 'OfflineMessageURL'))]];
+        $groups[] = ['file' => $file['opensim'], 'title' => '[DataSnapshot]', 'rows' => $rows ?: [self::empty_row('DATA_SRV_*')]];
+        $offline = (string) $config->find('Messaging', 'OfflineMessageURL');
+        $groups[] = [
+            'file' => $file['opensim'],
+            'title' => '[Messaging]',
+            'rows' => $offline === '' ? [self::empty_row('OfflineMessageURL')] : self::post('OfflineMessageURL', $offline, self::retrieve_messages(), 'RetrieveMessages/'),
+        ];
 
         // The key of the currency, where the MoneyServer has it: never shown, only whether the grid has one. Without it the
         // currency is not served, an error for a grid that has a currency
-        $module = strtolower($get('Economy', 'economymodule'));
+        $module = strtolower((string) $config->find('Economy', 'economymodule'));
         $needed = $module !== '' && $module !== 'betagridlikemoneymodule';
-        $has = trim($get('MoneyServer', 'MoneyScriptAccessKey')) !== '';
+        $has = trim((string) $config->find('MoneyServer', 'MoneyScriptAccessKey')) !== '';
         $groups[] = [
             'file' => $file['money'],
             'title' => '[MoneyServer]',
@@ -160,30 +157,123 @@ class OpenSim_Health
         return $groups;
     }
 
-    /** A service that cannot be called without its parameters: asked bare, it must refuse. */
-    public static function bare($label, $url, $tag = null)
+    /**
+     * The rows of a setting that is an address: asked as a page, whatever it is for (the grid info of the login address and of
+     * the gatekeeper, a teapot where the viewers only add a name, the profile with the name of an avatar and without any). A value
+     * that is not an address is shown, an empty one is a row with its name only.
+     *
+     * @param  string      $key
+     * @param  string      $value
+     * @param  string|null $owner the name of an avatar of the grid
+     * @return list<array<string,mixed>>
+     */
+    private static function address($key, $value, $owner)
     {
-        return ['label' => $label, 'url' => $url, 'method' => 'get', 'expect' => self::BARE] + ($tag ? ['tag' => $tag] : []);
+        if ($value === '') {
+            return [self::empty_row($key)];
+        }
+        if (!self::is_url($value)) {
+            return [['label' => $key, 'url' => '', 'text' => $value, 'level' => 'none', 'status' => '', 'ms' => null]];
+        }
+        $row = self::page($key, $value);
+        if (in_array($key, self::GRID_ADDRESSES, true)) {
+            // What answers at these addresses is the grid info, the first thing the viewers ask
+            $row['probe'] = rtrim($value, '/') . '/get_grid_info';
+        } elseif ($key === 'economy') {
+            // The address of the helpers, to which the viewers add the name of the script: no page of its own
+            $row['expect'] = self::TEAPOT;
+        } elseif ($key === 'SearchURL') {
+            // The web page of the search, not the service the simulators call
+            $row['tag'] = _('Web search');
+        } elseif (str_contains($value, '[AGENT_NAME]')) {
+            $with = $row;
+            if ($owner === null) {
+                $with['skip'] = true;
+            } else {
+                $with['url'] = str_replace('[AGENT_NAME]', $owner, $value);
+            }
+            $row['url'] = rtrim((string) preg_replace('#\[AGENT_NAME\].*$#', '', $value), '/');
+            $row['expect'] = self::TEAPOT;
+
+            return [$with, $row];
+        }
+
+        return [$row];
+    }
+
+    /** The row of a setting that has no value: its name, nothing else. */
+    public static function empty_row($label)
+    {
+        return ['label' => $label, 'url' => '', 'level' => 'none', 'status' => '', 'ms' => null];
+    }
+
+    /** A page: asked with a GET, it answers. */
+    public static function page($label, $url, $tag = null)
+    {
+        return ['label' => $label, 'url' => $url, 'method' => 'get'] + ($tag ? ['tag' => $tag] : []);
     }
 
     /**
-     * A service that answers XML-RPC: asked with a call that makes sense, and that asks for nothing (an avatar that does not
-     * exist...), it answers 200.
+     * A service that answers XML-RPC, asked twice: with nothing, it must refuse, and with a request that makes sense (and asks
+     * for nothing: an avatar that does not exist...) it must answer 200.
      *
-     * @param  string               $label  what the row is named
+     * @param  string               $label  what the rows are named
      * @param  string               $url    the address of the service
      * @param  string               $call   the method to call
      * @param  array<string,mixed>  $params its parameters, ints and strings
-     * @param  string|null          $tag    a short word to tell it from another row of the same label
-     * @return array<string,mixed>
+     * @return list<array<string,mixed>>
      */
-    public static function api($label, $url, $call, array $params, $tag = null)
+    public static function xmlrpc($label, $url, $call, array $params)
     {
-        return ['label' => $label, 'url' => $url, 'method' => 'xmlrpc', 'body' => self::xmlrpc($call, $params)] + ($tag ? ['tag' => $tag] : []);
+        return self::twice($label, $url, 'post', ['method' => 'xmlrpc', 'body' => self::xmlrpc_body($call, $params)], _('with valid XMLRPC request'));
+    }
+
+    /**
+     * A service that takes data posted, asked twice: with nothing, it must refuse, and with data that makes sense it must answer
+     * 200.
+     *
+     * @param  string $suffix what follows the address of the service to call it (offline.php/RetrieveMessages/)
+     * @return list<array<string,mixed>>
+     */
+    public static function post($label, $url, $body, $suffix = '')
+    {
+        return self::twice($label, $url, 'post', ['method' => 'post', 'body' => $body] + ($suffix === '' ? [] : ['probe' => rtrim($url, '/') . '/' . $suffix]), _('with valid post data'));
+    }
+
+    /**
+     * A service that takes its data in the address, asked twice: with nothing, it must refuse, and with a query that makes sense
+     * it must answer 200.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public static function query($label, $url, $query)
+    {
+        return self::twice($label, $url, 'get', ['method' => 'get', 'probe' => $url . (str_contains($url, '?') ? '&' : '?') . $query], _('with valid query'));
+    }
+
+    /**
+     * The two rows of a service: the call with nothing, which must be refused, and the right one.
+     *
+     * @param  string               $how  how the service is called without data: get or post
+     * @param  array<string,mixed>  $good what makes the right call (method, body, probe)
+     * @return list<array<string,mixed>>
+     */
+    private static function twice($label, $url, $how, array $good, $tag)
+    {
+        return [
+            ['label' => $label, 'url' => $url, 'method' => $how, 'body' => '', 'expect' => self::BARE, 'refuse' => true, 'tag' => _('without data')],
+            ['label' => $label, 'url' => $url, 'tag' => $tag] + $good,
+        ];
+    }
+
+    /** The request of the offline messages of an avatar, which has none. */
+    public static function retrieve_messages()
+    {
+        return '<?xml version="1.0"?><UUID xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><Guid>' . self::UNKNOWN_AVATAR . '</Guid></UUID>';
     }
 
     /** The body of a call of XML-RPC, with one struct of ints and strings as parameter. */
-    private static function xmlrpc($method, array $params)
+    private static function xmlrpc_body($method, array $params)
     {
         $members = '';
         foreach ($params as $name => $value) {
@@ -225,13 +315,13 @@ class OpenSim_Health
                 } elseif ($result === null) {
                     $verdict = self::verdict(null, '', 0);
                 } else {
-                    $verdict = self::verdict($result['code'], $result['error'], $result['ms'], $result['errno'], $row['expect'] ?? []);
+                    $verdict = self::verdict($result['code'], $result['error'], $result['ms'], $result['errno'], $row['expect'] ?? [], !empty($row['refuse']));
                     // A certificate this server does not trust is told, it does not change what the address answers
                     if ($result['certificate'] !== 0) {
                         $verdict['cert'] = true;
                     }
                 }
-                $groups[$g]['rows'][$r] = array_diff_key($row, ['method' => 0, 'probe' => 0, 'skip' => 0, 'expect' => 0, 'body' => 0]) + $verdict + ['ms' => null];
+                $groups[$g]['rows'][$r] = array_diff_key($row, ['method' => 0, 'probe' => 0, 'skip' => 0, 'expect' => 0, 'refuse' => 0, 'body' => 0]) + $verdict + ['ms' => null];
             }
         }
 
@@ -241,7 +331,7 @@ class OpenSim_Health
     /**
      * Ask a set of addresses at once.
      *
-     * @param  array<string,array<string,mixed>> $requests id => row (url, probe, method, body)
+     * @param  array<string,array<string,mixed>> $requests id => row (url, probe, method: get, post or xmlrpc, body)
      * @return array<string,array{code:int,errno:int,error:string,ms:int,certificate:int}>
      */
     private static function ask($requests)
@@ -268,7 +358,7 @@ class OpenSim_Health
                 CURLOPT_SSL_VERIFYPEER => false,
                 CURLOPT_SSL_VERIFYHOST => 0,
             ]);
-            if (($row['method'] ?? 'get') === 'xmlrpc') {
+            if (($row['method'] ?? 'get') !== 'get') {
                 curl_setopt_array($handle, [
                     CURLOPT_POST => true,
                     CURLOPT_POSTFIELDS => $row['body'] ?? '',
@@ -316,9 +406,10 @@ class OpenSim_Health
      * @param  string   $error  what curl says when nothing answered
      * @param  int      $errno  the code of that error
      * @param  int[]    $expect the codes that are the right answer of this address, besides the 2xx
+     * @param  bool     $refuse the address must refuse (called with nothing): only the codes expected are the right answer
      * @return array{level:string,status:string,ms:?int,detail?:string}
      */
-    public static function verdict($code, $error, $ms, $errno = 0, $expect = [])
+    public static function verdict($code, $error, $ms, $errno = 0, $expect = [], $refuse = false)
     {
         if ($code === null) {
             return ['level' => 'none', 'status' => '', 'ms' => null];
@@ -326,7 +417,7 @@ class OpenSim_Health
         if ($code === 0) {
             return ['level' => 'error', 'status' => 'cURL ' . _('error') . ' ' . $errno, 'ms' => null, 'detail' => $error];
         }
-        $level = ($code >= 200 && $code < 300) || in_array($code, $expect, true) ? 'ok' : 'error';
+        $level = ($code >= 200 && $code < 300 && !$refuse) || in_array($code, $expect, true) ? 'ok' : 'error';
 
         return ['level' => $level, 'status' => (string) $code, 'ms' => $ms];
     }
@@ -383,36 +474,5 @@ class OpenSim_Health
     public static function is_url($value)
     {
         return (bool) preg_match('#^https?://#i', (string) $value);
-    }
-
-    /** The value of a setting: the first file that has it. */
-    private static function value($sources, $section, $key)
-    {
-        foreach ($sources as $ini) {
-            if (isset($ini[$section][$key]) && $ini[$section][$key] !== '') {
-                return $ini[$section][$key];
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * The settings of a section whose key matches, with their keys, in every file.
-     *
-     * @return array<string,string> key => value
-     */
-    private static function keys($sources, $section, $pattern)
-    {
-        $found = [];
-        foreach ($sources as $ini) {
-            foreach ($ini[$section] ?? [] as $key => $value) {
-                if ($value !== '' && preg_match($pattern, $key)) {
-                    $found[$key] ??= $value;
-                }
-            }
-        }
-
-        return $found;
     }
 }

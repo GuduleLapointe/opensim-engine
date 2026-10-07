@@ -51,7 +51,8 @@
         },
         "classmap": [
             "class-oar.php",
-            "class-health.php"
+            "class-health.php",
+            "class-config.php"
         ],
         "files": [
             "includes/functions-escaping.php"
