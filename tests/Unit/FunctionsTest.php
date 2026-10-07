@@ -129,3 +129,45 @@ test('the search tables take Latin-1: what it cannot hold becomes a question mar
         ->and(opensim_latin1_only('Price: 5€ 日本'))
         ->toBe('Price: 5? ??');
 });
+
+describe('The session of an avatar', function () {
+    $presence = function (array $rows): object {
+        return new class($rows) {
+            public function __construct(private array $rows) {}
+
+            public function prepareAndExecute($sql, $params = [])
+            {
+                $rows = $this->rows[$params['user']] ?? [];
+
+                return new class($rows) {
+                    public function __construct(private array $rows) {}
+
+                    public function fetch()
+                    {
+                        return $this->rows ?: false;
+                    }
+                };
+            }
+        };
+    };
+
+    test('is read from the presence service: where the avatar is and its session IDs', function () use ($presence) {
+        $avatar = 'aaaaaaaa-0000-4000-8000-000000000001';
+        $GLOBALS['OpenSimDB'] = $presence([$avatar => ['rrrrrrrr-0000-4000-8000-000000000003', 'ssssssss-0000-4000-8000-000000000004', 'xxxxxxxx-0000-4000-8000-000000000005']]);
+
+        expect(opensim_get_avatar_session($avatar))->toBe([
+            'regionID' => 'rrrrrrrr-0000-4000-8000-000000000003',
+            'sessionID' => 'ssssssss-0000-4000-8000-000000000004',
+            'secureID' => 'xxxxxxxx-0000-4000-8000-000000000005',
+        ]);
+    });
+
+    test('is empty for an avatar who is not in the grid, and null for what is not an avatar', function () use ($presence) {
+        $GLOBALS['OpenSimDB'] = $presence([]);
+
+        expect(opensim_get_avatar_session('bbbbbbbb-0000-4000-8000-000000000002'))
+            ->toBe([])
+            ->and(opensim_get_avatar_session('not-an-avatar'))
+            ->toBeNull();
+    });
+});

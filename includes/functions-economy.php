@@ -29,22 +29,6 @@ if (!php_has('curl')) {
     osDie('cURL extension is not available. Please enable it in your PHP configuration.', 503);
 }
 
-/**
- * The database of an OpenSim service (PresenceService, GridService...): the one the consumer says, with its function db_for()
- * when it has one (a service may have a database of its own), else the default handle of the engine.
- *
- * @param  string|null $service the section of the service in the Robust config
- * @return object|null
- */
-function opensim_db_for($service = null)
-{
-    if (function_exists('db_for')) {
-        return db_for($service);
-    }
-
-    return $GLOBALS['OpenSimDB'] ?? ($GLOBALS['robust_db'] ?? null);
-}
-
 // The economy has its own database when the grid says so (CURRENCY_DB_*), the default one otherwise
 if (defined('CURRENCY_DB_HOST')) {
     $CurrencyDB = new OSPDO('mysql:host=' . CURRENCY_DB_HOST . ';dbname=' . CURRENCY_DB_NAME, CURRENCY_DB_USER, CURRENCY_DB_PASS);
@@ -487,30 +471,6 @@ function currency_xmlrpc_call($host, $port, $uri, $request)
  * helpers. However, they are not: they are currently only used in currency
  * scripts, so I leave them here, hence the opensim_ prefix.
  */
-function opensim_get_avatar_session($agentID, &$deprecated = null)
-{
-    if (!is_uuid($agentID)) {
-        return null;
-    }
-
-    // Who is where: the database of the presence service
-    $result = opensim_db_for('PresenceService')->prepareAndExecute(
-        'SELECT RegionID,SessionID,SecureSessionID FROM Presence WHERE UserID = :user',
-        ['user' => $agentID],
-    );
-    if ($result && ($row = $result->fetch())) {
-        [$RegionID, $SessionID, $SecureSessionID] = $row;
-    } else {
-        return [];
-    }
-
-    $av_session['regionID'] = $RegionID;
-    $av_session['sessionID'] = $SessionID;
-    $av_session['secureID'] = $SecureSessionID;
-
-    return $av_session;
-}
-
 function opensim_set_current_region($agentID, $regionid, &$deprecated = null)
 {
     if (!is_uuid($agentID) or !is_uuid($regionid)) {

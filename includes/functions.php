@@ -24,6 +24,52 @@ function opensim_latin1_only($text)
 }
 
 /**
+ * The database of an OpenSim service (PresenceService, GridService...): the one the consumer says, with its function db_for()
+ * when it has one (a service may have a database of its own), else the default handle of the engine.
+ *
+ * @param  string|null $service the section of the service in the Robust config
+ * @return object|null
+ */
+function opensim_db_for($service = null)
+{
+    if (function_exists('db_for')) {
+        return db_for($service);
+    }
+
+    return $GLOBALS['OpenSimDB'] ?? ($GLOBALS['robust_db'] ?? null);
+}
+
+/**
+ * The session of an avatar who is in the grid, from the presence service: where it is, and its session IDs.
+ *
+ * @param  string $agentID
+ * @return array|null empty when the avatar is not in the grid, null for something that is not an avatar
+ */
+function opensim_get_avatar_session($agentID, &$deprecated = null)
+{
+    if (!is_uuid($agentID)) {
+        return null;
+    }
+
+    // Who is where: the database of the presence service
+    $result = opensim_db_for('PresenceService')->prepareAndExecute(
+        'SELECT RegionID,SessionID,SecureSessionID FROM Presence WHERE UserID = :user',
+        ['user' => $agentID],
+    );
+    if ($result && ($row = $result->fetch())) {
+        [$RegionID, $SessionID, $SecureSessionID] = $row;
+    } else {
+        return [];
+    }
+
+    $av_session['regionID'] = $RegionID;
+    $av_session['sessionID'] = $SessionID;
+    $av_session['secureID'] = $SecureSessionID;
+
+    return $av_session;
+}
+
+/**
  * Verify if given string is an UUID.
  * In theory, we would check want v4-compliant uuids
  * (xxxxxxxx-xxxx-4xxx-[89AB]xxx-xxxxxxxxxxxx) but OpenSimulator seems to have
