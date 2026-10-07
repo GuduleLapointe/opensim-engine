@@ -5,6 +5,7 @@
 - update: the functions the helpers had a copy of are only the engine's, the most complete of both: destinations (`opensim_parse_url`, `opensim_uri`), teleport links, region lookups, XML answers and errors, the currency functions, the XML-RPC polyfill
 - fix: `is_uuid()` accepts `null` when asked, `osDie()` and `osXmlDie()` keep the message on one line, `make_random_guid()` exists
 - update: `opensim_db_for()` finds the database of a service (the consumer's `db_for()` when it has one)
+- update: `opensim_get_avatar_session()` (presence of an avatar) and `opensim_db_for()` are in `functions.php`, usable without the economy
 - new: `OpenSim_Config`, the config of an OpenSim environment (includes, constants) as a tree that follows the ini files
 - new: `OpenSim_Health`, the checks of a grid (what it says, the config, each service with and without data) as data
 - fix: `opensim_parse_url()` keeps a zero in a position (`Plaza/0/128/30` lost its first number)
