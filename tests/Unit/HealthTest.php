@@ -288,10 +288,10 @@ describe('The sections of a grid', function () {
             ->not->toHaveKey('probe');
     });
 
-    test('expect a teapot where the viewers only add a name, and tell the web search from the API', function () use ($live) {
-        $rows = array_column(OpenSim_Health::grid(['live' => $live + ['SearchURL' => 'https://play.example.org/search/']])[0]['rows'], null, 'label');
+    test('expect a teapot where the viewers only add a name, and tell the web search (search, what the viewers read) from the API', function () use ($live) {
+        $rows = array_column(OpenSim_Health::grid(['live' => $live + ['search' => 'https://play.example.org/search/']])[0]['rows'], null, 'label');
 
-        expect($rows['economy']['expect'])->toBe([418])->and($rows['SearchURL'])->toMatchArray(['tag' => 'Web search', 'method' => 'get']);
+        expect($rows['economy']['expect'])->toBe([418])->and($rows['search'])->toMatchArray(['tag' => 'Web search', 'method' => 'get']);
     });
 
     test('are the ones of the config by file, named as the ini files do, when there is one, the expected addresses of [GridInfoService] first', function () use ($in, $by, $live) {
@@ -311,9 +311,9 @@ describe('The sections of a grid', function () {
             ->toBe(['get_grid_info ', 'Robust.HG.ini [GridInfoService]', 'Robust.HG.ini [LoginService]', 'OpenSim.ini [Search]', 'OpenSim.ini [DataSnapshot]', 'OpenSim.ini [Messaging]', 'MoneyServer.ini [MoneyServer]'])
             // The ones of Robust.HG.ini.example, not what the example does not have (uas is the one of a standalone)
             ->and(array_column($rows['Robust.HG.ini [GridInfoService]'], 'label'))
-            ->toBe(['login', 'gatekeeper', 'welcome', 'economy', 'about', 'register', 'help', 'password', 'GridStatus', 'GridStatusRSS', 'web_profile_url', 'SearchURL', 'gridname', 'partner'])
+            ->toBe(['login', 'gatekeeper', 'welcome', 'economy', 'about', 'register', 'help', 'password', 'GridStatus', 'GridStatusRSS', 'web_profile_url', 'search', 'gridname', 'partner'])
             ->and(array_column($rows['Robust.HG.ini [LoginService]'], 'label'))
-            ->toBe(['DestinationGuide', 'MessageUrl']);
+            ->toBe(['DestinationGuide', 'MessageUrl', 'SearchURL']);
     });
 
     test('compare what the grid says with what the config says: the same is fine, a difference is an error that says what the grid says', function () use ($in, $by, $live) {
@@ -380,18 +380,45 @@ describe('The sections of a grid', function () {
             ->toBe(['SearchURL', 'SearchURL']);
     });
 
-    test('have the two SearchURL apart: the web page of the grid info, the service of OpenSim', function () use ($in, $by, $live) {
-        $groups = OpenSim_Health::grid($in(['GridInfoService' => ['SearchURL' => 'https://play.example.org/search/'], 'Search' => ['SearchURL' => 'https://play.example.org/helpers/query.php']], ['live' => $live + ['SearchURL' => 'https://play.example.org/search/']]));
+    test('have the web search where each file says it: search in get_grid_info and Robust, SearchURL in LoginService, the API in OpenSim.ini', function () use ($in, $live) {
+        $groups = OpenSim_Health::grid($in(['GridInfoService' => ['search' => 'https://play.example.org/search/'], 'LoginService' => ['SearchURL' => 'https://play.example.org/search/'], 'Search' => ['SearchURL' => 'https://play.example.org/helpers/query.php']], ['live' => $live + ['search' => 'https://play.example.org/search/']]));
         $where = [];
         foreach ($groups as $group) {
             foreach ($group['rows'] as $row) {
-                if ($row['label'] === 'SearchURL') {
-                    $where[] = $group['file'] . ' ' . $group['title'] . ' ' . ($row['tag'] ?? '');
+                if (in_array($row['label'], ['search', 'SearchURL'], true)) {
+                    $where[] = preg_replace('/\s+/', ' ', trim($group['file'] . ' ' . $group['title'] . ' ' . $row['label'])) . ' ' . ($row['tag'] ?? '');
                 }
             }
         }
 
-        expect($where)->toBe(['get_grid_info  Web search', 'Robust.HG.ini [GridInfoService] Web search', 'OpenSim.ini [Search] without data', 'OpenSim.ini [Search] with valid XMLRPC request']);
+        // Each in its own file and section, the two pages of the web tagged, the calls of the API as calls
+        expect($where)->toBe([
+            'get_grid_info search Web search',
+            'Robust.HG.ini [GridInfoService] search Web search',
+            'Robust.HG.ini [LoginService] SearchURL Web search',
+            'OpenSim.ini [Search] SearchURL without data',
+            'OpenSim.ini [Search] SearchURL with valid XMLRPC request',
+        ]);
+    });
+
+    test('compare SearchURL of the login service with search of the grid info: the same is fine, two addresses are a fault of the config, only one is asked', function () use ($in, $live) {
+        $row = function (array $login, array $info) use ($in, $live) {
+            $groups = OpenSim_Health::grid($in(['GridInfoService' => $info, 'LoginService' => $login], ['live' => $live]));
+            $rows = array_values(array_filter(array_merge(...array_column(array_filter($groups, fn($g) => $g['title'] === '[LoginService]'), 'rows')), fn($r) => $r['label'] === 'SearchURL'));
+
+            return $rows[0];
+        };
+
+        expect($row(['SearchURL' => 'https://play.example.org/search'], ['search' => 'https://play.example.org/search/']))
+            ->toMatchArray(['level' => 'ok', 'status' => 'OK'])
+            ->not->toHaveKey('method')
+            ->and($row(['SearchURL' => 'https://a.example.org/'], ['search' => 'https://b.example.org/']))
+            ->toMatchArray(['level' => 'error', 'status' => 'differs', 'detail' => '[GridInfoService] search: https://b.example.org/'])
+            // Without search it is the only address of the web search the config has: asked
+            ->and($row(['SearchURL' => 'https://a.example.org/'], []))
+            ->toMatchArray(['method' => 'get', 'tag' => 'Web search', 'url' => 'https://a.example.org/'])
+            ->and($row([], ['search' => 'https://b.example.org/']))
+            ->toMatchArray(['level' => 'none', 'url' => '', 'tag' => 'Web search']);
     });
 
     test('say whether the grid has the key of its currency, never what it is, and an error for a grid with a currency that has none', function () use ($in, $by) {

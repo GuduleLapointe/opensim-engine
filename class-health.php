@@ -24,10 +24,11 @@ class OpenSim_Health
     const TIMEOUT = 3;
 
     /**
-     * The settings of [GridInfoService] that are addresses, shown first, in this order (the one of Robust.HG.ini.example), even
-     * when the grid gives none. SearchURL is the web page of the search, not what the simulators call ([Search] of OpenSim.ini).
+     * The settings of [GridInfoService] that are addresses, shown first, in this order (the one of Robust.HG.ini.example, and
+     * `search`, the web page of the search the viewers read in get_grid_info), even when the grid gives none. It is not what the
+     * simulators call for the search ([Search] SearchURL of OpenSim.ini).
      */
-    const GRID_INFO = ['login', 'gatekeeper', 'welcome', 'economy', 'about', 'register', 'help', 'password', 'GridStatus', 'GridStatusRSS', 'web_profile_url', 'SearchURL'];
+    const GRID_INFO = ['login', 'gatekeeper', 'welcome', 'economy', 'about', 'register', 'help', 'password', 'GridStatus', 'GridStatusRSS', 'web_profile_url', 'search'];
 
     /**
      * The addresses of the grid itself, which answer at /get_grid_info: the home of a grid (host:publicport) has no page of its own,
@@ -150,7 +151,7 @@ class OpenSim_Health
                     'level' => $same ? 'ok' : 'error',
                     'status' => $same ? _('OK') : _('differs'),
                     'ms' => null,
-                ] + ($key === 'SearchURL' ? ['tag' => _('Web search')] : []) + ($same ? [] : ['detail' => 'get_grid_info: ' . ($live[$key] ?? '')]);
+                ] + ($key === 'search' ? ['tag' => _('Web search')] : []) + ($same ? [] : ['detail' => 'get_grid_info: ' . ($live[$key] ?? '')]);
                 // The profile of an avatar of the grid (the one the viewers ask), which the comparison does not ask
                 if ($key === 'web_profile_url' && $owner !== null && str_contains($value, '[AGENT_NAME]')) {
                     $rows[] = self::with_avatar($key, $value, $owner);
@@ -163,6 +164,7 @@ class OpenSim_Health
                 'rows' => [
                     ...self::address('DestinationGuide', (string) $config->find('LoginService', 'DestinationGuide'), $owner),
                     ...self::address('MessageUrl', (string) $config->find('LoginService', 'MessageUrl'), $owner),
+                    self::login_search((string) $config->find('LoginService', 'SearchURL'), $given['search'] ?? ''),
                 ],
             ];
         }
@@ -215,7 +217,7 @@ class OpenSim_Health
     private static function address($key, $value, $owner, $home = '', $variants = false)
     {
         if ($value === '') {
-            return [self::empty_row($key) + ($key === 'SearchURL' ? ['tag' => _('Web search')] : [])];
+            return [self::empty_row($key) + ($key === 'search' ? ['tag' => _('Web search')] : [])];
         }
         if (!self::is_url($value)) {
             return [['label' => $key, 'url' => '', 'text' => $value, 'level' => 'none', 'status' => '', 'ms' => null]];
@@ -227,7 +229,7 @@ class OpenSim_Health
         } elseif ($key === 'economy') {
             // The address of the helpers, to which the viewers add the name of the script: no page of its own
             $row['expect'] = self::TEAPOT;
-        } elseif ($key === 'SearchURL') {
+        } elseif ($key === 'search') {
             // The web page of the search, not the service the simulators call
             $row['tag'] = _('Web search');
         } elseif (str_contains($value, '[AGENT_NAME]')) {
@@ -261,6 +263,25 @@ class OpenSim_Health
         $scheme = strtolower($parts['scheme']);
 
         return $scheme . '://' . strtolower($parts['host']) . ':' . ($parts['port'] ?? ($scheme === 'https' ? 443 : 80));
+    }
+
+    /**
+     * `[LoginService] SearchURL`, the other way to tell the viewers the web search (at login, and as a feature of the grid): the
+     * same address as `search` of [GridInfoService], which is the real one, else it is a fault of the config. Asked when `search`
+     * says nothing.
+     *
+     * @param string $value  SearchURL of [LoginService]
+     * @param string $search search of [GridInfoService]
+     */
+    private static function login_search($value, $search)
+    {
+        if ($value === '' || $search === '') {
+            return $value === '' ? self::empty_row('SearchURL') + ['tag' => _('Web search')] : self::page('SearchURL', $value, _('Web search'));
+        }
+        $same = rtrim($value, '/') === rtrim($search, '/');
+
+        return ['label' => 'SearchURL', 'url' => $value, 'tag' => _('Web search'), 'level' => $same ? 'ok' : 'error', 'status' => $same ? _('OK') : _('differs'), 'ms' => null]
+            + ($same ? [] : ['detail' => '[GridInfoService] search: ' . $search]);
     }
 
     /** The row of a setting that has no value: its name, nothing else. */
