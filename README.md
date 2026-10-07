@@ -54,11 +54,13 @@ The code has been **battle-tested** across different implementations before bein
 
 ## Requirements
 
-PHP 8.2 or newer, with the `curl`, `filter`, `gettext`, `intl`, `json`, `mbstring`, `mysqli`, `pdo`, `session` and `simplexml` extensions. The `xmlrpc_*` functions removed from PHP 8 are not an extension to install: the engine uses them, and the application loads a polyfill (`includes/xmlrpc-polyfill.php` of opensim-helpers, built on `phpxmlrpc/phpxmlrpc`).
+PHP 8.2 or newer, with the `curl`, `filter`, `gettext`, `intl`, `json`, `mbstring`, `mysqli`, `pdo`, `session` and `simplexml` extensions. The `xmlrpc_*` functions removed from PHP 8 are not an extension to install: the engine uses them, and loads a polyfill (`includes/library-xmlrpc.php`, built on `phpxmlrpc/phpxmlrpc`) when the extension is missing.
 
 On Debian and Ubuntu: `sudo apt install php-cli php-curl php-intl php-mbstring php-mysql php-xml`, the other extensions come with `php-common` and `php-cli`.
 
 `OpenSim_Oar` makes, reads and checks OpenSimulator archives (`pack`, `entries`, `info`, `check`, `unpack`).
+
+`OpenSim_Health` checks a grid and gives the result as data, for any page or command that shows it: `grid()` lists the addresses of the ini files by section and setting, `answers()` asks them all at once (code where the redirections lead, time, certificate), `api()` builds the two calls a service must pass (refuse the wrong one, answer the right one), `extensions()` and `files()` say what an install lacks.
 
 ## 🛠️ Developer Installation
 
