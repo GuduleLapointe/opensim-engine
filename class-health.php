@@ -29,8 +29,11 @@ class OpenSim_Health
      */
     const GRID_INFO = ['login', 'gatekeeper', 'welcome', 'economy', 'about', 'register', 'help', 'password', 'GridStatus', 'GridStatusRSS', 'web_profile_url', 'SearchURL'];
 
-    /** The addresses of the grid itself, which answer at /get_grid_info. */
-    const GRID_ADDRESSES = ['login', 'gatekeeper'];
+    /**
+     * The addresses of the grid itself, which answer at /get_grid_info: the home of a grid (host:publicport) has no page of its own,
+     * asked alone it is a 404. What is at the same address as the login is the same.
+     */
+    const GRID_ADDRESSES = ['login', 'gatekeeper', 'uas'];
 
     /** What a service answers to a call with nothing in it, or with the wrong method. */
     const BARE = [400, 405];
@@ -113,10 +116,12 @@ class OpenSim_Health
         if ($login !== '') {
             $live['login'] = $login;
         }
+        $home = self::origin($login);
         $keys = array_values(array_unique(array_merge(array_intersect(self::GRID_INFO, array_keys($live)), array_keys($live))));
         $rows = [];
         foreach ($keys as $key) {
-            array_push($rows, ...self::address($key, $live[$key], $owner));
+            // The profile is asked here without a name only: asked with the name of an avatar, it is in the config below
+            array_push($rows, ...self::address($key, $live[$key], $owner, $home));
         }
         if ($rows) {
             $groups[] = ['file' => 'get_grid_info', 'title' => '', 'rows' => $rows];
@@ -133,8 +138,9 @@ class OpenSim_Health
             foreach (array_values(array_unique(array_merge(self::GRID_INFO, array_keys($given)))) as $key) {
                 $value = (string) ($given[$key] ?? '');
                 if ($value === '' || !$live) {
-                    // Nothing to compare with when the grid does not answer: the addresses are asked from here
-                    array_push($rows, ...self::address($key, $value, $owner));
+                    // Nothing to compare with when the grid does not answer: the addresses are asked from here, the profile
+                    // with the name of an avatar too
+                    array_push($rows, ...self::address($key, $value, $owner, $home, true));
                     continue;
                 }
                 $same = isset($live[$key]) && rtrim($live[$key], '/') === rtrim($value, '/');
@@ -145,6 +151,10 @@ class OpenSim_Health
                     'status' => $same ? _('OK') : _('differs'),
                     'ms' => null,
                 ] + ($key === 'SearchURL' ? ['tag' => _('Web search')] : []) + ($same ? [] : ['detail' => 'get_grid_info: ' . ($live[$key] ?? '')]);
+                // The profile of an avatar of the grid (the one the viewers ask), which the comparison does not ask
+                if ($key === 'web_profile_url' && $owner !== null && str_contains($value, '[AGENT_NAME]')) {
+                    $rows[] = self::with_avatar($key, $value, $owner);
+                }
             }
             $groups[] = ['file' => $file['robust'], 'title' => '[GridInfoService]', 'rows' => $rows];
             $groups[] = [
@@ -197,10 +207,12 @@ class OpenSim_Health
      *
      * @param  string      $key
      * @param  string      $value
-     * @param  string|null $owner the name of an avatar of the grid
+     * @param  string|null $owner    the name of an avatar of the grid
+     * @param  string      $home     the origin (scheme, host, port) of the grid, what is there alone is asked at /get_grid_info
+     * @param  bool        $variants the profile is asked with the name of an avatar too
      * @return list<array<string,mixed>>
      */
-    private static function address($key, $value, $owner)
+    private static function address($key, $value, $owner, $home = '', $variants = false)
     {
         if ($value === '') {
             return [self::empty_row($key) + ($key === 'SearchURL' ? ['tag' => _('Web search')] : [])];
@@ -209,7 +221,7 @@ class OpenSim_Health
             return [['label' => $key, 'url' => '', 'text' => $value, 'level' => 'none', 'status' => '', 'ms' => null]];
         }
         $row = self::page($key, $value);
-        if (in_array($key, self::GRID_ADDRESSES, true)) {
+        if (in_array($key, self::GRID_ADDRESSES, true) || ($home !== '' && self::origin($value) === $home && trim((string) parse_url($value, PHP_URL_PATH), '/') === '')) {
             // What answers at these addresses is the grid info, the first thing the viewers ask
             $row['probe'] = rtrim($value, '/') . '/get_grid_info';
         } elseif ($key === 'economy') {
@@ -219,19 +231,36 @@ class OpenSim_Health
             // The web page of the search, not the service the simulators call
             $row['tag'] = _('Web search');
         } elseif (str_contains($value, '[AGENT_NAME]')) {
-            $with = $row;
-            if ($owner === null) {
-                $with['skip'] = true;
-            } else {
-                $with['url'] = str_replace('[AGENT_NAME]', $owner, $value);
-            }
+            // Without a name it is not a page, with the name of an avatar it is
             $row['url'] = rtrim((string) preg_replace('#\[AGENT_NAME\].*$#', '', $value), '/');
             $row['expect'] = self::TEAPOT;
 
-            return [$with, $row];
+            return $variants && $owner !== null ? [self::with_avatar($key, $value, $owner), $row] : [$row];
         }
 
         return [$row];
+    }
+
+    /** The profile of an avatar, asked with its name. */
+    private static function with_avatar($key, $value, $owner)
+    {
+        return self::page($key, str_replace('[AGENT_NAME]', $owner, $value), _('with avatar name'));
+    }
+
+    /**
+     * Where an address is: scheme, host and port (the default one of the scheme when it gives none).
+     *
+     * @return string empty when it is not an address
+     */
+    private static function origin($url)
+    {
+        $parts = parse_url((string) $url);
+        if (empty($parts['host']) || empty($parts['scheme'])) {
+            return '';
+        }
+        $scheme = strtolower($parts['scheme']);
+
+        return $scheme . '://' . strtolower($parts['host']) . ':' . ($parts['port'] ?? ($scheme === 'https' ? 443 : 80));
     }
 
     /** The row of a setting that has no value: its name, nothing else. */

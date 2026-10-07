@@ -242,22 +242,50 @@ describe('The sections of a grid', function () {
         expect(array_column($down[0]['rows'], 'label'))->toBe(['login']);
     });
 
-    test('ask the profile with the name of an avatar of the grid, and without any name, which is not a page (a teapot)', function () use ($live) {
-        $profile = fn(array $groups) => array_values(array_filter($groups[0]['rows'], fn($row) => $row['label'] === 'web_profile_url'));
-        $with = $profile(OpenSim_Health::grid(['live' => $live, 'owner' => 'Jane.Doe']));
+    test('ask the profile without a name only in what the grid says, which is not a page (a teapot): with the name of an avatar it is asked below, in the config', function () use ($live, $in) {
+        $profile = fn(array $rows) => array_values(array_filter($rows, fn($row) => $row['label'] === 'web_profile_url'));
+        $says = $profile(OpenSim_Health::grid(['live' => $live, 'owner' => 'Jane.Doe'])[0]['rows']);
 
-        expect($with)
-            ->toHaveCount(2)
-            ->and($with[0])
-            ->toMatchArray(['url' => 'https://play.example.org/profile/Jane.Doe'])
-            ->not->toHaveKeys(['skip', 'expect'])
-            ->and($with[1])
+        // Nothing but the address without the name, whatever there is to ask with
+        expect($says)
+            ->toHaveCount(1)
+            ->and($says[0])
             ->toMatchArray(['url' => 'https://play.example.org/profile', 'expect' => [418]]);
 
-        // No account to read: the one with a name is not asked
-        $none = $profile(OpenSim_Health::grid(['live' => $live]));
+        // In the config, once compared, the profile of the avatar the grid has
+        $config = OpenSim_Health::grid($in(['GridInfoService' => ['web_profile_url' => 'https://play.example.org/profile/[AGENT_NAME]']], ['live' => $live, 'owner' => 'Jane.Doe']));
+        $rows = $profile($config[1]['rows']);
 
-        expect($none[0])->toHaveKey('skip')->and($none[1]['url'])->toBe('https://play.example.org/profile');
+        expect($rows)
+            ->toHaveCount(2)
+            ->and($rows[0])
+            ->toMatchArray(['status' => 'OK', 'url' => 'https://play.example.org/profile/[AGENT_NAME]'])
+            ->and($rows[1])
+            ->toMatchArray(['url' => 'https://play.example.org/profile/Jane.Doe', 'tag' => 'with avatar name', 'method' => 'get'])
+            ->not->toHaveKeys(['skip', 'expect']);
+
+        // No account to read: no row for it
+        $none = OpenSim_Health::grid($in(['GridInfoService' => ['web_profile_url' => 'https://play.example.org/profile/[AGENT_NAME]']], ['live' => $live]));
+
+        expect($profile($none[1]['rows']))->toHaveCount(1);
+    });
+
+    test('are asked at /get_grid_info when they are the home of the grid (host:publicport), which answers nothing alone', function () {
+        $groups = OpenSim_Health::grid([
+            'live' => ['login' => 'http://play.example.org:8002/', 'uas' => 'http://play.example.org:8002/', 'home' => 'http://play.example.org:8002', 'about' => 'http://play.example.org:8002/about', 'help' => 'https://play.example.org/help'],
+            'login' => 'http://play.example.org:8002/',
+        ]);
+        $rows = array_column($groups[0]['rows'], null, 'label');
+
+        expect($rows['uas']['probe'])
+            ->toBe('http://play.example.org:8002/get_grid_info')
+            ->and($rows['home']['probe'])
+            ->toBe('http://play.example.org:8002/get_grid_info')
+            // A page of the same server is a page
+            ->and($rows['about'])
+            ->not->toHaveKey('probe')
+            ->and($rows['help'])
+            ->not->toHaveKey('probe');
     });
 
     test('expect a teapot where the viewers only add a name, and tell the web search from the API', function () use ($live) {
