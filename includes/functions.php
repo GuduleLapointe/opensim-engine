@@ -760,7 +760,8 @@ function die_knomes($error_message = false, $error_code = 405)
 }
 
 /**
- * Die silently with HTTP error_code and log the error message
+ * Die with HTTP error_code, the message being the status line and the text of the answer. Only a failure of the server (5xx) is
+ * logged: a request that is wrong, or an address that is not a page (418), is not a failure.
  */
 function osDie($response = null, $error_code = null)
 {
@@ -785,11 +786,11 @@ function osDie($response = null, $error_code = null)
         header('Content-Type: text/plain; charset=utf-8');
         header('Content-Language: ' . $locale);
     }
-    if (!empty($error_message)) {
-        $message = $success ? $error_message : "[ERROR] $error_code $error_message";
-        error_log($message);
+    // A request that is wrong is the business of who sent it, a server that cannot serve is the business of who runs it
+    if (!empty($error_message) && ($success || $error_code >= 500)) {
+        error_log($success ? $error_message : "[ERROR] $error_code $error_message");
     }
-    die();
+    die($error_message === null ? '' : $error_message . "\n");
 }
 
 function caller_details($level = 2)
@@ -873,8 +874,12 @@ function osXmlDie($message = '', $error_code = null)
     if ($error_code !== null && php_sapi_name() !== 'cli' && !headers_sent()) {
         $locale = set_helpers_locale();
         header('HTTP/1.1 ' . $error_code . ' ' . preg_replace('/\s+/', ' ', trim((string) $message)));
-        header('Content-Type: text/plain; charset=utf-8');
+        header('Content-Type: text/xml; charset=utf-8');
         header('Content-Language: ' . $locale);
+    }
+    // A request that is wrong is the business of who sent it, a server that cannot serve is the business of who runs it
+    if ($error_code >= 500 && $message !== '') {
+        error_log("[ERROR] $error_code $message");
     }
     osXmlResponse(false, $message, []);
     die();

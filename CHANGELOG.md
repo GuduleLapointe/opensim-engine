@@ -5,6 +5,8 @@
 - update: the functions the helpers had a copy of are only the engine's, the most complete of both: destinations (`opensim_parse_url`, `opensim_uri`), teleport links, region lookups, XML answers and errors, the currency functions, the XML-RPC polyfill
 - fix: `is_uuid()` accepts `null` when asked, `osDie()` and `osXmlDie()` keep the message on one line, `make_random_guid()` exists
 - update: `opensim_db_for()` finds the database of a service (the consumer's `db_for()` when it has one)
+- new: `OpenSim_Health`, the checks of a grid (addresses, APIs, extensions, files) as data, for any consumer
+- update: `osDie()` writes its message and logs only a failure of the server (5xx), `osXmlDie()` answers `text/xml`
 ### 3.0.0-beta.5
 
 - update: `dev/` runs [build-tools](https://github.com/magicoli/build-tools) instead of its own copy of the scripts

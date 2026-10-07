@@ -50,7 +50,8 @@
             "OpenSim\\Engine\\": "src/"
         },
         "classmap": [
-            "class-oar.php"
+            "class-oar.php",
+            "class-health.php"
         ],
         "files": [
             "includes/functions-escaping.php"
