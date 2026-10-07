@@ -4,11 +4,12 @@
  * an install needs. A tool for every consumer of the engine, alone or together (a web page, a command, a plugin): it takes
  * data and gives data (groups of rows), it shows nothing.
  *
- * A group is a section of the ini files, its title the name of the section, and a row a setting of it, its label the key as
- * the ini files write it: whoever reads a check must not wonder where to look for a setting. An address is asked where its
- * redirections lead, the certificate is not what is asked (it is only reported), and what is right for an address is what is
- * expected of it: a page answers 2xx, a service called without its parameters or with the wrong method answers an error, a
- * service called with parameters that make sense answers 200, an address that is not a page answers 418, a teapot.
+ * A group is a section of the ini files (its title is the name of the section) of one file (its `file`), and a row a setting of
+ * it, its label the key as the ini files write it: whoever reads a check must not wonder where to look for a setting. An address
+ * is asked where its redirections lead, what counts is what it answers (the certificate is only reported, with `cert`), and what
+ * is right for an address is what is expected of it: a page answers 2xx, a service that cannot be called without parameters
+ * answers an error when it is, a service called with parameters that make sense answers 200, an address that is not a page
+ * answers 418, a teapot.
  *
  * @package magicoli/opensim-engine
  * @license AGPLv3
@@ -19,11 +20,14 @@ class OpenSim_Health
     /** How long an address has to answer, in seconds. */
     const TIMEOUT = 3;
 
-    /** The settings of [GridInfoService] that are addresses, shown first, in this order, even when the grid gives none. */
-    const GRID_INFO = ['login', 'gatekeeper', 'uas', 'welcome', 'economy', 'about', 'register', 'help', 'password', 'SearchURL'];
+    /**
+     * The settings of [GridInfoService] that are addresses, shown first, in this order (the one of Robust.HG.ini.example), even
+     * when the grid gives none. SearchURL is the web page of the search, not what the simulators call ([Search] of OpenSim.ini).
+     */
+    const GRID_INFO = ['login', 'gatekeeper', 'welcome', 'economy', 'about', 'register', 'help', 'password', 'GridStatus', 'GridStatusRSS', 'web_profile_url', 'SearchURL'];
 
     /** The addresses of the grid itself, which answer at /get_grid_info. */
-    const GRID_ADDRESSES = ['login', 'gatekeeper', 'uas'];
+    const GRID_ADDRESSES = ['login', 'gatekeeper'];
 
     /** What a service answers to a call without its parameters or with the wrong method. */
     const BARE = [400, 405];
@@ -32,15 +36,35 @@ class OpenSim_Health
     const TEAPOT = [418];
 
     /**
-     * The addresses to ask, as groups of rows, from the settings of the grid: the sections of the ini files an address is in, the
-     * addresses they give, and the ones that are expected and not given, empty (not defined).
+     * The names of the files the settings of a grid are in: the one of Robust (Robust.HG.ini, Robust.ini...), the one of the
+     * simulators and the one of the money server.
+     *
+     * @param  array $sources the ini files as read, file => section => key => value
+     * @return array{robust:string,opensim:string,money:string}
+     */
+    public static function names($sources)
+    {
+        $robust = 'Robust.ini';
+        foreach (array_keys($sources) as $file) {
+            if (preg_match('/^Robust.*\.ini$/i', basename((string) $file))) {
+                $robust = basename((string) $file);
+                break;
+            }
+        }
+
+        return ['robust' => $robust, 'opensim' => 'OpenSim.ini', 'money' => 'MoneyServer.ini'];
+    }
+
+    /**
+     * The addresses to ask, as groups of rows, from the settings of the grid: the files they are in, the sections of each, the
+     * addresses they give, and the ones that are expected and not given, empty.
      *
      * @param  array{sources?:array,live?:array,login?:?string,owner?:?string,null_key?:string} $in
      *   - sources: the ini files as read, file => section => key => value
      *   - live:    what the grid says at /get_grid_info
      *   - login:   the login address
      *   - owner:   the name (Firstname.Lastname) of an avatar of the grid, to ask a profile for
-     * @return list<array{title:string,rows:list<array<string,mixed>>}>
+     * @return list<array{file:string,title:string,rows:list<array<string,mixed>>}>
      */
     public static function grid($in)
     {
@@ -50,6 +74,7 @@ class OpenSim_Health
         $owner = $in['owner'] ?? null;
         $null = $in['null_key'] ?? '00000000-0000-0000-0000-000000000000';
         $get = fn($section, $key) => (string) self::value($sources, $section, $key);
+        $file = self::names($sources);
 
         $groups = [];
 
@@ -82,12 +107,12 @@ class OpenSim_Health
                 $row['expect'] = self::TEAPOT;
             } elseif ($key === 'SearchURL') {
                 // The web page of the search, not the service the simulators call
-                $row['tag'] = 'web search';
+                $row['tag'] = 'Web search';
             } elseif (str_contains($value, '[AGENT_NAME]')) {
                 // The profile: with the name of an avatar (there is always one, its owner), and without any name
                 $with = $row;
                 if ($owner === null) {
-                    $with['skip'] = 'no avatar';
+                    $with['skip'] = true;
                 } else {
                     $with['url'] = str_replace('[AGENT_NAME]', $owner, $value);
                 }
@@ -97,9 +122,10 @@ class OpenSim_Health
             }
             $rows[] = $row;
         }
-        $groups[] = ['title' => '[GridInfoService]', 'rows' => $rows];
+        $groups[] = ['file' => $file['robust'], 'title' => '[GridInfoService]', 'rows' => $rows];
 
         $groups[] = [
+            'file' => $file['robust'],
             'title' => '[LoginService]',
             'rows' => [
                 ['label' => 'DestinationGuide', 'url' => $get('LoginService', 'DestinationGuide'), 'method' => 'get'],
@@ -109,15 +135,16 @@ class OpenSim_Health
 
         // What the simulators call (OpenSim.ini): the search, the registration on a directory, the offline messages
         $groups[] = [
+            'file' => $file['opensim'],
             'title' => '[Search]',
-            'rows' => self::api('SearchURL', $get('Search', 'SearchURL'), 'dir_places_query', ['flags' => 0, 'text' => 'health', 'query_start' => '0'], 'API'),
+            'rows' => [self::api('SearchURL', $get('Search', 'SearchURL'), 'dir_places_query', ['flags' => 0, 'text' => 'health', 'query_start' => '0'], 'API')],
         ];
         $rows = [];
         foreach (self::keys($sources, 'DataSnapshot', '/^DATA_SRV_/') as $key => $url) {
             $rows[] = self::bare($key, $url);
         }
-        $groups[] = ['title' => '[DataSnapshot]', 'rows' => $rows ?: [self::bare('DATA_SRV_*', '')]];
-        $groups[] = ['title' => '[Messaging]', 'rows' => [self::bare('OfflineMessageURL', $get('Messaging', 'OfflineMessageURL'))]];
+        $groups[] = ['file' => $file['opensim'], 'title' => '[DataSnapshot]', 'rows' => $rows ?: [self::bare('DATA_SRV_*', '')]];
+        $groups[] = ['file' => $file['opensim'], 'title' => '[Messaging]', 'rows' => [self::bare('OfflineMessageURL', $get('Messaging', 'OfflineMessageURL'))]];
 
         // The key of the currency, where the MoneyServer has it: never shown, only whether the grid has one. Without it the
         // currency is not served, an error for a grid that has a currency
@@ -125,38 +152,34 @@ class OpenSim_Health
         $needed = $module !== '' && $module !== 'betagridlikemoneymodule';
         $has = trim($get('MoneyServer', 'MoneyScriptAccessKey')) !== '';
         $groups[] = [
+            'file' => $file['money'],
             'title' => '[MoneyServer]',
-            'rows' => [
-                ['label' => 'MoneyScriptAccessKey', 'url' => '', 'level' => $has ? 'ok' : ($needed ? 'error' : 'none'), 'status' => $has ? _('defined') : _('not defined'), 'detail' => 'MoneyServer.ini', 'ms' => null],
-            ],
+            'rows' => [['label' => 'MoneyScriptAccessKey', 'url' => '', 'level' => $has ? 'ok' : ($needed ? 'error' : 'none'), 'status' => $has ? _('OK') : ($needed ? _('missing') : ''), 'ms' => null]],
         ];
 
         return $groups;
     }
 
-    /** A service called without its parameters or with the wrong method must refuse. */
+    /** A service that cannot be called without its parameters: asked bare, it must refuse. */
     public static function bare($label, $url, $tag = null)
     {
         return ['label' => $label, 'url' => $url, 'method' => 'get', 'expect' => self::BARE] + ($tag ? ['tag' => $tag] : []);
     }
 
     /**
-     * A service that answers XML-RPC, as two rows: called with the wrong method it refuses, called with parameters that make sense
-     * (and ask for nothing: an avatar that does not exist...) it answers 200.
+     * A service that answers XML-RPC: asked with a call that makes sense, and that asks for nothing (an avatar that does not
+     * exist...), it answers 200.
      *
      * @param  string               $label  what the row is named
      * @param  string               $url    the address of the service
      * @param  string               $call   the method to call
      * @param  array<string,mixed>  $params its parameters, ints and strings
      * @param  string|null          $tag    a short word to tell it from another row of the same label
-     * @return list<array<string,mixed>>
+     * @return array<string,mixed>
      */
     public static function api($label, $url, $call, array $params, $tag = null)
     {
-        return [
-            self::bare($label, $url, $tag),
-            ['label' => $label, 'url' => $url, 'method' => 'xmlrpc', 'body' => self::xmlrpc($call, $params)] + ($tag ? ['tag' => $tag] : []),
-        ];
+        return ['label' => $label, 'url' => $url, 'method' => 'xmlrpc', 'body' => self::xmlrpc($call, $params)] + ($tag ? ['tag' => $tag] : []);
     }
 
     /** The body of a call of XML-RPC, with one struct of ints and strings as parameter. */
@@ -172,10 +195,10 @@ class OpenSim_Health
     }
 
     /**
-     * Ask every address, all at once. A row that has a `probe` is asked there, one that has a `skip` is not asked and says why. An
-     * address is asked where its redirections lead, whatever its certificate: `cert` says it is one this server does not trust, and
-     * the level is then warn at best. What it answers is `level` (ok for a 2xx or a code expected of it, error for anything else,
-     * none when it is not defined), `status` (the HTTP code, or the error of curl) and `ms`.
+     * Ask every address, all at once. A row that has a `probe` is asked there, one that has a `skip` is not asked. An address is
+     * asked where its redirections lead, whatever its certificate: `cert` says it is one this server does not trust, which is not
+     * what counts. What it answers is `level` (ok for a 2xx or a code expected of it, error for anything else, none when it is not
+     * defined), `status` (the HTTP code, OK, or the error of curl) and `ms`.
      *
      * @param  list<array{title:string,rows:list<array<string,mixed>>}> $groups
      * @return list<array{title:string,rows:list<array<string,mixed>>}>
@@ -198,21 +221,17 @@ class OpenSim_Health
                 if (isset($row['level'])) {
                     $verdict = [];
                 } elseif (isset($row['skip'])) {
-                    $verdict = ['level' => 'none', 'status' => $row['skip'], 'ms' => null];
+                    $verdict = ['level' => 'none', 'status' => '', 'ms' => null];
                 } elseif ($result === null) {
                     $verdict = self::verdict(null, '', 0);
                 } else {
                     $verdict = self::verdict($result['code'], $result['error'], $result['ms'], $result['errno'], $row['expect'] ?? []);
-                    // It answers, but with a certificate this server does not trust: a warning, less than an error
+                    // A certificate this server does not trust is told, it does not change what the address answers
                     if ($result['certificate'] !== 0) {
                         $verdict['cert'] = true;
-                        if ($verdict['level'] === 'ok') {
-                            $verdict['level'] = 'warn';
-                        }
                     }
                 }
-                $post = ($row['method'] ?? 'get') === 'xmlrpc' ? ['post' => true] : [];
-                $groups[$g]['rows'][$r] = array_diff_key($row, ['method' => 0, 'probe' => 0, 'skip' => 0, 'expect' => 0, 'body' => 0]) + $post + $verdict + ['ms' => null];
+                $groups[$g]['rows'][$r] = array_diff_key($row, ['method' => 0, 'probe' => 0, 'skip' => 0, 'expect' => 0, 'body' => 0]) + $verdict + ['ms' => null];
             }
         }
 
@@ -302,7 +321,7 @@ class OpenSim_Health
     public static function verdict($code, $error, $ms, $errno = 0, $expect = [])
     {
         if ($code === null) {
-            return ['level' => 'none', 'status' => _('not defined'), 'ms' => null];
+            return ['level' => 'none', 'status' => '', 'ms' => null];
         }
         if ($code === 0) {
             return ['level' => 'error', 'status' => 'cURL ' . _('error') . ' ' . $errno, 'ms' => null, 'detail' => $error];
@@ -315,14 +334,14 @@ class OpenSim_Health
     /** A row for what is there or not, and the file or the thing it is about. */
     public static function row($label, $good, $detail = '')
     {
-        return ['label' => $label, 'url' => '', 'level' => $good ? 'ok' : 'error', 'status' => $good ? _('ok') : _('missing'), 'detail' => $detail, 'ms' => null];
+        return ['label' => $label, 'url' => '', 'level' => $good ? 'ok' : 'error', 'status' => $good ? _('OK') : _('missing'), 'detail' => $detail, 'ms' => null];
     }
 
     /** A row for something that may not be defined: a file or a folder, read where it says. */
     public static function path($label, $path)
     {
         if ($path === '' || $path === null) {
-            return ['label' => $label, 'url' => '', 'level' => 'none', 'status' => _('not defined'), 'ms' => null];
+            return ['label' => $label, 'url' => '', 'level' => 'none', 'status' => '', 'ms' => null];
         }
 
         return self::row($label, is_readable($path), $path);

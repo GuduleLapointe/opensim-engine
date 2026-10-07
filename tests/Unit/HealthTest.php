@@ -54,8 +54,9 @@ describe('An address', function () {
             // No answer is not an answer: the code of the error is, and what it says
             ->and(OpenSim_Health::verdict(0, 'Could not resolve host: x', 0, 6))
             ->toBe(['level' => 'error', 'status' => 'cURL error 6', 'ms' => null, 'detail' => 'Could not resolve host: x'])
+            // An address that is not defined says nothing: it shows
             ->and(OpenSim_Health::verdict(null, '', 0))
-            ->toBe(['level' => 'none', 'status' => 'not defined', 'ms' => null]);
+            ->toBe(['level' => 'none', 'status' => '', 'ms' => null]);
     });
 
     test('is asked, all of them, and the answer is the one of each, where the redirections lead', function () {
@@ -73,7 +74,7 @@ describe('An address', function () {
                     ['label' => 'movedaway', 'url' => $url('redirect404'), 'method' => 'get'],
                     ['label' => 'api', 'url' => $url('200'), 'method' => 'xmlrpc', 'body' => '<x/>'],
                     ['label' => 'probed', 'url' => $url('404'), 'probe' => $url('200'), 'method' => 'get'],
-                    ['label' => 'template', 'url' => $url('404'), 'method' => 'get', 'skip' => 'not asked'],
+                    ['label' => 'template', 'url' => $url('404'), 'method' => 'get', 'skip' => true],
                     ['label' => 'empty', 'url' => '', 'method' => 'get'],
                     ['label' => 'nobody', 'url' => 'http://127.0.0.1:9/', 'method' => 'get'],
                 ],
@@ -96,13 +97,13 @@ describe('An address', function () {
             ->and($by['expected'])
             ->toMatchArray(['level' => 'ok', 'status' => '404'])
             ->and($by['api'])
-            ->toMatchArray(['level' => 'ok', 'post' => true])
+            ->toMatchArray(['level' => 'ok', 'status' => '200'])
             ->and($by['probed'])
             ->toMatchArray(['level' => 'ok', 'url' => $url('404')])
             ->and($by['template'])
-            ->toMatchArray(['level' => 'none', 'status' => 'not asked'])
-            ->and($by['empty']['status'])
-            ->toBe('not defined')
+            ->toMatchArray(['level' => 'none', 'status' => ''])
+            ->and($by['empty'])
+            ->toMatchArray(['level' => 'none', 'status' => ''])
             ->and($by['nobody'])
             ->toMatchArray(['level' => 'error', 'status' => 'cURL error 7'])
             ->and($by['nobody']['detail'])
@@ -111,22 +112,26 @@ describe('An address', function () {
             ->not->toHaveKeys(['method', 'probe', 'skip', 'expect', 'body']);
     });
 
-    test('is asked with both ways of a service: the wrong method must refuse, the right one must answer', function () {
+    test('is asked as the service wants it: a call that makes sense for an API that answers one, bare for one that cannot be called bare', function () {
         [$process, $port] = code_server();
-        $groups = OpenSim_Health::answers([['title' => 'API', 'rows' => OpenSim_Health::api('SearchURL', "http://127.0.0.1:$port/post-only", 'dir_places_query', ['text' => 'a'], 'API')]]);
+        $row = OpenSim_Health::api('SearchURL', "http://127.0.0.1:$port/post-only", 'dir_places_query', ['text' => 'a'], 'API');
+        $bare = OpenSim_Health::bare('OfflineMessageURL', "http://127.0.0.1:$port/post-only");
+        $groups = OpenSim_Health::answers([['title' => 'API', 'rows' => [$row, $bare]]]);
         proc_terminate($process);
-        [$get, $post] = $groups[0]['rows'];
+        [$api, $refused] = $groups[0]['rows'];
 
-        expect($get)
-            ->toMatchArray(['label' => 'SearchURL', 'tag' => 'API', 'status' => '405', 'level' => 'ok'])
-            ->not->toHaveKey('post')
-            ->and($post)
-            ->toMatchArray(['label' => 'SearchURL', 'tag' => 'API', 'status' => '200', 'level' => 'ok', 'post' => true]);
+        // The call that makes sense gets its 200, the bare one is refused (405) and that is what is expected
+        expect($api)
+            ->toMatchArray(['label' => 'SearchURL', 'tag' => 'API', 'status' => '200', 'level' => 'ok'])
+            ->and($refused)
+            ->toMatchArray(['label' => 'OfflineMessageURL', 'status' => '405', 'level' => 'ok'])
+            ->not->toHaveKey('tag');
+        expect($row['body'])->toContain('<methodName>dir_places_query</methodName>');
     });
 });
 
 describe('An address with a certificate this server does not trust', function () {
-    test('answers its code, with a warning and the check of the certificate said apart', function () {
+    test('answers its code, the check of the certificate said apart: what counts is the answer', function () {
         $openssl = trim((string) shell_exec('command -v openssl 2>/dev/null'));
         $dir = sys_get_temp_dir() . '/tls-' . bin2hex(random_bytes(4));
         mkdir($dir);
@@ -149,7 +154,7 @@ describe('An address with a certificate this server does not trust', function ()
         proc_terminate($process);
         $row = $groups[0]['rows'][0];
 
-        expect($code)->toBe(0)->and($row)->toMatchArray(['status' => '200', 'level' => 'warn', 'cert' => true])->not->toHaveKey('note');
+        expect($code)->toBe(0)->and($row)->toMatchArray(['status' => '200', 'level' => 'ok', 'cert' => true])->not->toHaveKey('note');
     })->skip(fn() => trim((string) shell_exec('command -v openssl 2>/dev/null')) === '', 'no openssl to make a certificate');
 });
 
@@ -158,7 +163,7 @@ describe('The sections of a grid', function () {
     $in = fn(array $sections, array $more = []) => ['sources' => ['Robust.HG.ini' => $sections]] + $more;
     $by = fn(array $groups) => array_column(array_map(fn($g) => ['title' => $g['title'], 'rows' => array_column($g['rows'], null, 'label')], $groups), 'rows', 'title');
 
-    test('are named as the ini files do, every address of [GridInfoService] in them, expected ones first', function () use ($in, $by) {
+    test('are by file, named as the ini files do, every address of [GridInfoService] in them, the expected ones first', function () use ($in, $by) {
         $groups = OpenSim_Health::grid(
             $in(
                 [
@@ -177,39 +182,51 @@ describe('The sections of a grid', function () {
         );
         $rows = $by($groups);
 
-        expect(array_column($groups, 'title'))
-            ->toBe(['[GridInfoService]', '[LoginService]', '[Search]', '[DataSnapshot]', '[Messaging]', '[MoneyServer]'])
+        expect(array_map(fn($g) => $g['file'] . ' ' . $g['title'], $groups))
+            ->toBe(['Robust.HG.ini [GridInfoService]', 'Robust.HG.ini [LoginService]', 'OpenSim.ini [Search]', 'OpenSim.ini [DataSnapshot]', 'OpenSim.ini [Messaging]', 'MoneyServer.ini [MoneyServer]'])
+            // The ones of Robust.HG.ini.example, not what the example does not have (uas is the one of a standalone)
             ->and(array_keys($rows['[GridInfoService]']))
-            ->toBe(['login', 'gatekeeper', 'uas', 'welcome', 'economy', 'about', 'register', 'help', 'password', 'SearchURL', 'web_profile_url', 'partner'])
+            ->toBe(['login', 'gatekeeper', 'welcome', 'economy', 'about', 'register', 'help', 'password', 'GridStatus', 'GridStatusRSS', 'web_profile_url', 'SearchURL', 'partner'])
             ->and($rows['[GridInfoService]']['partner']['url'])
             ->toBe('https://partner.example.org/')
             ->and($rows['[GridInfoService]']['about']['url'])
             ->toBe('')
-            // The ini files name them, not the engine: no SearchURL in [LoginService], the two others are there
             ->and(array_keys($rows['[LoginService]']))
             ->toBe(['DestinationGuide', 'MessageUrl'])
             ->and(array_keys($rows['[DataSnapshot]']))
             ->toBe(['DATA_SRV_Alpha']);
     });
 
-    test('tell the two SearchURL apart, the web page and the service the simulators call, and ask each its own way', function () use ($in) {
-        $groups = OpenSim_Health::grid($in(['GridInfoService' => ['SearchURL' => 'https://play.example.org/search/'], 'Search' => ['SearchURL' => 'https://play.example.org/helpers/query.php']]));
-        $web = array_values(array_filter($groups[0]['rows'], fn($row) => $row['label'] === 'SearchURL'));
-        $api = array_values(array_filter($groups[2]['rows'], fn($row) => $row['label'] === 'SearchURL'));
+    test('are in the file of Robust the grid has, whichever it is', function () use ($by) {
+        $file = fn(array $sources) => OpenSim_Health::grid(['sources' => $sources])[0]['file'];
 
+        expect($file(['Robust.ini' => []]))
+            ->toBe('Robust.ini')
+            ->and($file(['sims/one.ini' => [], 'Robust.HG.ini' => []]))
+            ->toBe('Robust.HG.ini')
+            ->and($file([]))
+            ->toBe('Robust.ini');
+    });
+
+    test('tell the two SearchURL apart, the web page in Robust and the service of OpenSim, each in its own section and asked its own way', function () use ($in) {
+        $groups = OpenSim_Health::grid($in(['GridInfoService' => ['SearchURL' => 'https://play.example.org/search/'], 'Search' => ['SearchURL' => 'https://play.example.org/helpers/query.php']]));
+        $search = fn($title) => array_values(array_filter(array_merge(...array_column(array_filter($groups, fn($g) => $g['title'] === $title), 'rows')), fn($row) => $row['label'] === 'SearchURL'));
+        $web = $search('[GridInfoService]');
+        $api = $search('[Search]');
+
+        // One row each: a page that is read, a call that makes sense that is answered
         expect($web)
             ->toHaveCount(1)
             ->and($web[0])
-            ->toMatchArray(['url' => 'https://play.example.org/search/', 'tag' => 'web search', 'method' => 'get'])
+            ->toMatchArray(['url' => 'https://play.example.org/search/', 'tag' => 'Web search', 'method' => 'get'])
             ->and($api)
-            ->toHaveCount(2)
-            // Called with the wrong method it refuses, called with a search it answers
+            ->toHaveCount(1)
             ->and($api[0])
-            ->toMatchArray(['tag' => 'API', 'method' => 'get', 'expect' => [400, 405]])
-            ->and($api[1])
-            ->toMatchArray(['tag' => 'API', 'method' => 'xmlrpc'])
-            ->and($api[1]['body'])
-            ->toContain('<methodName>dir_places_query</methodName>');
+            ->toMatchArray(['url' => 'https://play.example.org/helpers/query.php', 'tag' => 'API', 'method' => 'xmlrpc'])
+            ->and($api[0]['body'])
+            ->toContain('<methodName>dir_places_query</methodName>')
+            ->and(array_column(array_filter($groups, fn($g) => $g['title'] === '[Search]'), 'file'))
+            ->toBe(['OpenSim.ini']);
     });
 
     test('ask the grid info for the addresses of the grid, and expect a teapot where the viewers only add a name', function () use ($in, $by) {
@@ -234,7 +251,7 @@ describe('The sections of a grid', function () {
             ->and($with[1])
             ->toMatchArray(['url' => 'https://play.example.org/profile', 'expect' => [418]]);
 
-        // No account to read: the one with a name is not asked, and says why
+        // No account to read: the one with a name is not asked
         $none = $profile(OpenSim_Health::grid($in($info)));
 
         expect($none[0])->toHaveKey('skip')->and($none[1]['url'])->toBe('https://play.example.org/profile');
@@ -245,13 +262,14 @@ describe('The sections of a grid', function () {
         $key = ['MoneyServer' => ['MoneyScriptAccessKey' => 'a-secret-key']];
 
         expect($row($key))
-            ->toMatchArray(['level' => 'ok', 'status' => 'defined'])
+            ->toMatchArray(['level' => 'ok', 'status' => 'OK'])
             ->and(json_encode($row($key)))
             ->not->toContain('a-secret-key')
             ->and($row(['Economy' => ['economymodule' => 'Gloebit']]))
-            ->toMatchArray(['level' => 'error', 'status' => 'not defined'])
+            ->toMatchArray(['level' => 'error', 'status' => 'missing'])
+            // A grid without a currency needs none, and says nothing
             ->and($row(['Economy' => ['economymodule' => 'BetaGridLikeMoneyModule']]))
-            ->toMatchArray(['level' => 'none', 'status' => 'not defined']);
+            ->toMatchArray(['level' => 'none', 'status' => '']);
     });
 });
 
@@ -267,7 +285,7 @@ describe('What an install needs', function () {
             ->and(OpenSim_Health::files(["$dir/Robust.ini", "$dir/absent.ini"]))
             ->toBe([OpenSim_Health::row('Robust.ini', true, "$dir/Robust.ini")])
             ->and(OpenSim_Health::path('GuideSource', ''))
-            ->toMatchArray(['label' => 'GuideSource', 'status' => 'not defined', 'level' => 'none'])
+            ->toMatchArray(['label' => 'GuideSource', 'status' => '', 'level' => 'none'])
             ->and(OpenSim_Health::path('GuideSource', "$dir/Robust.ini")['level'])
             ->toBe('ok');
     });
