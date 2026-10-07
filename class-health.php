@@ -145,17 +145,19 @@ class OpenSim_Health
                     continue;
                 }
                 $same = isset($live[$key]) && rtrim($live[$key], '/') === rtrim($value, '/');
+                // The profile is one row: the address as the config says it, the link and the test those of the owner of the grid
+                $profile = $key === 'web_profile_url' && $owner !== null && str_contains($value, '[AGENT_NAME]');
+                if ($profile && $same) {
+                    $rows[] = self::profile_row($key, $value, $owner);
+                    continue;
+                }
                 $rows[] = [
                     'label' => $key,
-                    (self::is_url($value) ? 'url' : 'text') => $value,
+                    (self::is_url($value) ? 'url' : 'text') => $profile ? str_replace('[AGENT_NAME]', $owner, $value) : $value,
                     'level' => $same ? 'ok' : 'error',
                     'status' => $same ? _('OK') : _('differs'),
                     'ms' => null,
-                ] + ($key === 'search' ? ['tag' => _('Web search')] : []) + ($same ? [] : ['detail' => 'get_grid_info: ' . ($live[$key] ?? '')]);
-                // The profile of an avatar of the grid (the one the viewers ask), which the comparison does not ask
-                if ($key === 'web_profile_url' && $owner !== null && str_contains($value, '[AGENT_NAME]')) {
-                    $rows[] = self::with_avatar($key, $value, $owner);
-                }
+                ] + ($profile ? ['display' => $value] : []) + ($key === 'search' ? ['tag' => _('Web search')] : []) + ($same ? [] : ['detail' => 'get_grid_info: ' . ($live[$key] ?? '')]);
             }
             $groups[] = ['file' => $file['robust'], 'title' => '[GridInfoService]', 'rows' => $rows];
             $groups[] = [
@@ -233,20 +235,27 @@ class OpenSim_Health
             // The web page of the search, not the service the simulators call
             $row['tag'] = _('Web search');
         } elseif (str_contains($value, '[AGENT_NAME]')) {
-            // Without a name it is not a page, with the name of an avatar it is
+            // What the grid says is the address without the name, which is not a page (a teapot); the one with the name of an avatar
+            // is the one of the config
+            if ($variants) {
+                return [$owner === null ? ['label' => $key, 'url' => '', 'text' => $value, 'level' => 'none', 'status' => '', 'ms' => null] : self::profile_row($key, $value, $owner)];
+            }
             $row['url'] = rtrim((string) preg_replace('#\[AGENT_NAME\].*$#', '', $value), '/');
             $row['expect'] = self::TEAPOT;
 
-            return $variants && $owner !== null ? [self::with_avatar($key, $value, $owner), $row] : [$row];
+            return [$row];
         }
 
         return [$row];
     }
 
-    /** The profile of an avatar, asked with its name. */
-    private static function with_avatar($key, $value, $owner)
+    /**
+     * The profile of an avatar of the grid (its owner): shown as the config says it, with [AGENT_NAME], linked and asked with the
+     * name of the owner.
+     */
+    private static function profile_row($key, $value, $owner)
     {
-        return self::page($key, str_replace('[AGENT_NAME]', $owner, $value), _('with avatar name'));
+        return self::page($key, str_replace('[AGENT_NAME]', $owner, $value)) + ['display' => $value];
     }
 
     /**
@@ -266,22 +275,23 @@ class OpenSim_Health
     }
 
     /**
-     * `[LoginService] SearchURL`, the other way to tell the viewers the web search (at login, and as a feature of the grid): the
-     * same address as `search` of [GridInfoService], which is the real one, else it is a fault of the config. Asked when `search`
-     * says nothing.
+     * `[LoginService] SearchURL`, the documented way to tell the viewers the web search (at login, and as a feature of the grid),
+     * which Firestorm does not receive from there alone: `search` of [GridInfoService] is the real one, the one the checks use.
+     * The same address as `search` is fine and not asked again; another address is the operator's, asked for what it is.
      *
      * @param string $value  SearchURL of [LoginService]
      * @param string $search search of [GridInfoService]
      */
     private static function login_search($value, $search)
     {
-        if ($value === '' || $search === '') {
-            return $value === '' ? self::empty_row('SearchURL') + ['tag' => _('Web search')] : self::page('SearchURL', $value, _('Web search'));
+        if ($value === '') {
+            return self::empty_row('SearchURL') + ['tag' => _('Web search')];
         }
-        $same = rtrim($value, '/') === rtrim($search, '/');
+        if ($search !== '' && rtrim($value, '/') === rtrim($search, '/')) {
+            return ['label' => 'SearchURL', 'url' => $value, 'tag' => _('Web search'), 'level' => 'ok', 'status' => _('OK'), 'ms' => null];
+        }
 
-        return ['label' => 'SearchURL', 'url' => $value, 'tag' => _('Web search'), 'level' => $same ? 'ok' : 'error', 'status' => $same ? _('OK') : _('differs'), 'ms' => null]
-            + ($same ? [] : ['detail' => '[GridInfoService] search: ' . $search]);
+        return self::page('SearchURL', $value, _('Web search'));
     }
 
     /** The row of a setting that has no value: its name, nothing else. */

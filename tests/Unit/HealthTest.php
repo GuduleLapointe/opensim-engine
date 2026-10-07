@@ -242,32 +242,48 @@ describe('The sections of a grid', function () {
         expect(array_column($down[0]['rows'], 'label'))->toBe(['login']);
     });
 
-    test('ask the profile without a name only in what the grid says, which is not a page (a teapot): with the name of an avatar it is asked below, in the config', function () use ($live, $in) {
-        $profile = fn(array $rows) => array_values(array_filter($rows, fn($row) => $row['label'] === 'web_profile_url'));
-        $says = $profile(OpenSim_Health::grid(['live' => $live, 'owner' => 'Jane.Doe'])[0]['rows']);
+    test('ask the profile without a name only in what the grid says, which is not a page (a teapot)', function () use ($live) {
+        $says = array_values(array_filter(OpenSim_Health::grid(['live' => $live, 'owner' => 'Jane.Doe'])[0]['rows'], fn($row) => $row['label'] === 'web_profile_url'));
 
-        // Nothing but the address without the name, whatever there is to ask with
+        // The address without the name, whatever there is to ask with
         expect($says)
             ->toHaveCount(1)
             ->and($says[0])
-            ->toMatchArray(['url' => 'https://play.example.org/profile', 'expect' => [418]]);
+            ->toMatchArray(['url' => 'https://play.example.org/profile', 'expect' => [418]])
+            ->not->toHaveKey('display');
+    });
 
-        // In the config, once compared, the profile of the avatar the grid has
-        $config = OpenSim_Health::grid($in(['GridInfoService' => ['web_profile_url' => 'https://play.example.org/profile/[AGENT_NAME]']], ['live' => $live, 'owner' => 'Jane.Doe']));
-        $rows = $profile($config[1]['rows']);
+    test('ask the profile in one row in the config: shown as the config says it, linked and asked with the name of the owner of the grid', function () use ($live, $in) {
+        $profile = fn(array $groups) => array_values(array_filter($groups[1]['rows'], fn($row) => $row['label'] === 'web_profile_url'));
+        $info = ['GridInfoService' => ['web_profile_url' => 'https://play.example.org/profile/[AGENT_NAME]']];
+        $rows = $profile(OpenSim_Health::grid($in($info, ['live' => $live, 'owner' => 'Jane.Doe'])));
 
         expect($rows)
-            ->toHaveCount(2)
+            ->toHaveCount(1)
             ->and($rows[0])
-            ->toMatchArray(['status' => 'OK', 'url' => 'https://play.example.org/profile/[AGENT_NAME]'])
-            ->and($rows[1])
-            ->toMatchArray(['url' => 'https://play.example.org/profile/Jane.Doe', 'tag' => 'with avatar name', 'method' => 'get'])
-            ->not->toHaveKeys(['skip', 'expect']);
+            ->toMatchArray(['display' => 'https://play.example.org/profile/[AGENT_NAME]', 'url' => 'https://play.example.org/profile/Jane.Doe', 'method' => 'get'])
+            ->not->toHaveKeys(['tag', 'skip', 'expect']);
 
-        // No account to read: no row for it
-        $none = OpenSim_Health::grid($in(['GridInfoService' => ['web_profile_url' => 'https://play.example.org/profile/[AGENT_NAME]']], ['live' => $live]));
+        // The grid does not answer (nothing from get_grid_info): it is asked all the same, in the same row
+        $down = array_values(array_filter(OpenSim_Health::grid($in($info, ['owner' => 'Jane.Doe']))[0]['rows'], fn($row) => $row['label'] === 'web_profile_url'));
 
-        expect($profile($none[1]['rows']))->toHaveCount(1);
+        expect($down)
+            ->toHaveCount(1)
+            ->and($down[0])
+            ->toMatchArray(['display' => 'https://play.example.org/profile/[AGENT_NAME]', 'url' => 'https://play.example.org/profile/Jane.Doe', 'method' => 'get']);
+
+        // What the config says is not what the grid says: an error, the row is still the one of the owner
+        $differs = $profile(OpenSim_Health::grid($in(['GridInfoService' => ['web_profile_url' => 'https://other.example.org/profile/[AGENT_NAME]']], ['live' => $live, 'owner' => 'Jane.Doe'])));
+
+        expect($differs[0])
+            ->toMatchArray(['level' => 'error', 'status' => 'differs', 'display' => 'https://other.example.org/profile/[AGENT_NAME]', 'url' => 'https://other.example.org/profile/Jane.Doe'])
+            ->and($differs[0]['detail'])
+            ->toBe('get_grid_info: https://play.example.org/profile/[AGENT_NAME]');
+
+        // No account to read: the address as it is, not asked
+        $none = $profile(OpenSim_Health::grid($in($info, ['live' => $live])));
+
+        expect($none[0])->toMatchArray(['level' => 'ok', 'status' => 'OK', 'url' => 'https://play.example.org/profile/[AGENT_NAME]']);
     });
 
     test('are asked at /get_grid_info when they are the home of the grid (host:publicport), which answers nothing alone', function () {
@@ -401,7 +417,7 @@ describe('The sections of a grid', function () {
         ]);
     });
 
-    test('compare SearchURL of the login service with search of the grid info: the same is fine, two addresses are a fault of the config, only one is asked', function () use ($in, $live) {
+    test('say SearchURL of the login service fine when it is search of the grid info, and ask it for what it is when it is another address', function () use ($in, $live) {
         $row = function (array $login, array $info) use ($in, $live) {
             $groups = OpenSim_Health::grid($in(['GridInfoService' => $info, 'LoginService' => $login], ['live' => $live]));
             $rows = array_values(array_filter(array_merge(...array_column(array_filter($groups, fn($g) => $g['title'] === '[LoginService]'), 'rows')), fn($r) => $r['label'] === 'SearchURL'));
@@ -412,9 +428,10 @@ describe('The sections of a grid', function () {
         expect($row(['SearchURL' => 'https://play.example.org/search'], ['search' => 'https://play.example.org/search/']))
             ->toMatchArray(['level' => 'ok', 'status' => 'OK'])
             ->not->toHaveKey('method')
+            // Two addresses are allowed (the operator's), each is tested for what it is, and `search` is the one the grid says
             ->and($row(['SearchURL' => 'https://a.example.org/'], ['search' => 'https://b.example.org/']))
-            ->toMatchArray(['level' => 'error', 'status' => 'differs', 'detail' => '[GridInfoService] search: https://b.example.org/'])
-            // Without search it is the only address of the web search the config has: asked
+            ->toMatchArray(['method' => 'get', 'tag' => 'Web search', 'url' => 'https://a.example.org/'])
+            ->not->toHaveKey('level')
             ->and($row(['SearchURL' => 'https://a.example.org/'], []))
             ->toMatchArray(['method' => 'get', 'tag' => 'Web search', 'url' => 'https://a.example.org/'])
             ->and($row([], ['search' => 'https://b.example.org/']))
