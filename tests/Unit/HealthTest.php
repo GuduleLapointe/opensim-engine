@@ -17,6 +17,7 @@ function code_server(): array
         '<?php $path = trim(parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH), "/");
         if ($path === "redirect") { header("Location: /200", true, 308); return; }
         if ($path === "redirect404") { header("Location: /404", true, 308); return; }
+        if ($path === "get_grid_info") { header("Content-Type: text/xml"); echo "<gridinfo><gridname>Alpha</gridname><login>http://play.example.org:8002/</login></gridinfo>"; return; }
         if ($path === "needs-data") { http_response_code(file_get_contents("php://input") === "" && empty($_SERVER["QUERY_STRING"]) ? 400 : 200); return; }
         http_response_code(is_numeric($path) ? (int) $path : 200); echo str_repeat("x", 5000);',
     );
@@ -165,6 +166,22 @@ describe('An address', function () {
             ->toMatchArray(['method' => 'get', 'tag' => 'without data'])
             ->and($registered)
             ->toMatchArray(['method' => 'get', 'tag' => 'with valid query', 'probe' => 'https://play.example.org/helpers/register.php?service=offline&host=x']);
+    });
+});
+
+describe('What a grid says', function () {
+    test('is what it answers at get_grid_info, as it says it, nothing when it does not answer', function () {
+        [$process, $port] = code_server();
+        $says = OpenSim_Health::grid_info("http://127.0.0.1:$port/");
+        $nothing = OpenSim_Health::grid_info("http://127.0.0.1:$port/200");
+        proc_terminate($process);
+
+        expect($says)
+            ->toBe(['gridname' => 'Alpha', 'login' => 'http://play.example.org:8002/'])
+            ->and(OpenSim_Health::grid_info('http://127.0.0.1:9/'))
+            ->toBe([])
+            ->and(OpenSim_Health::grid_info('not an address'))
+            ->toBe([]);
     });
 });
 
@@ -346,7 +363,7 @@ describe('The sections of a grid', function () {
             }
         }
 
-        expect($where)->toBe(['get_grid_info  Web search', 'Robust.HG.ini [GridInfoService] ', 'OpenSim.ini [Search] without data', 'OpenSim.ini [Search] with valid XMLRPC request']);
+        expect($where)->toBe(['get_grid_info  Web search', 'Robust.HG.ini [GridInfoService] Web search', 'OpenSim.ini [Search] without data', 'OpenSim.ini [Search] with valid XMLRPC request']);
     });
 
     test('say whether the grid has the key of its currency, never what it is, and an error for a grid with a currency that has none', function () use ($in, $by) {

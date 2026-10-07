@@ -60,7 +60,9 @@ On Debian and Ubuntu: `sudo apt install php-cli php-curl php-intl php-mbstring p
 
 `OpenSim_Oar` makes, reads and checks OpenSimulator archives (`pack`, `entries`, `info`, `check`, `unpack`).
 
-`OpenSim_Health` checks a grid and gives the result as data, for any page or command that shows it: `grid()` lists the addresses of the ini files by section and setting, `answers()` asks them all at once (code where the redirections lead, time, certificate), `api()` builds the two calls a service must pass (refuse the wrong one, answer the right one), `extensions()` and `files()` say what an install lacks.
+`OpenSim_Config` reads the config of an OpenSim environment into a tree that follows the structure of the ini files, with the files they include and their constants: `OpenSim_Config::from_folder($dir)`, then `$config->get('Robust.GridInfoService.SearchURL')`, `$config->find('GridInfoService', 'SearchURL')` (first file that says it), `$config->section('GridInfoService')`, `$config->tree()`.
+
+`OpenSim_Health` checks a grid and gives the result as data, for any page or command that shows it: `grid()` starts with what the grid says (`get_grid_info`), then lists the addresses of the config by file, section and setting, and compares both; `answers()` asks them all at once (code where the redirections lead, time, certificate); `xmlrpc()`, `post()` and `query()` build the two calls a service must pass (with nothing it must refuse, with what it expects it must answer); `extensions()` and `files()` say what an install lacks.
 
 ## 🛠️ Developer Installation
 

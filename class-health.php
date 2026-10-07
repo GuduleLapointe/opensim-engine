@@ -42,6 +42,39 @@ class OpenSim_Health
     const UNKNOWN_AVATAR = '00000000-0000-4000-8000-000000000000';
 
     /**
+     * What the grid says of itself at its login address (`/get_grid_info`), as it says it: no value is made up. A grid that does
+     * not answer says nothing.
+     *
+     * @param  string $login the login address of the grid
+     * @return array<string,string> key => value, empty when the grid does not answer
+     */
+    public static function grid_info($login)
+    {
+        if (!self::is_url($login)) {
+            return [];
+        }
+        $handle = curl_init(rtrim($login, '/') . '/get_grid_info');
+        curl_setopt_array($handle, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => self::TIMEOUT,
+            CURLOPT_CONNECTTIMEOUT => 2,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS => 5,
+            // What is asked here is what the grid says, whatever its certificate (the checks say it)
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+        ]);
+        $body = curl_exec($handle);
+        $ok = curl_getinfo($handle, CURLINFO_RESPONSE_CODE) === 200;
+        $previous = libxml_use_internal_errors(true);
+        $xml = $ok && is_string($body) ? simplexml_load_string($body) : false;
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+
+        return $xml ? array_map('strval', (array) $xml) : [];
+    }
+
+    /**
      * The names of the files the settings of a grid are in: the one of Robust (Robust.HG.ini, Robust.ini), the one of the
      * simulators and the one of the money server.
      *
@@ -111,7 +144,7 @@ class OpenSim_Health
                     'level' => $same ? 'ok' : 'error',
                     'status' => $same ? _('OK') : _('differs'),
                     'ms' => null,
-                ] + ($same ? [] : ['detail' => 'get_grid_info: ' . ($live[$key] ?? '')]);
+                ] + ($key === 'SearchURL' ? ['tag' => _('Web search')] : []) + ($same ? [] : ['detail' => 'get_grid_info: ' . ($live[$key] ?? '')]);
             }
             $groups[] = ['file' => $file['robust'], 'title' => '[GridInfoService]', 'rows' => $rows];
             $groups[] = [
@@ -170,7 +203,7 @@ class OpenSim_Health
     private static function address($key, $value, $owner)
     {
         if ($value === '') {
-            return [self::empty_row($key)];
+            return [self::empty_row($key) + ($key === 'SearchURL' ? ['tag' => _('Web search')] : [])];
         }
         if (!self::is_url($value)) {
             return [['label' => $key, 'url' => '', 'text' => $value, 'level' => 'none', 'status' => '', 'ms' => null]];
