@@ -1218,7 +1218,8 @@ function opensim_parse_url($url, $default_gatekeeper = null): array
         $parsed['gatekeeper'] = 'http://' . $parsed['host'] . ':' . $parsed['port'];
     }
 
-    $split_path = array_values(array_filter(explode('/', $parsed['path'] ?? '')));
+    // A part that is "0" is a part (a position at the edge of a region), only an empty one is not
+    $split_path = array_values(array_filter(explode('/', $parsed['path'] ?? ''), fn($part) => $part !== ''));
 
     if (count($split_path) > 0) {
         if (!preg_match("/^$e_float$/", $split_path[0])) {

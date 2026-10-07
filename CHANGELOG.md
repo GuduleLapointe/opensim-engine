@@ -7,6 +7,7 @@
 - update: `opensim_db_for()` finds the database of a service (the consumer's `db_for()` when it has one)
 - new: `OpenSim_Config`, the config of an OpenSim environment (includes, constants) as a tree that follows the ini files
 - new: `OpenSim_Health`, the checks of a grid (what it says, the config, each service with and without data) as data
+- fix: `opensim_parse_url()` keeps a zero in a position (`Plaza/0/128/30` lost its first number)
 - update: `osDie()` writes its message and logs only a failure of the server (5xx), `osXmlDie()` answers `text/xml`
 ### 3.0.0-beta.5
 

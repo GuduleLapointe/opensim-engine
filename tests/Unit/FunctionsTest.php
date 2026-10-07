@@ -10,6 +10,13 @@ require_once dirname(__DIR__, 2) . '/includes/functions.php';
 const TP_DESTINATION = 'hg.example.org:8002:My Region/128/64/22';
 
 describe('Destinations', function () {
+    test('keep a position that has a zero in it', function () {
+        expect(opensim_parse_url('grid.example:8002:Plaza/0/128/30')['pos'])
+            ->toBe('0/128/30')
+            ->and(opensim_format_tp('grid.example:8002:Plaza/0/0/30', TPLINK_HOP))
+            ->toBe('hop://grid.example:8002/Plaza/0/0/30');
+    });
+
     test('are read from the forms people write them', function (string $url) {
         $parsed = opensim_parse_url($url);
 
