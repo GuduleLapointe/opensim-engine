@@ -663,16 +663,16 @@
         },
         {
             "name": "magicoli/build-tools",
-            "version": "0.1.2",
+            "version": "0.1.6",
             "source": {
                 "type": "git",
                 "url": "https://github.com/magicoli/build-tools.git",
-                "reference": "c8cb6588af519afb8c307a54f4634a0df9fc5104"
+                "reference": "ff58191f0eebb1cb6e42f533bf0cc49057e09246"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/magicoli/build-tools/zipball/c8cb6588af519afb8c307a54f4634a0df9fc5104",
-                "reference": "c8cb6588af519afb8c307a54f4634a0df9fc5104",
+                "url": "https://api.github.com/repos/magicoli/build-tools/zipball/ff58191f0eebb1cb6e42f533bf0cc49057e09246",
+                "reference": "ff58191f0eebb1cb6e42f533bf0cc49057e09246",
                 "shasum": ""
             },
             "require": {
@@ -697,9 +697,9 @@
             "description": "Build, release and publish a project: Debian packages, zip, GitHub release, apt repository.",
             "support": {
                 "issues": "https://github.com/magicoli/build-tools/issues",
-                "source": "https://github.com/magicoli/build-tools/tree/0.1.2"
+                "source": "https://github.com/magicoli/build-tools/tree/0.1.6"
             },
-            "time": "2026-10-05T21:50:02+00:00"
+            "time": "2026-10-06T06:38:34+00:00"
         },
         {
             "name": "magicoli/pest-failure-summary",
@@ -822,12 +822,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/nikic/PHP-Parser.git",
-                "reference": "651e7a90ca616beba2b9070f91d3a92e53b1f034"
+                "reference": "8d2b672aff65a1a4dbf7936cec27d19f51989412"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/nikic/PHP-Parser/zipball/651e7a90ca616beba2b9070f91d3a92e53b1f034",
-                "reference": "651e7a90ca616beba2b9070f91d3a92e53b1f034",
+                "url": "https://api.github.com/repos/nikic/PHP-Parser/zipball/8d2b672aff65a1a4dbf7936cec27d19f51989412",
+                "reference": "8d2b672aff65a1a4dbf7936cec27d19f51989412",
                 "shasum": ""
             },
             "require": {
@@ -872,7 +872,7 @@
                 "issues": "https://github.com/nikic/PHP-Parser/issues",
                 "source": "https://github.com/nikic/PHP-Parser/tree/master"
             },
-            "time": "2026-09-30T09:52:56+00:00"
+            "time": "2026-10-05T07:07:23+00:00"
         },
         {
             "name": "nunomaduro/collision",
@@ -3666,12 +3666,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/console.git",
-                "reference": "2759090bb3cb2b0b6d855b1ca8c88001936a5396"
+                "reference": "ac3d93e8c4afb9f7dd14bd3223977621ed15b18a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/console/zipball/2759090bb3cb2b0b6d855b1ca8c88001936a5396",
-                "reference": "2759090bb3cb2b0b6d855b1ca8c88001936a5396",
+                "url": "https://api.github.com/repos/symfony/console/zipball/ac3d93e8c4afb9f7dd14bd3223977621ed15b18a",
+                "reference": "ac3d93e8c4afb9f7dd14bd3223977621ed15b18a",
                 "shasum": ""
             },
             "require": {
@@ -3756,7 +3756,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-09-29T20:38:04+00:00"
+            "time": "2026-10-07T08:20:48+00:00"
         },
         {
             "name": "symfony/deprecation-contracts",
@@ -4243,12 +4243,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/process.git",
-                "reference": "016e321bd863ea412b7d8917fabaeec7ff25a812"
+                "reference": "e5247f4a5e0797d232ad8e8e6803aeb341843c83"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/process/zipball/016e321bd863ea412b7d8917fabaeec7ff25a812",
-                "reference": "016e321bd863ea412b7d8917fabaeec7ff25a812",
+                "url": "https://api.github.com/repos/symfony/process/zipball/e5247f4a5e0797d232ad8e8e6803aeb341843c83",
+                "reference": "e5247f4a5e0797d232ad8e8e6803aeb341843c83",
                 "shasum": ""
             },
             "require": {
@@ -4300,7 +4300,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-10-04T14:55:35+00:00"
+            "time": "2026-10-08T16:56:12+00:00"
         },
         {
             "name": "symfony/service-contracts",
@@ -4592,16 +4592,16 @@
         },
         {
             "name": "webmozart/assert",
-            "version": "2.4.1",
+            "version": "2.5.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/webmozarts/assert.git",
-                "reference": "2ccb7c2e821038c03a3e6e1700c570c158c55f70"
+                "reference": "8a163706bbcac613733dba03f51e13b5eb1bb819"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/webmozarts/assert/zipball/2ccb7c2e821038c03a3e6e1700c570c158c55f70",
-                "reference": "2ccb7c2e821038c03a3e6e1700c570c158c55f70",
+                "url": "https://api.github.com/repos/webmozarts/assert/zipball/8a163706bbcac613733dba03f51e13b5eb1bb819",
+                "reference": "8a163706bbcac613733dba03f51e13b5eb1bb819",
                 "shasum": ""
             },
             "require": {
@@ -4652,9 +4652,9 @@
             ],
             "support": {
                 "issues": "https://github.com/webmozarts/assert/issues",
-                "source": "https://github.com/webmozarts/assert/tree/2.4.1"
+                "source": "https://github.com/webmozarts/assert/tree/2.5.0"
             },
-            "time": "2026-06-15T15:31:57+00:00"
+            "time": "2026-10-05T23:14:19+00:00"
         }
     ],
     "aliases": [],
