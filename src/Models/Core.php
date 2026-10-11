@@ -52,6 +52,21 @@ final class Core
         return array_map(static fn(string $d): self => new self($d), [...$releases, ...$others]);
     }
 
+    /**
+     * The cores under a root as the choices of a menu: the folder and the name, in the same order as all().
+     *
+     * @return array<string,string> folder => name
+     */
+    public static function choices(string $root): array
+    {
+        $choices = [];
+        foreach (self::all($root) as $core) {
+            $choices[$core->directory()] = $core->name();
+        }
+
+        return $choices;
+    }
+
     /** The latest core under a root: the newest release, else the last of the others. Null when there is none. */
     public static function latest(string $root): ?self
     {
