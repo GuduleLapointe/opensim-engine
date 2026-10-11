@@ -15,7 +15,7 @@ function xmlrpc_double($method, $params, $app_data)
     return ['method' => $method, 'text' => $params[0]['text'] . '!', 'data' => $app_data];
 }
 
-it('serves a method with the signature of the extension, and answers with what it returns', function () {
+test('serves a method with the signature of the extension, and answers with what it returns', function () {
     $server = xmlrpc_server_create();
     expect(xmlrpc_server_register_method($server, 'dir_places_query', 'xmlrpc_double'))->toBeTrue();
 
@@ -53,7 +53,7 @@ function xmlrpc_prints($method, $params, $app_data)
     echo xmlrpc_encode(['success' => true, 'errorMessage' => '']);
 }
 
-it('gives one document when the method prints its own answer, as the extension does', function () {
+test('gives one document when the method prints its own answer, as the extension does', function () {
     $server = xmlrpc_server_create();
     xmlrpc_server_register_method($server, 'dir_popular_query', 'xmlrpc_prints');
 
@@ -84,7 +84,7 @@ it('gives one document when the method prints its own answer, as the extension d
         ->toContain('<name>success</name>');
 });
 
-it('answers a fault for a method that is not registered', function () {
+test('answers a fault for a method that is not registered', function () {
     $server = xmlrpc_server_create();
     ob_start();
     xmlrpc_server_call_method(
@@ -97,7 +97,7 @@ it('answers a fault for a method that is not registered', function () {
     expect($response)->toContain('<fault>');
 });
 
-it('encodes a value as the XML parameters of a response, like the extension', function () {
+test('encodes a value as the XML parameters of a response, like the extension', function () {
     $xml = xmlrpc_encode(['success' => true]);
 
     expect($xml)->toBeString()->toContain('<params>')->toContain('<name>success</name>');

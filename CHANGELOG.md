@@ -10,6 +10,7 @@
 - new: `OpenSim_Health`, the checks of a grid (what it says, the config, each service with and without data) as data
 - fix: `opensim_parse_url()` keeps a zero in a position (`Plaza/0/128/30` lost its first number)
 - update: `osDie()` writes its message and logs only a failure of the server (5xx), `osXmlDie()` answers `text/xml`
+
 ### 3.0.0-beta.5
 
 - update: `dev/` runs [build-tools](https://github.com/magicoli/build-tools) instead of its own copy of the scripts

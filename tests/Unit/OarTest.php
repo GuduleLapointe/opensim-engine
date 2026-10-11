@@ -34,7 +34,7 @@ function oar_source(): string
     return $dir;
 }
 
-it('packs a folder and reads the archive back', function () {
+test('packs a folder and reads the archive back', function () {
     $dir = oar_source();
     $oar = "$dir.oar";
     OpenSim_Oar::pack($dir, $oar);
@@ -50,7 +50,7 @@ it('packs a folder and reads the archive back', function () {
         ->toBe(6);
 });
 
-it('tells what is in an archive', function () {
+test('tells what is in an archive', function () {
     $dir = oar_source();
     OpenSim_Oar::pack($dir, "$dir.oar");
 
@@ -66,7 +66,7 @@ it('tells what is in an archive', function () {
     ]);
 });
 
-it('unpacks to the same files', function () {
+test('unpacks to the same files', function () {
     $dir = oar_source();
     OpenSim_Oar::pack($dir, "$dir.oar");
     $out = "$dir-out";
@@ -78,14 +78,14 @@ it('unpacks to the same files', function () {
         ->toBe(file_get_contents("$dir/archive.xml"));
 });
 
-it('checks a good archive and finds nothing', function () {
+test('checks a good archive and finds nothing', function () {
     $dir = oar_source();
     OpenSim_Oar::pack($dir, "$dir.oar");
 
     expect(OpenSim_Oar::check("$dir.oar"))->toBe([]);
 });
 
-it('finds what is wrong in an archive', function () {
+test('finds what is wrong in an archive', function () {
     $dir = oar_source();
     file_put_contents("$dir/objects/broken.xml", '<SceneObjectGroup>');
     file_put_contents("$dir/stray.txt", 'x');
@@ -103,7 +103,7 @@ it('finds what is wrong in an archive', function () {
         ->toContain('the archive says assets are included, and has none');
 });
 
-it('refuses what is not an archive', function () {
+test('refuses what is not an archive', function () {
     $file = tempnam(sys_get_temp_dir(), 'oar');
     file_put_contents($file, 'plain text');
 
@@ -113,14 +113,14 @@ it('refuses what is not an archive', function () {
         ->not->toBe([]);
 });
 
-it('refuses a folder without a control file', function () {
+test('refuses a folder without a control file', function () {
     $dir = sys_get_temp_dir() . '/oar-empty-' . bin2hex(random_bytes(4));
     mkdir($dir);
 
     expect(fn() => OpenSim_Oar::pack($dir, "$dir.oar"))->toThrow(RuntimeException::class);
 });
 
-it('refuses an entry that goes out of the folder', function () {
+test('refuses an entry that goes out of the folder', function () {
     $tar = tempnam(sys_get_temp_dir(), 'oar') . '.tar';
     $archive = new PharData($tar);
     $archive->addFromString('archive.xml', '<archive major_version="0" minor_version="8" />');
