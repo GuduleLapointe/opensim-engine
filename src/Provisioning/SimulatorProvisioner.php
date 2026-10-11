@@ -270,17 +270,22 @@ final class SimulatorProvisioner
      */
     private function initArchive(): ?string
     {
-        $dir = dirname(__DIR__, 3) . '/share/ossl-scripts';
-        if (is_file("$dir/fix-parcel-name.oar")) {
-            return "$dir/fix-parcel-name.oar";
+        $source = null;
+        foreach (ResourceRegistry::directories('share/ossl-scripts') as $dir) {
+            if (is_file("$dir/fix-parcel-name.oar")) {
+                return "$dir/fix-parcel-name.oar";
+            }
+            if ($source === null && is_file("$dir/fix-parcel-name-src/archive.xml")) {
+                $source = "$dir/fix-parcel-name-src";
+            }
         }
-        if (!is_file("$dir/fix-parcel-name-src/archive.xml")) {
+        if ($source === null) {
             return null;
         }
         defined('OPENSIM_ENGINE') || define('OPENSIM_ENGINE', true);
         $archive = sys_get_temp_dir() . '/opensim-kit-fix-parcel-name-' . getmypid() . '.oar';
         try {
-            \OpenSim_Oar::pack("$dir/fix-parcel-name-src", $archive);
+            \OpenSim_Oar::pack($source, $archive);
         } catch (\RuntimeException $e) {
             $this->ui->warn($e->getMessage());
 

@@ -156,8 +156,11 @@ final class Ports
     /** @return list<string> every .ini under the OpenSim config roots */
     private static function configFiles(string $etcRoot, string $dataRoot): array
     {
-        $base = dirname(__DIR__, 2);
-        $roots = array_filter(["$base/etc", "$base/config", $etcRoot, $dataRoot]);
+        $roots = [];
+        foreach (\OpenSim\Provisioning\ResourceRegistry::roots() as $base) {
+            array_push($roots, "$base/etc", "$base/config");
+        }
+        $roots = array_filter([...$roots, $etcRoot, $dataRoot]);
 
         $files = [];
         foreach ($roots as $root) {
