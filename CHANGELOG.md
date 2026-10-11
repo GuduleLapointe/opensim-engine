@@ -2,6 +2,9 @@
 
 ### Unreleased
 
+- update: a grid is its services (its Robust), `simulators: true` adds the simulators that depend on it
+- new: `OpenSim\Config` (Layout, IniEditor, IniReader, GridFileService), `OpenSim\Provisioning` (plans, config writers, presets, features, accounts, provisioners), `OpenSim\Archives`, `OpenSim\Network\Ports`
+- new: `OpenSim\Testing` has the test doubles of the machine for the front-ends
 - new: `OpenSim\OpenSim` starts, stops, restarts and reports on grids and simulators (`Models`, `Runtime`, `Console`)
 - new: the namespace `OpenSim\` in `src/` (PSR-4, one class per file): `OpenSim\Network\PortMapping` (the port mapping of the instances: `KickInsideMapper`, UPnP in PHP with `magicoli/kick-inside`, the default; `UpnpcMapper`, the `upnpc` command, the alternative; `PortMappingService`), `OpenSim\Network\InstancePorts`, `OpenSim\Provisioning\Slug`
 ### 3.0.0-beta.6
