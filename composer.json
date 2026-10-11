@@ -23,7 +23,8 @@
         "ext-simplexml": "*",
         "laminas/laminas-escaper": "^2.12@stable",
         "magicoli/opensim-rest-php": "@dev",
-        "phpxmlrpc/phpxmlrpc": "^4.11"
+        "phpxmlrpc/phpxmlrpc": "^4.11",
+        "magicoli/kick-inside": "^0.1.0"
     },
     "require-dev": {
         "dealerdirect/phpcodesniffer-composer-installer": "^1.2",
@@ -47,7 +48,7 @@
     "minimum-stability": "dev",
     "autoload": {
         "psr-4": {
-            "OpenSim\\Engine\\": "src/"
+            "OpenSim\\": "src/"
         },
         "classmap": [
             "class-oar.php",

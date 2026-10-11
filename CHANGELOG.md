@@ -2,6 +2,7 @@
 
 ### Unreleased
 
+- new: the namespace `OpenSim\` in `src/` (PSR-4, one class per file): `OpenSim\Network\PortMapping` (the port mapping of the instances: `KickInsideMapper`, UPnP in PHP with `magicoli/kick-inside`, the default; `UpnpcMapper`, the `upnpc` command, the alternative; `PortMappingService`), `OpenSim\Network\InstancePorts`, `OpenSim\Provisioning\Slug`
 ### 3.0.0-beta.6
 
 Freeze current state before refactor
