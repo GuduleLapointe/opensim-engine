@@ -1,6 +1,8 @@
 ## Changelog
 
-### Unreleased
+### 3.0.0-beta.6
+
+Freeze current state before refactor
 
 - update: the functions the helpers had a copy of are only the engine's, the most complete of both: destinations (`opensim_parse_url`, `opensim_uri`), teleport links, region lookups, XML answers and errors, the currency functions, the XML-RPC polyfill
 - fix: `is_uuid()` accepts `null` when asked, `osDie()` and `osXmlDie()` keep the message on one line, `make_random_guid()` exists
@@ -10,6 +12,18 @@
 - new: `OpenSim_Health`, the checks of a grid (what it says, the config, each service with and without data) as data
 - fix: `opensim_parse_url()` keeps a zero in a position (`Plaza/0/128/30` lost its first number)
 - update: `osDie()` writes its message and logs only a failure of the server (5xx), `osXmlDie()` answers `text/xml`
+- tests: never use it('is ugly'), use test()
+- refactor(functions): the presence session of an avatar and the database of a service are general functions, not the economy's
+- fix(destinations): a zero in a position is a part of it, opensim_parse_url kept only the others
+- feat(health): the profile of the config is one row (shown with [AGENT_NAME], linked and asked with the owner), SearchURL of the login service is asked for what it is when it differs from search
+- feat(health): search is the web search of the grid info, SearchURL of the login service is compared with it
+- feat(health): get_grid_info asks the profile without a name only, the one with an avatar is in the config; the home of the grid is asked at /get_grid_info
+- feat(health): grid_info() asks what the grid says as it says it, the web search tag is on both rows of the Robust SearchURL; docs: OpenSim_Config and OpenSim_Health
+- feat(config): OpenSim_Config reads an OpenSim environment (includes, constants) into a tree that follows the ini files; health starts with get_grid_info, compares it with the config, calls each service with and without data
+- feat(health): checks by file of the config, one row per service, what counts is the answer (a certificate does not change it), nothing said of what is not defined
+- docs(readme): the polyfill is the engine's, OpenSim_Health checks a grid
+- feat(health): OpenSim_Health, the checks of a grid as data for any consumer; osDie logs only server failures, osXmlDie answers text/xml
+- refactor(functions): the functions the helpers copied are the engine's, the most complete of both; tests move here
 
 ### 3.0.0-beta.5
 
