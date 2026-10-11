@@ -14,10 +14,19 @@ final class SystemProcessTable implements ProcessTableInterface
 
     public function all(): array
     {
-        $user = PHP_OS_FAMILY === 'Linux' ? 'uname' : 'user';
-        $output = (string) @shell_exec("ps -axo pid=,$user=,pcpu=,pmem=,rss=,args= 2>/dev/null");
+        return self::parse((string) @shell_exec(self::command() . ' 2>/dev/null'));
+    }
 
-        return self::parse($output);
+    /**
+     * The command that lists the processes. The lines are not cut (`ww`): a command line is cut to the width of the terminal
+     * when ps is not given one, and the width is the COLUMNS of the environment, which a console application sets (80), while an
+     * instance has a long command line.
+     */
+    public static function command(): string
+    {
+        $user = PHP_OS_FAMILY === 'Linux' ? 'uname' : 'user';
+
+        return "ps axww -o pid=,$user=,pcpu=,pmem=,rss=,args=";
     }
 
     /**

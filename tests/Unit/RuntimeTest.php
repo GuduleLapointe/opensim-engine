@@ -114,6 +114,10 @@ describe('The processes', function () {
             ->and($found[0]->runs('/etc/opensim/robust.d/dem'))->toBeFalse();
     });
 
+    test('are listed without cutting their command line, whatever width the environment says', function () {
+        expect(SystemProcessTable::command())->toContain(' axww ')->toContain('args=');
+    });
+
     test('write the log their arguments tell', function () {
         $dir = sys_get_temp_dir() . '/log-' . bin2hex(random_bytes(4));
         mkdir($dir);
