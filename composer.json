@@ -24,7 +24,8 @@
         "laminas/laminas-escaper": "^2.12@stable",
         "magicoli/opensim-rest-php": "@dev",
         "phpxmlrpc/phpxmlrpc": "^4.11",
-        "magicoli/kick-inside": "^0.1.0"
+        "magicoli/kick-inside": "^0.1.0",
+        "symfony/yaml": "^7.4"
     },
     "require-dev": {
         "dealerdirect/phpcodesniffer-composer-installer": "^1.2",
