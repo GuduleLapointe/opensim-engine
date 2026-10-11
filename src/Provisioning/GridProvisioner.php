@@ -89,10 +89,9 @@ final class GridProvisioner
      */
     private function startGrid(GridPlan $plan): void
     {
-        $opensim = dirname(__DIR__, 3) . '/bin/opensim';
         $nick = $plan->gridNick;
 
-        [$code, $said] = ShellService::runShown(ShellService::arg($opensim) . ' restart ' . ShellService::arg($nick));
+        [$code, $said] = InstanceControl::run($this->ui, 'restart', $nick);
         // The launcher waits for the ready signal in the console. After its
         // delay it says the instance is still starting, and succeeds: a
         // healthy Robust is ready within a minute, so that is a failure too.
@@ -108,10 +107,10 @@ final class GridProvisioner
                 ? sprintf(
                     _("Grid '%s' is configured but was not ready after two minutes. Try: %s -v start %s"),
                     $nick,
-                    $opensim,
+                    'opensim',
                     $nick,
                 )
-                : sprintf(_("Grid '%s' is configured but did not start. Try: %s -v start %s"), $nick, $opensim, $nick),
+                : sprintf(_("Grid '%s' is configured but did not start. Try: %s -v start %s"), $nick, 'opensim', $nick),
         );
         $log = $plan->logsDirectory . '/' . $plan->gridSlug . '_robust.log';
         if (is_file($log)) {

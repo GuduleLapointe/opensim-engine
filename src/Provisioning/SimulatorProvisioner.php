@@ -129,14 +129,12 @@ final class SimulatorProvisioner
      */
     private function startSim(SimPlan $plan, GridInfo $grid, array $profile): void
     {
-        $opensim = dirname(__DIR__, 3) . '/bin/opensim';
 
         // A region registers with the grid when it starts: the grid has to run (when
         // it is ours: a Robust on another machine is its administrator's)
         if (!$grid->remote) {
             // Robust reads the roles of its regions when it starts: it starts again to give them
-            $action = $plan->regionRoles !== [] ? 'restart now' : 'start';
-            [$code] = ShellService::runShown(ShellService::arg($opensim) . " $action " . ShellService::arg($grid->nick));
+            [$code] = InstanceControl::run($this->ui, $plan->regionRoles !== [] ? 'restart' : 'start', $grid->nick, true);
             if ($code !== 0) {
                 $this->failed(
                     $plan,
@@ -145,7 +143,7 @@ final class SimulatorProvisioner
                             "The grid '%s' is not running, and a simulator cannot start without it. Enable and start it first: %s -v start %s",
                         ),
                         $grid->nick,
-                        $opensim,
+                        'opensim',
                         $grid->nick,
                     ),
                 );
@@ -154,7 +152,7 @@ final class SimulatorProvisioner
 
         // The simulator restarts at once, unless its users are to be warned first (see opensim restart)
         $now = $plan->warnUsers ? '' : 'now ';
-        [$code, $said] = ShellService::runShown(ShellService::arg($opensim) . " restart $now" . ShellService::arg($plan->slug));
+        [$code, $said] = InstanceControl::run($this->ui, 'restart', $plan->slug, $now !== '');
         $pending = $code === 0 && str_contains($said, 'still starting');
         if ($code === 0 && !$pending) {
             if ($plan->createRegion && !$grid->remote && !$this->registered($plan, $grid)) {
@@ -196,8 +194,8 @@ final class SimulatorProvisioner
         $this->failed(
             $plan,
             $pending
-                ? "Simulator '{$plan->simName}' is configured but was not ready after two minutes. Try: $opensim -v start {$plan->slug}"
-                : "Simulator '{$plan->simName}' is configured but did not start. Try: $opensim -v start {$plan->slug}",
+                ? "Simulator '{$plan->simName}' is configured but was not ready after two minutes. Try: opensim -v start {$plan->slug}"
+                : "Simulator '{$plan->simName}' is configured but did not start. Try: opensim -v start {$plan->slug}",
         );
     }
     private function failed(SimPlan $plan, string $message): never
@@ -437,14 +435,13 @@ final class SimulatorProvisioner
     /** Robust gives the roles to a region when it registers, from its config read when it starts. */
     private function restartGrid(GridInfo $grid): void
     {
-        $opensim = dirname(__DIR__, 3) . '/bin/opensim';
-        [$code] = ShellService::runShown(ShellService::arg($opensim) . ' restart now ' . ShellService::arg($grid->nick));
+        [$code] = InstanceControl::run($this->ui, 'restart', $grid->nick, true);
         if ($code !== 0) {
             $this->ui->warn(
                 sprintf(
                     _("The grid '%s' did not restart: try %s -v restart now %s"),
                     $grid->nick,
-                    $opensim,
+                    'opensim',
                     $grid->nick,
                 ),
             );

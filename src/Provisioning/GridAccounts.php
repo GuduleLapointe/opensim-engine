@@ -105,7 +105,6 @@ final class GridAccounts
      */
     public function create(GridInfo $grid, string $name, string $password, string $email): bool
     {
-        $opensim = dirname(__DIR__, 3) . '/bin/opensim';
         $instance = $grid->robustInstance();
         // The answers of the prompts that follow: the email, a random ID, the default model
         // The console cuts a line at the spaces, except between double quotes
@@ -115,7 +114,7 @@ final class GridAccounts
 
         if (!InstanceConsoleService::send($instance, $lines)) {
             $this->ui->note(sprintf(_("Starting the grid '%s' to create the account."), $grid->nick));
-            [$code] = ShellService::runShown(ShellService::arg($opensim) . ' start ' . ShellService::arg($grid->nick));
+            [$code] = InstanceControl::run($this->ui, 'start', $grid->nick);
             if ($code !== 0 || !InstanceConsoleService::send($instance, $lines)) {
                 $this->ui->error(
                     sprintf(_("Could not reach the console of the grid '%s' to create the account."), $grid->nick),
