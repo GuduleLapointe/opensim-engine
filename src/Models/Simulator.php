@@ -1,0 +1,46 @@
+<?php
+
+declare(strict_types=1);
+
+namespace OpenSim\Models;
+
+/**
+ * A simulator: one process that runs one or several regions of a grid.
+ */
+final class Simulator extends Instance
+{
+    public function type(): string
+    {
+        return 'opensim';
+    }
+
+    public function assembly(): string
+    {
+        return 'OpenSim';
+    }
+
+    public static function enabledFolder(): string
+    {
+        return 'opensim.d';
+    }
+
+    protected function consolePortKeys(): array
+    {
+        return ['console_port', 'consoleport'];
+    }
+
+    /** The folder of the descriptions of its regions, empty when its config does not say where they are. */
+    public function regionsDirectory(): string
+    {
+        return rtrim($this->launchSetting('regionload_regionsdir'), '/');
+    }
+
+    /** Whether it has a region to load: a region file in its regions folder. One without waits for the answers of a region to create. */
+    public function hasRegion(): bool
+    {
+        $dir = $this->regionsDirectory();
+
+        // A simulator that does not say where its regions are (one made by hand) is left alone
+        return $dir === '' || glob("$dir/*.ini") !== [];
+    }
+}

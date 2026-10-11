@@ -1,0 +1,282 @@
+<?php
+
+declare(strict_types=1);
+
+namespace OpenSim\Models;
+
+use OpenSim\Console\ConsoleInterface;
+use OpenSim\Network\InstancePorts;
+use OpenSim\Runtime\Environment;
+use OpenSim\Runtime\LogFile;
+use OpenSim\Runtime\Process;
+use OpenSim\Runtime\Result;
+use OpenSim\Runtime\StartService;
+use OpenSim\Runtime\StopService;
+
+/**
+ * A process of OpenSimulator described by a config file: a Robust, or a simulator. It is what is started, stopped and talked
+ * to; the grid it belongs to is only where its files are.
+ *
+ * The config file is the one the instance runs with (`-inifile=`): the link in `opensim.d` or `robust.d` of an enabled
+ * instance, which is where the launcher found it, else the file itself.
+ */
+abstract class Instance
+{
+    /** The sections the launcher reads its settings in, the last that says one wins. */
+    private const LAUNCH_SECTIONS = ['Const', 'Launch', 'Startup', 'Network'];
+
+    /** @var ?array<string,array<string,string>> */
+    private ?array $settings = null;
+
+    private readonly string $name;
+
+    public function __construct(
+        protected readonly Environment $environment,
+        private readonly string $ini,
+        ?string $name = null,
+    ) {
+        $this->name = self::cleanName($name ?? basename($ini, '.ini'));
+    }
+
+    /** `robust` or `opensim`. */
+    abstract public function type(): string;
+
+    /** The base name of the assembly it runs: Robust, OpenSim. */
+    abstract public function assembly(): string;
+
+    /** The base name of the assembly to run: the one its config names (`Executable`), else the one of its kind. */
+    public function executableBase(): string
+    {
+        $executable = $this->launchSetting('executable', 'Executable');
+
+        return $executable !== '' ? (string) preg_replace('/\.(exe|dll)$/', '', basename($executable)) : $this->assembly();
+    }
+
+    /** The name an instance has: lower case, letters, digits and underscores (the name of its screen session). */
+    public static function cleanName(string $name): string
+    {
+        return (string) preg_replace('/[^a-z0-9_]+/', '', strtolower($name));
+    }
+
+    public function name(): string
+    {
+        return $this->name;
+    }
+
+    /** The config file the instance runs with. */
+    public function ini(): string
+    {
+        return $this->ini;
+    }
+
+    public function environment(): Environment
+    {
+        return $this->environment;
+    }
+
+    /**
+     * The settings of its config, the files it includes read the way OpenSimulator reads them.
+     *
+     * @return array<string,array<string,string>> section => key => value
+     */
+    public function settings(): array
+    {
+        return $this->settings ??= \OpenSim_Config::read($this->ini);
+    }
+
+    /** One setting of a section, case of the key as written; empty when the config does not say it. */
+    public function setting(string $section, string $key): string
+    {
+        return trim((string) ($this->settings()[$section][$key] ?? ''));
+    }
+
+    /**
+     * A setting of the launcher, by the first of these names the config says (the case matters, as in the ini): [Const],
+     * [Launch], [Startup] and [Network] are looked in, the last that has it wins.
+     */
+    public function launchSetting(string ...$names): string
+    {
+        foreach ($names as $name) {
+            $found = '';
+            foreach (self::LAUNCH_SECTIONS as $section) {
+                $value = trim((string) ($this->settings()[$section][$name] ?? ''));
+                $found = $value !== '' ? $value : $found;
+            }
+            if ($found !== '') {
+                return $found;
+            }
+        }
+
+        return '';
+    }
+
+    /** The folder of its grid (`<etc>/grids/<nick>`), null for a config that is not in one. */
+    public function gridDirectory(): ?string
+    {
+        $real = realpath($this->ini);
+        if ($real === false) {
+            return null;
+        }
+        $dir = dirname($real);
+        $dir = basename($dir) === 'sims' ? dirname($dir) : $dir;
+
+        return basename(dirname($dir)) === 'grids' ? $dir : null;
+    }
+
+    /** The grid it belongs to, null for a config that is not in the folder of one. */
+    public function grid(): ?Grid
+    {
+        $dir = $this->gridDirectory();
+
+        return $dir === null ? null : Grid::at($this->environment, $dir);
+    }
+
+    /**
+     * The core it runs from: the one it names (BinDirectory), else the one chosen for its grid (`CoreDirectory` in
+     * `<nick>.conf`), else the one of the install.
+     */
+    public function core(): ?Core
+    {
+        $bin = $this->launchSetting('BinDirectory') ?: $this->launchSetting('BinDir');
+        if ($bin !== '') {
+            return Core::ofBin($bin);
+        }
+        if (($grid = $this->gridDirectory()) !== null) {
+            $conf = \OpenSim_Config::read("$grid/" . basename($grid) . '.conf')['Grid'] ?? [];
+            if (trim((string) ($conf['CoreDirectory'] ?? '')) !== '') {
+                return Core::at(trim($conf['CoreDirectory']));
+            }
+        }
+
+        return $this->environment->layout->core();
+    }
+
+    /**
+     * Its remote console: the port, a user and a password make one. Null when it has none (it runs in a screen session).
+     *
+     * @return array{port:int,user:string,password:string}|null
+     */
+    public function remoteConsole(): ?array
+    {
+        $port = $this->launchSetting(...$this->consolePortKeys());
+        $user = $this->launchSetting('ConsoleUser', 'consoleuser');
+        $password = $this->launchSetting('ConsolePass', 'consolepass');
+        if (!ctype_digit($port) || (int) $port < 1 || $user === '' || $password === '') {
+            return null;
+        }
+
+        return ['port' => (int) $port, 'user' => $user, 'password' => $password];
+    }
+
+    /** @return list<string> the keys of the port of its console, by order of preference */
+    abstract protected function consolePortKeys(): array;
+
+    /** The folder of `etc` where the enabled instances of its kind are linked: `robust.d`, `opensim.d`. */
+    abstract public static function enabledFolder(): string;
+
+    /** The link that enables it: a config linked in the enabled folder, where the launcher finds it. */
+    public function link(): string
+    {
+        return rtrim($this->environment->layout->etcRoot(), '/') . '/' . static::enabledFolder() . '/' . $this->linkName() . '.ini';
+    }
+
+    /** The name of its link: the name of its config file, or of its grid for a Robust. */
+    protected function linkName(): string
+    {
+        return basename($this->ini, '.ini');
+    }
+
+    public function isEnabled(): bool
+    {
+        return is_link($this->link()) || is_file($this->link());
+    }
+
+    /** Link its config where the launcher finds it, so that it starts with the others. */
+    public function enable(): bool
+    {
+        $target = realpath($this->ini) ?: $this->ini;
+        if (!is_file($target) || $target === $this->link()) {
+            return false;
+        }
+        $link = $this->link();
+        if (!is_dir(dirname($link)) && !mkdir(dirname($link), 0o755, true) && !is_dir(dirname($link))) {
+            return false;
+        }
+        if (is_link($link) || is_file($link)) {
+            unlink($link);
+        }
+
+        return symlink($target, $link);
+    }
+
+    /** Stop it from starting with the others. A running instance is not stopped. */
+    public function disable(): void
+    {
+        if (is_link($this->link()) || is_file($this->link())) {
+            unlink($this->link());
+        }
+    }
+
+    public function console(): ConsoleInterface
+    {
+        return $this->environment->consoles->for($this);
+    }
+
+    /** The ports it listens on (see InstancePorts). */
+    public function ports(): array
+    {
+        return InstancePorts::of($this->ini);
+    }
+
+    /** The folder its logs are in: the one it names, else the one of its includes, else the one of the install. */
+    public function logsDirectory(): string
+    {
+        $common = str_replace(['${Launch|SimName}', '${Launch|MachineName}'], $this->name, $this->setting('Const', 'LogsRoot'));
+
+        return $this->launchSetting('LogsDirectory') ?: ($common ?: $this->environment->layout->logsRoot());
+    }
+
+    /** The log file of the instance, as far as its config tells (its log config may say another). */
+    public function logFile(): LogFile
+    {
+        return new LogFile($this->launchSetting('LogFile') ?: $this->logsDirectory() . '/' . $this->name . '.log');
+    }
+
+    /** The process of the instance, null when it does not run. */
+    public function process(): ?Process
+    {
+        $real = realpath($this->ini) ?: $this->ini;
+        foreach ($this->environment->processes->all() as $process) {
+            if ($process->runs($this->ini) || $process->runs($real)) {
+                return $process;
+            }
+        }
+
+        return null;
+    }
+
+    /** Whether it runs: its process, or its screen session (which comes first). */
+    public function isRunning(): bool
+    {
+        return $this->environment->consoles->sessionExists($this->name) || $this->process() !== null;
+    }
+
+    public function start(): Result
+    {
+        return (new StartService($this->environment))->start($this);
+    }
+
+    /** @param bool $now stop without warning the users */
+    public function stop(bool $now = false): Result
+    {
+        return (new StopService($this->environment))->stop($this, $now);
+    }
+
+    /** @param bool $now stop without warning the users */
+    public function restart(bool $now = false): Result
+    {
+        $this->stop($now);
+
+        return $this->start();
+    }
+}
