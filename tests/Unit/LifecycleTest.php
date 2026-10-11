@@ -228,8 +228,9 @@ describe('Stopping a simulator', function () {
 });
 
 describe('Starting and stopping what a name means', function () {
-    test('a grid starts its Robust first, then its simulators', function () {
-        $machine = new Machine();
+    /** What a Robust and a region write in their log when they come up. */
+    function demo_machine_ready(Machine $machine): void
+    {
         $machine->launcher->behavior = function ($spec) use ($machine) {
             $lines = match ($spec->name) {
                 'demo' => ['[SERVER]: AssetServiceConnector loaded successfully', '[SERVER]: GridServiceConnector loaded successfully'],
@@ -237,15 +238,30 @@ describe('Starting and stopping what a name means', function () {
             };
             file_put_contents($machine->root . "/logs/{$spec->name}.log", implode("\n", $lines) . "\n", FILE_APPEND);
         };
+    }
+
+    test('a grid is its services: only its Robust starts', function () {
+        $machine = new Machine();
+        demo_machine_ready($machine);
 
         $results = OpenSim::start('demo', $machine->environment);
+
+        expect(array_map(static fn($r): string => $r->instance . ':' . $r->outcome->value, $results))->toBe(['demo:started']);
+    });
+
+    test('a grid starts its Robust first, then its simulators, when they are asked', function () {
+        $machine = new Machine();
+        demo_machine_ready($machine);
+
+        $results = OpenSim::start('demo', $machine->environment, simulators: true);
 
         expect(array_map(static fn($r): string => $r->instance . ':' . $r->outcome->value, $results))
             ->toBe(['demo:started', 'alpha:started', 'beta:started']);
     });
 
-    test('a grid stops its simulators first, then its Robust', function () {
-        $machine = new Machine();
+    /** Every instance of the machine runs, and shuts down when its console is told so. */
+    function demo_machine_running(Machine $machine): void
+    {
         foreach (['robust.d/demo', 'opensim.d/alpha', 'opensim.d/beta'] as $link) {
             $machine->processes->add('dotnet X.dll -inifile=' . $machine->etc . "/$link.ini");
         }
@@ -258,23 +274,51 @@ describe('Starting and stopping what a name means', function () {
                 }
             };
         }
+    }
+
+    test('a grid stops its Robust alone, the simulators go on', function () {
+        $machine = new Machine();
+        demo_machine_running($machine);
 
         $results = OpenSim::stop('demo', true, $machine->environment);
+
+        expect(array_map(static fn($r): string => $r->instance, $results))->toBe(['demo'])
+            ->and(count($machine->processes->all()))->toBe(2);
+    });
+
+    test('a grid stops its simulators first, then its Robust, when they are asked', function () {
+        $machine = new Machine();
+        demo_machine_running($machine);
+
+        $results = OpenSim::stop('demo', true, $machine->environment, simulators: true);
 
         expect(array_map(static fn($r): string => $r->instance, $results))->toBe(['alpha', 'beta', 'demo']);
     });
 
-    test('robust: names the Robust of a grid alone', function () {
+    test('a grid restarts its Robust alone, or with its simulators', function () {
         $machine = new Machine();
-        $found = OpenSim::find($machine->environment, 'robust:demo');
+        demo_machine_running($machine);
+        demo_machine_ready($machine);
 
-        expect(array_map(static fn($i): string => $i->name(), $found))->toBe(['demo']);
+        $alone = OpenSim::restart('demo', true, $machine->environment);
+        expect(array_map(static fn($r): string => $r->instance, $alone))->toBe(['demo']);
+
+        $all = OpenSim::restart('demo', true, $machine->environment, simulators: true);
+        expect(array_map(static fn($r): string => $r->instance, $all))->toBe(['demo', 'alpha', 'beta']);
+    });
+
+    test('a config file names one instance', function () {
+        $machine = new Machine();
+
+        expect(OpenSim::instance($machine->environment, $machine->grid . '/Robust.HG.ini')?->type())
+            ->toBe('robust')
+            ->and(OpenSim::instance($machine->environment, $machine->grid . '/sims/alpha.ini')?->type())->toBe('opensim');
     });
 
     test('a simulator is found by its name', function () {
         $machine = new Machine();
 
-        expect(array_map(static fn($i): string => $i->name(), OpenSim::find($machine->environment, 'beta')))->toBe(['beta']);
+        expect(OpenSim::instance($machine->environment, 'beta')?->name())->toBe('beta');
     });
 
     test('a name that is nothing is a failed result, said', function () {

@@ -17,10 +17,12 @@ use OpenSim\Runtime\Status;
 
 /**
  * The entry point of the front-ends (the command line, the administration, WordPress): what they ask of this machine, by the
- * name of what they mean. A target is a grid (`vonda`: its Robust and its simulators), a simulator (`vonda_welcome`), the Robust
- * of a grid alone (`robust:vonda`), a config file; none means every enabled instance.
+ * name of what they mean. A target is a grid (`vonda`: the services of the grid, its Robust), a simulator (`vonda_welcome`), a
+ * config file; none means every enabled instance. Restarting the services of a grid does not need its simulators to restart:
+ * they are included when `simulators` is asked.
  *
- *     OpenSim::start('vonda');
+ *     OpenSim::start('vonda');                          // the Robust of the grid
+ *     OpenSim::restart('vonda', simulators: true);      // and the simulators that depend on it
  *     OpenSim::stop('vonda_welcome', now: true);
  *     OpenSim::status()->up();
  *
@@ -38,13 +40,14 @@ final class OpenSim
      * Start what the targets name, Robust first. An instance that runs is left alone.
      *
      * @param string|list<string>|null $targets none for every enabled instance
+     * @param bool $simulators the enabled simulators of the grids named are started too
      * @return list<Result>
      */
-    public static function start(string|array|null $targets = null, ?Environment $environment = null): array
+    public static function start(string|array|null $targets = null, ?Environment $environment = null, bool $simulators = false): array
     {
         $environment ??= self::environment();
         $results = [];
-        foreach (self::resolve($environment, $targets, $results) as $instance) {
+        foreach (self::resolve($environment, $targets, $results, $simulators) as $instance) {
             $result = $instance->start();
             $results[] = $result;
         }
@@ -57,13 +60,14 @@ final class OpenSim
      *
      * @param string|list<string>|null $targets none for every enabled instance
      * @param bool $now stop without warning the users
+     * @param bool $simulators the enabled simulators of the grids named are stopped too
      * @return list<Result>
      */
-    public static function stop(string|array|null $targets = null, bool $now = false, ?Environment $environment = null): array
+    public static function stop(string|array|null $targets = null, bool $now = false, ?Environment $environment = null, bool $simulators = false): array
     {
         $environment ??= self::environment();
         $results = [];
-        foreach (self::stopOrder(self::resolve($environment, $targets, $results)) as $instance) {
+        foreach (self::stopOrder(self::resolve($environment, $targets, $results, $simulators)) as $instance) {
             $results[] = $instance->stop($now);
         }
 
@@ -75,13 +79,14 @@ final class OpenSim
      *
      * @param string|list<string>|null $targets none for every enabled instance
      * @param bool $now stop without warning the users
+     * @param bool $simulators the enabled simulators of the grids named restart too
      * @return list<Result>
      */
-    public static function restart(string|array|null $targets = null, bool $now = false, ?Environment $environment = null): array
+    public static function restart(string|array|null $targets = null, bool $now = false, ?Environment $environment = null, bool $simulators = false): array
     {
         $environment ??= self::environment();
         $results = [];
-        $instances = self::resolve($environment, $targets, $results);
+        $instances = self::resolve($environment, $targets, $results, $simulators);
         foreach (self::stopOrder($instances) as $instance) {
             $instance->stop($now);
         }
@@ -142,27 +147,7 @@ final class OpenSim
     }
 
     /**
-     * The instances a target names, in the order they start: a grid is its Robust and its simulators, anything else is one
-     * instance (see instance()).
-     *
-     * @return list<Instance>|null null when the target is none of them
-     */
-    public static function find(Environment $environment, string $target): ?array
-    {
-        $target = trim($target);
-        // A grid: its Robust and its simulators
-        if ($target !== '' && !str_ends_with($target, '.ini') && !str_starts_with($target, 'robust:')
-            && ($grid = Grid::find($environment, $target)) !== null && $grid->instances() !== []) {
-            return $grid->instances();
-        }
-        $instance = self::instance($environment, $target);
-
-        return $instance === null ? null : [$instance];
-    }
-
-    /**
-     * One instance by what names it: a config file, `robust:<grid>` (the Robust of a grid), or the name of an enabled instance
-     * (the one of a grid is its Robust).
+     * One instance by what names it: a config file, or the name of an enabled instance (the one of a grid is its Robust).
      */
     public static function instance(Environment $environment, string $target): ?Instance
     {
@@ -175,12 +160,6 @@ final class OpenSim
             $real = realpath($target) ?: $target;
 
             return str_contains(strtolower($target), 'robust') ? new Robust($environment, $real) : new Simulator($environment, $real);
-        }
-        // The Robust of a grid alone
-        if (str_starts_with($target, 'robust:')) {
-            $robust = Grid::find($environment, substr($target, 7))?->robust();
-
-            return $robust !== null && $robust->isEnabled() ? $robust : null;
         }
         $name = Instance::cleanName($target);
         foreach (self::enabled($environment) as $instance) {
@@ -197,9 +176,10 @@ final class OpenSim
      *
      * @param string|list<string>|null $targets
      * @param list<Result> $results where the targets that name nothing are told
+     * @param bool $simulators the enabled simulators of the grids named come after their Robust
      * @return list<Instance>
      */
-    private static function resolve(Environment $environment, string|array|null $targets, array &$results): array
+    private static function resolve(Environment $environment, string|array|null $targets, array &$results, bool $simulators = false): array
     {
         $targets = array_values(array_filter((array) $targets, static fn($t): bool => trim((string) $t) !== ''));
         if ($targets === []) {
@@ -207,8 +187,14 @@ final class OpenSim
         }
         $instances = [];
         $seen = [];
+        $add = static function (Instance $instance) use (&$instances, &$seen): void {
+            if (!isset($seen[$instance->name()])) {
+                $seen[$instance->name()] = true;
+                $instances[] = $instance;
+            }
+        };
         foreach ($targets as $target) {
-            $found = self::find($environment, (string) $target);
+            $found = self::instance($environment, (string) $target);
             if ($found === null) {
                 $message = 'no ini file found for ' . $target;
                 $environment->reporter->error($message);
@@ -216,10 +202,10 @@ final class OpenSim
 
                 continue;
             }
-            foreach ($found as $instance) {
-                if (!isset($seen[$instance->name()])) {
-                    $seen[$instance->name()] = true;
-                    $instances[] = $instance;
+            $add($found);
+            if ($simulators && $found instanceof Robust) {
+                foreach ($found->grid()?->enabledSimulators() ?? [] as $simulator) {
+                    $add($simulator);
                 }
             }
         }

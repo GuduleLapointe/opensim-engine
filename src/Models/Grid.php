@@ -12,7 +12,8 @@ use OpenSim\Runtime\Result;
  * its simulators (`sims/<name>.ini`). A grid is run from this machine (its Robust, its simulators) or only described here, its
  * Robust being elsewhere.
  *
- * Starting a grid starts its Robust, then its simulators; stopping it stops its simulators, then its Robust.
+ * The services of a grid (its Robust) start, stop and restart on their own: its simulators do not need to restart with them.
+ * They are included when asked, and then stop first and start last.
  */
 final class Grid
 {
@@ -158,26 +159,26 @@ final class Grid
     }
 
     /**
-     * The instances to run, in the order they start: its Robust, then its enabled simulators.
+     * The instances to run, in the order they start: its Robust, then, when asked, its enabled simulators.
      *
      * @return list<Instance>
      */
-    public function instances(): array
+    public function instances(bool $simulators = false): array
     {
         $robust = $this->robust();
 
-        return [...($robust !== null && $robust->isEnabled() ? [$robust] : []), ...$this->enabledSimulators()];
+        return [...($robust !== null && $robust->isEnabled() ? [$robust] : []), ...($simulators ? $this->enabledSimulators() : [])];
     }
 
     /**
-     * Start the grid: its Robust, then its simulators. A simulator is not started when Robust did not come up.
+     * Start the services of the grid, then its simulators when asked. A simulator is not started when Robust did not come up.
      *
      * @return list<Result>
      */
-    public function start(): array
+    public function start(bool $simulators = false): array
     {
         $results = [];
-        foreach ($this->instances() as $instance) {
+        foreach ($this->instances($simulators) as $instance) {
             $result = $instance->start();
             $results[] = $result;
             if ($instance instanceof Robust && !$result->ok()) {
@@ -189,22 +190,22 @@ final class Grid
     }
 
     /**
-     * Stop the grid: its simulators, then its Robust.
+     * Stop the services of the grid, its simulators first when asked.
      *
      * @return list<Result>
      */
-    public function stop(bool $now = false): array
+    public function stop(bool $now = false, bool $simulators = false): array
     {
-        return array_map(static fn(Instance $i): Result => $i->stop($now), array_reverse($this->instances()));
+        return array_map(static fn(Instance $i): Result => $i->stop($now), array_reverse($this->instances($simulators)));
     }
 
     /**
-     * Restart the grid: everything stops, then everything starts.
+     * Restart the services of the grid, and its simulators when asked: everything stops, then everything starts.
      *
      * @return list<Result>
      */
-    public function restart(bool $now = false): array
+    public function restart(bool $now = false, bool $simulators = false): array
     {
-        return [...$this->stop($now), ...$this->start()];
+        return [...$this->stop($now, $simulators), ...$this->start($simulators)];
     }
 }
