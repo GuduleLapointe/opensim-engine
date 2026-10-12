@@ -92,3 +92,23 @@ describe('Ports bound on a machine', function () {
             ->toBe([]);
     });
 });
+
+describe('Ports in use', function () {
+    test('are not the ones of the master of a grid, which is made of the defaults of the core', function () {
+        $root = sys_get_temp_dir() . '/ports-' . bin2hex(random_bytes(4));
+        mkdir("$root/etc/grids/g/sims", 0o755, true);
+        mkdir("$root/home");
+        file_put_contents("$root/home/.opensim.conf", "[Defaults]\nEtcRoot = $root/etc\n");
+        file_put_contents("$root/etc/grids/g/OpenSimGridDefaults.ini", "[Network]\nhttp_listener_port = 29000\nconsole_port = 29004\n");
+        file_put_contents("$root/etc/grids/g/sims/one.ini", "[Network]\nhttp_listener_port = 29010\n");
+        $home = getenv('HOME');
+        putenv("HOME=$root/home");
+        try {
+            $free = Ports::nextFree(29000, 3);
+        } finally {
+            putenv('HOME=' . $home);
+        }
+
+        expect($free)->toBe([29000, 29001, 29002]);
+    });
+});

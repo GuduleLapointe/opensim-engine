@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace OpenSim\Provisioning;
 
-use OpenSim\Config\ConfigReader;
 use OpenSim\Config\GridFileService;
 use OpenSim\Config\IniEditor;
 use OpenSim\Models\GridInfo;
@@ -172,11 +171,7 @@ final class GridProvisioner
         if (!SimulatorMaster::exists($plan->etcDirectory)) {
             $ini = IniEditor::load($general);
             $before = $ini->toString();
-            foreach (ConfigReader::parse(implode("\n", SimConfig::gridLayer(GridInfo::fromPlan($plan)))) as $section => $values) {
-                foreach ($values as $key => $value) {
-                    $ini->set($section, $key, $value);
-                }
-            }
+            $ini->overlay(implode("\n", SimConfig::gridLayer(GridInfo::fromPlan($plan))));
             if ($ini->toString() !== $before) {
                 $ini->save($general);
             }

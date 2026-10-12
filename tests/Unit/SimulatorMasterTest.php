@@ -230,3 +230,64 @@ describe('The features of a grid with a master', function () {
             ->and(file_exists($machine->grid . '/' . SimulatorMaster::FILE))->toBeFalse();
     });
 });
+
+describe('The grid made by the setup', function () {
+    /** Run the part of the provisioning that makes the master, for a grid with helpers in a folder. */
+    function master_provision(Machine $machine, bool $helpers = true): void
+    {
+        $ui = new class implements OpenSim\Provisioning\UiInterface {
+            public function intro(string $title): void {}
+            public function note(string $message): void {}
+            public function entity(string $name): string { return $name; }
+            public function warn(string $message): void {}
+            public function error(string $message): void {}
+            public function outro(string $message): void {}
+            public function choose(string $label, array $options, ?string $default = null, ?string $hint = null): string { return $default ?? ''; }
+            public function checklist(string $label, array $options, array $defaults = [], ?string $hint = null): array { return $defaults; }
+            public function text(string $label, string $default = '', ?\Closure $validate = null, ?string $hint = null): string { return $default; }
+            public function secret(string $label, ?\Closure $validate = null, ?string $hint = null): string { return ''; }
+            public function form(array $fields, string $title = ''): array { return []; }
+            public function confirm(string $label, bool $default = true): bool { return $default; }
+            public function spin(\Closure $callback, string $message): mixed { return $callback(); }
+        };
+        $plan = new OpenSim\Provisioning\GridPlan();
+        $plan->gridNick = 'demo';
+        $plan->gridName = 'Demo World';
+        $plan->gridDir = $plan->etcDirectory = $machine->grid;
+        $plan->binDir = $machine->core . '/bin';
+        $plan->enableHypergrid = true;
+        $plan->helpers = $helpers;
+        $plan->webUrl = 'https://demo.example.org';
+        $plan->helpersPath = '/helpers';
+
+        $method = new ReflectionMethod(OpenSim\Provisioning\GridProvisioner::class, 'writeMaster');
+        $method->invoke(new OpenSim\Provisioning\GridProvisioner($ui), $plan);
+    }
+
+    test('has what it decides for its simulators in its OpenSim.ini, quoted as the files of OpenSimulator are, and in its master', function () {
+        $machine = master_machine();
+        $machine->write($machine->grid . '/OpenSim.ini', "[Search]\n;Module = OpenSimSearch\n;SearchURL = \"x\"\n[DataSnapshot]\n;index_sims = true\n[Messaging]\n;OfflineMessageURL = \"u\"\n");
+
+        master_provision($machine);
+
+        $text = file_get_contents($machine->grid . '/OpenSim.ini');
+        expect($text)->toContain('SearchURL = "https://demo.example.org/helpers/query.php"', 'OfflineMessageURL = "https://demo.example.org/helpers/offline.php"', 'DATA_SRV_Demo = "https://demo.example.org/helpers/register.php"', 'gridname = "Demo World"', 'index_sims = true');
+        $master = ConfigReader::load($machine->grid . '/' . SimulatorMaster::FILE);
+        expect($master['Search']['SearchURL'])->toBe('https://demo.example.org/helpers/query.php')
+            ->and($master['DataSnapshot']['index_sims'])->toBe('true')
+            ->and($master['DataSnapshot']['DATA_SRV_Demo'])->toBe('https://demo.example.org/helpers/register.php')
+            ->and($master['Messaging']['OfflineMessageURL'])->toBe('https://demo.example.org/helpers/offline.php')
+            ->and($master['UserProfiles']['ProfileServiceURL'])->toBe('http://localhost:8002');
+    });
+
+    test('keeps a feature the operator disabled after it was made', function () {
+        $machine = master_machine();
+        master_provision($machine);
+        (new Features(GridInfo::load(['EtcRoot' => $machine->etc, 'CoreDirectory' => $machine->core], 'demo')))->disable('search');
+
+        master_provision($machine);
+
+        expect(file_get_contents($machine->grid . '/OpenSim.ini'))->toContain(';SearchURL = "https://demo.example.org/helpers/query.php"');
+        expect(ConfigReader::load($machine->grid . '/' . SimulatorMaster::FILE)['Search'] ?? [])->not->toHaveKey('SearchURL');
+    });
+});

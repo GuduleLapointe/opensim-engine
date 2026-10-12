@@ -192,11 +192,12 @@ final class Ports
 
     /**
      * Whether a file is a copy of what OpenSim ships, which describes no instance: its
-     * OpenSimDefaults.ini sets http_listener_port = 9000 for the simulator nobody configured.
+     * OpenSimDefaults.ini sets http_listener_port = 9000 for the simulator nobody configured, and so does the master of a grid
+     * (see SimulatorMaster), which is made of it.
      */
     private static function isDefaults(string $path): bool
     {
-        return in_array(basename($path), ['OpenSim.ini', 'OpenSimDefaults.ini'], true) ||
+        return in_array(basename($path), ['OpenSim.ini', 'OpenSimDefaults.ini', \OpenSim\Provisioning\SimulatorMaster::FILE], true) ||
             str_contains($path, '/config-include/');
     }
 
