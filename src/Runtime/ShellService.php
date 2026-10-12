@@ -7,6 +7,15 @@ namespace OpenSim\Runtime;
  */
 final class ShellService
 {
+    /** @var ?\Closure(string):void where the output of the commands goes when it is not the terminal (a web page) */
+    private static ?\Closure $sink = null;
+
+    /** Show what the commands say through $sink instead of the terminal; null for the terminal again. */
+    public static function showOutputWith(?\Closure $sink): void
+    {
+        self::$sink = $sink;
+    }
+
     public static function commandExists(string $bin): bool
     {
         [$code, $out] = self::capture('command -v ' . escapeshellarg($bin));
@@ -34,6 +43,9 @@ final class ShellService
      */
     public static function run(string $cmd): int
     {
+        if (self::$sink !== null) {
+            return self::runShown($cmd)[0];
+        }
         $code = 0;
         passthru($cmd . ' 2>&1', $code);
 
@@ -54,7 +66,7 @@ final class ShellService
         }
         $output = '';
         while (($chunk = fread($pipes[1], 8192)) !== false && $chunk !== '') {
-            echo $chunk;
+            self::$sink !== null ? (self::$sink)($chunk) : print $chunk;
             $output .= $chunk;
         }
         fclose($pipes[1]);
