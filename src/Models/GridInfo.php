@@ -2,6 +2,7 @@
 
 namespace OpenSim\Models;
 
+use OpenSim\Config\ConfigReader;
 use OpenSim\Config\GridFileService;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\LocationFinder;
@@ -66,8 +67,7 @@ final class GridInfo
         }
 
         $current = self::parse($robustIni);
-        $conf = @parse_ini_file("$etcRoot/grids/$nick/$nick.conf", true, INI_SCANNER_RAW)['Grid'] ?? [];
-        $conf = array_map(static fn($value): string => trim((string) $value, " \t\""), $conf);
+        $conf = ConfigReader::file("$etcRoot/grids/$nick/$nick.conf")['Grid'] ?? [];
 
         $grid = new self();
         $grid->nick = $nick;
@@ -172,15 +172,12 @@ final class GridInfo
     /** @return array<string,string>|null the [Grid] of a description of a remote grid */
     private static function remoteValues(string $conf): ?array
     {
-        $grid = is_file($conf) ? (@parse_ini_file($conf, true, INI_SCANNER_RAW) ?: [])['Grid'] ?? null : null;
-        if (
-            !is_array($grid) ||
-            !in_array(strtolower(trim((string) ($grid['Remote'] ?? ''))), ['true', '1', 'yes'], true)
-        ) {
+        $grid = ConfigReader::file($conf)['Grid'] ?? null;
+        if (!is_array($grid) || !in_array(strtolower($grid['Remote'] ?? ''), ['true', '1', 'yes'], true)) {
             return null;
         }
 
-        return array_map(static fn($value): string => trim((string) $value, " \t\""), $grid);
+        return $grid;
     }
 
     /** A remote grid, from its description. */
@@ -266,11 +263,10 @@ final class GridInfo
     public static function parse(string $path): array
     {
         $text = GridFileService::read($path);
+        $ini = ConfigReader::expand(ConfigReader::parse($text));
         $current = [];
 
-        $grab = static function (string $key) use ($text): ?string {
-            return preg_match('/^\s*' . $key . '\s*=\s*"?([^"\n]+?)"?\s*$/im', $text, $m) ? trim($m[1]) : null;
-        };
+        $grab = static fn(string $key): ?string => ConfigReader::find($ini, $key);
 
         foreach (['gridName' => 'gridname', 'baseHostname' => 'BaseHostname', 'webUrl' => 'WebURL'] as $field => $key) {
             $value = $grab($key);
@@ -289,7 +285,7 @@ final class GridInfo
         if (
             preg_match(
                 '/Data Source=([^;"\s]*);Database=([^;"\s]*);User ID=([^;"\s]*);Password=([^;"]*?);/i',
-                $text,
+                (string) $grab('ConnectionString'),
                 $m,
             )
         ) {

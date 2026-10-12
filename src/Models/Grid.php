@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Models;
 
+use OpenSim\Config\ConfigReader;
 use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\Result;
 
@@ -72,7 +73,7 @@ final class Grid
      */
     public function settings(): array
     {
-        return \OpenSim_Config::read($this->directory . '/' . $this->nick() . '.conf')['Grid'] ?? [];
+        return ConfigReader::load($this->directory . '/' . $this->nick() . '.conf')['Grid'] ?? [];
     }
 
     /** Whether its Robust is on another machine: the grid is only described here. */

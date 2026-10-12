@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Network\PortMapping;
 
+use OpenSim\Config\ConfigReader;
 use OpenSim\Network\InstancePorts;
 use OpenSim\Provisioning\Slug;
 
@@ -119,7 +120,7 @@ final class PortMappingService
         $simulator = basename($dir) === 'sims';
         $dir = $simulator ? dirname($dir) : $dir;
         $nick = basename($dir);
-        $settings = array_change_key_case(\OpenSim_Config::read("$dir/$nick.conf")['Grid'] ?? [], CASE_LOWER);
+        $settings = array_change_key_case(ConfigReader::load("$dir/$nick.conf")['Grid'] ?? [], CASE_LOWER);
         $flag = static fn(string $key): bool => in_array(
             strtolower(trim((string) ($settings[$key] ?? ''))),
             ['true', 'yes', '1', 'on'],
@@ -127,7 +128,7 @@ final class PortMappingService
         );
         $regions = '';
         if ($simulator) {
-            $startup = array_change_key_case(\OpenSim_Config::read($ini)['Startup'] ?? [], CASE_LOWER);
+            $startup = array_change_key_case(ConfigReader::load($ini)['Startup'] ?? [], CASE_LOWER);
             $regions = rtrim((string) ($startup['regionload_regionsdir'] ?? ''), '/');
         }
 

@@ -3,7 +3,7 @@
 namespace OpenSim\Provisioning\Import;
 
 use OpenSim\Config\GridFileService;
-use OpenSim\Config\IniReader;
+use OpenSim\Config\ConfigReader;
 use OpenSim\Models\GridInfo;
 use OpenSim\Provisioning\SimPlan;
 
@@ -27,7 +27,7 @@ final class SimImporter
         ?string $name,
         string $core,
     ): SimPlan|string {
-        $ini = IniReader::expand($raw);
+        $ini = ConfigReader::expand($raw);
         $architecture =
             $ini['Architecture']['Include-Architecture'] ?? ($raw['Architecture']['Include-Architecture'] ?? '');
         if ($architecture !== '' && stripos($architecture, 'Standalone') !== false) {

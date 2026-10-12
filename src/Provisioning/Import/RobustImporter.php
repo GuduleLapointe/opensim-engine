@@ -3,7 +3,7 @@
 namespace OpenSim\Provisioning\Import;
 
 use OpenSim\Config\IniEditor;
-use OpenSim\Config\IniReader;
+use OpenSim\Config\ConfigReader;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\RobustConfig;
 use OpenSim\Provisioning\Slug;
@@ -22,13 +22,13 @@ final class RobustImporter
     /**
      * What the setup asks, read from the original config: a plan for NewGrid.
      *
-     * @param array<string,array<string,string>> $raw the original, as written (see IniReader::load)
+     * @param array<string,array<string,string>> $raw the original, as written (see ConfigReader::load)
      * @param array<string,string>               $profile the install profile (roots of the kit)
      * @return GridPlan|string the plan, or what makes it impossible
      */
     public static function plan(array $raw, string $path, array $profile, ?string $nick, string $core): GridPlan|string
     {
-        $ini = IniReader::expand($raw);
+        $ini = ConfigReader::expand($raw);
         $name = $ini['GridInfoService']['gridname'] ?? '';
         $nick = $nick ?: $ini['GridInfoService']['gridnick'] ?? '' ?: Slug::nick($name);
         $nick = preg_replace('/[^A-Za-z0-9]/', '', $nick) ?? '';

@@ -45,7 +45,7 @@ final class Layout
     public static function load(?string $file = null, array $defaults = [], ?string $profile = null): self
     {
         $file ??= self::locate();
-        $ini = $file !== null && is_file($file) ? \OpenSim_Config::read($file) : [];
+        $ini = $file !== null && is_file($file) ? ConfigReader::load($file) : [];
         $values = $ini['Defaults'] ?? [];
         $profile ??= $values['DefaultProfile'] ?? '';
         if ($profile !== '' && isset($ini[$profile])) {

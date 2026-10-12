@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Models;
 
+use OpenSim\Config\ConfigReader;
 use OpenSim\Console\ConsoleInterface;
 use OpenSim\Network\InstancePorts;
 use OpenSim\Runtime\Environment;
@@ -81,7 +82,7 @@ abstract class Instance
      */
     public function settings(): array
     {
-        return $this->settings ??= \OpenSim_Config::read($this->ini);
+        return $this->settings ??= ConfigReader::load($this->ini);
     }
 
     /** One setting of a section, case of the key as written; empty when the config does not say it. */
@@ -142,7 +143,7 @@ abstract class Instance
             return Core::ofBin($bin);
         }
         if (($grid = $this->gridDirectory()) !== null) {
-            $conf = \OpenSim_Config::read("$grid/" . basename($grid) . '.conf')['Grid'] ?? [];
+            $conf = ConfigReader::load("$grid/" . basename($grid) . '.conf')['Grid'] ?? [];
             if (trim((string) ($conf['CoreDirectory'] ?? '')) !== '') {
                 return Core::at(trim($conf['CoreDirectory']));
             }

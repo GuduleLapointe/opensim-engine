@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace OpenSim\Network;
 
+use OpenSim\Config\ConfigReader;
+
 /**
  * The ports an instance (Robust or simulator) listens on, read from its config
  * and, for a simulator, from the descriptions of its regions, with what each
@@ -87,7 +89,7 @@ final class InstancePorts
             $private = $first('const', 'privateport');
             $add($public, 'tcp', 'public port of the grid: viewers, other grids', 'public');
             $add($private, 'tcp', 'private port of the grid: its simulators only', 'private');
-            foreach ($values['servicelist'] ?? [] as $connector) {
+            foreach (array_values($values['servicelist'] ?? []) as $connector) {
                 $port = explode('/', $expand($connector), 2)[0];
                 $port = preg_replace('/^.*@/', '', $port);
                 if (ctype_digit($port) && $port !== $public && $port !== $private) {
@@ -134,29 +136,15 @@ final class InstancePorts
     }
 
     /**
-     * The values of an ini file by section and key, names in lower case, the
-     * quotes removed. The keys of [ServiceList] are all kept, in a list.
+     * The values of an ini file by section and key, names in lower case.
      *
-     * @return array<string,array<string,string|list<string>>>
+     * @return array<string,array<string,string>>
      */
     private static function values(string $text): array
     {
         $values = [];
-        $section = '';
-        foreach (explode("\n", $text) as $line) {
-            if (preg_match('/^\s*\[([^\]]+)\]/', $line, $m)) {
-                $section = strtolower(trim($m[1]));
-
-                continue;
-            }
-            if (preg_match('/^\s*([A-Za-z0-9_.-]+)\s*=\s*(.*?)\s*$/', $line, $m) && $section !== '') {
-                $value = trim($m[2], " \t\r\";");
-                if ($section === 'servicelist') {
-                    $values[$section][] = $value;
-                } else {
-                    $values[$section][strtolower($m[1])] = $value;
-                }
-            }
+        foreach (ConfigReader::parse($text) as $section => $keys) {
+            $values[strtolower($section)] = array_change_key_case($keys, CASE_LOWER);
         }
 
         return $values;
