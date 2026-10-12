@@ -2,6 +2,10 @@
 
 ### Unreleased
 
+- new: `SimulatorMaster`: the simulators of a grid read a generated master (`OpenSimGridDefaults.ini`, `-inimaster`), their own config says what is theirs
+- new: `ConfigReader`, `GridConfig`, `ConnectionString`: one reader of the ini files and of the connection strings (`IniReader` is gone, `OpenSim_Config` a thin legacy class)
+- new: `OpenSim\Moderation\UserBan` writes the statements that ban users and delete their data
+- update: `OpenSim_Oar` is `OpenSim\Archives\Oar`; the old global names are classes of `legacy/`
 - update: a grid is its services (its Robust), `simulators: true` adds the simulators that depend on it
 - new: `OpenSim\Config` (Layout, IniEditor, IniReader, GridFileService), `OpenSim\Provisioning` (plans, config writers, presets, features, accounts, provisioners), `OpenSim\Archives`, `OpenSim\Network\Ports`
 - new: `OpenSim\Testing` has the test doubles of the machine for the front-ends
