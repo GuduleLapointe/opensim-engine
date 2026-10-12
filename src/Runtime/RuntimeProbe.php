@@ -14,9 +14,12 @@ class RuntimeProbe
 {
     /**
      * @param ?\Closure(string):string $capture the output of a command, empty when it fails (default: the shell)
+     * @param list<string> $libraryFolders where the libraries are looked for when the loader does not know them (a * is a wildcard)
      */
-    public function __construct(private readonly ?\Closure $capture = null)
-    {
+    public function __construct(
+        private readonly ?\Closure $capture = null,
+        private readonly array $libraryFolders = ['/usr/lib', '/usr/lib64', '/usr/lib/*', '/usr/local/lib'],
+    ) {
     }
 
     /**
@@ -53,9 +56,12 @@ class RuntimeProbe
         if (str_contains($this->run('ldconfig -p 2>/dev/null || /sbin/ldconfig -p 2>/dev/null'), "lib$name.so")) {
             return true;
         }
-        foreach (['/usr/lib', '/usr/lib64', '/usr/lib/*', '/usr/local/lib'] as $folder) {
-            if (glob("$folder/lib$name.so*") !== [] && glob("$folder/lib$name.so*") !== false) {
-                return true;
+        foreach ($this->libraryFolders as $folder) {
+            // A link that leads nowhere (the library was removed) is not a library
+            foreach (glob("$folder/lib$name.so*") ?: [] as $file) {
+                if (file_exists($file)) {
+                    return true;
+                }
             }
         }
 

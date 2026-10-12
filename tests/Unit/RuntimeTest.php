@@ -53,6 +53,28 @@ describe('The runtime of a core', function () {
     });
 });
 
+describe('The native libraries', function () {
+    test('are found in the usual folders, a link that leads nowhere is not one', function () {
+        $dir = sys_get_temp_dir() . '/libs-' . bin2hex(random_bytes(4));
+        mkdir($dir);
+        touch("$dir/libgdiplus.so.0.0.0");
+        symlink("$dir/libgdiplus.so.0.0.0", "$dir/libgdiplus.so.0");
+        $probe = new RuntimeProbe(static fn(string $c): string => '', [$dir]);
+
+        expect($probe->hasLibrary('gdiplus'))->toBeTrue();
+
+        unlink("$dir/libgdiplus.so.0.0.0");
+
+        expect($probe->hasLibrary('gdiplus'))->toBeFalse();
+    });
+
+    test('are known to the loader', function () {
+        $probe = new RuntimeProbe(static fn(string $c): string => "libgdiplus.so.0 (libc6,x86-64) => /usr/lib/libgdiplus.so.0\n", []);
+
+        expect($probe->hasLibrary('gdiplus'))->toBeTrue();
+    });
+});
+
 describe('The modules of an install', function () {
     /** A folder of modules: the files of gloebit and opensimsearch for the core 0.9.3.0. */
     function modules_root(): string
