@@ -53,12 +53,11 @@
             "OpenSim\\": "src/"
         },
         "classmap": [
-            "class-oar.php",
-            "class-health.php",
-            "class-config.php"
+            "class-health.php"
         ],
         "files": [
-            "includes/functions-escaping.php"
+            "includes/functions-escaping.php",
+            "legacy/autoload.php"
         ]
     },
     "suggest": {

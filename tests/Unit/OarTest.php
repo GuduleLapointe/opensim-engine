@@ -4,7 +4,7 @@
  */
 
 define('OPENSIM_ENGINE', true);
-require_once dirname(__DIR__, 2) . '/class-oar.php';
+use OpenSim\Archives\Oar;
 
 /** A folder laid out as the content of an archive. */
 function oar_source(): string
@@ -37,9 +37,9 @@ function oar_source(): string
 test('packs a folder and reads the archive back', function () {
     $dir = oar_source();
     $oar = "$dir.oar";
-    OpenSim_Oar::pack($dir, $oar);
+    Oar::pack($dir, $oar);
 
-    $entries = OpenSim_Oar::entries($oar);
+    $entries = Oar::entries($oar);
     expect($entries[0])
         ->toBe('archive.xml')
         ->and($entries)
@@ -52,9 +52,9 @@ test('packs a folder and reads the archive back', function () {
 
 test('tells what is in an archive', function () {
     $dir = oar_source();
-    OpenSim_Oar::pack($dir, "$dir.oar");
+    Oar::pack($dir, "$dir.oar");
 
-    expect(OpenSim_Oar::info("$dir.oar"))->toBe([
+    expect(Oar::info("$dir.oar"))->toBe([
         'version' => '0.8',
         'size' => [256, 256],
         'assets_included' => true,
@@ -68,9 +68,9 @@ test('tells what is in an archive', function () {
 
 test('unpacks to the same files', function () {
     $dir = oar_source();
-    OpenSim_Oar::pack($dir, "$dir.oar");
+    Oar::pack($dir, "$dir.oar");
     $out = "$dir-out";
-    OpenSim_Oar::unpack("$dir.oar", $out);
+    Oar::unpack("$dir.oar", $out);
 
     expect(file_get_contents("$out/assets/14280bc4-6d8f-4d8f-839c-da2ab87e918b_script.lsl"))
         ->toBe("default { state_entry() {} }\n")
@@ -80,9 +80,9 @@ test('unpacks to the same files', function () {
 
 test('checks a good archive and finds nothing', function () {
     $dir = oar_source();
-    OpenSim_Oar::pack($dir, "$dir.oar");
+    Oar::pack($dir, "$dir.oar");
 
-    expect(OpenSim_Oar::check("$dir.oar"))->toBe([]);
+    expect(Oar::check("$dir.oar"))->toBe([]);
 });
 
 test('finds what is wrong in an archive', function () {
@@ -92,9 +92,9 @@ test('finds what is wrong in an archive', function () {
     foreach (glob("$dir/assets/*") as $asset) {
         unlink($asset);
     }
-    OpenSim_Oar::pack($dir, "$dir.oar");
+    Oar::pack($dir, "$dir.oar");
 
-    $problems = OpenSim_Oar::check("$dir.oar");
+    $problems = Oar::check("$dir.oar");
     expect($problems)
         ->toContain('objects/broken.xml does not parse')
         ->and($problems)
@@ -107,9 +107,9 @@ test('refuses what is not an archive', function () {
     $file = tempnam(sys_get_temp_dir(), 'oar');
     file_put_contents($file, 'plain text');
 
-    expect(fn() => OpenSim_Oar::entries($file))
+    expect(fn() => Oar::entries($file))
         ->toThrow(RuntimeException::class)
-        ->and(OpenSim_Oar::check($file))
+        ->and(Oar::check($file))
         ->not->toBe([]);
 });
 
@@ -117,7 +117,7 @@ test('refuses a folder without a control file', function () {
     $dir = sys_get_temp_dir() . '/oar-empty-' . bin2hex(random_bytes(4));
     mkdir($dir);
 
-    expect(fn() => OpenSim_Oar::pack($dir, "$dir.oar"))->toThrow(RuntimeException::class);
+    expect(fn() => Oar::pack($dir, "$dir.oar"))->toThrow(RuntimeException::class);
 });
 
 test('refuses an entry that goes out of the folder', function () {
@@ -128,8 +128,8 @@ test('refuses an entry that goes out of the folder', function () {
     $archive->compress(Phar::GZ);
     $oar = "$tar.gz";
 
-    expect(fn() => OpenSim_Oar::unpack($oar, sys_get_temp_dir() . '/oar-safe-' . bin2hex(random_bytes(4))))
+    expect(fn() => Oar::unpack($oar, sys_get_temp_dir() . '/oar-safe-' . bin2hex(random_bytes(4))))
         ->toThrow(RuntimeException::class)
-        ->and(OpenSim_Oar::check($oar))
+        ->and(Oar::check($oar))
         ->toContain('unsafe entry: ../evil.txt');
 });

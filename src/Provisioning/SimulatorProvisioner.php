@@ -285,7 +285,7 @@ final class SimulatorProvisioner
         defined('OPENSIM_ENGINE') || define('OPENSIM_ENGINE', true);
         $archive = sys_get_temp_dir() . '/opensim-kit-fix-parcel-name-' . getmypid() . '.oar';
         try {
-            \OpenSim_Oar::pack($source, $archive);
+            \OpenSim\Archives\Oar::pack($source, $archive);
         } catch (\RuntimeException $e) {
             $this->ui->warn($e->getMessage());
 

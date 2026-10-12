@@ -4,7 +4,6 @@
  * include, the constants, the first file that says a setting.
  */
 
-require_once dirname(__DIR__, 2) . '/class-config.php';
 
 /**
  * A grid folder in a temporary tree.

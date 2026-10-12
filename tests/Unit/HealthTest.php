@@ -4,7 +4,6 @@
  * settings named as the ini files name them.
  */
 
-require_once dirname(__DIR__, 2) . '/class-config.php';
 require_once dirname(__DIR__, 2) . '/class-health.php';
 
 /** A web server that answers the code its path says: /200, /404, /500, /redirect (to /200), /redirect404 (to /404); /needs-data refuses (400) what has no data. */

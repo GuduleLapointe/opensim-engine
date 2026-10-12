@@ -11,11 +11,18 @@
  * OpenSimulator does not read (extended attributes), this one writes plain ustar entries only.
  */
 
-if (!defined('ABSPATH') && !defined('OPENSIM_ENGINE')) {
-    exit();
-}
+namespace OpenSim\Archives;
 
-class OpenSim_Oar
+use FilesystemIterator;
+use Generator;
+use Phar;
+use PharData;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use RuntimeException;
+use SimpleXMLElement;
+
+class Oar
 {
     /** The control file, the first entry of an archive */
     const CONTROL = 'archive.xml';
