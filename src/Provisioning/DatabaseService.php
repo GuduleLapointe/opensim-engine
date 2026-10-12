@@ -61,6 +61,15 @@ final class DatabaseService
         self::$passwords["$user@$host"] = $password;
     }
 
+    /**
+     * The account of a plan takes the password it was given earlier in this session: a plan made before it was entered (the quick
+     * setup plans the simulator before it makes the database of the grid) holds another one, made at random.
+     */
+    public static function applyRemembered(GridPlan|SimPlan $plan): void
+    {
+        $plan->dbPass = self::recall($plan->dbHost, $plan->dbUser) ?? $plan->dbPass;
+    }
+
     /** The password entered or generated earlier in this session for this account, if any. */
     public static function recall(string $host, string $user): ?string
     {
@@ -190,7 +199,8 @@ final class DatabaseService
             return self::RETRY;
         }
 
-        $this->ui->warn(
+        // The setup can make it (the administrator access works): said as what is going to be done, not as a problem
+        $this->ui->note(
             $hosts === []
                 ? sprintf(_('User %s does not exist on %s.'), $plan->dbUser, $plan->dbHost)
                 : sprintf(
@@ -229,19 +239,18 @@ final class DatabaseService
     private function database(string $client, GridPlan $plan): int
     {
         $host = $this->accountHost($plan);
-        $this->ui->warn(
-            sprintf(
-                _(
-                    'User %s can connect to %s, but has no access to database %s: it does not exist, or the user has no rights on it.',
-                ),
-                $plan->dbUser,
-                $plan->dbHost,
-                $plan->dbName,
-            ),
-        );
-
         $exists = $this->databaseExists($client, $plan);
         if ($exists === null) {
+            $this->ui->warn(
+                sprintf(
+                    _(
+                        'User %s can connect to %s, but has no access to database %s: it does not exist, or the user has no rights on it.',
+                    ),
+                    $plan->dbUser,
+                    $plan->dbHost,
+                    $plan->dbName,
+                ),
+            );
             $this->ui->error(
                 sprintf(
                     _('The administrator access to the server, to check or create it, is not available (%s).%s'),
@@ -253,6 +262,13 @@ final class DatabaseService
 
             return self::RETRY;
         }
+
+        // The setup can make it: said as what is going to be done, not as a problem
+        $this->ui->note(
+            $exists
+                ? sprintf(_('User %s has no access to database %s yet.'), $plan->dbUser, $plan->dbName)
+                : sprintf(_('Database %s does not exist yet on %s.'), $plan->dbName, $plan->dbHost),
+        );
 
         $question = $exists
             ? "Give user {$plan->dbUser} access to database {$plan->dbName} on {$plan->dbHost}?"
