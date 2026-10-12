@@ -92,7 +92,7 @@ final class Features
 
         switch (strtolower($feature)) {
             case self::SEARCH:
-                return $this->search($on, $prefix, $result);
+                return $this->finish($this->search($on, $prefix, $result));
             case self::ECONOMY:
                 $money = strtolower($options['money'] ?? 'beta');
                 if ($on && !isset(self::MONEY[$money])) {
@@ -101,9 +101,9 @@ final class Features
                     return $result;
                 }
 
-                return $this->economy($on, $money, $prefix, $result);
+                return $this->finish($this->economy($on, $money, $prefix, $result));
             case self::PROFILES:
-                return $this->profiles($on, $result);
+                return $this->finish($this->profiles($on, $result));
         }
         $result['error'] = "unknown feature '$feature' (" . implode(', ', self::NAMES) . ')';
 
@@ -176,6 +176,27 @@ final class Features
         return $result;
     }
 
+    /**
+     * The master of the simulators follows the OpenSim.ini of the grid, where a grid that has one keeps what it decides.
+     *
+     * @param  array{error:?string,sims:list<string>,grid:bool,robust:bool,notes:list<string>} $result
+     * @return array{error:?string,sims:list<string>,grid:bool,robust:bool,notes:list<string>}
+     */
+    private function finish(array $result): array
+    {
+        if ($result['error'] === null && $this->layered() && $this->grid->coreDirectory !== '') {
+            (new SimulatorMaster())->ensure($this->grid->dir, $this->grid->coreDirectory . '/bin');
+        }
+
+        return $result;
+    }
+
+    /** Whether the grid has a master for its simulators: what it decides is in its OpenSim.ini, its simulators say what is their own. */
+    private function layered(): bool
+    {
+        return SimulatorMaster::exists($this->grid->dir);
+    }
+
     /** The path of a page of the helpers on the site of the grid (/search, /profile), empty when the grid has no helpers. */
     private function pagePath(string $page): string
     {
@@ -209,7 +230,7 @@ final class Features
                 return;
             }
             $this->put($ini, $grid, 'Gloebit', 'Enabled', 'true');
-            if (!$grid && $ini->get('Gloebit', 'GLBEnvironment') === null) {
+            if (($this->layered() ? $grid : !$grid) && $ini->get('Gloebit', 'GLBEnvironment') === null) {
                 $ini->set('Gloebit', 'GLBEnvironment', 'sandbox');
             }
         });
@@ -222,17 +243,22 @@ final class Features
             }
             array_push($result['notes'], ...$this->moduleNotes('gloebit'));
             $missing = [];
-            foreach ($this->simulators() as $file) {
-                $ini = IniEditor::load($file);
+            // What a simulator says, else what its grid says when it has a master
+            $general = $this->layered() ? IniEditor::load("{$this->grid->dir}/OpenSim.ini") : null;
+            foreach ([null, ...array_values($this->simulators())] as $file) {
+                $ini = $file === null ? $general : IniEditor::load($file);
+                if ($ini === null) {
+                    continue;
+                }
                 foreach (['GLBKey', 'GLBSecret', 'GLBOwnerName'] as $key) {
-                    if ($ini->get('Gloebit', $key) === null) {
+                    if ($ini->get('Gloebit', $key) === null && ($file === null || $general?->get('Gloebit', $key) === null)) {
                         $missing[$key] = true;
                     }
                 }
             }
             if ($missing !== []) {
                 $result['notes'][] = 'the keys of your Gloebit application are yours to give: ' . implode(', ', array_keys($missing))
-                    . ' in [Gloebit] of the simulators (Gloebit.ini.example), the module does nothing without them';
+                    . ' in [Gloebit] of the OpenSim.ini of the grid or of the simulators (Gloebit.ini.example), the module does nothing without them';
             }
         }
 
@@ -289,13 +315,16 @@ final class Features
     }
 
     /**
-     * Set a setting in a file. In the OpenSim.ini of the grid, which the simulators do not read, only a setting that is there
-     * (or was, commented out) is changed: it is there for the helpers, which read it first, and it must say what the simulators
-     * say.
+     * Set a setting in a file. In the OpenSim.ini of the grid, which the simulators do not read unless the grid has a master,
+     * only a setting that is there (or was, commented out) is changed: it is there for the helpers, which read it first, and it
+     * must say what the simulators say. With a master it is the other way: the grid has the setting, a simulator only the ones it
+     * already says.
      */
     private function put(IniEditor $ini, bool $grid, string $section, string $key, string $value): void
     {
-        if ($grid && !$ini->mentions($section, $key)) {
+        // Without a master the simulators have the settings and the OpenSim.ini of the grid only follows them; with one the
+        // grid has them and a simulator only follows them for what it says itself
+        if (($this->layered() ? !$grid : $grid) && !$ini->mentions($section, $key)) {
             return;
         }
         $ini->set($section, $key, $value);

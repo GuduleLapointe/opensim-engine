@@ -82,7 +82,23 @@ abstract class Instance
      */
     public function settings(): array
     {
-        return $this->settings ??= ConfigReader::load($this->ini);
+        return $this->settings ??= ConfigReader::load($this->configFiles());
+    }
+
+    /** Read its config again the next time. */
+    protected function forget(): void
+    {
+        $this->settings = null;
+    }
+
+    /**
+     * The files its config is made of, in the order OpenSimulator reads them: the master of its grid when it has one, then its own.
+     *
+     * @return list<string>
+     */
+    protected function configFiles(): array
+    {
+        return [$this->ini];
     }
 
     /** One setting of a section, case of the key as written; empty when the config does not say it. */
@@ -138,7 +154,17 @@ abstract class Instance
      */
     public function core(): ?Core
     {
-        $bin = $this->launchSetting('BinDirectory') ?: $this->launchSetting('BinDir');
+        // The core it was made for: its own config says it, else the grid does (the master of the grid follows the grid)
+        $own = ConfigReader::load($this->ini);
+        $bin = '';
+        foreach (['BinDirectory', 'BinDir'] as $name) {
+            foreach (self::LAUNCH_SECTIONS as $section) {
+                $bin = trim((string) ($own[$section][$name] ?? '')) ?: $bin;
+            }
+            if ($bin !== '') {
+                break;
+            }
+        }
         if ($bin !== '') {
             return Core::ofBin($bin);
         }

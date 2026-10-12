@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace OpenSim\Provisioning;
 
+use OpenSim\Config\ConfigReader;
 use OpenSim\Config\GridFileService;
+use OpenSim\Config\IniEditor;
+use OpenSim\Models\GridInfo;
 use OpenSim\Models\GridState;
 use OpenSim\Provisioning\Web\HelpersConfig;
 use OpenSim\Provisioning\Web\Snippets;
@@ -30,6 +33,7 @@ final class GridProvisioner
         $this->writeRobust($plan);
         $this->writeHelpers($plan);
         $this->copyConfigInclude($plan);
+        $this->writeMaster($plan);
 
         $logConfig = (new RobustLogConfig())->write($plan);
         if ($logConfig !== null) {
@@ -153,6 +157,34 @@ final class GridProvisioner
         (new GridShared())->prepare($plan->etcDirectory, $plan->binDir, $plan->enableHypergrid);
         $this->ui->note(_('Copied config-include defaults.'));
     }
+    /**
+     * The master of the simulators of the grid: what the grid decides for them (the search, the offline messages, the profiles)
+     * goes in its OpenSim.ini, which the helpers read, when the grid is made (after that the operator and `opensim enable|disable`
+     * decide: a feature that was disabled stays so), then the master is made from the core, the model of the toolset, the grid and
+     * these decisions. The simulators say only what makes them their own.
+     */
+    private function writeMaster(GridPlan $plan): void
+    {
+        $general = "{$plan->etcDirectory}/OpenSim.ini";
+        if (!is_file($general)) {
+            return;
+        }
+        if (!SimulatorMaster::exists($plan->etcDirectory)) {
+            $ini = IniEditor::load($general);
+            $before = $ini->toString();
+            foreach (ConfigReader::parse(implode("\n", SimConfig::gridLayer(GridInfo::fromPlan($plan)))) as $section => $values) {
+                foreach ($values as $key => $value) {
+                    $ini->set($section, $key, $value);
+                }
+            }
+            if ($ini->toString() !== $before) {
+                $ini->save($general);
+            }
+        }
+        $master = (new SimulatorMaster())->ensure($plan->etcDirectory, $plan->binDir);
+        $master !== null && $this->ui->note(sprintf(_('Wrote %s'), $master));
+    }
+
     /**
      * The files of the web side of the grid: the Helpers.ini that holds what has no official place (once: what the operator
      * changed in it is kept), and the configuration of the web server. The addresses, the name of the grid and the databases

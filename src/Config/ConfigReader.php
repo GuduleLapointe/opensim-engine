@@ -66,17 +66,20 @@ final class ConfigReader
     }
 
     /**
-     * A file and the files it includes.
+     * A file and the files it includes. Several files are the way OpenSimulator reads a master and its config: the first is
+     * read first, the next ones replace what it says, then the files they include.
      *
+     * @param string|list<string> $path the file, or the files in the order they are read
      * @param array<string,string> $constants those of another file (Robust's), for the ones the files read have not
      * @param bool $expand replace the `${Const|Name}` references by their value, else keep the text as written (to port a config)
      * @param bool $directory read the `*.ini` of the `ConfigDirectory` of `[Startup]` too, as Robust does
      * @return array<string,array<string,string>> section => key => value, empty when unreadable
      */
-    public static function load(string $path, array $constants = [], bool $expand = true, bool $directory = false): array
+    public static function load(string|array $path, array $constants = [], bool $expand = true, bool $directory = false): array
     {
         $merged = [];
-        $queue = [$path];
+        $paths = (array) $path;
+        $queue = $paths;
         $done = [];
         while ($queue) {
             $file = array_shift($queue);
@@ -97,7 +100,7 @@ final class ConfigReader
                     }
                 }
             }
-            if ($directory && $file === $path) {
+            if ($directory && in_array($file, $paths, true)) {
                 $folder = self::replaceConstants($merged['Startup']['ConfigDirectory'] ?? '', $const);
                 if ($folder !== '' && !str_contains($folder, '${')) {
                     $folder = str_starts_with($folder, '/') ? $folder : dirname($file) . "/$folder";

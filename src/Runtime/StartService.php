@@ -69,6 +69,9 @@ final class StartService
             return $this->fail($name, "$name has no region to load (all disabled, or none yet): add one first, with opensim setup");
         }
 
+        // The master of its grid, when it has one, is made again if the core or the grid changed: it is the first the config reads
+        $master = $instance instanceof Simulator ? $instance->master($core->bin()) : null;
+
         // Port mapping, when the grid asks for it: ports mapped and regions address set before the instance starts
         $env->portMapping?->start($name, $instance->ini());
 
@@ -99,6 +102,9 @@ final class StartService
         $remote = $instance->remoteConsole();
         $native = $runtime === 'dotnet' ? $core->nativeLibraries($this->nativeRoot()) : '';
         $command = [$runtime, ...array_values(array_filter(explode(' ', $core->runtimeOptions($base)))), $core->bin() . "/$executable", '-inifile=' . $instance->ini()];
+        if ($master !== null) {
+            $command[] = '-inimaster=' . $master;
+        }
         if ($base === 'Robust') {
             $prompt = $instance->launchSetting('consoleprompt', 'ConsolePrompt') ?: "Robust ($name) ";
             array_push($command, "-logfile=$logPath", '-prompt', $prompt);
