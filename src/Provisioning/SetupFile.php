@@ -21,67 +21,53 @@ use Symfony\Component\Yaml\Yaml;
  *
  * Only the grid name, and the database user and password, are required to make a grid: the rest has the default
  * of the setup. Without a grid name, the simulators join the grid of the `nick` (or the only one there is), and
- * need the user and password of their database. The file is run by the questions of the setup, answered from it (see Ui\PresetUi), so
- * it does what the wizard does, nothing else.
+ * need the user and password of their database. The file gives the answers about the grid, its simulators and their regions by the
+ * names of the fields of the models (gridValues(), simValues(), regionValues()): the planners work the plans out from them, as they
+ * do from a form, and what the application asks once they are made is answered from the file too (gridPrompts()...).
  *
  * The file is also written by the setup, from what it did (the plans), in `setup.json` of the grid.
  */
 final class SetupFile
 {
-    /** The questions of the grid setup, as written in the source, and where their answer is in the file */
+    /** The fields of a grid (Models\Grid::fields()), and where their value is in the file */
     private const GRID = [
-        'Grid name' => 'grid.name',
-        'Grid nick' => 'grid.nick',
-        'Base hostname' => 'grid.hostname',
-        'Web URL' => 'grid.web_url',
-        'Enable Hypergrid?' => 'grid.hypergrid',
-        'Serve the economy and the search' => 'grid.helpers',
-        'Helpers path' => 'grid.helpers_path',
-        'Public port' => 'grid.public_port',
-        'Private port' => 'grid.private_port',
-        'Center of the grid' => 'grid.center',
-        'Console of the grid' => 'grid.console',
-        'Console port' => 'grid.console_port',
-        'Database host' => 'grid.database.host',
-        'Database name' => 'grid.database.name',
-        'Database user' => 'grid.database.user',
-        'Database password' => 'grid.database.password',
-        'Administrator user' => 'grid.database.admin_user',
-        'Password of' => 'grid.database.admin_password',
-        'Enable grid' => 'grid.enable',
-        'Start grid' => 'grid.start',
+        'name' => 'grid.name',
+        'nick' => 'grid.nick',
+        'hostname' => 'grid.hostname',
+        'web_url' => 'grid.web_url',
+        'hypergrid' => 'grid.hypergrid',
+        'helpers' => 'grid.helpers',
+        'helpers_path' => 'grid.helpers_path',
+        'public_port' => 'grid.public_port',
+        'private_port' => 'grid.private_port',
+        'center' => 'grid.center',
+        'console' => 'grid.console',
+        'console_port' => 'grid.console_port',
+        'database_host' => 'grid.database.host',
+        'database_name' => 'grid.database.name',
+        'database_user' => 'grid.database.user',
+        'database_password' => 'grid.database.password',
     ];
 
-    /** The same for a simulator ($i: its place in `simulators`) */
+    /** The same for a simulator (Models\Simulator::fields(); $i: its place in `simulators`) */
     private const SIM = [
-        'Simulator name' => 'simulators.$i.name',
-        'Simulator HTTP port' => 'simulators.$i.http_port',
-        'Console of the simulator' => 'simulators.$i.console',
-        'Console port' => 'simulators.$i.console_port',
-        'Database host' => 'simulators.$i.database.host',
-        'Database name' => 'simulators.$i.database.name',
-        'Database user' => 'simulators.$i.database.user',
-        'Database password' => 'simulators.$i.database.password',
-        'Administrator user' => 'simulators.$i.database.admin_user',
-        'Password of' => 'simulators.$i.database.admin_password',
-        'Estate name' => 'simulators.$i.estate.name',
-        'Estate owner (an account' => 'simulators.$i.estate.owner',
-        'Enable simulator' => 'simulators.$i.enable',
-        'Start simulator' => 'simulators.$i.start',
+        'name' => 'simulators.$i.name',
+        'http_port' => 'simulators.$i.http_port',
+        'console' => 'simulators.$i.console',
+        'console_port' => 'simulators.$i.console_port',
+        'database_host' => 'simulators.$i.database.host',
+        'database_name' => 'simulators.$i.database.name',
+        'database_user' => 'simulators.$i.database.user',
+        'database_password' => 'simulators.$i.database.password',
+        'estate_name' => 'simulators.$i.estate.name',
     ];
 
-    /** The questions of a region ($i: its simulator, $j: its place in `regions`) */
+    /** The same for a region (Models\Region::fields(); $i: its simulator, $j: its place in `regions`) */
     private const REGION = [
-        'Region name' => 'simulators.$i.regions.$j.name',
-        'Region location' => 'simulators.$i.regions.$j.location',
-        'Region port' => 'simulators.$i.regions.$j.port',
-        'Role of this region' => 'simulators.$i.regions.$j.roles',
-    ];
-
-    private const OWNER = [
-        'Name of the new account' => 'owner.name',
-        'Password of the new account' => 'owner.password',
-        'Email of the new account' => 'owner.email',
+        'name' => 'simulators.$i.regions.$j.name',
+        'location' => 'simulators.$i.regions.$j.location',
+        'port' => 'simulators.$i.regions.$j.port',
+        'roles' => 'simulators.$i.regions.$j.roles',
     ];
 
     /**
@@ -182,81 +168,179 @@ final class SetupFile
     }
 
     /**
-     * The answers to the questions of the grid setup.
+     * The answers about the grid, by the names of its fields (Models\Grid::fields()): the ones the file gives.
      *
      * @param array<string,mixed> $data
      * @return array<string,mixed>
      */
-    public static function gridAnswers(array $data): array
+    public static function gridValues(array $data): array
     {
-        $answers = self::answers(self::GRID, $data, []);
-        $answers += ['Enable grid' => true, 'Start grid' => true, 'Apply this configuration' => true];
-        // The question is the one of the first language of the setup; a file does not have to say it
-        if (isset($answers['Enable grid']) && !$answers['Enable grid']) {
-            $answers['Start grid'] = false;
-        }
-
-        return $answers;
+        return self::values(self::GRID, $data, []);
     }
 
     /**
-     * The answers to the questions of a simulator and of its first region, and of the owner of its estate.
+     * The answers about a simulator, by the names of its fields (Models\Simulator::fields()). The database of a simulator is the one of
+     * the grid, but its name (a simulator has its own).
      *
      * @param array<string,mixed> $data
      * @return array<string,mixed>
      */
-    public static function simAnswers(array $data, int $i): array
+    public static function simValues(array $data, int $i): array
     {
-        // The owner first: "Password of the new account" is not the password of an administrator ("Password of")
-        $answers = self::answers(self::OWNER, $data, []);
-        $answers += self::answers(self::SIM, $data, ['$i' => (string) $i]);
-        $answers += self::answers(self::REGION, $data, ['$i' => (string) $i, '$j' => '0']);
-
-        // The database of a simulator is the one of the grid, but its name (a simulator has its own)
-        foreach (['host', 'user', 'password', 'admin_user', 'admin_password'] as $key) {
-            $own = $data['simulators'][$i]['database'][$key] ?? null;
-            $grid = $data['grid']['database'][$key] ?? null;
-            $target = [
-                'host' => 'Database host',
-                'user' => 'Database user',
-                'password' => 'Database password',
-                'admin_user' => 'Administrator user',
-                'admin_password' => 'Password of',
-            ][$key];
-            if ($own === null && $grid !== null) {
-                $answers[$target] = (string) $grid;
+        $values = self::values(self::SIM, $data, ['$i' => (string) $i]);
+        foreach (['host', 'user', 'password'] as $key) {
+            if (!isset($values["database_$key"]) && ($grid = $data['grid']['database'][$key] ?? null) !== null) {
+                $values["database_$key"] = (string) $grid;
             }
         }
 
-        // The owner of the estate is one the grid has, else the one of the file, to make
-        $owner = (string) ($answers['Estate owner (an account'] ?? ($data['owner']['name'] ?? ''));
-        if ($owner !== '') {
-            $answers['Estate owner (an account'] = $owner;
-            $answers['Estate owner'] = [$owner, '+'];
-        }
-        $answers += [
-            'Create the first region' => true,
-            'Apply this configuration' => true,
-            'Enable simulator' => true,
-            'Start simulator' => true,
-            'does not exist yet, create it' => true,
+        return $values;
+    }
+
+    /**
+     * Who owns the estate of a simulator: an account of the grid the file names (`estate.owner`), else the owner of the file, to make
+     * if the grid does not have it (SimPlanner::ownerAnswers()).
+     *
+     * @param array<string,mixed> $data
+     * @return array{name:string,password:string,email:string}
+     */
+    public static function owner(array $data, int $i): array
+    {
+        $own = (string) ($data['simulators'][$i]['estate']['owner'] ?? '');
+        $owner = is_array($data['owner'] ?? null) ? $data['owner'] : [];
+
+        return [
+            'name' => trim($own !== '' ? $own : (string) ($owner['name'] ?? '')),
+            'password' => (string) ($owner['password'] ?? ''),
+            'email' => (string) ($owner['email'] ?? ''),
         ];
+    }
+
+    /**
+     * The answers about a region, by the names of its fields (Models\Region::fields()). The roles are the names of the flags.
+     *
+     * @param array<string,mixed> $data
+     * @return array<string,mixed>
+     */
+    public static function regionValues(array $data, int $i, int $j): array
+    {
+        $values = self::values(self::REGION, $data, ['$i' => (string) $i, '$j' => (string) $j]);
+        if (isset($values['roles'])) {
+            $values['roles'] = self::roles((array) $values['roles']);
+        }
+
+        return $values;
+    }
+
+    /**
+     * What the setup does with the grid once it is made, and the administrator of its database server: the answers to the questions
+     * of the application, which the file may give (the plan to accept, the instance to enable and to start, the credentials).
+     *
+     * @param array<string,mixed> $data
+     * @return array<string,mixed>
+     */
+    public static function gridPrompts(array $data): array
+    {
+        $answers = self::credentials($data['grid']['database'] ?? [], []);
+        $answers += ['Enable grid' => self::flag($data, 'grid.enable'), 'Apply this configuration' => true];
+        $answers += ['Start grid' => $answers['Enable grid'] && self::flag($data, 'grid.start')];
 
         return $answers;
     }
 
     /**
-     * The answers to the questions of one more region of a simulator.
+     * The same for a simulator.
      *
      * @param array<string,mixed> $data
      * @return array<string,mixed>
      */
-    public static function regionAnswers(array $data, int $i, int $j): array
+    public static function simPrompts(array $data, int $i): array
     {
-        return self::answers(self::REGION, $data, ['$i' => (string) $i, '$j' => (string) $j]) + [
-            'Add region' => true,
-            'Load it now' => true,
+        $answers = self::credentials($data['simulators'][$i]['database'] ?? [], $data['grid']['database'] ?? []);
+        $answers += [
+            'Enable simulator' => self::flag($data, "simulators.$i.enable"),
+            'Apply this configuration' => true,
         ];
+        $answers += ['Start simulator' => $answers['Enable simulator'] && self::flag($data, "simulators.$i.start")];
+
+        return $answers;
+    }
+
+    /**
+     * The same for one more region of a simulator.
+     *
+     * @return array<string,mixed>
+     */
+    public static function regionPrompts(): array
+    {
+        return ['Add region' => true, 'Load it now' => true];
+    }
+
+    /** @return array<string,string> the administrator of the database server: the one of the simulator, else the one of the grid */
+    private static function credentials(array $own, array $grid): array
+    {
+        $answers = [];
+        foreach (['admin_user' => 'Administrator user', 'admin_password' => 'Password of '] as $key => $question) {
+            $value = $own[$key] ?? ($grid[$key] ?? null);
+            if ($value !== null && $value !== '') {
+                $answers[$question] = (string) $value;
+            }
+        }
+
+        return $answers;
+    }
+
+    /** A yes or no of the file; yes when it does not say. */
+    private static function flag(array $data, string $path): bool
+    {
+        $value = self::get($data, $path);
+
+        return $value === null || $value === '' || filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) !== false;
+    }
+
+    /**
+     * @param array<string,string> $fields field => path of its value in the file ($i, $j: places)
+     * @param array<string,mixed> $data
+     * @param array<string,string> $places
+     * @return array<string,mixed>
+     */
+    private static function values(array $fields, array $data, array $places): array
+    {
+        $values = [];
+        foreach ($fields as $field => $path) {
+            $value = self::get($data, strtr($path, $places));
+            if ($value !== null && $value !== '') {
+                $values[$field] = is_array($value) ? array_values($value) : (is_bool($value) ? $value : (string) $value);
+            }
+        }
+
+        return $values;
+    }
+
+    /**
+     * The roles of a region: the names of the flags, or default, default_hg and fallback.
+     *
+     * @param array<int,mixed> $roles
+     * @return list<string>
+     */
+    private static function roles(array $roles): array
+    {
+        $names = ['default' => 'DefaultRegion', 'default_hg' => 'DefaultHGRegion', 'fallback' => 'FallbackRegion'];
+
+        return array_values(array_map(static fn($r): string => $names[strtolower((string) $r)] ?? (string) $r, $roles));
+    }
+
+    /** @param array<string,mixed> $data */
+    private static function get(array $data, string $path): mixed
+    {
+        foreach (explode('.', $path) as $key) {
+            if (!is_array($data) || !array_key_exists($key, $data)) {
+                return null;
+            }
+            $data = $data[$key];
+        }
+
+        return $data;
     }
 
     /**
@@ -415,67 +499,5 @@ final class SetupFile
     public static function toYaml(array $data): string
     {
         return Yaml::dump($data, 6, 2);
-    }
-
-    /**
-     * @param array<string,string> $questions question => path of its answer in the file ($i, $j: places)
-     * @param array<string,mixed> $data
-     * @param array<string,string> $places
-     * @return array<string,mixed>
-     */
-    private static function answers(array $questions, array $data, array $places): array
-    {
-        $answers = [];
-        foreach ($questions as $question => $path) {
-            $value = self::get($data, strtr($path, $places));
-            if ($value !== null && $value !== '') {
-                $answers[$question] = is_bool($value)
-                    ? $value
-                    : (is_array($value)
-                        ? self::roles($value)
-                        : (string) $value);
-                if (is_array($value)) {
-                    // The roles are a yes or no each in the setup
-                    foreach (
-                        [
-                            'DefaultRegion' => 'Default Region',
-                            'DefaultHGRegion' => 'Default HG Region',
-                            'FallbackRegion' => 'Fallback Region',
-                        ]
-                        as $role => $label
-                    ) {
-                        $answers[$label] = in_array($role, $answers[$question], true);
-                    }
-                }
-            }
-        }
-
-        return $answers;
-    }
-
-    /**
-     * The roles of a region: the names of the flags, or default, default_hg and fallback.
-     *
-     * @param array<int,mixed> $roles
-     * @return list<string>
-     */
-    private static function roles(array $roles): array
-    {
-        $names = ['default' => 'DefaultRegion', 'default_hg' => 'DefaultHGRegion', 'fallback' => 'FallbackRegion'];
-
-        return array_values(array_map(static fn($r): string => $names[strtolower((string) $r)] ?? (string) $r, $roles));
-    }
-
-    /** @param array<string,mixed> $data */
-    private static function get(array $data, string $path): mixed
-    {
-        foreach (explode('.', $path) as $key) {
-            if (!is_array($data) || !array_key_exists($key, $data)) {
-                return null;
-            }
-            $data = $data[$key];
-        }
-
-        return $data;
     }
 }

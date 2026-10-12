@@ -167,6 +167,20 @@ describe('The owner of the estate', function () {
     });
 });
 
+describe('The owner a setup file names', function () {
+    test('is an account of the grid when it has it, a new account to make when it does not, one that has to exist when the accounts are not known', function () {
+        $owner = ['name' => 'Jane Doe', 'password' => 'secret1', 'email' => 'jane@example.org'];
+
+        expect(sim_planner()->ownerAnswers($owner))->toBe(['estate_owner' => 'Jane Doe'])
+            ->and(sim_planner()->ownerAnswers(['name' => 'Ann Poe'] + $owner))->toBe(['estate_owner' => '+', 'new_name' => 'Ann Poe', 'new_password' => 'secret1', 'new_email' => 'jane@example.org'])
+            ->and(sim_planner(['accounts' => null])->ownerAnswers(['name' => 'Far Away']))->toBe(['estate_owner' => 'Far Away'])
+            ->and(sim_planner()->ownerAnswers([]))->toBe([]);
+
+        $plan = sim_planner(['accounts' => []])->plan(sim_planner(['accounts' => []])->ownerAnswers(['name' => 'Ann Poe', 'password' => 'secret1']));
+        expect($plan->createOwner)->toBeTrue()->and($plan->estateOwner)->toBe('Ann Poe');
+    });
+});
+
 describe('A simulator that exists', function () {
     function existing_sim(): SimPlanner
     {

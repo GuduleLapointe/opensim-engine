@@ -139,6 +139,45 @@ final class Grid
         ];
     }
 
+    /**
+     * The fields to join a grid whose Robust runs on another machine (or in another container): what a simulator needs of it, which
+     * is kept for the next ones. Its name and its nick are the grid's own when they are left out.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public static function remoteFields(): array
+    {
+        return [
+            ['name' => 'address', 'group' => 'remote', 'type' => 'string', 'required' => true, 'label' => _('Address of the grid (host:port)')],
+            [
+                'name' => 'name',
+                'group' => 'remote',
+                'type' => 'string',
+                'required' => false,
+                'label' => _('Grid name'),
+                'description' => _('Empty: the grid tells it'),
+            ],
+            [
+                'name' => 'nick',
+                'group' => 'remote',
+                'type' => 'string',
+                'required' => false,
+                'label' => _('Grid nick (snake_case)'),
+                'description' => _('Empty: the grid tells it'),
+            ],
+            [
+                'name' => 'private_port',
+                'group' => 'remote',
+                'type' => 'integer',
+                'required' => false,
+                'label' => _('Private port of the grid (only for its simulators, and this machine is one)'),
+                'description' => _('Empty: the public port plus one'),
+                'callback' => [self::class, 'validatePort'],
+            ],
+            ['name' => 'hypergrid', 'group' => 'remote', 'type' => 'boolean', 'label' => _('Does the grid use Hypergrid?')],
+        ];
+    }
+
     /** A port number. */
     public static function validatePort(mixed $value): ?string
     {

@@ -198,6 +198,32 @@ final class SimPlanner
     }
 
     /**
+     * The answers about the owner of the estate when a file names it: an account of the grid if the grid has it (or if its accounts
+     * are not known here: it has to exist), else a new account to make with the name, the password and the email of the file.
+     *
+     * @param array{name?:string,password?:string,email?:string} $owner
+     * @return array<string,string>
+     */
+    public function ownerAnswers(array $owner): array
+    {
+        $name = trim((string) ($owner['name'] ?? ''));
+        if ($name === '') {
+            return [];
+        }
+        $accounts = $this->context['accounts'];
+        if ($accounts === null || in_array($name, $accounts, true)) {
+            return ['estate_owner' => $name];
+        }
+
+        return [
+            'estate_owner' => '+',
+            'new_name' => $name,
+            'new_password' => (string) ($owner['password'] ?? ''),
+            'new_email' => (string) ($owner['email'] ?? ''),
+        ];
+    }
+
+    /**
      * What is wrong with these answers, by field.
      *
      * @return array<string,string>
