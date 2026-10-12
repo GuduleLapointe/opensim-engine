@@ -1,0 +1,171 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * From the answers about a grid to its plan: what is proposed, what follows what was changed, a grid that is changed, what is wrong.
+ */
+
+use OpenSim\Models\Grid;
+use OpenSim\Provisioning\GridPlan;
+use OpenSim\Provisioning\GridPlanner;
+
+/** A planner for a machine called amy, with random things that are not: a counter. */
+function planner(array $more = []): GridPlanner
+{
+    $counter = 0;
+
+    return GridPlanner::with($more + [
+        'profile' => ['EtcRoot' => '/etc/opensim', 'DataRoot' => '/var/lib/opensim/data', 'CacheRoot' => '/var/cache/opensim', 'LogsRoot' => '/var/log/opensim', 'CoreDirectory' => '/usr/share/opensim/0.9.3.0'],
+        'cores' => ['/usr/share/opensim/0.9.3.0' => '0.9.3.0'],
+        'defaultName' => 'Amy',
+        'defaultHost' => 'amy.example.org',
+        'defaultPublic' => 8002,
+        'nextPort' => static fn(int $min): int => ($min | 1) + 100,
+        'random' => static function (int $length, bool $letters) use (&$counter): string {
+            $counter++;
+
+            return str_pad(($letters ? 'l' : 'p') . $counter, $length, $letters ? 'x' : '0');
+        },
+    ]);
+}
+
+describe('A new grid', function () {
+    test('is proposed from the machine: its name, its host, the block of ports, the database named after the nick', function () {
+        $v = planner()->resolve();
+
+        expect($v)->toMatchArray([
+            'name' => 'Amy', 'nick' => 'amy', 'hypergrid' => true, 'spacing' => 0, 'core' => '/usr/share/opensim/0.9.3.0',
+            'hostname' => 'amy.example.org', 'public_port' => 8002, 'private_port' => 8003, 'console_port' => 8004,
+            'center' => '8002,8002', 'console' => 'rest', 'web_url' => 'https://amy.example.org', 'helpers' => false, 'helpers_path' => '/helpers',
+            'database_host' => 'localhost', 'database_name' => 'amy_robust', 'database_user' => 'opensim',
+        ])
+            ->and($v['database_password'])->toBe('p1' . str_repeat('0', 18));
+    });
+
+    test('follows what was answered: the nick the name, the database the nick, the ports the public port, the address the host', function () {
+        $v = planner()->resolve(['name' => 'My Grid', 'public_port' => 8012, 'hostname' => 'play.example.org']);
+
+        expect($v)->toMatchArray([
+            'nick' => 'my_grid', 'database_name' => 'my_grid_robust', 'private_port' => 8013, 'console_port' => 8014,
+            'center' => '8012,8012', 'web_url' => 'https://play.example.org',
+        ]);
+    });
+
+    test('keeps what was answered over what follows, as text or as the numbers and booleans they are', function () {
+        $v = planner()->resolve(['name' => 'My Grid', 'nick' => 'mine', 'public_port' => '8012', 'private_port' => '9000', 'console' => 'screen', 'helpers' => 'yes', 'hypergrid' => false, 'center' => '10,20', 'web_url' => 'https://web.example.org']);
+
+        expect($v)->toMatchArray([
+            'nick' => 'mine', 'database_name' => 'mine_robust', 'public_port' => 8012, 'private_port' => 9000, 'console_port' => 8014,
+            'console' => 'screen', 'helpers' => true, 'hypergrid' => false, 'center' => '10,20', 'web_url' => 'https://web.example.org',
+        ]);
+    });
+
+    test('takes the next free port from the machine when the public port does not end with 2', function () {
+        $v = planner()->resolve(['public_port' => 8100]);
+
+        expect($v['private_port'])->toBe(8101 + 100)->and($v['console_port'])->toBe((8101 + 100 + 1 | 1) + 100);
+    });
+
+    test('is the plan the provisioner makes: folders by nick, the console made at random once, the helpers path normalized', function () {
+        $planner = planner();
+        $plan = $planner->plan(['name' => 'My Grid', 'helpers' => true, 'helpers_path' => 'helper/']);
+
+        expect($plan)->toBeInstanceOf(GridPlan::class)
+            ->and($plan->gridName)->toBe('My Grid')
+            ->and($plan->gridNick)->toBe('my_grid')
+            ->and($plan->gridDir)->toBe('/etc/opensim/grids/my_grid')
+            ->and($plan->etcDirectory)->toBe('/etc/opensim/grids/my_grid')
+            ->and($plan->dataDirectory)->toBe('/var/lib/opensim/data/my_grid')
+            ->and($plan->cacheDirectory)->toBe('/var/cache/opensim/my_grid')
+            ->and($plan->logsDirectory)->toBe('/var/log/opensim')
+            ->and($plan->coreDirectory)->toBe('/usr/share/opensim/0.9.3.0')
+            ->and($plan->binDir)->toBe('/usr/share/opensim/0.9.3.0/bin')
+            ->and($plan->consoleMode)->toBe('rest')
+            ->and($plan->consolePort)->toBe(8004)
+            ->and($plan->consoleHost)->toBe('amy.example.org')
+            ->and(strlen($plan->consoleUser))->toBe(12)
+            ->and(strlen($plan->consolePass))->toBe(32)
+            ->and($plan->helpers)->toBeTrue()
+            ->and($plan->helpersPath)->toBe('/helper')
+            ->and($plan->dbName)->toBe('my_grid_robust')
+            // The password shown in the database screen is the one that is made
+            ->and($plan->dbPass)->toBe($planner->resolve()['database_password']);
+    });
+
+    test('has no console port with a screen session, and runs on the only core, or on the one chosen among several', function () {
+        $plan = planner()->plan(['console' => 'screen']);
+        expect($plan->consoleMode)->toBe('screen')->and($plan->consolePort)->toBe(0)->and($plan->consoleUser)->toBe('');
+
+        $several = planner(['cores' => ['/a/0.9.2.2' => '0.9.2.2', '/a/0.9.3.0' => '0.9.3.0']]);
+        expect($several->plan()->coreDirectory)->toBe('/usr/share/opensim/0.9.3.0')
+            ->and($several->plan(['core' => '/a/0.9.2.2'])->coreDirectory)->toBe('/a/0.9.2.2')
+            ->and($several->fields()->get('core')['enable'])->toBeTrue()
+            ->and(planner()->fields()->get('core')['enable'])->toBeFalse();
+    });
+
+    test('says what is wrong in the answers, the ones given and the ones proposed', function () {
+        $planner = planner();
+
+        expect($planner->problems())->toBe([])
+            ->and($planner->problems(['public_port' => 'abc', 'spacing' => 80, 'center' => 'middle', 'name' => '', 'helpers' => true, 'helpers_path' => 'a b']))
+            ->toHaveKeys(['public_port', 'spacing', 'center', 'helpers_path']);
+    });
+});
+
+describe('A grid that exists', function () {
+    function existing_planner(array $more = []): GridPlanner
+    {
+        return planner($more + [
+            'modify' => true,
+            'nick' => 'amy',
+            'currentHypergrid' => false,
+            'savedCenter' => '8100,8100',
+            'current' => [
+                'gridName' => 'Amy World', 'baseHostname' => 'amy.old.org', 'publicPort' => 8102, 'privatePort' => 8105, 'consolePort' => 8108,
+                'webUrl' => 'https://web.old.org', 'dbHost' => 'db.old.org', 'dbName' => 'old_db', 'dbUser' => 'olduser', 'dbPass' => 'oldpass',
+                'consoleUser' => 'oldconsole', 'consolePass' => 'oldconsolepass', 'consoleHost' => 'console.old.org',
+            ],
+        ]);
+    }
+
+    test('is proposed as it is, its nick stays', function () {
+        $v = existing_planner()->resolve(['nick' => 'other']);
+
+        expect($v)->toMatchArray([
+            'name' => 'Amy World', 'nick' => 'amy', 'hypergrid' => false, 'hostname' => 'amy.old.org', 'public_port' => 8102,
+            'private_port' => 8105, 'console_port' => 8108, 'center' => '8100,8100', 'web_url' => 'https://web.old.org',
+            'database_host' => 'db.old.org', 'database_name' => 'old_db', 'database_user' => 'olduser', 'database_password' => 'oldpass',
+        ]);
+    });
+
+    test('keeps its console and its database password, and follows a public port that is changed', function () {
+        $planner = existing_planner();
+        $plan = $planner->plan();
+
+        expect($plan->consoleUser)->toBe('oldconsole')->and($plan->consolePass)->toBe('oldconsolepass')->and($plan->consoleHost)->toBe('console.old.org')
+            ->and($plan->dbPass)->toBe('oldpass');
+
+        $moved = $planner->resolve(['public_port' => 8202]);
+        expect($moved['private_port'])->toBe(8203)->and($moved['console_port'])->toBe(8204)
+            // The center it had is kept, it does not follow the port
+            ->and($moved['center'])->toBe('8100,8100');
+    });
+
+    test('has a password made when the one found is the default of old', function () {
+        expect(existing_planner(['current' => ['dbPass' => 'changeme']])->resolve()['database_password'])->toBe('p1' . str_repeat('0', 18));
+    });
+
+    test('is a console on a screen when its Robust has none', function () {
+        expect(existing_planner(['current' => ['gridName' => 'X']])->resolve()['console'])->toBe('screen');
+    });
+});
+
+describe('The fields of a grid', function () {
+    test('are the standard ones, the nick being hidden for a grid that exists, with the names of the setup file', function () {
+        $names = array_column(Grid::fields(), 'name');
+
+        expect($names)->toBe(['name', 'nick', 'hypergrid', 'spacing', 'core', 'hostname', 'public_port', 'private_port', 'center', 'console', 'console_port', 'web_url', 'helpers', 'helpers_path', 'database_host', 'database_name', 'database_user', 'database_password']);
+        expect(Grid::fields(['modify' => true])[1]['enable'])->toBeFalse()->and(Grid::fields()[1]['enable'])->toBeTrue();
+    });
+});

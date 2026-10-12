@@ -2,6 +2,7 @@
 
 ### Unreleased
 
+- new: `OpenSim\Forms\FieldSet` (the standard definition of the fields of a form: conditions, follows, callbacks, groups), `Models\Grid::fields()`, and `Provisioning\GridPlanner`, from the answers about a grid to its plan
 - new: `OpenSim\Runtime\DotnetInstaller` installs the .NET runtime and libgdiplus (system packages, an installed runtime, or the script of Microsoft)
 - new: `SimulatorMaster`: the simulators of a grid read a generated master (`OpenSimGridDefaults.ini`, `-inimaster`), their own config says what is theirs
 - new: `ConfigReader`, `GridConfig`, `ConnectionString`: one reader of the ini files and of the connection strings (`IniReader` is gone, `OpenSim_Config` a thin legacy class)

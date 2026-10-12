@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OpenSim\Models;
 
 use OpenSim\Config\ConfigReader;
+use OpenSim\Provisioning\LocationFinder;
 use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\Result;
 
@@ -25,6 +26,141 @@ final class Grid
         private readonly Environment $environment,
         private readonly string $directory,
     ) {
+    }
+
+    /**
+     * The fields of a grid, in the standard format of the forms (see Forms\FieldSet): what the setup asks to make or to change one,
+     * and what any other form about a grid (administration) shows. The groups are the screens of the setup.
+     *
+     * @param array{cores?:array<string,string>,modify?:bool} $options the cores to run it (folder => name; with one there is no
+     *        question) and whether the grid exists (its nick is not changed)
+     * @return list<array<string,mixed>>
+     */
+    public static function fields(array $options = []): array
+    {
+        $cores = $options['cores'] ?? [];
+
+        return [
+            ['name' => 'name', 'group' => 'grid', 'type' => 'string', 'required' => true, 'label' => _('Grid name')],
+            [
+                // The nick names the folder, the database and the instances: it is not changed afterwards
+                'name' => 'nick',
+                'follows' => ['name'],
+                'group' => 'grid',
+                'type' => 'string',
+                'required' => true,
+                'label' => _('Grid nick (snake_case)'),
+                'description' => _('Names its folder, its database and its instances'),
+                'enable' => !($options['modify'] ?? false),
+            ],
+            ['name' => 'hypergrid', 'group' => 'grid', 'type' => 'boolean', 'label' => _('Enable Hypergrid?')],
+            [
+                'name' => 'spacing',
+                'group' => 'grid',
+                'type' => 'integer',
+                'required' => true,
+                'label' => _('Free blocks between regions (0: side by side)'),
+                'callback' => [self::class, 'validateSpacing'],
+            ],
+            [
+                'name' => 'core',
+                'group' => 'grid',
+                'type' => 'select',
+                'label' => _('OpenSim core to run this grid'),
+                'options' => $cores,
+                'enable' => count($cores) > 1,
+            ],
+            ['name' => 'hostname', 'group' => 'network', 'type' => 'string', 'required' => true, 'label' => _('Base hostname')],
+            [
+                'name' => 'public_port',
+                'group' => 'network',
+                'type' => 'integer',
+                'required' => true,
+                'label' => _('Public port'),
+                'callback' => [self::class, 'validatePort'],
+            ],
+            [
+                'name' => 'private_port',
+                'follows' => ['public_port'],
+                'group' => 'network',
+                'type' => 'integer',
+                'required' => true,
+                'label' => _('Private port'),
+                'callback' => [self::class, 'validatePort'],
+            ],
+            [
+                'name' => 'center',
+                'follows' => ['public_port'],
+                'group' => 'network',
+                'type' => 'string',
+                'required' => true,
+                'label' => _('Center of the grid (x,y)'),
+                'description' => _('Where new regions are searched from, kept'),
+                'callback' => [self::class, 'validateCenter'],
+            ],
+            [
+                'name' => 'console',
+                'group' => 'network',
+                'type' => 'select',
+                'label' => _('Console of the grid'),
+                'options' => ['rest' => _('Remote REST console (recommended)'), 'screen' => _('Screen session (on this machine)')],
+            ],
+            [
+                'name' => 'console_port',
+                'follows' => ['public_port', 'private_port'],
+                'group' => 'network',
+                'type' => 'integer',
+                'required' => true,
+                'label' => _('Console port'),
+                'callback' => [self::class, 'validatePort'],
+                'condition' => ['console' => 'rest'],
+            ],
+            ['name' => 'web_url', 'follows' => ['hostname'], 'group' => 'network', 'type' => 'string', 'required' => true, 'label' => _('Web URL')],
+            [
+                'name' => 'helpers',
+                'group' => 'network',
+                'type' => 'boolean',
+                'label' => _('Serve the economy and the search of the grid with opensim-helpers?'),
+            ],
+            [
+                'name' => 'helpers_path',
+                'group' => 'network',
+                'type' => 'string',
+                'required' => true,
+                'label' => _('Helpers path'),
+                'description' => _('After the Web URL: the viewers add the name of the script'),
+                'callback' => [self::class, 'validateHelpersPath'],
+                'condition' => ['helpers' => true],
+            ],
+            ['name' => 'database_host', 'group' => 'database', 'type' => 'string', 'required' => true, 'label' => _('Database host')],
+            ['name' => 'database_name', 'follows' => ['nick'], 'group' => 'database', 'type' => 'string', 'required' => true, 'label' => _('Database name')],
+            ['name' => 'database_user', 'group' => 'database', 'type' => 'string', 'required' => true, 'label' => _('Database user')],
+            ['name' => 'database_password', 'group' => 'database', 'type' => 'string', 'required' => true, 'label' => _('Database password')],
+        ];
+    }
+
+    /** A port number. */
+    public static function validatePort(mixed $value): ?string
+    {
+        return ctype_digit(trim((string) $value)) ? null : _('Enter a port number.');
+    }
+
+    /** A number of free blocks between regions. */
+    public static function validateSpacing(mixed $value): ?string
+    {
+        return ctype_digit(trim((string) $value)) && (int) $value <= 50 ? null : _('A number of blocks, 0 to 50.');
+    }
+
+    /** A place of the map, x,y. */
+    public static function validateCenter(mixed $value): ?string
+    {
+        return LocationFinder::parse((string) $value) === null ? _('Use x,y (e.g. 8002,8002).') : null;
+    }
+
+    /** The path of the helpers on the web site. */
+    public static function validateHelpersPath(mixed $value): ?string
+    {
+        return preg_match('#^/?[A-Za-z0-9._/-]*$#', trim((string) $value)) === 1 ? null : _('A path such as /helpers.');
     }
 
     /** The grid whose folder is given. */
