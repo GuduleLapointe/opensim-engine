@@ -68,8 +68,9 @@ final class RegionPlanner
      * The planner of a region of this simulator plan, in this grid.
      *
      * @param array<string,string> $pool the simulators that can take it (instance => title)
+     * @param ?\Closure(string):int $portOfSim the HTTP port of a simulator of the pool
      */
-    public static function forSim(SimPlan $plan, GridInfo $grid, DatabaseService $database, bool $optional = false, array $pool = [], string $defaultName = ''): self
+    public static function forSim(SimPlan $plan, GridInfo $grid, DatabaseService $database, bool $optional = false, array $pool = [], string $defaultName = '', ?\Closure $portOfSim = null): self
     {
         $registry = new GridRegistry($database);
 
@@ -77,6 +78,7 @@ final class RegionPlanner
             'grid' => $grid,
             'optional' => $optional,
             'pool' => $pool,
+            'portOfSim' => $portOfSim,
             'defaultName' => $defaultName,
             'simName' => $plan->simName,
             'first' => (glob("{$plan->regionsDir()}/*.ini*") ?: []) === [],
@@ -284,7 +286,7 @@ final class RegionPlanner
     }
 
     /** A random UUID (version 4). */
-    private static function uuid(): string
+    public static function uuid(): string
     {
         $bytes = random_bytes(16);
         $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
