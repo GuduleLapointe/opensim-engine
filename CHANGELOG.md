@@ -2,6 +2,7 @@
 
 ### Unreleased
 
+- update: `setup.json` and the backups are readable by the group of the install (640, folders 750)
 - new: `RemoteGridPlanner` and `Models\Grid::remoteFields()` (joining a grid on another machine); `SetupFile::gridValues()`, `simValues()`, `regionValues()`, `owner()` and the prompts replace the answers by label
 - new: `Models\Simulator::fields()`, `Models\Region` (its fields), `SimPlanner` and `RegionPlanner`: from the answers about a simulator and a region to the plan
 - new: `OpenSim\Forms\FieldSet` (the standard definition of the fields of a form: conditions, follows, callbacks, groups), `Models\Grid::fields()`, and `Provisioning\GridPlanner`, from the answers about a grid to its plan
