@@ -267,13 +267,14 @@ final class SetupFile
     }
 
     /**
-     * The same for one more region of a simulator.
+     * The same for one more region of a simulator: it is loaded at once only when the simulator is to be enabled and started.
      *
+     * @param array<string,mixed> $data
      * @return array<string,mixed>
      */
-    public static function regionPrompts(): array
+    public static function regionPrompts(array $data, int $i): array
     {
-        return ['Add region' => true, 'Load it now' => true];
+        return ['Add region' => true, 'Load it now' => self::flag($data, "simulators.$i.enable") && self::flag($data, "simulators.$i.start")];
     }
 
     /** @return array<string,string> the administrator of the database server: the one of the simulator, else the one of the grid */
