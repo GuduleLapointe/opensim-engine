@@ -264,17 +264,7 @@ class OSPDO extends PDO
             // If already an array, just return it
             return $connectionstring;
         }
-        $parts = explode(';', $connectionstring);
-        $creds = [];
-        foreach ($parts as $part) {
-            if (empty(trim($part))) {
-                continue;
-            } // Skip empty parts
-            $pair = explode('=', $part, 2); // Limit to 2 parts in case value contains =
-            if (count($pair) === 2) {
-                $creds[trim($pair[0])] = trim($pair[1]);
-            }
-        }
+        $creds = \OpenSim\Config\ConnectionString::pairs($connectionstring);
         if (preg_match('/:[0-9]+$/', $creds['Data Source'] ?? '')) {
             $host = explode(':', $creds['Data Source']);
             $creds['Data Source'] = $host[0];

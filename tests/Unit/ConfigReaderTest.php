@@ -8,6 +8,7 @@ declare(strict_types=1);
  */
 
 use OpenSim\Config\ConfigReader;
+use OpenSim\Config\ConnectionString;
 
 /** A folder with files in it, in a temporary tree: name => content. */
 function reader_folder(array $files): string
@@ -98,5 +99,28 @@ describe('Finding a key', function () {
         $ini = ['A' => ['one' => '1'], 'B' => ['GridName' => 'first', 'Other' => 'x'], 'C' => ['gridname' => 'second']];
 
         expect(ConfigReader::find($ini, 'gridname'))->toBe('first')->and(ConfigReader::find($ini, 'none'))->toBeNull();
+    });
+});
+
+describe('A connection string', function () {
+    test('is read in any order, the port of the source apart', function () {
+        $db = ConnectionString::parse('Password=s3cr3t;User ID=opensim;Database=grid;Data Source=db.example.org:3307;Old Guids=true;');
+
+        expect($db->source)->toBe('db.example.org:3307')
+            ->and($db->host)->toBe('db.example.org')
+            ->and($db->port)->toBe(3307)
+            ->and([$db->database, $db->user, $db->password])->toBe(['grid', 'opensim', 's3cr3t']);
+    });
+
+    test('is written as OpenSimulator has it, and read back', function () {
+        $text = (string) ConnectionString::for('localhost', 'grid', 'opensim', 'pw');
+
+        expect($text)->toBe('Data Source=localhost;Database=grid;User ID=opensim;Password=pw;Old Guids=true;')
+            ->and(ConnectionString::parse($text)->key())->toBe('opensim@localhost/grid');
+    });
+
+    test('is nothing without a database to connect to', function () {
+        expect(ConnectionString::parse(''))->toBeNull()
+            ->and(ConnectionString::parse('Data Source=localhost;User ID=a;'))->toBeNull();
     });
 });

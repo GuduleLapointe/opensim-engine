@@ -3,6 +3,7 @@
 namespace OpenSim\Models;
 
 use OpenSim\Config\ConfigReader;
+use OpenSim\Config\ConnectionString;
 use OpenSim\Config\GridFileService;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\LocationFinder;
@@ -282,17 +283,11 @@ final class GridInfo
                 $current[$field] = (int) $port;
             }
         }
-        if (
-            preg_match(
-                '/Data Source=([^;"\s]*);Database=([^;"\s]*);User ID=([^;"\s]*);Password=([^;"]*?);/i',
-                (string) $grab('ConnectionString'),
-                $m,
-            )
-        ) {
-            $current['dbHost'] = $m[1];
-            $current['dbName'] = $m[2];
-            $current['dbUser'] = $m[3];
-            $current['dbPass'] = $m[4];
+        if (($db = ConnectionString::parse((string) $grab('ConnectionString'))) !== null) {
+            $current['dbHost'] = $db->source;
+            $current['dbName'] = $db->database;
+            $current['dbUser'] = $db->user;
+            $current['dbPass'] = $db->password;
         }
         // The remote console, when the config has one (its port is ConsolePort in Robust, console_port in a simulator)
         foreach (

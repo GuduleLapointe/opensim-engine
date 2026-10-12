@@ -2,6 +2,8 @@
 
 namespace OpenSim\Provisioning;
 
+use OpenSim\Config\ConnectionString;
+
 /**
  * Everything gathered to (re)configure one grid, before anything is written.
  */
@@ -82,12 +84,6 @@ final class GridPlan
 
     public function connectionString(): string
     {
-        return sprintf(
-            'Data Source=%s;Database=%s;User ID=%s;Password=%s;Old Guids=true;',
-            $this->dbHost,
-            $this->dbName,
-            $this->dbUser,
-            $this->dbPass,
-        );
+        return (string) ConnectionString::for($this->dbHost, $this->dbName, $this->dbUser, $this->dbPass);
     }
 }

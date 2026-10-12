@@ -2,6 +2,7 @@
 
 namespace OpenSim\Provisioning;
 
+use OpenSim\Config\ConnectionString;
 use OpenSim\Runtime\ShellService;
 
 /**
@@ -131,11 +132,24 @@ final class DatabaseService
      */
     public function select(GridPlan $plan, string $sql): ?array
     {
+        return $this->query(
+            ConnectionString::for($plan->dbHost, $plan->dbName, $plan->dbUser, $plan->dbPass),
+            $sql,
+        );
+    }
+
+    /**
+     * The lines a query gives on a database, with the account of its connection string.
+     *
+     * @return list<string>|null null when the query cannot be run
+     */
+    public function query(ConnectionString $db, string $sql): ?array
+    {
         $client = $this->client();
         if ($client === null) {
             return null;
         }
-        [$code, $out] = $this->run($client, $plan, $plan->dbName, $sql);
+        [$code, $out] = $this->run($client, $db, $db->database, $sql);
 
         return $code === 0
             ? array_values(array_filter(explode("\n", $out), static fn(string $line): bool => $line !== ''))
@@ -395,25 +409,21 @@ final class DatabaseService
      *
      * @return array{0:int,1:string,2:string} [exit code, stdout, stderr]
      */
-    private function run(string $client, GridPlan $plan, ?string $database, string $sql = 'SELECT 1'): array
+    private function run(string $client, ConnectionString|GridPlan $db, ?string $database, string $sql = 'SELECT 1'): array
     {
-        $command = [
-            $client,
-            '--no-defaults',
-            '-h',
-            $plan->dbHost,
-            '-u',
-            $plan->dbUser,
-            '--connect-timeout=5',
-            '-BN',
-            '-e',
-            $sql,
-        ];
+        if ($db instanceof GridPlan) {
+            $db = ConnectionString::for($db->dbHost, $db->dbName, $db->dbUser, $db->dbPass);
+        }
+        $command = [$client, '--no-defaults', '-h', $db->host];
+        if ($db->port !== null) {
+            array_push($command, '-P', (string) $db->port);
+        }
+        array_push($command, '-u', $db->user, '--connect-timeout=5', '-BN', '-e', $sql);
         if ($database !== null) {
             $command[] = $database;
         }
 
-        return $this->exec($command, ['MYSQL_PWD' => $plan->dbPass]);
+        return $this->exec($command, ['MYSQL_PWD' => $db->password]);
     }
 
     /**

@@ -4,6 +4,7 @@ namespace OpenSim\Provisioning\Import;
 
 use OpenSim\Config\IniEditor;
 use OpenSim\Config\ConfigReader;
+use OpenSim\Config\ConnectionString;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\RobustConfig;
 use OpenSim\Provisioning\Slug;
@@ -35,13 +36,7 @@ final class RobustImporter
         if ($nick === '') {
             return 'the grid has no nick (gridnick of [GridInfoService]): give one with --nick';
         }
-        if (
-            !preg_match(
-                '/Data Source=([^;"\s]*);Database=([^;"\s]*);User ID=([^;"\s]*);Password=([^;"]*?);/i',
-                $ini['DatabaseService']['ConnectionString'] ?? '',
-                $db,
-            )
-        ) {
+        if (($db = ConnectionString::parse($ini['DatabaseService']['ConnectionString'] ?? '')) === null) {
             return 'no database in [DatabaseService] ConnectionString';
         }
 
@@ -61,7 +56,7 @@ final class RobustImporter
         $plan->publicPort = (int) ($ini['Const']['PublicPort'] ?? 8002);
         $plan->privatePort = (int) ($ini['Const']['PrivatePort'] ?? $plan->publicPort + 1);
         $plan->webUrl = $ini['Const']['WebURL'] ?? "https://{$plan->baseHostname}";
-        [, $plan->dbHost, $plan->dbName, $plan->dbUser, $plan->dbPass] = $db;
+        [$plan->dbHost, $plan->dbName, $plan->dbUser, $plan->dbPass] = [$db->source, $db->database, $db->user, $db->password];
 
         $network = $ini['Network'] ?? [];
         if (($network['ConsoleUser'] ?? '') !== '' && (int) ($network['ConsolePort'] ?? 0) > 0) {

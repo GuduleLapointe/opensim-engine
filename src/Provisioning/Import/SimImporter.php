@@ -4,6 +4,7 @@ namespace OpenSim\Provisioning\Import;
 
 use OpenSim\Config\GridFileService;
 use OpenSim\Config\ConfigReader;
+use OpenSim\Config\ConnectionString;
 use OpenSim\Models\GridInfo;
 use OpenSim\Provisioning\SimPlan;
 
@@ -33,13 +34,7 @@ final class SimImporter
         if ($architecture !== '' && stripos($architecture, 'Standalone') !== false) {
             return 'a standalone simulator has its own services: only the simulators of a grid are ported';
         }
-        if (
-            !preg_match(
-                '/Data Source=([^;"\s]*);Database=([^;"\s]*);User ID=([^;"\s]*);Password=([^;"]*?);/i',
-                $ini['DatabaseService']['ConnectionString'] ?? '',
-                $db,
-            )
-        ) {
+        if (($db = ConnectionString::parse($ini['DatabaseService']['ConnectionString'] ?? '')) === null) {
             return 'no database in [DatabaseService] ConnectionString (the simulator has its own)';
         }
         $port = (int) ($ini['Network']['http_listener_port'] ?? 0);
@@ -70,7 +65,7 @@ final class SimImporter
         $plan->httpPort = $port;
         $plan->dataDirectory = "{$grid->dataDirectory}/{$plan->slug}";
         $plan->cacheDirectory = "{$grid->cacheDirectory}/{$plan->slug}";
-        [, $plan->dbHost, $plan->dbName, $plan->dbUser, $plan->dbPass] = $db;
+        [$plan->dbHost, $plan->dbName, $plan->dbUser, $plan->dbPass] = [$db->source, $db->database, $db->user, $db->password];
 
         $network = $ini['Network'] ?? [];
         if (($network['ConsoleUser'] ?? '') !== '' && (int) ($network['console_port'] ?? 0) > 0) {

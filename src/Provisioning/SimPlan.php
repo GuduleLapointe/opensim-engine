@@ -2,6 +2,8 @@
 
 namespace OpenSim\Provisioning;
 
+use OpenSim\Config\ConnectionString;
+
 /**
  * Everything gathered to create (or reconfigure) one simulator of a grid,
  * with its first region, before anything is written.
@@ -122,13 +124,7 @@ final class SimPlan
 
     public function connectionString(): string
     {
-        return sprintf(
-            'Data Source=%s;Database=%s;User ID=%s;Password=%s;Old Guids=true;',
-            $this->dbHost,
-            $this->dbName,
-            $this->dbUser,
-            $this->dbPass,
-        );
+        return (string) ConnectionString::for($this->dbHost, $this->dbName, $this->dbUser, $this->dbPass);
     }
 
     /** The database settings, to ask questions of the database. */
