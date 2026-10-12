@@ -31,7 +31,7 @@ class RuntimeProbe
     {
         $runtime = $core->runtime(preg_replace('/\.(dll|exe)$/', '', $assembly) ?? $assembly);
         if ($runtime === 'mono') {
-            return $this->exists('mono') ? null : 'mono is not installed (required for OpenSim < 0.9.3.0). Install it, or run install/install.sh';
+            return $this->exists('mono') ? null : 'mono is not installed (required for OpenSim < 0.9.3.0): install it with your package manager (e.g. sudo apt install mono-complete)';
         }
         $major = (int) explode('.', $core->dotnetRequired($assembly))[0];
         if (!$this->exists('dotnet')) {
