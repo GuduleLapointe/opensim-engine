@@ -82,7 +82,7 @@ final class BackupService
         $etc = rtrim($this->profile['EtcRoot'] ?? '', '/');
         $grid = GridInfo::load($this->profile, $nick) ?? throw new \RuntimeException("grid '$nick' is not known here");
         $output = rtrim($options['output'] ?? $this->defaultOutput(), '/');
-        if (!is_dir($output) && !@mkdir($output, 0700, true) && !is_dir($output)) {
+        if (!is_dir($output) && !@mkdir($output, 0o750, true) && !is_dir($output)) {
             throw new \RuntimeException("cannot make the folder $output");
         }
 
@@ -204,7 +204,7 @@ final class BackupService
             }
 
             $this->run2(['gzip', '-f', $tar]);
-            chmod($file, 0600);
+            chmod($file, 0o640);
         } catch (\Throwable $e) {
             foreach ([$tar, $file] as $partial) {
                 is_file($partial) && unlink($partial);
@@ -401,6 +401,6 @@ final class BackupService
         } finally {
             @unlink($options);
         }
-        chmod($file, 0600);
+        chmod($file, 0o640);
     }
 }

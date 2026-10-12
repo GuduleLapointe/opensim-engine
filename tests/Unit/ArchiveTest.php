@@ -435,7 +435,7 @@ describe('opensim backup', function () {
         expect($files)
             ->toBe(["{$profile['DataRoot']}/backups/admin/alpha-20261003-101500.tar.gz"])
             ->and(substr(sprintf('%o', fileperms($files[0])), -3))
-            ->toBe('600')
+            ->toBe('640')
             ->and($dumped)
             ->toBe(['alpha_robust', 'alpha_sim1', 'alpha_sim2']);
 

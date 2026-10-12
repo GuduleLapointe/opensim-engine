@@ -462,11 +462,12 @@ final class SetupFile
         if (is_file($path)) {
             $data = json_decode((string) file_get_contents($path), true) ?: [];
         }
-        $umask = umask(0o077);
+        $umask = umask(0o027);
         $written = @file_put_contents($path, self::toJson($update($data)));
         umask($umask);
         if ($written !== false) {
-            chmod($path, 0o600);
+            // Same rights as the ini files that hold the same passwords: the group of the install can read
+            chmod($path, 0o640);
         }
     }
 
