@@ -53,11 +53,11 @@
             "OpenSim\\": "src/"
         },
         "classmap": [
-            "class-health.php"
+            "class-health.php",
+            "legacy/"
         ],
         "files": [
-            "includes/functions-escaping.php",
-            "legacy/autoload.php"
+            "includes/functions-escaping.php"
         ]
     },
     "suggest": {

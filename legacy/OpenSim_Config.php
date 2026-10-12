@@ -5,7 +5,7 @@
  *
  * @package magicoli/opensim-engine
  * @license AGPLv3
- * @deprecated use OpenSim\Config\GridConfig and OpenSim\Config\ConfigReader
+ * @deprecated use OpenSim\Config\GridConfig and OpenSim\Config\ConfigReader.
  */
 
 use OpenSim\Config\ConfigReader;
