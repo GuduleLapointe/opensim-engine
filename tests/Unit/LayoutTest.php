@@ -68,3 +68,52 @@ describe('The layout of an install', function () {
             ->and((new Layout(['CoreRoot' => "$root/none"]))->core())->toBeNull();
     });
 });
+
+describe('The layout a front-end works with', function () {
+    test('is what its environment says, then opensim.conf, then the defaults of an install by the book', function () {
+        $file = layout_conf("[Defaults]\nEtcRoot = /srv/etc\nVarRoot = /srv/var\n");
+        $layout = Layout::resolve(['OPENSIM_CONF' => $file, 'OPENSIM_VAR_ROOT' => '/tmp/mine', 'OPENSIM_GRID' => 'not a setting of the layout']);
+
+        expect($layout->file())->toBe($file)
+            ->and($layout->varRoot())->toBe('/tmp/mine')
+            ->and($layout->etcRoot())->toBe('/srv/etc')
+            ->and($layout->cacheRoot())->toBe('/var/cache/opensim')
+            ->and($layout->all())->not->toHaveKey('Grid');
+    });
+
+    test('is the defaults of the system layout when nothing says otherwise, and the roots alone are enough', function () {
+        $layout = Layout::resolve(['OPENSIM_CONF' => layout_conf("[Defaults]\n"), 'OPENSIM_CORE_ROOT' => '/opt/cores', 'OPENSIM_DATA_ROOT' => '/opt/data']);
+
+        expect($layout->etcRoot())->toBe('/etc/opensim')
+            ->and($layout->coreRoot())->toBe('/opt/cores')
+            ->and($layout->dataRoot())->toBe('/opt/data')
+            ->and($layout->logsRoot())->toBe('/var/log/opensim');
+    });
+
+    test('refuses an opensim.conf named in the environment that does not exist', function () {
+        expect(fn() => Layout::resolve(['OPENSIM_CONF' => '/nonexistent/opensim.conf']))->toThrow(RuntimeException::class, '/nonexistent/opensim.conf');
+    });
+
+    test('names each setting in the environment the same way', function () {
+        expect(Layout::environmentName('EtcRoot'))->toBe('OPENSIM_ETC_ROOT')
+            ->and(Layout::environmentName('CoreDirectory'))->toBe('OPENSIM_CORE_DIRECTORY')
+            ->and(Layout::environmentName('SystemUser'))->toBe('OPENSIM_SYSTEM_USER');
+    });
+});
+
+describe('The layouts of an install', function () {
+    test('put the folders where opensim setup proposes them', function () {
+        expect(OpenSim\Config\DirectoryLayout::roots('system', '', '0.9.3.0'))->toBe([
+            'CoreRoot' => '/usr/local/share/opensim',
+            'CoreDirectory' => '/usr/local/share/opensim/0.9.3.0',
+            'EtcRoot' => '/etc/opensim',
+            'VarRoot' => '/var/lib/opensim',
+            'LogsRoot' => '/var/log/opensim',
+            'CacheRoot' => '/var/cache/opensim',
+            'DataRoot' => '/var/lib/opensim/data',
+        ])
+            ->and(OpenSim\Config\DirectoryLayout::roots('bundled', '/opt/opensim', '0.9.3.0')['DataRoot'])->toBe('/opt/opensim/var/data')
+            ->and(OpenSim\Config\DirectoryLayout::roots('flat', '/home/me', '0.9.3.0')['EtcRoot'])->toBe('/home/me/opensim-0.9.3.0/bin')
+            ->and(OpenSim\Config\DirectoryLayout::roots('system'))->not->toHaveKey('CoreDirectory');
+    });
+});

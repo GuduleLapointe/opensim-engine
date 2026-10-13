@@ -56,6 +56,45 @@ final class Layout
         return new self($values + $defaults, $file !== null && is_file($file) ? $file : null, $profile);
     }
 
+    /**
+     * The settings of opensim.conf a front-end may give in its own environment, as `OPENSIM_` and the name in capitals with
+     * underscores (`OPENSIM_ETC_ROOT` for EtcRoot). `OPENSIM_CONF` names another opensim.conf.
+     */
+    public const ENVIRONMENT_KEYS = ['CoreRoot', 'CoreDirectory', 'EtcRoot', 'VarRoot', 'LogsRoot', 'CacheRoot', 'DataRoot', 'SystemUser', 'ModulesRoot', 'EnabledModules'];
+
+    /**
+     * The layout a front-end works with: what its environment says first (`OPENSIM_CONF`, `OPENSIM_ETC_ROOT`...), then
+     * opensim.conf, then the defaults of an install by the book (the system layout). With nothing in the environment, the front-end
+     * shares the install of the machine; with it, it is told to work with its own (beside an install not to touch, for tests).
+     *
+     * @param ?array<string,mixed> $environment the variables of the environment, null for the ones of the process
+     * @throws \RuntimeException when OPENSIM_CONF names a file that does not exist: what is asked is said, never read as empty
+     */
+    public static function resolve(?array $environment = null, ?string $profile = null): self
+    {
+        $environment ??= getenv();
+        $file = (string) ($environment['OPENSIM_CONF'] ?? '');
+        if ($file !== '' && !is_file($file)) {
+            throw new \RuntimeException("OPENSIM_CONF names $file, which does not exist");
+        }
+        $layout = self::load($file !== '' ? $file : null, DirectoryLayout::roots(), $profile);
+        $given = [];
+        foreach (self::ENVIRONMENT_KEYS as $key) {
+            $value = (string) ($environment[self::environmentName($key)] ?? '');
+            if ($value !== '') {
+                $given[$key] = $value;
+            }
+        }
+
+        return new self($given + $layout->all(), $layout->file(), $layout->profile());
+    }
+
+    /** The name a setting of opensim.conf has in an environment: EtcRoot is OPENSIM_ETC_ROOT. */
+    public static function environmentName(string $key): string
+    {
+        return 'OPENSIM_' . strtoupper((string) preg_replace('/(?<!^)[A-Z]/', '_$0', $key));
+    }
+
     /** The first `opensim.conf` of the usual places, null when there is none. */
     public static function locate(): ?string
     {
