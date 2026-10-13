@@ -2,6 +2,7 @@
 
 namespace OpenSim\Provisioning;
 
+use OpenSim\Config\ConfigReader;
 use OpenSim\Config\IniEditor;
 
 /**
@@ -27,17 +28,22 @@ final class RegionFlags
     }
 
     /**
-     * The roles the regions of a Robust config have, the commented examples left out.
+     * The roles the regions of a Robust config have: the values of its Region_<Name> keys, read as Robust reads them (quotes around
+     * the value or not, a comment after it, the examples that are commented left out).
      *
      * @return list<string>
      */
     public static function found(string $text): array
     {
         $found = [];
-        if (preg_match_all('/^\s*Region_[^\s=]+\s*=\s*"?([^"\r\n]*)"?\s*$/m', $text, $m)) {
-            foreach ($m[1] as $value) {
-                foreach (explode(',', $value) as $flag) {
-                    $found[trim($flag)] = true;
+        foreach (ConfigReader::parse($text) as $section) {
+            foreach ($section as $key => $value) {
+                if (!str_starts_with((string) $key, 'Region_')) {
+                    continue;
+                }
+                foreach (explode(',', (string) $value) as $flag) {
+                    $flag = trim($flag);
+                    $flag === '' || $found[$flag] = true;
                 }
             }
         }

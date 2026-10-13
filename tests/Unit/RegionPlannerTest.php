@@ -89,6 +89,22 @@ describe('A region', function () {
             ->and(region_planner(['grid' => region_grid(['remote' => true])])->roleOptions())->toBe([]);
     });
 
+    test('offers every role, and checks at first only the ones the grid has no region for yet (a grid can have several default regions)', function () {
+        $checked = static fn(array $flags, bool $hypergrid = true): array => region_planner(['grid' => region_grid(['regionFlags' => $flags, 'hypergrid' => $hypergrid])])->resolve()['roles'];
+        $held = region_planner(['grid' => region_grid(['regionFlags' => [RegionFlags::DEFAULT, RegionFlags::DEFAULT_HG]])]);
+
+        expect($checked([]))->toBe([RegionFlags::DEFAULT, RegionFlags::DEFAULT_HG])
+            ->and($checked([RegionFlags::DEFAULT]))->toBe([RegionFlags::DEFAULT_HG])
+            ->and($checked([RegionFlags::DEFAULT_HG]))->toBe([RegionFlags::DEFAULT])
+            ->and($checked([RegionFlags::DEFAULT, RegionFlags::DEFAULT_HG]))->toBe([])
+            ->and($checked([RegionFlags::FALLBACK]))->toBe([RegionFlags::DEFAULT, RegionFlags::DEFAULT_HG])
+            ->and($checked([], false))->toBe([RegionFlags::DEFAULT])
+            // A role the grid has already is still there to be given to this region too, and what is answered is kept
+            ->and(array_keys($held->roleOptions()))->toBe([RegionFlags::DEFAULT, RegionFlags::DEFAULT_HG, RegionFlags::FALLBACK])
+            ->and($held->resolve(['roles' => [RegionFlags::DEFAULT]])['roles'])->toBe([RegionFlags::DEFAULT])
+            ->and($held->fields()->get('roles')['enable'])->toBeTrue();
+    });
+
     test('takes the free place nearest to the one asked, and says when it moved', function () {
         $planner = region_planner(['known' => ['100,100' => true]]);
 

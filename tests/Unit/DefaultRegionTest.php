@@ -206,3 +206,22 @@ describe('A name to propose', function () {
         expect(\OpenSim\Provisioning\RandomName::make(static fn(string $v): ?string => 'no'))->toBe('');
     });
 });
+
+describe('The roles found in a Robust config', function () {
+    test('are the ones of the Region_ keys, however the value is written', function () {
+        $text = "[GridService]\r\n"
+            . "    ; Region_Example = \"DefaultRegion, FallbackRegion\"\r\n"
+            . "Region_Welcome = \"DefaultRegion, DefaultHGRegion, Persistent\"  ; the landing region\r\n"
+            . "\tRegion_Second_Place = DefaultHGRegion\r\n"
+            . "Region_0a1b2c3d-0000-4000-8000-000000000001 = \"FallbackRegion\" # by id\r\n"
+            . "[Other]\r\n"
+            . "NotARegion = \"DefaultRegion\"\r\n";
+
+        expect(RegionFlags::found($text))->toBe(['DefaultRegion', 'DefaultHGRegion', 'Persistent', 'FallbackRegion']);
+    });
+
+    test('are none in a config that has only the examples', function () {
+        expect(RegionFlags::found("[GridService]\n    ; Region_Welcome_Area = \"DefaultRegion, DefaultHGRegion\"\n"))->toBe([]);
+    });
+});
+

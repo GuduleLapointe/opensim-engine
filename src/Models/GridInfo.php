@@ -144,6 +144,16 @@ final class GridInfo
     }
 
     /**
+     * The roles a region of this grid can have: all of them, a grid can have several regions with the same role.
+     *
+     * @return list<string>
+     */
+    public function roles(): array
+    {
+        return $this->remote ? [] : RegionFlags::roles($this->hypergrid);
+    }
+
+    /**
      * The roles no region of a grid run from this machine has yet (see RegionFlags::roles()),
      * to offer them to the next region.
      *

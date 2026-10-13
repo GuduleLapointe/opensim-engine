@@ -107,16 +107,22 @@ final class RegionPlanner
         return new self(['fixed' => true, 'optional' => false, 'pool' => []] + $this->context);
     }
 
-    /** The roles the grid still has no region for (role => name). */
+    /** The roles a region can have in this grid (role => name): all of them, a grid can have several regions with the same one. */
     public function roleOptions(): array
     {
         $grid = $this->context['grid'];
         $options = [];
-        foreach ($grid?->missingRoles() ?? [] as $role) {
+        foreach ($grid?->roles() ?? [] as $role) {
             $options[$role] = self::ROLES[$role];
         }
 
         return $options;
+    }
+
+    /** The roles the grid still has no region for: the ones checked at first. @return list<string> */
+    public function missingRoles(): array
+    {
+        return array_values(array_diff($this->context['grid']?->missingRoles() ?? [], [RegionFlags::FALLBACK]));
     }
 
     /** The fields of the region, with the checks that need to know the grid. */
@@ -146,7 +152,6 @@ final class RegionPlanner
     public function resolve(array $answers = []): array
     {
         $c = $this->context;
-        $roles = $this->roleOptions();
         $sim = (string) ($answers['sim'] ?? '+');
         $httpPort = $sim !== '+' && $c['portOfSim'] !== null ? ($c['portOfSim'])($sim) : $c['httpPort'];
         $problem = fn(string $name): ?string => $this->nameProblem($name);
@@ -156,8 +161,8 @@ final class RegionPlanner
         return [
             'create' => $this->flag($answers['create'] ?? true),
             'name' => trim((string) ($answers['name'] ?? $this->defaultName($problem))),
-            // The default region and the one of the visitors, not the fallback, among the roles the grid lacks
-            'roles' => array_values((array) ($answers['roles'] ?? array_diff(array_keys($roles), [RegionFlags::FALLBACK]))),
+            // Checked at first: the default region and the one of the visitors, when the grid has none yet (and not the fallback)
+            'roles' => array_values((array) ($answers['roles'] ?? $this->missingRoles())),
             'location' => trim((string) ($answers['location'] ?? $place())),
             'sim' => $sim,
             'port' => (int) ($answers['port'] ?? $this->nextPort($httpPort)),
