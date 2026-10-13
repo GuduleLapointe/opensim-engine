@@ -462,12 +462,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/yaml.git",
-                "reference": "7214731eb1d9c4cb0af25c03f9a2a5739ba794ad"
+                "reference": "044907929c7999814378be22da34722c7a86bad4"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/yaml/zipball/7214731eb1d9c4cb0af25c03f9a2a5739ba794ad",
-                "reference": "7214731eb1d9c4cb0af25c03f9a2a5739ba794ad",
+                "url": "https://api.github.com/repos/symfony/yaml/zipball/044907929c7999814378be22da34722c7a86bad4",
+                "reference": "044907929c7999814378be22da34722c7a86bad4",
                 "shasum": ""
             },
             "require": {
@@ -530,7 +530,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-10-09T07:38:29+00:00"
+            "time": "2026-10-12T12:34:30+00:00"
         }
     ],
     "packages-dev": [
@@ -2226,12 +2226,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpstan/phpdoc-parser.git",
-                "reference": "258e6ffb932b51ad13da0cb86bfc3a4f828bf64b"
+                "reference": "7ed0100f3fd8d3ef1189153ddbf24696303cb472"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpstan/phpdoc-parser/zipball/258e6ffb932b51ad13da0cb86bfc3a4f828bf64b",
-                "reference": "258e6ffb932b51ad13da0cb86bfc3a4f828bf64b",
+                "url": "https://api.github.com/repos/phpstan/phpdoc-parser/zipball/7ed0100f3fd8d3ef1189153ddbf24696303cb472",
+                "reference": "7ed0100f3fd8d3ef1189153ddbf24696303cb472",
                 "shasum": ""
             },
             "require": {
@@ -2266,7 +2266,7 @@
                 "issues": "https://github.com/phpstan/phpdoc-parser/issues",
                 "source": "https://github.com/phpstan/phpdoc-parser/tree/2.3.x"
             },
-            "time": "2026-10-03T15:54:55+00:00"
+            "time": "2026-10-12T04:15:32+00:00"
         },
         {
             "name": "phpunit/php-code-coverage",
@@ -4021,12 +4021,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/console.git",
-                "reference": "ac3d93e8c4afb9f7dd14bd3223977621ed15b18a"
+                "reference": "21f1bc2296f7ff6043241a8dcbc09559b3732820"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/console/zipball/ac3d93e8c4afb9f7dd14bd3223977621ed15b18a",
-                "reference": "ac3d93e8c4afb9f7dd14bd3223977621ed15b18a",
+                "url": "https://api.github.com/repos/symfony/console/zipball/21f1bc2296f7ff6043241a8dcbc09559b3732820",
+                "reference": "21f1bc2296f7ff6043241a8dcbc09559b3732820",
                 "shasum": ""
             },
             "require": {
@@ -4111,7 +4111,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-10-07T08:20:48+00:00"
+            "time": "2026-10-12T18:45:38+00:00"
         },
         {
             "name": "symfony/finder",
