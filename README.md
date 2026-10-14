@@ -54,7 +54,7 @@ The code has been **battle-tested** across different implementations before bein
 
 ## Requirements
 
-PHP 8.2 or newer, with the `curl`, `filter`, `gettext`, `intl`, `json`, `mbstring`, `mysqli`, `pdo`, `session` and `simplexml` extensions. The `xmlrpc_*` functions removed from PHP 8 are not an extension to install: the engine uses them, and loads a polyfill (`includes/library-xmlrpc.php`, built on `phpxmlrpc/phpxmlrpc`) when the extension is missing.
+PHP 8.2 or newer, with the `curl`, `filter`, `intl`, `json`, `mbstring`, `mysqli`, `pdo`, `session` and `simplexml` extensions, and `gettext` to translate the messages (without it they stay in English: `includes/functions-gettext.php` stands in for its functions). The `xmlrpc_*` functions removed from PHP 8 are not an extension to install: the engine uses them, and loads a polyfill (`includes/library-xmlrpc.php`, built on `phpxmlrpc/phpxmlrpc`) when the extension is missing.
 
 On Debian and Ubuntu: `sudo apt install php-cli php-curl php-intl php-mbstring php-mysql php-xml`, the other extensions come with `php-common` and `php-cli`.
 

@@ -13,7 +13,6 @@
         "php": ">=8.2",
         "ext-curl": "*",
         "ext-filter": "*",
-        "ext-gettext": "*",
         "ext-intl": "*",
         "ext-json": "*",
         "ext-mbstring": "*",
@@ -57,10 +56,12 @@
             "legacy/"
         ],
         "files": [
+            "includes/functions-gettext.php",
             "includes/functions-escaping.php"
         ]
     },
     "suggest": {
+        "ext-gettext": "To translate the messages; without it they stay in English",
         "ezyang/htmlpurifier": "For advanced HTML sanitization if rich content is needed"
     },
     "config": {
