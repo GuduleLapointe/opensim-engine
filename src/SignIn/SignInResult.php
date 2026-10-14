@@ -19,11 +19,13 @@ final class SignInResult
         public readonly ?Avatar $avatar = null,
         /** For an unavailable grid, what was wrong with it (for a log, an administrator). */
         public readonly string $reason = '',
+        /** What more the grid told when it granted the sign-in (the session a login opens, for instance). */
+        public readonly array $details = [],
     ) {}
 
-    public static function granted(Avatar $avatar): self
+    public static function granted(Avatar $avatar, array $details = []): self
     {
-        return new self(self::GRANTED, $avatar);
+        return new self(self::GRANTED, $avatar, '', $details);
     }
 
     public static function refused(): self
