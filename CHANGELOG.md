@@ -2,6 +2,7 @@
 
 ### Unreleased
 
+- new: `GridConfig::withDatabaseDefaults()`: the StorageProvider and ConnectionString OpenSimulator takes from [DatabaseService] for the services, the regions and the estates
 - new: `OpenSim\SignIn`: an avatar signs in with the grid itself, never in its database: `PrivateServiceAuthenticator` (accounts and authentication services of the private port), `OpenIdAuthenticator` (the password is asked by the grid), `LoginServiceAuthenticator` (the login of the viewers, which opens a session in the world)
 - update: `gettext` is suggested, not required: without it the messages stay in English
 - fix: a new region offers every role (a grid can have several default regions) and checks only the ones the grid has none for; the roles are read from `Robust.HG.ini` with the ini reader

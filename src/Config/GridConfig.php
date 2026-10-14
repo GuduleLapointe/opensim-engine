@@ -25,6 +25,13 @@ class GridConfig
     /** The files that hold the Robust config, the first that exists is the one. */
     public const ROBUST_FILES = ['Robust.HG.ini', 'Robust.ini'];
 
+    /** The sections of Robust that store in a database: each takes its own StorageProvider and ConnectionString, else those of [DatabaseService]. */
+    public const ROBUST_DATABASE_SECTIONS = [
+        'AgentPreferencesService', 'AssetService', 'AuthenticationService', 'AuthorizationService', 'AvatarService', 'FriendsService',
+        'GridService', 'GridUserService', 'InventoryService', 'MuteListService', 'PresenceService', 'UserAccountService',
+        'UserAgentService', 'UserProfilesService',
+    ];
+
     /**
      * @param array<string,mixed> $tree role => section => key => value, in the order of authority
      * @param array<string,string> $files role => path
@@ -85,6 +92,82 @@ class GridConfig
         }
 
         return new static($tree, $files);
+    }
+
+    /**
+     * The same config with the database settings OpenSimulator takes from [DatabaseService] when a section does not give its own.
+     *
+     * Robust: StorageProvider and ConnectionString of the services (AssetService, UserAccountService, UserProfilesService...) that
+     * have a section. Simulators (OpenSim and sims/*): DatabaseService.EstateConnectionString, and StorageProvider and
+     * ConnectionString of SimulationDataStore and EstateDataStore.
+     */
+    public function withDatabaseDefaults(): static
+    {
+        $tree = $this->tree;
+        if (isset($tree['Robust'])) {
+            $tree['Robust'] = self::robustDatabases($tree['Robust']);
+        }
+        if (isset($tree['OpenSim'])) {
+            $tree['OpenSim'] = self::simulatorDatabases($tree['OpenSim']);
+        }
+        foreach ($tree['sims'] ?? [] as $name => $ini) {
+            $tree['sims'][$name] = self::simulatorDatabases($ini);
+        }
+
+        return new static($tree, $this->files);
+    }
+
+    /**
+     * @param array<string,array<string,string>> $ini
+     * @return array<string,array<string,string>>
+     */
+    private static function robustDatabases(array $ini): array
+    {
+        foreach (self::ROBUST_DATABASE_SECTIONS as $section) {
+            if (isset($ini[$section])) {
+                $ini[$section] = self::inherit($ini[$section], $ini['DatabaseService'] ?? [], ['StorageProvider', 'ConnectionString']);
+            }
+        }
+
+        return $ini;
+    }
+
+    /**
+     * @param array<string,array<string,string>> $ini
+     * @return array<string,array<string,string>>
+     */
+    private static function simulatorDatabases(array $ini): array
+    {
+        $database = $ini['DatabaseService'] ?? [];
+        if (($database['ConnectionString'] ?? '') === '') {
+            return $ini;
+        }
+        $ini['DatabaseService']['EstateConnectionString'] = $estate = ($database['EstateConnectionString'] ?? '') ?: $database['ConnectionString'];
+        $ini['SimulationDataStore'] = self::inherit($ini['SimulationDataStore'] ?? [], $database, ['StorageProvider', 'ConnectionString']);
+        $ini['EstateDataStore'] = self::inherit(
+            $ini['EstateDataStore'] ?? [],
+            ['StorageProvider' => $database['StorageProvider'] ?? '', 'ConnectionString' => $estate],
+            ['StorageProvider', 'ConnectionString'],
+        );
+
+        return $ini;
+    }
+
+    /**
+     * @param array<string,string> $section
+     * @param array<string,string> $parent
+     * @param list<string> $keys
+     * @return array<string,string>
+     */
+    private static function inherit(array $section, array $parent, array $keys): array
+    {
+        foreach ($keys as $key) {
+            if (($section[$key] ?? '') === '' && ($parent[$key] ?? '') !== '') {
+                $section[$key] = $parent[$key];
+            }
+        }
+
+        return $section;
     }
 
     /**
