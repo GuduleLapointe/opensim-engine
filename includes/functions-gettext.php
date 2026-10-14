@@ -1,10 +1,6 @@
 <?php
 /**
- * Gettext functions, for a PHP without the extension.
- *
- * The messages of the projects are English in the code and translated through gettext when the extension is there. Without it,
- * these functions stand in for the ones the projects use and give the message back as it is, so nothing has to be installed to
- * run them in English. Each one is defined only when PHP does not have it.
+ * The gettext functions the projects use, defined when the extension is missing: they return the message untranslated.
  */
 
 if (!function_exists('gettext')) {

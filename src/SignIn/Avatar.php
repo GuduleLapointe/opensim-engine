@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace OpenSim\SignIn;
 
 /**
- * An avatar a grid recognised: who it is, as the grid says it.
+ * An avatar a grid recognised, as the grid describes it.
  */
 final class Avatar
 {
@@ -17,7 +17,7 @@ final class Avatar
         public readonly int $level = 0,
         public readonly int $flags = 0,
         public readonly string $title = '',
-        /** The grid of the avatar when it is not the one that answered (hypergrid), else null. */
+        /** The grid of the avatar when it is not the one that answered. */
         public readonly ?string $grid = null,
     ) {}
 

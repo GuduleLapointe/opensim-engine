@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace OpenSim\SignIn;
 
 /**
- * Where to send a person to sign in with their grid, and what to remember until they come back: the application keeps `state`
- * (plain values, fit for a session) for this person only, and gives it to complete() with what the grid sent back. A state is used
- * once.
+ * The address to send a person to, and the `state` (plain values) that complete() needs when they come back.
  */
 final class SignInRedirect
 {

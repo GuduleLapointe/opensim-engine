@@ -7,12 +7,8 @@ namespace OpenSim\SignIn;
 use OpenSim\Network\Http;
 
 /**
- * Signs an avatar in with the user account and authentication services of the Robust of its grid, on its private port: the
- * account is looked up by its name, then the password is checked for it. Nothing is opened in the world and no database is read,
- * so it works for a grid on another machine as long as the manager reaches that port (the one the simulators of the grid use).
- *
- * The private port belongs to the machines of the grid: it is not to be opened to the Internet, and the password goes there as
- * the service expects it (its MD5, as the viewers send it), so a remote grid wants an https address (PrivURL), or a tunnel.
+ * Signs an avatar in with the account and authentication services of the private port of the Robust of its grid: looks the account
+ * up by name (/accounts), checks the MD5 of the password (/auth/plain), releases the token. Opens no session and reads no database.
  */
 final class PrivateServiceAuthenticator implements AvatarAuthenticator
 {
@@ -48,7 +44,6 @@ final class PrivateServiceAuthenticator implements AvatarAuthenticator
         if ($token === null) {
             return SignInResult::refused();
         }
-        // The token is of no use here: the check is all that was asked
         $this->release($account['PrincipalID'], $token);
 
         return SignInResult::granted(new Avatar(
@@ -105,7 +100,6 @@ final class PrivateServiceAuthenticator implements AvatarAuthenticator
         $xml = $this->ask('/auth/plain', [
             'METHOD' => 'authenticate',
             'PRINCIPAL' => $principal,
-            // What the service compares: the MD5 of the password, as the viewers send it
             'PASSWORD' => md5($password),
             'LIFETIME' => 30,
         ]);
@@ -125,7 +119,6 @@ final class PrivateServiceAuthenticator implements AvatarAuthenticator
         try {
             $this->ask('/auth/plain', ['METHOD' => 'release', 'PRINCIPAL' => $principal, 'TOKEN' => $token]);
         } catch (\RuntimeException) {
-            // It expires by itself
         }
     }
 

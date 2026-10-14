@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace OpenSim\SignIn;
 
 /**
- * The answer to a sign-in: granted with the avatar, refused (unknown avatar or wrong password, said the same way so that nobody
- * learns which avatars exist), or unavailable when the grid could not be asked.
+ * The answer to a sign-in: granted with the avatar, refused (unknown avatar or wrong password, alike), or unavailable.
  */
 final class SignInResult
 {
@@ -17,9 +16,9 @@ final class SignInResult
     private function __construct(
         public readonly string $status,
         public readonly ?Avatar $avatar = null,
-        /** For an unavailable grid, what was wrong with it (for a log, an administrator). */
+        /** What was wrong when the grid is unavailable. */
         public readonly string $reason = '',
-        /** What more the grid told when it granted the sign-in (the session a login opens, for instance). */
+        /** What more the grid told when it granted the sign-in. */
         public readonly array $details = [],
     ) {}
 

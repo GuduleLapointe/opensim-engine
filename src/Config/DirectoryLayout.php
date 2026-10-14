@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace OpenSim\Config;
 
 /**
- * The layouts an install of OpenSimulator can have, and where each one puts its folders by default: what `opensim setup`
- * proposes, and what a front-end takes when nothing else says where the install is.
+ * The layouts an install of OpenSimulator can have, and the default folders of each.
  */
 final class DirectoryLayout
 {
@@ -38,8 +37,8 @@ final class DirectoryLayout
     }
 
     /**
-     * The folders of a layout, as opensim.conf names them: CoreRoot, CoreDirectory (when the version is known), EtcRoot,
-     * VarRoot, LogsRoot, CacheRoot, DataRoot.
+     * The folders of a layout, named as in opensim.conf: CoreRoot, CoreDirectory (when the version is known), EtcRoot, VarRoot,
+     * LogsRoot, CacheRoot, DataRoot.
      *
      * @param string $base the base directory of the bundled and flat layouts
      * @param string $version the version of the core, for its directory
@@ -48,7 +47,6 @@ final class DirectoryLayout
     public static function roots(string $layout = self::SYSTEM, string $base = '', string $version = ''): array
     {
         $roots = match ($layout) {
-            // Named like the packaged cores (/usr/share/opensim/<version>)
             self::SYSTEM => [
                 'CoreRoot' => '/usr/local/share/opensim',
                 'CoreDirectory' => $version !== '' ? "/usr/local/share/opensim/$version" : '',
@@ -67,7 +65,6 @@ final class DirectoryLayout
                 'CacheRoot' => "$base/var/cache",
                 'DataRoot' => "$base/var/data",
             ],
-            // Everything in the bin folder of the core, the way OpenSimulator runs out of its archive
             self::FLAT => $version === '' ? [] : array_fill_keys(['EtcRoot', 'VarRoot', 'LogsRoot', 'CacheRoot', 'DataRoot'], "$base/opensim-$version/bin")
                 + ['CoreRoot' => "$base/opensim-$version", 'CoreDirectory' => "$base/opensim-$version"],
             default => throw new \InvalidArgumentException("unknown directory layout '$layout'"),

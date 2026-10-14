@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace OpenSim\Network;
 
 /**
- * A request to a service of a grid over HTTP: what the answer says, nothing when there is none (the service does not answer, or
- * not with a success), so that a caller tells a silent service from a refusal.
+ * HTTP requests to the services of a grid: the body of the answer, null when there is none or its status is not 2xx.
  */
 final class Http
 {
@@ -49,7 +48,6 @@ final class Http
 
     private static function answer(\CurlHandle $handle, string|bool $body): ?string
     {
-        // The handle closes itself when it goes out of scope
         $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
 
         return is_string($body) && $status >= 200 && $status < 300 ? $body : null;

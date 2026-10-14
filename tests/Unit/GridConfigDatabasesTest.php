@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * The database settings OpenSimulator takes from [DatabaseService] when a service or a store does not give its own.
+ * GridConfig::withDatabaseDefaults().
  */
 
 use OpenSim\Config\GridConfig;

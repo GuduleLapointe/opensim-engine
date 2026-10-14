@@ -10,17 +10,14 @@ use PhpXmlRpc\Request;
 use PhpXmlRpc\Response;
 
 /**
- * Signs an avatar in with the login service of its grid on the public port, the one the viewers use (XML-RPC login_to_simulator).
- * It works for any grid that can be reached, with nothing but its login address.
+ * Signs an avatar in with the login service of its grid (XML-RPC login_to_simulator on the public port).
  *
- * Unlike the others, a success is a login in the world: the grid starts a session of the avatar and gives the circuit of a region
- * (in `details`), which stays until the avatar is logged out. That is not what a sign-in for a web page is for (see opensSession()),
- * but it is what a feature that sends an avatar somewhere needs. When the grid refuses for another reason than the avatar (no
- * region to log into, a login already open...), the sign-in is unavailable: the password could not be judged.
+ * A success opens a session of the avatar in the world: opensSession() is true and `details` holds the response of the grid. A
+ * refusal for another reason than the avatar (no region, a login already open) is unavailable.
  */
 final class LoginServiceAuthenticator implements AvatarAuthenticator
 {
-    /** What the grid says when it does not know the avatar or does not accept its password, said alike. */
+    /** Start of the message of the grid for an unknown avatar or a wrong password. */
     private const NOT_AUTHENTICATED = 'Could not authenticate your avatar';
 
     /** @var \Closure(string,string):?string */
@@ -50,7 +47,6 @@ final class LoginServiceAuthenticator implements AvatarAuthenticator
         $call = (new Request('login_to_simulator', [$encoder->encode([
             'first' => $avatar->first,
             'last' => $avatar->last,
-            // As the viewers send it: the MD5 of the password
             'passwd' => '$1$' . md5($password),
             'start' => $this->start,
             'channel' => $this->channel,

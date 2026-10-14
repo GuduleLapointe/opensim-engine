@@ -7,13 +7,10 @@ namespace OpenSim\SignIn;
 use OpenSim\Network\Http;
 
 /**
- * Signs an avatar in with the OpenID provider of the Robust of its grid, on the public port (`OpenIdServerConnector`): the avatar
- * is `<grid>/users/First_Last`, and the password is asked by the grid on its own page. It works for any grid that has it enabled,
- * with nothing but its public address, and the application never sees the password.
+ * Signs an avatar in with the OpenID 2.0 provider of the Robust of its grid (`OpenIdServerConnector`, public port): the grid asks
+ * the password on its own page and the application never sees it. The assertion is verified with the grid (check_authentication).
  *
- * OpenID 2.0, stateless: the grid is asked once more, directly, whether what it sent back is its own (check_authentication). It
- * says who the avatar is, by name, not its UUID: the avatar it gives has none. An application that wants to refuse an assertion
- * it has already taken (replay) keeps the response_nonce of the ones it accepted.
+ * The avatar of a granted result has no id; `details['response_nonce']` is the nonce of the assertion.
  */
 final class OpenIdAuthenticator implements RedirectAuthenticator
 {
@@ -39,7 +36,7 @@ final class OpenIdAuthenticator implements RedirectAuthenticator
     public function begin(string $name, string $returnTo): SignInRedirect|SignInResult
     {
         $avatar = AvatarName::parse($name);
-        // The grid only knows First_Last: a name with an underscore, or the avatar of another grid, is not one it can check
+        // The identity URL is First_Last
         if ($avatar === null || $avatar->grid !== null || str_contains($avatar->first . $avatar->last, '_')) {
             return SignInResult::refused();
         }
@@ -84,7 +81,6 @@ final class OpenIdAuthenticator implements RedirectAuthenticator
         $state = $redirect->state;
         $response = self::parse($queryString);
         if (($response['openid.mode'] ?? '') !== 'id_res') {
-            // Refused by the person (cancel), by the grid, or not an answer of OpenID
             return SignInResult::refused();
         }
         $signed = explode(',', $response['openid.signed'] ?? '');
@@ -99,7 +95,6 @@ final class OpenIdAuthenticator implements RedirectAuthenticator
             return SignInResult::refused();
         }
 
-        // What the grid sent is its own only if it says so itself
         $verify = $response;
         $verify['openid.mode'] = 'check_authentication';
         $answer = ($this->post)($state['endpoint'], $verify);
@@ -118,7 +113,7 @@ final class OpenIdAuthenticator implements RedirectAuthenticator
     }
 
     /**
-     * The openid.* fields of a query string, read as they are written (PHP turns the dots of a name into underscores).
+     * The openid.* fields of a raw query string, with their dots.
      *
      * @return array<string,string>
      */

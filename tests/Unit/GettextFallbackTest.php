@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * The gettext functions of includes/functions-gettext.php, which stand in for the extension when PHP does not have it.
+ * The gettext functions of includes/functions-gettext.php.
  */
 
 /** Run code in a PHP whose gettext functions are disabled, with the autoloader of the engine. */

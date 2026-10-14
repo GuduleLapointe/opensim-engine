@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Signing an avatar in with the services of its grid: the name as a person writes it, and the private port of Robust.
+ * Signing an avatar in with its grid: the avatar name, the private port of Robust, the login service, OpenID.
  */
 
 use OpenSim\SignIn\AvatarName;

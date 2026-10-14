@@ -57,18 +57,15 @@ final class Layout
     }
 
     /**
-     * The settings of opensim.conf a front-end may give in its own environment, as `OPENSIM_` and the name in capitals with
-     * underscores (`OPENSIM_ETC_ROOT` for EtcRoot). `OPENSIM_CONF` names another opensim.conf.
+     * The settings of opensim.conf an environment may give as `OPENSIM_<NAME_IN_CAPITALS>` (`OPENSIM_ETC_ROOT` for EtcRoot).
      */
     public const ENVIRONMENT_KEYS = ['CoreRoot', 'CoreDirectory', 'EtcRoot', 'VarRoot', 'LogsRoot', 'CacheRoot', 'DataRoot', 'SystemUser', 'ModulesRoot', 'EnabledModules'];
 
     /**
-     * The layout a front-end works with: what its environment says first (`OPENSIM_CONF`, `OPENSIM_ETC_ROOT`...), then
-     * opensim.conf, then the defaults of an install by the book (the system layout). With nothing in the environment, the front-end
-     * shares the install of the machine; with it, it is told to work with its own (beside an install not to touch, for tests).
+     * The layout of a front-end: the OPENSIM_* variables of its environment, then opensim.conf, then the defaults of the system layout.
      *
      * @param ?array<string,mixed> $environment the variables of the environment, null for the ones of the process
-     * @throws \RuntimeException when OPENSIM_CONF names a file that does not exist: what is asked is said, never read as empty
+     * @throws \RuntimeException when OPENSIM_CONF names a file that does not exist
      */
     public static function resolve(?array $environment = null, ?string $profile = null): self
     {

@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace OpenSim\SignIn;
 
 /**
- * Signs an avatar in by sending the person to the grid, which asks for the password on its own page and sends them back: the
- * password is never given to the application. Two steps, in two requests: begin() gives the address to send the person to
- * (or says why it cannot), and complete() judges what the grid sent back to the address of the application.
+ * Signs an avatar in by sending the person to the grid, which asks for the password and sends them back. begin() gives the address
+ * to send the person to, complete() judges what the grid sent back.
  */
 interface RedirectAuthenticator
 {
