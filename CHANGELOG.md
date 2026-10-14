@@ -2,6 +2,7 @@
 
 ### Unreleased
 
+- new: `OpenSim\SignIn`: an avatar signs in with the grid itself, `PrivateServiceAuthenticator` asks the accounts and authentication services of the Robust, no database and no session in the world
 - update: `gettext` is suggested, not required: without it the messages stay in English
 - fix: a new region offers every role (a grid can have several default regions) and checks only the ones the grid has none for; the roles are read from `Robust.HG.ini` with the ini reader
 - update: `setup.json` and the backups are readable by the group of the install (640, folders 750)
