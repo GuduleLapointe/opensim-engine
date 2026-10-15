@@ -8,7 +8,6 @@ declare(strict_types=1);
 
 use OpenSim\Models\GridInfo;
 use OpenSim\Models\Region;
-use OpenSim\Provisioning\RegionFlags;
 use OpenSim\Provisioning\RegionPlanner;
 use OpenSim\Provisioning\SimPlan;
 
@@ -62,7 +61,7 @@ describe('A region', function () {
             // The first region of a simulator has the name of the simulator
             'name' => 'Sim1',
             // The default region and the one of the visitors, not the fallback
-            'roles' => [RegionFlags::DEFAULT, RegionFlags::DEFAULT_HG],
+            'roles' => [Region::flagName(Region::DEFAULT_REGION), Region::flagName(Region::DEFAULT_HGREGION)],
             'location' => '100,100',
             'sim' => '+',
             'port' => 9001,
@@ -83,25 +82,25 @@ describe('A region', function () {
     });
 
     test('has the roles of a grid with or without Hypergrid, and none when the grid is on another machine', function () {
-        expect(region_planner()->roleOptions())->toBe([RegionFlags::DEFAULT => 'Default Region', RegionFlags::DEFAULT_HG => 'Default HG Region', RegionFlags::FALLBACK => 'Fallback Region'])
-            ->and(region_planner(['grid' => region_grid(['hypergrid' => false])])->roleOptions())->toBe([RegionFlags::DEFAULT => 'Default Region', RegionFlags::FALLBACK => 'Fallback Region'])
-            ->and(region_planner(['grid' => region_grid(['regionFlags' => [RegionFlags::DEFAULT, RegionFlags::DEFAULT_HG]])])->resolve()['roles'])->toBe([])
+        expect(region_planner()->roleOptions())->toBe([Region::flagName(Region::DEFAULT_REGION) => 'Default Region', Region::flagName(Region::DEFAULT_HGREGION) => 'Default HG Region', Region::flagName(Region::FALLBACK_REGION) => 'Fallback Region'])
+            ->and(region_planner(['grid' => region_grid(['hypergrid' => false])])->roleOptions())->toBe([Region::flagName(Region::DEFAULT_REGION) => 'Default Region', Region::flagName(Region::FALLBACK_REGION) => 'Fallback Region'])
+            ->and(region_planner(['grid' => region_grid(['regionFlags' => [Region::flagName(Region::DEFAULT_REGION), Region::flagName(Region::DEFAULT_HGREGION)]])])->resolve()['roles'])->toBe([])
             ->and(region_planner(['grid' => region_grid(['remote' => true])])->roleOptions())->toBe([]);
     });
 
     test('offers every role, and checks at first only the ones the grid has no region for yet (a grid can have several default regions)', function () {
         $checked = static fn(array $flags, bool $hypergrid = true): array => region_planner(['grid' => region_grid(['regionFlags' => $flags, 'hypergrid' => $hypergrid])])->resolve()['roles'];
-        $held = region_planner(['grid' => region_grid(['regionFlags' => [RegionFlags::DEFAULT, RegionFlags::DEFAULT_HG]])]);
+        $held = region_planner(['grid' => region_grid(['regionFlags' => [Region::flagName(Region::DEFAULT_REGION), Region::flagName(Region::DEFAULT_HGREGION)]])]);
 
-        expect($checked([]))->toBe([RegionFlags::DEFAULT, RegionFlags::DEFAULT_HG])
-            ->and($checked([RegionFlags::DEFAULT]))->toBe([RegionFlags::DEFAULT_HG])
-            ->and($checked([RegionFlags::DEFAULT_HG]))->toBe([RegionFlags::DEFAULT])
-            ->and($checked([RegionFlags::DEFAULT, RegionFlags::DEFAULT_HG]))->toBe([])
-            ->and($checked([RegionFlags::FALLBACK]))->toBe([RegionFlags::DEFAULT, RegionFlags::DEFAULT_HG])
-            ->and($checked([], false))->toBe([RegionFlags::DEFAULT])
+        expect($checked([]))->toBe([Region::flagName(Region::DEFAULT_REGION), Region::flagName(Region::DEFAULT_HGREGION)])
+            ->and($checked([Region::flagName(Region::DEFAULT_REGION)]))->toBe([Region::flagName(Region::DEFAULT_HGREGION)])
+            ->and($checked([Region::flagName(Region::DEFAULT_HGREGION)]))->toBe([Region::flagName(Region::DEFAULT_REGION)])
+            ->and($checked([Region::flagName(Region::DEFAULT_REGION), Region::flagName(Region::DEFAULT_HGREGION)]))->toBe([])
+            ->and($checked([Region::flagName(Region::FALLBACK_REGION)]))->toBe([Region::flagName(Region::DEFAULT_REGION), Region::flagName(Region::DEFAULT_HGREGION)])
+            ->and($checked([], false))->toBe([Region::flagName(Region::DEFAULT_REGION)])
             // A role the grid has already is still there to be given to this region too, and what is answered is kept
-            ->and(array_keys($held->roleOptions()))->toBe([RegionFlags::DEFAULT, RegionFlags::DEFAULT_HG, RegionFlags::FALLBACK])
-            ->and($held->resolve(['roles' => [RegionFlags::DEFAULT]])['roles'])->toBe([RegionFlags::DEFAULT])
+            ->and(array_keys($held->roleOptions()))->toBe([Region::flagName(Region::DEFAULT_REGION), Region::flagName(Region::DEFAULT_HGREGION), Region::flagName(Region::FALLBACK_REGION)])
+            ->and($held->resolve(['roles' => [Region::flagName(Region::DEFAULT_REGION)]])['roles'])->toBe([Region::flagName(Region::DEFAULT_REGION)])
             ->and($held->fields()->get('roles')['enable'])->toBeTrue();
     });
 
@@ -166,11 +165,11 @@ describe('A region', function () {
 
     test('is given to the plan of the simulator that takes it', function () {
         $plan = new SimPlan();
-        region_planner(['known' => ['100,100' => true]])->apply($plan, ['name' => 'Garden', 'roles' => [RegionFlags::DEFAULT], 'location' => '100,100']);
+        region_planner(['known' => ['100,100' => true]])->apply($plan, ['name' => 'Garden', 'roles' => [Region::flagName(Region::DEFAULT_REGION)], 'location' => '100,100']);
 
         expect($plan->createRegion)->toBeTrue()
             ->and($plan->regionName)->toBe('Garden')
-            ->and($plan->regionRoles)->toBe([RegionFlags::DEFAULT])
+            ->and($plan->regionRoles)->toBe([Region::flagName(Region::DEFAULT_REGION)])
             ->and($plan->regionUuid)->toBe('11111111-2222-4333-8444-555555555555')
             ->and($plan->regionLocation)->not->toBe('100,100')
             ->and($plan->regionPort)->toBe(9001);

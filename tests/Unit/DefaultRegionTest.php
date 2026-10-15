@@ -7,8 +7,8 @@
 
 
 use OpenSim\Models\GridInfo;
+use OpenSim\Models\Region;
 use OpenSim\Provisioning\GridPlan;
-use OpenSim\Provisioning\RegionFlags;
 use OpenSim\Provisioning\RegionName;
 use OpenSim\Provisioning\RobustConfig;
 
@@ -97,21 +97,21 @@ describe('Grid setup', function () {
 
 describe('Roles of a region', function () {
     test('are default, default HG and fallback', function () {
-        expect(RegionFlags::roles(true))->toBe(['DefaultRegion', 'DefaultHGRegion', 'FallbackRegion']);
-        expect(RegionFlags::roles(false))->toBe(['DefaultRegion', 'FallbackRegion']);
+        expect(Region::roles(true))->toBe(['DefaultRegion', 'DefaultHGRegion', 'FallbackRegion']);
+        expect(Region::roles(false))->toBe(['DefaultRegion', 'FallbackRegion']);
     });
 
     test('are found in the config, the commented example left out', function () {
         $text =
             "[GridService]\n    ; Region_Welcome_Area = \"DefaultRegion\"\n    Region_Home = \"DefaultRegion, Persistent\"\n    Region_Two = \"FallbackRegion\"\n";
 
-        expect(RegionFlags::found($text))->toBe(['DefaultRegion', 'Persistent', 'FallbackRegion']);
-        expect(RegionFlags::found("[GridService]\n    ; Region_Welcome_Area = \"DefaultRegion\"\n"))->toBe([]);
+        expect(Region::rolesIn($text))->toBe(['DefaultRegion', 'Persistent', 'FallbackRegion']);
+        expect(Region::rolesIn("[GridService]\n    ; Region_Welcome_Area = \"DefaultRegion\"\n"))->toBe([]);
     });
 
     test('are written under the key of Robust', function () {
         $file = robust_file(robust_example());
-        RegionFlags::give($file, 'Welcome Home', ['DefaultRegion', 'DefaultHGRegion']);
+        Region::giveRoles($file, 'Welcome Home', ['DefaultRegion', 'DefaultHGRegion']);
         $lines = explode("\n", (string) file_get_contents($file));
         unlink($file);
 
@@ -124,7 +124,7 @@ describe('Roles of a region', function () {
         $file = robust_file(
             str_replace('    ;; Region_Welcome_Area = "DefaultRegion, DefaultHGRegion"' . "\n", '', robust_example()),
         );
-        RegionFlags::give($file, 'Welcome', ['DefaultRegion']);
+        Region::giveRoles($file, 'Welcome', ['DefaultRegion']);
         $text = (string) file_get_contents($file);
         unlink($file);
 
@@ -135,7 +135,7 @@ describe('Roles of a region', function () {
 
     test('are kept when a region gets more', function () {
         $file = robust_file("[GridService]\nRegion_Welcome = \"DefaultRegion, Persistent\"\n");
-        RegionFlags::give($file, 'Welcome', ['FallbackRegion']);
+        Region::giveRoles($file, 'Welcome', ['FallbackRegion']);
         $text = (string) file_get_contents($file);
         unlink($file);
 
@@ -217,11 +217,11 @@ describe('The roles found in a Robust config', function () {
             . "[Other]\r\n"
             . "NotARegion = \"DefaultRegion\"\r\n";
 
-        expect(RegionFlags::found($text))->toBe(['DefaultRegion', 'DefaultHGRegion', 'Persistent', 'FallbackRegion']);
+        expect(Region::rolesIn($text))->toBe(['DefaultRegion', 'DefaultHGRegion', 'Persistent', 'FallbackRegion']);
     });
 
     test('are none in a config that has only the examples', function () {
-        expect(RegionFlags::found("[GridService]\n    ; Region_Welcome_Area = \"DefaultRegion, DefaultHGRegion\"\n"))->toBe([]);
+        expect(Region::rolesIn("[GridService]\n    ; Region_Welcome_Area = \"DefaultRegion, DefaultHGRegion\"\n"))->toBe([]);
     });
 });
 

@@ -7,6 +7,7 @@ namespace OpenSim\Provisioning;
 use OpenSim\Config\GridFileService;
 use OpenSim\Console\InstanceConsoleService;
 use OpenSim\Models\GridInfo;
+use OpenSim\Models\Region;
 use OpenSim\Models\SimState;
 use OpenSim\Runtime\ShellService;
 
@@ -301,7 +302,7 @@ final class SimulatorProvisioner
      */
     private function giveHome(SimPlan $plan, GridInfo $grid): void
     {
-        if ($grid->remote || !in_array(RegionFlags::DEFAULT, $plan->regionRoles, true)) {
+        if ($grid->remote || !in_array(Region::flagName(Region::DEFAULT_REGION), $plan->regionRoles, true)) {
             return;
         }
         $owner =
@@ -374,7 +375,7 @@ final class SimulatorProvisioner
         if ($plan->regionRoles === [] || $grid->remote || $grid->robustIni === '') {
             return;
         }
-        RegionFlags::give($grid->robustIni, $plan->regionName, $plan->regionRoles);
+        Region::giveRoles($grid->robustIni, $plan->regionName, $plan->regionRoles);
         $this->ui->note(
             sprintf(_('Updated %s: %s is %s.'), $grid->robustIni, $plan->regionName, implode(', ', $plan->regionRoles)),
         );

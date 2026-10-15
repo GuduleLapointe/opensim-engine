@@ -7,7 +7,6 @@ use OpenSim\Config\ConnectionString;
 use OpenSim\Config\GridFileService;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\LocationFinder;
-use OpenSim\Provisioning\RegionFlags;
 use OpenSim\Provisioning\Slug;
 
 /**
@@ -24,7 +23,7 @@ final class GridInfo
     public int $regionSpacing = 0;
     /** The center of the grid, "x,y", empty when it has none (the one its port gives). */
     public string $center = '';
-    /** @var list<string> The roles the regions of the Robust config have (see RegionFlags); empty for a grid described only. */
+    /** @var list<string> The roles the regions of the Robust config have (see Region::roles()); empty for a grid described only. */
     public array $regionFlags = [];
     public string $dir = '';
     public string $robustIni = '';
@@ -150,18 +149,18 @@ final class GridInfo
      */
     public function roles(): array
     {
-        return $this->remote ? [] : RegionFlags::roles($this->hypergrid);
+        return $this->remote ? [] : Region::roles($this->hypergrid);
     }
 
     /**
-     * The roles no region of a grid run from this machine has yet (see RegionFlags::roles()),
+     * The roles no region of a grid run from this machine has yet (see Region::roles()),
      * to offer them to the next region.
      *
      * @return list<string>
      */
     public function missingRoles(): array
     {
-        return $this->remote ? [] : array_values(array_diff(RegionFlags::roles($this->hypergrid), $this->regionFlags));
+        return $this->remote ? [] : array_values(array_diff(Region::roles($this->hypergrid), $this->regionFlags));
     }
 
     /**
@@ -170,7 +169,7 @@ final class GridInfo
      */
     public function needsLandingRegion(): bool
     {
-        return array_intersect($this->missingRoles(), [RegionFlags::DEFAULT, RegionFlags::DEFAULT_HG]) !== [];
+        return array_intersect($this->missingRoles(), [Region::flagName(Region::DEFAULT_REGION), Region::flagName(Region::DEFAULT_HGREGION)]) !== [];
     }
 
     /** Whether the grid is only described here, its Robust being on another machine. */
@@ -313,7 +312,7 @@ final class GridInfo
             $current['consolePort'] = (int) $port;
         }
         // The roles of the regions: Region_<Name> = "DefaultRegion, ..."
-        if (($flags = RegionFlags::found($text)) !== []) {
+        if (($flags = Region::rolesIn($text)) !== []) {
             $current['regionFlags'] = $flags;
         }
         foreach (['estateName' => 'DefaultEstateName', 'estateOwner' => 'DefaultEstateOwnerName'] as $field => $key) {

@@ -19,12 +19,6 @@ use OpenSim\Network\Ports;
  */
 final class RegionPlanner
 {
-    private const ROLES = [
-        RegionFlags::DEFAULT => 'Default Region',
-        RegionFlags::DEFAULT_HG => 'Default HG Region',
-        RegionFlags::FALLBACK => 'Fallback Region',
-    ];
-
     /** @var array<string,mixed> */
     private array $context;
 
@@ -113,7 +107,7 @@ final class RegionPlanner
         $grid = $this->context['grid'];
         $options = [];
         foreach ($grid?->roles() ?? [] as $role) {
-            $options[$role] = self::ROLES[$role];
+            $options[$role] = Region::label(Region::flagValue($role));
         }
 
         return $options;
@@ -122,7 +116,7 @@ final class RegionPlanner
     /** The roles the grid still has no region for: the ones checked at first. @return list<string> */
     public function missingRoles(): array
     {
-        return array_values(array_diff($this->context['grid']?->missingRoles() ?? [], [RegionFlags::FALLBACK]));
+        return array_values(array_diff($this->context['grid']?->missingRoles() ?? [], [Region::flagName(Region::FALLBACK_REGION)]));
     }
 
     /** The fields of the region, with the checks that need to know the grid. */
