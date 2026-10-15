@@ -225,6 +225,26 @@ class GridConfig
         return array_values($this->files);
     }
 
+    /**
+     * The address of the grid (`host:port`) as the avatars of other grids name it: the gatekeeper, else the base URL with the
+     * public port. Null when the config says neither.
+     */
+    public function gridUri(): ?string
+    {
+        $url = $this->find('Hypergrid', 'GatekeeperURI');
+        if ($url === null) {
+            $base = $this->find('Const', 'BaseURL');
+            $port = $this->find('Const', 'PublicPort');
+            $url = $base !== null ? $base . ($port !== null ? ":$port" : '') : null;
+        }
+        $parts = $url === null ? [] : parse_url($url);
+        if (!is_array($parts) || ($parts['host'] ?? '') === '') {
+            return null;
+        }
+
+        return strtolower($parts['host']) . (isset($parts['port']) ? ':' . $parts['port'] : '');
+    }
+
     /** The value of a setting: the first file that says it (an empty value is not saying it). */
     public function find(string $section, string $key): ?string
     {
