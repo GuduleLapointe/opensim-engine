@@ -225,8 +225,8 @@ final class Region extends Model
         $params = [];
         $words = preg_split('/\s+/', trim((string) ($options['search'] ?? '')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
         foreach ($words as $i => $word) {
-            $where[] = "r.regionName LIKE :w$i";
-            $params["w$i"] = '%' . str_replace(['%', '\\'], '', $word) . '%';
+            $where[] = "r.regionName LIKE :w$i ESCAPE '!'";
+            $params["w$i"] = self::contains($word);
         }
         $filters = [
             'online' => self::REGION_ONLINE,

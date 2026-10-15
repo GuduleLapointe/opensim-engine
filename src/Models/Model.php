@@ -105,6 +105,15 @@ abstract class Model implements OpenSimModelInterface
         throw ChannelUnavailable::for($action, $reason);
     }
 
+    /**
+     * The pattern of a LIKE (written with ESCAPE '!') that finds a word anywhere: the wildcards of the database, % and _, are only
+     * characters of the word.
+     */
+    protected static function contains(string $word): string
+    {
+        return '%' . str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $word) . '%';
+    }
+
     /** A date from a Unix time, null when there is none (0, empty, not a number). */
     protected static function date(mixed $time): ?\DateTimeImmutable
     {

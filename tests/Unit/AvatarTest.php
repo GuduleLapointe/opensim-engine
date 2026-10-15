@@ -184,6 +184,24 @@ describe('The avatars', function () {
     });
 })->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
 
+describe('A search', function () {
+    test('looks for the characters it is given: the wildcards of the database are not wildcards', function () {
+        $pdo = avatar_database();
+        $pdo->exec("INSERT INTO UserAccounts (PrincipalID, FirstName, LastName, Created) VALUES ('77777777-7777-7777-7777-777777777777', 'Under_score', '100%', 1)");
+        avatars_in($pdo);
+        $config = avatar_grid();
+        $names = static fn(string $search) => array_column(Avatar::all($config, ['search' => $search])->array(), 'name');
+
+        expect($names('%'))->toBe(['Under_score 100%'])
+            ->and($names('_'))->toBe(['Under_score 100%'])
+            ->and($names('r_s'))->toBe(['Under_score 100%'])
+            ->and($names('A_a'))->toBe([])
+            ->and($names('00%'))->toBe(['Under_score 100%'])
+            ->and($names('!'))->toBe([])
+            ->and($names('\\'))->toBe([]);
+    });
+})->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
+
 describe('The account of the services of the grid', function () {
     test('is not a person: the filter leaves it out', function () {
         $pdo = avatar_database();

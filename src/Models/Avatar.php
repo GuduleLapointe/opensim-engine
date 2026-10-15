@@ -380,8 +380,8 @@ final class Avatar extends Model
         $applied = [];
         $words = preg_split('/\s+/', trim((string) ($options['search'] ?? '')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
         foreach ($words as $i => $word) {
-            $where[] = "(u.FirstName LIKE :w$i OR u.LastName LIKE :w$i" . (($options['searchEmail'] ?? false) ? " OR u.Email LIKE :w$i" : '') . ')';
-            $params["w$i"] = '%' . str_replace(['%', '\\'], '', $word) . '%';
+            $where[] = "(u.FirstName LIKE :w$i ESCAPE '!' OR u.LastName LIKE :w$i ESCAPE '!'" . (($options['searchEmail'] ?? false) ? " OR u.Email LIKE :w$i ESCAPE '!'" : '') . ')';
+            $params["w$i"] = self::contains($word);
         }
         $filters = [
             'active' => ['u.active = 1', 'u.active = 0'],

@@ -386,8 +386,8 @@ final class Parcel extends Model
         $applied = [];
         $words = preg_split('/\s+/', trim((string) ($options['search'] ?? '')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
         foreach ($words as $i => $word) {
-            $where[] = "(Name LIKE :w$i OR Description LIKE :w$i)";
-            $params["w$i"] = '%' . str_replace(['%', '\\'], '', $word) . '%';
+            $where[] = "(Name LIKE :w$i ESCAPE '!' OR Description LIKE :w$i ESCAPE '!')";
+            $params["w$i"] = self::contains($word);
         }
         $flags = ['shown' => self::SHOW_DIRECTORY, 'forSale' => self::FOR_SALE];
         foreach ((array) ($options['filters'] ?? []) as $name => $value) {
