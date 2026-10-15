@@ -462,12 +462,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/yaml.git",
-                "reference": "044907929c7999814378be22da34722c7a86bad4"
+                "reference": "a0464e076c8221b95cdc6fdd03180c17c2293593"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/yaml/zipball/044907929c7999814378be22da34722c7a86bad4",
-                "reference": "044907929c7999814378be22da34722c7a86bad4",
+                "url": "https://api.github.com/repos/symfony/yaml/zipball/a0464e076c8221b95cdc6fdd03180c17c2293593",
+                "reference": "a0464e076c8221b95cdc6fdd03180c17c2293593",
                 "shasum": ""
             },
             "require": {
@@ -530,7 +530,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-10-12T12:34:30+00:00"
+            "time": "2026-10-15T07:42:19+00:00"
         }
     ],
     "packages-dev": [
@@ -1954,12 +1954,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/PHPCSStandards/PHPCSUtils.git",
-                "reference": "68da2016f9163ff7d761a67c58e1d0c7b1fe53bd"
+                "reference": "f8754b18d1ac8f32becab6f58781eb72657f2d94"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/PHPCSStandards/PHPCSUtils/zipball/68da2016f9163ff7d761a67c58e1d0c7b1fe53bd",
-                "reference": "68da2016f9163ff7d761a67c58e1d0c7b1fe53bd",
+                "url": "https://api.github.com/repos/PHPCSStandards/PHPCSUtils/zipball/f8754b18d1ac8f32becab6f58781eb72657f2d94",
+                "reference": "f8754b18d1ac8f32becab6f58781eb72657f2d94",
                 "shasum": ""
             },
             "require": {
@@ -2040,7 +2040,7 @@
                     "type": "thanks_dev"
                 }
             ],
-            "time": "2026-09-11T18:20:41+00:00"
+            "time": "2026-10-14T22:16:50+00:00"
         },
         {
             "name": "phpdocumentor/reflection-common",
@@ -4021,12 +4021,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/console.git",
-                "reference": "21f1bc2296f7ff6043241a8dcbc09559b3732820"
+                "reference": "d20ac71e245ed88473658ad2d401662143515e51"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/console/zipball/21f1bc2296f7ff6043241a8dcbc09559b3732820",
-                "reference": "21f1bc2296f7ff6043241a8dcbc09559b3732820",
+                "url": "https://api.github.com/repos/symfony/console/zipball/d20ac71e245ed88473658ad2d401662143515e51",
+                "reference": "d20ac71e245ed88473658ad2d401662143515e51",
                 "shasum": ""
             },
             "require": {
@@ -4111,7 +4111,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-10-12T18:45:38+00:00"
+            "time": "2026-10-14T16:38:21+00:00"
         },
         {
             "name": "symfony/finder",
@@ -4187,12 +4187,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/polyfill-intl-grapheme.git",
-                "reference": "5cac8f4db97208823aa353f59a01faad2da52c75"
+                "reference": "5a8f33c87aeecffce24e721b5064fab05f4becf8"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/polyfill-intl-grapheme/zipball/5cac8f4db97208823aa353f59a01faad2da52c75",
-                "reference": "5cac8f4db97208823aa353f59a01faad2da52c75",
+                "url": "https://api.github.com/repos/symfony/polyfill-intl-grapheme/zipball/5a8f33c87aeecffce24e721b5064fab05f4becf8",
+                "reference": "5a8f33c87aeecffce24e721b5064fab05f4becf8",
                 "shasum": ""
             },
             "require": {
@@ -4262,7 +4262,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-09-25T15:46:47+00:00"
+            "time": "2026-10-15T09:18:53+00:00"
         },
         {
             "name": "symfony/polyfill-intl-normalizer",
