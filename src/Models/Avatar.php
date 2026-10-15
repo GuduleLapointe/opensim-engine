@@ -23,7 +23,10 @@ final class Avatar extends Model
     /** What is read of an account, a visit and a profile. */
     private const ACCOUNT_COLUMNS = 'u.PrincipalID, u.FirstName, u.LastName, u.Email, u.Created, u.UserLevel, u.UserFlags, u.UserTitle, u.active';
     private const VISIT_COLUMNS = 'g.HomeRegionID, g.LastRegionID, g.Online, g.Login, g.Logout';
-    private const PROFILE_COLUMNS = 'p.profileImage, p.profileAboutText, p.profileURL';
+    private const PROFILE_COLUMNS = 'p.profileImage, p.profileAboutText, p.profileURL, p.profilePartner, p.profileWantToText, p.profileSkillsText, p.profileLanguages, p.profileFirstImage, p.profileFirstText';
+
+    /** The account the services of the grid have, which is not a person: Robust makes it for itself. */
+    private const TECHNICAL = ['GRID', 'SERVICES'];
 
     /** The moment of the last visit as the database computes it: the later of Login and Logout, stored as texts. */
     private const LAST_SEEN = 'CASE WHEN COALESCE(g.Login + 0, 0) > COALESCE(g.Logout + 0, 0) THEN COALESCE(g.Login + 0, 0) ELSE COALESCE(g.Logout + 0, 0) END';
@@ -97,6 +100,46 @@ final class Avatar extends Model
         return (int) ($this->row['active'] ?? 1) !== 0;
     }
 
+    /** Whether it is an account of the services of the grid, not a person. */
+    public function isTechnical(): bool
+    {
+        return [$this->row['FirstName'], $this->row['LastName']] === self::TECHNICAL;
+    }
+
+    /**
+     * What it published in its profile as picks (the places it likes).
+     *
+     * @return list<array<string,mixed>> name, description, simname, posglobal, gatekeeper
+     */
+    public function picks(): array
+    {
+        $pdo = Connections::pdo($this->config, Database::Profiles);
+
+        return $pdo === null ? [] : $pdo->get_results(
+            "SELECT name, description, simname, posglobal, gatekeeper FROM userpicks WHERE creatoruuid = :id AND enabled = 'true' ORDER BY sortorder, name",
+            ['id' => $this->id()],
+            \PDO::FETCH_ASSOC,
+        );
+    }
+
+    /**
+     * Its classifieds that have not expired.
+     *
+     * @return list<array<string,mixed>> name, description, simname, parcelname, creationdate, expirationdate
+     */
+    public function classifieds(?int $now = null): array
+    {
+        $pdo = Connections::pdo($this->config, Database::Profiles);
+        // An integer in the statement: a bound value would be text, which a number is not compared with in every database
+        $now = (int) ($now ?? time());
+
+        return $pdo === null ? [] : $pdo->get_results(
+            "SELECT name, description, simname, parcelname, creationdate, expirationdate FROM classifieds WHERE creatoruuid = :id AND expirationdate + 0 > $now ORDER BY creationdate DESC",
+            ['id' => $this->id()],
+            \PDO::FETCH_ASSOC,
+        );
+    }
+
     public function lastSeen(): ?\DateTimeImmutable
     {
         return self::date($this->lastSeenTime());
@@ -125,9 +168,16 @@ final class Avatar extends Model
             'lastSeen' => $this->lastSeenTime() ?: null,
             'homeRegion' => $row['HomeRegionID'] ?? null,
             'lastRegion' => $row['LastRegionID'] ?? null,
+            'technical' => $this->isTechnical(),
             'profileImage' => $row['profileImage'] ?? null,
             'about' => $row['profileAboutText'] ?? null,
             'profileUrl' => $row['profileURL'] ?? null,
+            'partner' => self::uuidOrNull($row['profilePartner'] ?? null),
+            'wants' => $row['profileWantToText'] ?? null,
+            'skills' => $row['profileSkillsText'] ?? null,
+            'languages' => $row['profileLanguages'] ?? null,
+            'firstImage' => self::uuidOrNull($row['profileFirstImage'] ?? null),
+            'firstLife' => $row['profileFirstText'] ?? null,
         ];
     }
 
@@ -174,8 +224,9 @@ final class Avatar extends Model
     /**
      * The avatars of the grid.
      *
-     * Options: `search` (words, each of them in the first name, the last name or the email), `sort` ("name", "lastSeen desc"...),
-     * `filters` (`active`, `online`, `god`: yes or no), `page` and `perPage`.
+     * Options: `search` (words, each of them in the first name or the last name, and in the email with `searchEmail`: the emails are
+     * not found by whoever asks, unless the caller says so), `sort` ("name", "lastSeen desc"...), `filters` (`active`, `online`, `god`,
+     * `technical`: yes or no), `page` and `perPage`.
      *
      * @throws ChannelUnavailable when the database of the accounts cannot be reached
      */
@@ -273,7 +324,7 @@ final class Avatar extends Model
     {
         $yesNo = ['yes', 'no'];
 
-        return ['active' => $yesNo, 'god' => $yesNo] + ($joined ? ['online' => $yesNo] : []);
+        return ['active' => $yesNo, 'god' => $yesNo, 'technical' => $yesNo] + ($joined ? ['online' => $yesNo] : []);
     }
 
     /** Whether the accounts, the visits and the profiles are in one database. */
@@ -329,12 +380,16 @@ final class Avatar extends Model
         $applied = [];
         $words = preg_split('/\s+/', trim((string) ($options['search'] ?? '')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
         foreach ($words as $i => $word) {
-            $where[] = "(u.FirstName LIKE :w$i OR u.LastName LIKE :w$i OR u.Email LIKE :w$i)";
+            $where[] = "(u.FirstName LIKE :w$i OR u.LastName LIKE :w$i" . (($options['searchEmail'] ?? false) ? " OR u.Email LIKE :w$i" : '') . ')';
             $params["w$i"] = '%' . str_replace(['%', '\\'], '', $word) . '%';
         }
         $filters = [
             'active' => ['u.active = 1', 'u.active = 0'],
             'god' => ['u.UserLevel >= ' . self::GOD_LEVEL, 'u.UserLevel < ' . self::GOD_LEVEL],
+            'technical' => [
+                "(u.FirstName = '" . self::TECHNICAL[0] . "' AND u.LastName = '" . self::TECHNICAL[1] . "')",
+                "NOT (u.FirstName = '" . self::TECHNICAL[0] . "' AND u.LastName = '" . self::TECHNICAL[1] . "')",
+            ],
         ] + ($joined ? ['online' => ["g.Online = 'true'", "(g.Online IS NULL OR g.Online <> 'true')"]] : []);
         foreach ((array) ($options['filters'] ?? []) as $name => $value) {
             if (isset($filters[$name]) && in_array($value, ['yes', 'no'], true)) {
@@ -367,7 +422,7 @@ final class Avatar extends Model
             }
         }
         if ($pdo = Connections::pdo($config, Database::Profiles)) {
-            foreach ($pdo->get_results("SELECT useruuid, profileImage, profileAboutText, profileURL FROM userprofile WHERE useruuid IN ($marks)", $ids, \PDO::FETCH_ASSOC) as $row) {
+            foreach ($pdo->get_results("SELECT useruuid, profileImage, profileAboutText, profileURL, profilePartner, profileWantToText, profileSkillsText, profileLanguages, profileFirstImage, profileFirstText FROM userprofile WHERE useruuid IN ($marks)", $ids, \PDO::FETCH_ASSOC) as $row) {
                 $profiles[$row['useruuid']] = $row;
             }
         }
@@ -376,6 +431,14 @@ final class Avatar extends Model
         }
 
         return $rows;
+    }
+
+    /** A UUID, null for none or the null key. */
+    private static function uuidOrNull(mixed $uuid): ?string
+    {
+        $uuid = (string) $uuid;
+
+        return $uuid !== '' && $uuid !== '00000000-0000-0000-0000-000000000000' ? $uuid : null;
     }
 
     /** The time of the last visit: the later of the login and the logout, 0 when there is none. */

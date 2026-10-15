@@ -34,7 +34,9 @@ function avatar_database(): OSPDO
     $pdo = new OSPDO(['driver' => 'sqlite', 'name' => ':memory:']);
     $pdo->exec('CREATE TABLE UserAccounts (PrincipalID CHAR(36) PRIMARY KEY, ScopeID CHAR(36), FirstName VARCHAR(64), LastName VARCHAR(64), Email VARCHAR(64), Created INT, UserLevel INT DEFAULT 0, UserFlags INT DEFAULT 0, UserTitle VARCHAR(64) DEFAULT \'\', active INT DEFAULT 1)');
     $pdo->exec('CREATE TABLE GridUser (UserID VARCHAR(255) PRIMARY KEY, HomeRegionID CHAR(36), LastRegionID CHAR(36), Online CHAR(5) DEFAULT \'false\', Login CHAR(16) DEFAULT \'0\', Logout CHAR(16) DEFAULT \'0\')');
-    $pdo->exec('CREATE TABLE userprofile (useruuid CHAR(36) PRIMARY KEY, profileImage CHAR(36), profileAboutText TEXT, profileURL VARCHAR(255))');
+    $pdo->exec('CREATE TABLE userprofile (useruuid CHAR(36) PRIMARY KEY, profileImage CHAR(36), profileAboutText TEXT, profileURL VARCHAR(255), profilePartner CHAR(36), profileWantToText TEXT, profileSkillsText TEXT, profileLanguages TEXT, profileFirstImage CHAR(36), profileFirstText TEXT)');
+    $pdo->exec('CREATE TABLE userpicks (pickuuid CHAR(36), creatoruuid CHAR(36), name VARCHAR(255), description TEXT, simname VARCHAR(255), posglobal VARCHAR(255), sortorder INT, enabled VARCHAR(5), gatekeeper VARCHAR(255))');
+    $pdo->exec('CREATE TABLE classifieds (classifieduuid CHAR(36), creatoruuid CHAR(36), creationdate INT, expirationdate INT, name VARCHAR(255), description TEXT, simname VARCHAR(255), parcelname VARCHAR(255))');
     $pdo->exec("INSERT INTO UserAccounts (PrincipalID, FirstName, LastName, Email, Created, UserLevel, UserFlags, active) VALUES
         ('11111111-1111-1111-1111-111111111111', 'Ada', 'Love', 'ada@example.org', 1700000000, 0, 0, 1),
         ('22222222-2222-2222-2222-222222222222', 'Bob', 'Root', 'bob@example.org', 1600000000, 250, 3, 1),
@@ -42,7 +44,9 @@ function avatar_database(): OSPDO
     $pdo->exec("INSERT INTO GridUser (UserID, HomeRegionID, LastRegionID, Online, Login, Logout) VALUES
         ('11111111-1111-1111-1111-111111111111', 'aaaa', 'bbbb', 'true', '1700005000', '1700001000'),
         ('22222222-2222-2222-2222-222222222222', 'aaaa', 'aaaa', 'false', '1690000000', '1695000000')");
-    $pdo->exec("INSERT INTO userprofile VALUES ('11111111-1111-1111-1111-111111111111', 'img-ada', 'Hello', 'https://ada.example.org')");
+    $pdo->exec("INSERT INTO userprofile VALUES ('11111111-1111-1111-1111-111111111111', 'img-ada', 'Hello', 'https://ada.example.org', '22222222-2222-2222-2222-222222222222', 'to build', 'scripting', 'en, fr', '00000000-0000-0000-0000-000000000000', 'a mathematician')");
+    $pdo->exec("INSERT INTO userpicks VALUES ('k1', '11111111-1111-1111-1111-111111111111', 'The Garden', 'roses', 'Welcome', '<256010,256020,30>', 2, 'true', ''), ('k2', '11111111-1111-1111-1111-111111111111', 'Hidden', 'x', 'Welcome', '<1,1,1>', 1, 'false', ''), ('k3', '11111111-1111-1111-1111-111111111111', 'Alpha pick', 'y', 'Harbour', '<256500,256020,30>', 1, 'true', 'other.example.org:8002')");
+    $pdo->exec("INSERT INTO classifieds VALUES ('c1', '11111111-1111-1111-1111-111111111111', 1700000000, 1900000000, 'Roses for sale', 'fresh', 'Welcome', 'The Garden'), ('c2', '11111111-1111-1111-1111-111111111111', 1600000000, 1600000100, 'Old', 'gone', 'Welcome', 'The Garden')");
 
     return $pdo;
 }
@@ -77,6 +81,12 @@ describe('The avatars', function () {
             ->and($ada['homeRegion'])->toBe('aaaa')
             ->and($ada['profileImage'])->toBe('img-ada')
             ->and($ada['about'])->toBe('Hello')
+            ->and($ada['partner'])->toBe('22222222-2222-2222-2222-222222222222')
+            ->and($ada['wants'])->toBe('to build')
+            ->and($ada['languages'])->toBe('en, fr')
+            ->and($ada['firstImage'])->toBeNull()
+            ->and($ada['firstLife'])->toBe('a mathematician')
+            ->and($ada['technical'])->toBeFalse()
             ->and($list->last()->name())->toBe('Cy Gone');
     });
 
@@ -97,7 +107,8 @@ describe('The avatars', function () {
 
         expect(array_column(Avatar::all($config, ['search' => 'ada'])->array(), 'name'))->toBe(['Ada Love'])
             ->and(array_column(Avatar::all($config, ['search' => 'ove ada'])->array(), 'name'))->toBe(['Ada Love'])
-            ->and(array_column(Avatar::all($config, ['search' => 'example.org'])->array(), 'name'))->toBe(['Ada Love', 'Bob Root', 'Cy Gone'])
+            ->and(array_column(Avatar::all($config, ['search' => 'example.org', 'searchEmail' => true])->array(), 'name'))->toBe(['Ada Love', 'Bob Root', 'Cy Gone'])
+            ->and(Avatar::all($config, ['search' => 'example.org'])->total())->toBe(0)
             ->and(Avatar::all($config, ['search' => 'nobody'])->total())->toBe(0)
             ->and(Avatar::all($config, ['search' => 'ada'])->search())->toBe('ada');
     });
@@ -147,7 +158,7 @@ describe('The avatars', function () {
 
         expect(array_column($list->columns(), 'name'))->toBe(['name', 'email', 'created', 'level', 'active', 'online', 'lastSeen'])
             ->and($sortable)->toBe(['name', 'email', 'created', 'level', 'active', 'online', 'lastSeen'])
-            ->and(array_keys($list->filters()))->toBe(['active', 'god', 'online']);
+            ->and(array_keys($list->filters()))->toBe(['active', 'god', 'technical', 'online']);
     });
 
     test('are found by their UUID or their name', function () {
@@ -170,6 +181,43 @@ describe('The avatars', function () {
         expect(json_decode($list->json(), true)[0]['name'])->toBe('Ada Love')
             ->and($csv[0])->toBe('name,email,created,level,active,online,lastSeen')
             ->and($csv[1])->toBe('"Ada Love",ada@example.org,1700000000,0,1,1,1700005000');
+    });
+})->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
+
+describe('The account of the services of the grid', function () {
+    test('is not a person: the filter leaves it out', function () {
+        $pdo = avatar_database();
+        $pdo->exec("INSERT INTO UserAccounts (PrincipalID, FirstName, LastName, Created) VALUES ('99999999-9999-9999-9999-999999999999', 'GRID', 'SERVICES', 1500000000)");
+        avatars_in($pdo);
+        $config = avatar_grid();
+        $names = static fn(array $filters) => array_column(Avatar::all($config, ['filters' => $filters, 'sort' => 'created'])->array(), 'name');
+
+        expect($names([]))->toBe(['GRID SERVICES', 'Bob Root', 'Cy Gone', 'Ada Love'])
+            ->and($names(['technical' => 'no']))->toBe(['Bob Root', 'Cy Gone', 'Ada Love'])
+            ->and($names(['technical' => 'yes']))->toBe(['GRID SERVICES'])
+            ->and(Avatar::find($config, 'GRID SERVICES')->isTechnical())->toBeTrue()
+            ->and(Avatar::find($config, 'Ada Love')->isTechnical())->toBeFalse();
+    });
+})->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
+
+describe('The picks and the classifieds of an avatar', function () {
+    test('are what it published and what has not expired', function () {
+        avatars_in(avatar_database());
+        $ada = Avatar::find(avatar_grid(), 'Ada Love');
+
+        expect(array_column($ada->picks(), 'name'))->toBe(['Alpha pick', 'The Garden'])
+            ->and($ada->picks()[0]['gatekeeper'])->toBe('other.example.org:8002')
+            ->and(array_column($ada->classifieds(1_750_000_000), 'name'))->toBe(['Roses for sale'])
+            ->and($ada->classifieds(1_500_000_000))->toHaveCount(2)
+            ->and(Avatar::find(avatar_grid(), 'Bob Root')->picks())->toBe([]);
+    });
+
+    test('are none when the profiles cannot be reached', function () {
+        avatars_in(avatar_database());
+        $ada = Avatar::find(avatar_grid(), 'Ada Love');
+        Connections::using(static fn() => null);
+
+        expect($ada->picks())->toBe([])->and($ada->classifieds())->toBe([]);
     });
 })->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
 
@@ -227,8 +275,8 @@ describe('The avatars of a grid whose services have their own databases', functi
         $visits->exec('CREATE TABLE GridUser (UserID VARCHAR(255) PRIMARY KEY, HomeRegionID CHAR(36), LastRegionID CHAR(36), Online CHAR(5), Login CHAR(16), Logout CHAR(16))');
         $visits->exec("INSERT INTO GridUser VALUES ('11111111-1111-1111-1111-111111111111', 'home', 'last', 'true', '100', '200')");
         $profiles = new OSPDO(['driver' => 'sqlite', 'name' => ':memory:']);
-        $profiles->exec('CREATE TABLE userprofile (useruuid CHAR(36), profileImage CHAR(36), profileAboutText TEXT, profileURL VARCHAR(255))');
-        $profiles->exec("INSERT INTO userprofile VALUES ('22222222-2222-2222-2222-222222222222', 'img-bob', 'Root', NULL)");
+        $profiles->exec('CREATE TABLE userprofile (useruuid CHAR(36), profileImage CHAR(36), profileAboutText TEXT, profileURL VARCHAR(255), profilePartner CHAR(36), profileWantToText TEXT, profileSkillsText TEXT, profileLanguages TEXT, profileFirstImage CHAR(36), profileFirstText TEXT)');
+        $profiles->exec("INSERT INTO userprofile (useruuid, profileImage, profileAboutText) VALUES ('22222222-2222-2222-2222-222222222222', 'img-bob', 'Root')");
         Connections::using(static fn(Database|string $what) => match ($what) {
             'UserAccountService' => $accounts,
             'GridUserService' => $visits,
@@ -246,7 +294,7 @@ describe('The avatars of a grid whose services have their own databases', functi
         expect($list->sort())->toBe('name asc')
             ->and($list->total())->toBe(2)
             ->and($list->applied())->toBe([])
-            ->and(array_keys($list->filters()))->toBe(['active', 'god'])
+            ->and(array_keys($list->filters()))->toBe(['active', 'god', 'technical'])
             ->and($ada->isOnline())->toBeTrue()
             ->and($ada->lastSeen()->getTimestamp())->toBe(200)
             ->and($ada->detail()['homeRegion'])->toBe('home')
