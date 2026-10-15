@@ -22,7 +22,9 @@ function registry_grid(array $files = []): GridConfig
         'sims/gamma.ini' => "[DatabaseService]\n ConnectionString = \"" . $db('gamma') . "\"\n",
     ];
     foreach ($files as $name => $text) {
-        file_put_contents("$dir/$name", $text);
+        if ($text !== null) {
+            file_put_contents("$dir/$name", $text);
+        }
     }
 
     return GridConfig::fromFolder($dir, ['Helpers' => 'Helpers.ini']);
@@ -57,6 +59,17 @@ describe('the databases of the grid', function () {
         expect(Database::Offline->connection($config)->database)->toBe('offline')
             ->and(Database::Profiles->connection($config)->database)->toBe('profiles')
             ->and(Database::Search->connection($config)->database)->toBe('search');
+    });
+
+    test('are in Helpers.ini when the host has a reduced copy of the Robust config', function () {
+        $config = registry_grid([
+            'Robust.HG.ini' => null,
+            'Helpers.ini' => "[DatabaseService]\n ConnectionString = \"Data Source=localhost;Database=reduced;User ID=u;Password=p;\"\n[Messaging]\n ConnectionString = \"Data Source=localhost;Database=reduced_offline;User ID=u;Password=p;\"\n",
+        ]);
+
+        expect(Database::Robust->connection($config)->database)->toBe('reduced')
+            ->and(Database::Offline->connection($config)->database)->toBe('reduced_offline')
+            ->and(Database::service($config, 'GridUserService')->database)->toBe('reduced');
     });
 
     test('are not there when the grid says nothing', function () {
