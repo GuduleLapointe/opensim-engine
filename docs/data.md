@@ -40,7 +40,7 @@ Parcel::at($config, $region->uuid(), 120, 40);          // the parcel that holds
 The filters and sorts of each model are in the collection it gives back (`filters()`, `columns()`).
 
 The flags are constants of the model, with the value and the name OpenSimulator gives them: `Region::DEFAULT_REGION`,
-`Region::FALLBACK_REGION`, `Region::REGION_ONLINE`... (`Region::flagName()` is the name in the config of Robust, `DefaultRegion`),
+`Region::FALLBACK_REGION`, `Region::REGION_ONLINE`... (`Region::flagName()` is the name in the config of Robust, `DefaultRegion`; `Region::flagNames($flags)` the names of the flags of a value that can be given there, `$region->roles()` those of a region),
 `Parcel::ALLOW_FLY`, `Parcel::SHOW_DIRECTORY`... (the names of the constants of LSL).
 
 ## Collection

@@ -84,7 +84,7 @@ final class SimPlan
     public int $regionPort = 9001;
     public int $regionSize = 256;
 
-    /** @var list<string> The roles it takes in the grid, given in the Robust config (see Region::roles()). */
+    /** @var list<string> The roles it takes in the grid, given in the Robust config (see Region::flagNames()). */
     public array $regionRoles = [];
 
     /** Only a region is added to a simulator already configured. */

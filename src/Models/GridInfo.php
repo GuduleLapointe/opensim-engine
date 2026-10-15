@@ -23,7 +23,7 @@ final class GridInfo
     public int $regionSpacing = 0;
     /** The center of the grid, "x,y", empty when it has none (the one its port gives). */
     public string $center = '';
-    /** @var list<string> The roles the regions of the Robust config have (see Region::roles()); empty for a grid described only. */
+    /** @var list<string> The roles the regions of the Robust config have (see Region::flagNames()); empty for a grid described only. */
     public array $regionFlags = [];
     public string $dir = '';
     public string $robustIni = '';
@@ -149,18 +149,23 @@ final class GridInfo
      */
     public function roles(): array
     {
-        return $this->remote ? [] : Region::roles($this->hypergrid);
+        if ($this->remote) {
+            return [];
+        }
+        $flags = [Region::DEFAULT_REGION, ...($this->hypergrid ? [Region::DEFAULT_HGREGION] : []), Region::FALLBACK_REGION];
+
+        return array_map(Region::flagName(...), $flags);
     }
 
     /**
-     * The roles no region of a grid run from this machine has yet (see Region::roles()),
+     * The roles no region of a grid run from this machine has yet (see roles()),
      * to offer them to the next region.
      *
      * @return list<string>
      */
     public function missingRoles(): array
     {
-        return $this->remote ? [] : array_values(array_diff(Region::roles($this->hypergrid), $this->regionFlags));
+        return $this->remote ? [] : array_values(array_diff($this->roles(), $this->regionFlags));
     }
 
     /**

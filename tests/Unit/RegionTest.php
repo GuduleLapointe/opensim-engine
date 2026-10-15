@@ -55,12 +55,19 @@ describe('The flags of a region', function () {
             ->and(Region::flagValue('Nonsense'))->toBe(0)
             ->and(Region::label(Region::DEFAULT_REGION))->toBe('Default Region')
             ->and(Region::flagLabels(1029))->toBe([1 => 'Default Region', 1024 => 'Default HG Region', 4 => 'Online'])
-            ->and(fn() => Region::flagName(3))->toThrow(InvalidArgumentException::class);
+            ->and(fn() => Region::flagName(3))->toThrow(InvalidArgumentException::class)
+            ->and(fn() => Region::flagName(Region::REGION_ONLINE))->toThrow(InvalidArgumentException::class);
     });
 
-    test('are the roles a grid can give, the default HG region only on Hypergrid', function () {
-        expect(Region::roles(true))->toBe(['DefaultRegion', 'DefaultHGRegion', 'FallbackRegion'])
-            ->and(Region::roles(false))->toBe(['DefaultRegion', 'FallbackRegion']);
+    test('have names in the config of Robust for the ones a region can be given', function () {
+        expect(Region::flagNames(0))->toBe([])
+            ->and(Region::flagNames(Region::FALLBACK_REGION | Region::PERSISTENT))->toBe(['FallbackRegion', 'Persistent'])
+            ->and(Region::flagNames(1029))->toBe(['DefaultRegion', 'DefaultHGRegion'])
+            ->and(Region::flagNames(Region::REGION_ONLINE | Region::HYPERLINK))->toBe([])
+            ->and(Region::flagNames(2047))->toBe([
+                'DefaultRegion', 'DefaultHGRegion', 'FallbackRegion', 'NoDirectLogin', 'Persistent', 'LockedOut', 'Reservation', 'NoMove',
+                'Authenticate',
+            ]);
     });
 });
 
@@ -86,7 +93,8 @@ describe('The regions', function () {
             ->and($welcome['ownerName'])->toBe('Ada Love')
             ->and($welcome['isDefault'])->toBeTrue()
             ->and($welcome['online'])->toBeTrue()
-            ->and($welcome['flagNames'])->toBe(['Default Region', 'Default HG Region', 'Online'])
+            ->and($welcome['roles'])->toBe(['DefaultRegion', 'DefaultHGRegion'])
+            ->and($welcome['flagLabels'])->toBe(['Default Region', 'Default HG Region', 'Online'])
             ->and($welcome['lastSeen'])->toBe(1700000000);
     });
 
@@ -94,7 +102,8 @@ describe('The regions', function () {
         Connections::using(static fn() => region_database());
         [$garden, $harbour, $welcome] = Region::all(region_config())->items();
 
-        expect($garden->width())->toBe(512)->and($garden->isFallback())->toBeTrue()->and($garden->isDefault())->toBeFalse()
+        expect($garden->roles())->toBe(['FallbackRegion', 'Persistent'])->and($welcome->roles())->toBe(['DefaultRegion', 'DefaultHGRegion'])
+            ->and($garden->width())->toBe(512)->and($garden->isFallback())->toBeTrue()->and($garden->isDefault())->toBeFalse()
             ->and($garden->isOnline())->toBeTrue()->and($garden->has(Region::PERSISTENT))->toBeTrue()
             ->and($harbour->width())->toBe(256)->and($harbour->owner())->toBeNull()->and($harbour->isOnline())->toBeFalse()
             ->and($harbour->isDefault())->toBeTrue()->and($harbour->has(Region::PERSISTENT | Region::DEFAULT_HGREGION))->toBeTrue()

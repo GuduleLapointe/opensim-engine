@@ -19,8 +19,8 @@ use OpenSim\Provisioning\Slug;
  * The fields of a region are defined here, for whoever shows them: the setup of a grid, its administration, the page of the owner
  * of a region (see Forms\FieldSet).
  *
- * The flags are those of the regions table, named as in OpenSimulator (opensimulator.org/wiki/Regions_(database_table)). In the
- * config of Robust they are written by name: Region_<Name> = "DefaultRegion, Persistent" (see flagName()).
+ * The flags are those of the regions table, named as in OpenSimulator (opensimulator.org/wiki/Regions_(database_table)). The ones a
+ * region can be given are its roles; in the config of Robust they are written by name (see roles() and flagNames()).
  */
 final class Region extends Model
 {
@@ -36,19 +36,17 @@ final class Region extends Model
     public const HYPERLINK = 512;
     public const DEFAULT_HGREGION = 1024;
 
-    /** The flags by their name in the config of Robust. */
+    /** The flags a region can be given in the config of Robust (Region_<Name> = "DefaultRegion, Persistent"), by their name there. */
     private const NAMES = [
         self::DEFAULT_REGION => 'DefaultRegion',
+        self::DEFAULT_HGREGION => 'DefaultHGRegion',
         self::FALLBACK_REGION => 'FallbackRegion',
-        self::REGION_ONLINE => 'RegionOnline',
         self::NO_DIRECT_LOGIN => 'NoDirectLogin',
         self::PERSISTENT => 'Persistent',
         self::LOCKED_OUT => 'LockedOut',
-        self::NO_MOVE => 'NoMove',
         self::RESERVATION => 'Reservation',
+        self::NO_MOVE => 'NoMove',
         self::AUTHENTICATE => 'Authenticate',
-        self::HYPERLINK => 'Hyperlink',
-        self::DEFAULT_HGREGION => 'DefaultHGRegion',
     ];
 
     /** The size of a region that does not say it. */
@@ -109,6 +107,16 @@ final class Region extends Model
     public function has(int $flag): bool
     {
         return ($this->flags() & $flag) !== 0;
+    }
+
+    /**
+     * The roles of the region: the names, in the config of Robust, of its flags that can be given there.
+     *
+     * @return list<string>
+     */
+    public function roles(): array
+    {
+        return self::flagNames($this->flags());
     }
 
     /** Whether visitors arrive here when they do not say where (the default region, or the one of the visitors of other grids). */
@@ -184,7 +192,8 @@ final class Region extends Model
             'owner' => $this->owner(),
             'ownerName' => $row['ownerName'] ?? null,
             'flags' => $this->flags(),
-            'flagNames' => array_values(self::flagLabels($this->flags())),
+            'roles' => $this->roles(),
+            'flagLabels' => array_values(self::flagLabels($this->flags())),
             'isDefault' => $this->isDefault(),
             'isFallback' => $this->isFallback(),
             'online' => $this->isOnline(),
@@ -343,18 +352,21 @@ final class Region extends Model
     }
 
     /**
-     * The roles a grid can give to its regions, by their name in the config, in the order they are offered: the default region, the
-     * one of the visitors of other grids (Hypergrid only), the one visitors fall back to.
+     * The names, in the config of Robust, of the flags of a value that can be given there (DefaultRegion, DefaultHGRegion,
+     * FallbackRegion, NoDirectLogin, Persistent, LockedOut, Reservation, NoMove, Authenticate).
      *
      * @return list<string>
      */
-    public static function roles(bool $hypergrid): array
+    public static function flagNames(int $flags): array
     {
-        $roles = $hypergrid
-            ? [self::DEFAULT_REGION, self::DEFAULT_HGREGION, self::FALLBACK_REGION]
-            : [self::DEFAULT_REGION, self::FALLBACK_REGION];
+        $names = [];
+        foreach (self::NAMES as $flag => $name) {
+            if (($flags & $flag) !== 0) {
+                $names[] = $name;
+            }
+        }
 
-        return array_map(self::flagName(...), $roles);
+        return $names;
     }
 
     /**

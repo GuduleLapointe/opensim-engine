@@ -96,9 +96,14 @@ describe('Grid setup', function () {
 });
 
 describe('Roles of a region', function () {
-    test('are default, default HG and fallback', function () {
-        expect(Region::roles(true))->toBe(['DefaultRegion', 'DefaultHGRegion', 'FallbackRegion']);
-        expect(Region::roles(false))->toBe(['DefaultRegion', 'FallbackRegion']);
+    test('a grid can give are default, default HG (on Hypergrid) and fallback', function () {
+        $grid = new GridInfo();
+        $grid->hypergrid = true;
+        expect($grid->roles())->toBe(['DefaultRegion', 'DefaultHGRegion', 'FallbackRegion']);
+        $grid->hypergrid = false;
+        expect($grid->roles())->toBe(['DefaultRegion', 'FallbackRegion']);
+        $grid->remote = true;
+        expect($grid->roles())->toBe([]);
     });
 
     test('are found in the config, the commented example left out', function () {
