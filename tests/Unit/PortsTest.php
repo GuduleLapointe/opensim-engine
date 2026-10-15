@@ -21,7 +21,8 @@ describe('Ports of the simulators', function () {
     });
 
     test('are a block of ten, the next block ten above', function () {
-        expect(Ports::nextBlock(Ports::simulatorsFrom(8002), [9000, 9001, 9002, 9004]))->toBe(9010);
+        // High ports: the blocks of the machine that runs the test (a simulator on 9010) are not the subject here
+        expect(Ports::nextBlock(29000, [29000, 29001, 29002, 29004]))->toBe(29010);
     });
 
     test('are the first free block from there', function () {

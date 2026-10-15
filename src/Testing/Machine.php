@@ -30,7 +30,7 @@ final class Machine
 
     public function __construct()
     {
-        $this->root = sys_get_temp_dir() . '/machine-' . bin2hex(random_bytes(4));
+        $this->root = (realpath(sys_get_temp_dir()) ?: sys_get_temp_dir()) . '/machine-' . bin2hex(random_bytes(4));
         $this->etc = $this->root . '/etc';
         $this->core = $this->root . '/core/0.9.3.0';
         $this->grid = $this->etc . '/grids/demo';
