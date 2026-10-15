@@ -92,6 +92,7 @@ require_once 'engine/bootstrap.php';
 ## 📚 Documentation
 
 - **[Developer Guide](DEVELOPERS.md)** - Architecture rules and patterns
+- **[The data of a grid](docs/data.md)** - the models (avatars, regions, parcels), the collections and the databases
 - **API Reference** - (planned after migration completion)
 - **Examples** - (planned after migration completion)
 
