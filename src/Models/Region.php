@@ -214,8 +214,7 @@ final class Region extends Model
      */
     public static function all(GridConfig $config, array $options = []): Collection
     {
-        $pdo = Connections::pdo($config, 'GridService')
-            ?? throw ChannelUnavailable::for('read the regions', 'the database of the grid service cannot be reached');
+        $pdo = self::connect($config, 'GridService', null, 'read the regions');
         [$sortName, $direction] = array_pad(preg_split('/\s+/', trim((string) ($options['sort'] ?? 'name'))) ?: [], 2, 'asc');
         if (!isset(self::SORTS[$sortName])) {
             [$sortName, $direction] = ['name', 'asc'];

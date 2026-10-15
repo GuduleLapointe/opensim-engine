@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OpenSim\Data;
 
 use OpenSim\Config\GridConfig;
+use OpenSim\Provisioning\SqlRunner;
 
 /**
  * The connections the models read and write with: one OSPDO for each database, opened when it is first needed and kept.
@@ -15,6 +16,9 @@ final class Connections
 {
     /** @var array<string,\OSPDO> */
     private static array $handles = [];
+
+    /** @var array<string,string> why a database could not be reached, by the key of its connection */
+    private static array $failures = [];
 
     /** @var ?\Closure(Database|string,?string,?\OpenSim\Config\ConnectionString):?\OSPDO */
     private static ?\Closure $factory = null;
@@ -32,9 +36,22 @@ final class Connections
         if ($connection === null) {
             return null;
         }
-        $pdo = self::$handles[$connection->key()] ??= new \OSPDO($connection->credentials());
+        $pdo = self::$handles[$connection->key()] ??= new \OSPDO($connection->credentials() + ['log' => false]);
+        if (!$pdo->connected) {
+            self::$failures[$connection->key()] = SqlRunner::describe($pdo->error);
 
-        return $pdo->connected ? $pdo : null;
+            return null;
+        }
+
+        return $pdo;
+    }
+
+    /** Why a database could not be reached, null when it could or was not asked for. */
+    public static function reason(GridConfig $config, Database|string $what, ?string $simulator = null): ?string
+    {
+        $key = self::key($config, $what, $simulator);
+
+        return $key === null ? null : (self::$failures[$key] ?? null);
     }
 
     /** What tells one database from another, null when the grid does not say it. */
@@ -48,6 +65,7 @@ final class Connections
     {
         self::$factory = $factory;
         self::$handles = [];
+        self::$failures = [];
     }
 
     private static function connection(GridConfig $config, Database|string $what, ?string $simulator): ?\OpenSim\Config\ConnectionString

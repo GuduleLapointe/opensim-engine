@@ -255,3 +255,30 @@ describe('The avatars of a grid whose services have their own databases', functi
             ->and(array_column(array_filter($list->columns(), static fn(array $c) => $c['sortable']), 'name'))->toBe(['name', 'email', 'created', 'level', 'active']);
     });
 })->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
+
+describe('A list of a database that cannot be reached', function () {
+    test('says why: what the server answered', function () {
+        $dir = test_tmp() . '/unreachable-' . bin2hex(random_bytes(4));
+        mkdir($dir, 0o755, true);
+        file_put_contents("$dir/Robust.HG.ini", "[DatabaseService]\n ConnectionString = \"Data Source=127.0.0.1:1;Database=robust;User ID=os;Password=secret;\"\n");
+        $config = GridConfig::fromFolder($dir);
+
+        try {
+            Avatar::all($config);
+            $message = '';
+        } catch (ChannelUnavailable $e) {
+            $message = $e->getMessage();
+        }
+
+        expect($message)->toContain('cannot read the avatars')->toContain('ERROR 2002')->not->toContain('secret')
+            ->and(Connections::reason($config, 'UserAccountService'))->toContain('ERROR 2002');
+    });
+
+    test('says the config is incomplete when it does not say where the database is', function () {
+        $dir = test_tmp() . '/nodb-' . bin2hex(random_bytes(4));
+        mkdir($dir, 0o755, true);
+        file_put_contents("$dir/Robust.HG.ini", "[Const]\n BaseURL = \"http://play.example.org\"\n");
+
+        expect(fn() => Avatar::all(GridConfig::fromFolder($dir)))->toThrow(ChannelUnavailable::class, 'does not say where');
+    });
+})->skip(fn() => !extension_loaded('pdo_mysql'), 'pdo_mysql is missing');

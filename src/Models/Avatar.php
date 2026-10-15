@@ -157,8 +157,7 @@ final class Avatar extends Model
         if ($set === []) {
             return;
         }
-        $pdo = Connections::pdo($this->config, 'UserAccountService')
-            ?? throw ChannelUnavailable::for('change ' . $this->name(), 'the database of the accounts cannot be reached');
+        $pdo = self::connect($this->config, 'UserAccountService', null, 'change ' . $this->name());
         $pdo->prepareAndExecute('UPDATE UserAccounts SET ' . implode(', ', $set) . ' WHERE PrincipalID = :id', $params);
     }
 
@@ -182,8 +181,7 @@ final class Avatar extends Model
      */
     public static function all(GridConfig $config, array $options = []): Collection
     {
-        $accounts = Connections::pdo($config, 'UserAccountService')
-            ?? throw ChannelUnavailable::for('read the avatars', 'the database of the accounts cannot be reached');
+        $accounts = self::connect($config, 'UserAccountService', null, 'read the avatars');
         $joined = self::joined($config);
         [$sortName, $direction] = self::sort((string) ($options['sort'] ?? 'name'), $joined);
         [$where, $params, $applied] = self::conditions($options, $joined);
