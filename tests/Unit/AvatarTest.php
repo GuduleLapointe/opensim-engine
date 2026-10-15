@@ -202,6 +202,18 @@ describe('A search', function () {
     });
 })->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
 
+describe('What a list of avatars offers', function () {
+    test('is the visits too when the accounts and the visits are in one database', function () {
+        expect(Avatar::capabilities(avatar_grid()))->toBe([
+            'sortable' => ['name', 'email', 'created', 'level', 'active', 'online', 'lastSeen'],
+            'filters' => ['active', 'god', 'technical', 'online'],
+        ])->and(Avatar::capabilities(avatar_grid("[GridUserService]\n ConnectionString = \"Data Source=localhost;Database=visits;User ID=os;Password=pw;\"\n")))->toBe([
+            'sortable' => ['name', 'email', 'created', 'level', 'active'],
+            'filters' => ['active', 'god', 'technical'],
+        ]);
+    });
+});
+
 describe('The account of the services of the grid', function () {
     test('is not a person: the filter leaves it out', function () {
         $pdo = avatar_database();

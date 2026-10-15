@@ -291,6 +291,22 @@ final class Avatar extends Model
     }
 
     /**
+     * What the list of this grid can sort on and filter by: the visits (last seen, online) need the accounts and the visits in one
+     * database. A consumer shows only these.
+     *
+     * @return array{sortable:list<string>,filters:list<string>}
+     */
+    public static function capabilities(GridConfig $config): array
+    {
+        $joined = self::joined($config);
+
+        return [
+            'sortable' => array_column(array_filter(self::columns($joined), static fn(array $column): bool => $column['sortable']), 'name'),
+            'filters' => array_keys(self::filters($joined)),
+        ];
+    }
+
+    /**
      * The columns of a list.
      *
      * @return list<array{name:string,label:string,sortable?:bool}>
