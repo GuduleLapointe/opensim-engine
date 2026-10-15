@@ -76,6 +76,16 @@ final class ConnectionString
         );
     }
 
+    /**
+     * The credentials as OSPDO takes them.
+     *
+     * @return array{host:string,port:?int,name:string,user:string,pass:string}
+     */
+    public function credentials(): array
+    {
+        return ['host' => $this->host, 'port' => $this->port, 'name' => $this->database, 'user' => $this->user, 'pass' => $this->password];
+    }
+
     /** What tells one database from another. */
     public function key(): string
     {

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace OpenSim\Moderation;
 
 use OpenSim\Config\ConnectionString;
+use OpenSim\Config\GridConfig;
+use OpenSim\Data\Database;
 use OpenSim\Models\Grid;
 use OpenSim\Provisioning\AccountWriter;
 use OpenSim\Provisioning\DatabaseService;
@@ -55,12 +57,12 @@ final class UserBan
      */
     public static function databases(Grid $grid): array
     {
-        $robust = ConnectionString::parse($grid->robust()?->settings()['DatabaseService']['ConnectionString'] ?? '');
+        $config = GridConfig::fromFolder($grid->directory());
+        $robust = Database::Robust->connection($config);
         $others = [];
-        foreach ($grid->simulators() as $simulator) {
-            $settings = $simulator->settings()['DatabaseService'] ?? [];
-            foreach (['ConnectionString', 'EstateConnectionString'] as $key) {
-                $db = ConnectionString::parse($settings[$key] ?? '');
+        foreach (array_keys($config->tree()['sims'] ?? []) as $simulator) {
+            foreach ([Database::Simulator, Database::Estate] as $database) {
+                $db = $database->connection($config, $simulator);
                 if ($db !== null) {
                     $others[$db->key()] = $db;
                 }

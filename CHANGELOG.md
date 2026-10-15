@@ -2,6 +2,7 @@
 
 ### Unreleased
 
+- new: `Data\Database`, the databases of a grid (services, assets, profiles, offline, simulators, estates, economy, search) and where each is set
 - update: the database is reached through PDO (`OSPDO`) only, no `mysql` client is run
 - update: one `OSPDO`, the engine's, for the helpers too: DSN or credentials, driver options, `error` when not connected
 - new: `GridConfig::withDatabaseDefaults()`: the StorageProvider and ConnectionString OpenSimulator takes from [DatabaseService] for the services, the regions and the estates
