@@ -41,7 +41,7 @@ function signin_grid(array $answers, array &$requests = []): Closure
     };
 }
 
-describe('The name of an avatar', function () {
+describe('name of an avatar', function () {
     test('is a first and a last name, separated by a space or a dot', function () {
         expect(AvatarName::parse('Gudule Lapointe')->full())->toBe('Gudule Lapointe')
             ->and(AvatarName::parse('  Gudule   Lapointe ')->full())->toBe('Gudule Lapointe')
@@ -66,7 +66,7 @@ describe('The name of an avatar', function () {
     });
 });
 
-describe('The private port of a Robust', function () {
+describe('private port of a Robust', function () {
     test('grants the avatar whose password it accepts, as the grid knows it', function () {
         $signIn = new PrivateServiceAuthenticator('http://grid.test:8003', signin_grid(['/accounts' => signin_account('Gudule', 'Lapointe'), '/auth/plain' => SIGNIN_SUCCESS]));
 
@@ -138,7 +138,7 @@ function signin_login_answer(array $struct): string
     return (new PhpXmlRpc\Response((new PhpXmlRpc\Encoder())->encode($struct)))->serialize();
 }
 
-describe('The login service of a grid', function () {
+describe('login service of a grid', function () {
     test('grants the avatar it logs in, and gives the session it opened', function () {
         $answer = signin_login_answer(['login' => 'true', 'agent_id' => SIGNIN_ID, 'first_name' => '"Gudule"', 'last_name' => '"Lapointe"', 'session_id' => 'abc', 'sim_ip' => '127.0.0.1']);
         $signIn = new OpenSim\SignIn\LoginServiceAuthenticator('http://grid.test:8002/', 'last', 'test', fn(string $url, string $call): string => $answer);
@@ -245,7 +245,7 @@ function signin_openid_assertion(OpenSim\SignIn\SignInRedirect $redirect, array 
     return http_build_query(array_filter($changes + $fields, fn($value) => $value !== null));
 }
 
-describe('The OpenID provider of a grid', function () {
+describe('OpenID provider of a grid', function () {
     test('sends the person to the grid to give their password there', function () {
         $redirect = signin_openid()->begin('Gudule Lapointe', SIGNIN_OPENID_RETURN);
 

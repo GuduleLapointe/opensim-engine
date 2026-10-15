@@ -8,7 +8,7 @@ declare(strict_types=1);
 
 use OpenSim\Runtime\StartupProgress;
 
-describe('The steps of a start', function () {
+describe('steps of a start', function () {
     test('count the plugins of modules on the total the log announces', function () {
         $log = <<<'LOG'
             2026-10-01 20:51:08,005 INFO  [PLUGINS]: Plugin Loaded: OpenSim

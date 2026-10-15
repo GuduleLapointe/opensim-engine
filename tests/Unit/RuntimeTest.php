@@ -23,7 +23,7 @@ function probe_core(string $name = '0.9.3.0'): Core
     return Core::at("$root/$name");
 }
 
-describe('The runtime of a core', function () {
+describe('runtime of a core', function () {
     test('is there when a .NET of the major it asks for, or a newer one, is installed', function () {
         $probe = new RuntimeProbe(static fn(string $c): string => str_contains($c, '--list-runtimes') ? "Microsoft.NETCore.App 9.0.1 [/x]\n" : '/usr/bin/dotnet');
 
@@ -53,7 +53,7 @@ describe('The runtime of a core', function () {
     });
 });
 
-describe('The native libraries', function () {
+describe('native libraries', function () {
     test('are found in the usual folders, a link that leads nowhere is not one', function () {
         $dir = sys_get_temp_dir() . '/libs-' . bin2hex(random_bytes(4));
         mkdir($dir);
@@ -75,7 +75,7 @@ describe('The native libraries', function () {
     });
 });
 
-describe('The modules of an install', function () {
+describe('modules of an install', function () {
     /** A folder of modules: the files of gloebit and opensimsearch for the core 0.9.3.0. */
     function modules_root(): string
     {
@@ -114,7 +114,7 @@ describe('The modules of an install', function () {
     });
 });
 
-describe('The processes', function () {
+describe('processes', function () {
     test('are the instances found in the output of ps', function () {
         $out = <<<'PS'
               101 root      0.0  0.1  1200 /sbin/init

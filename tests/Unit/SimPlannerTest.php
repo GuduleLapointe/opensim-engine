@@ -134,7 +134,7 @@ describe('A new simulator', function () {
     });
 });
 
-describe('The owner of the estate', function () {
+describe('owner of the estate', function () {
     test('is an account of the grid, or a new one when the person says so', function () {
         $planner = sim_planner();
         $plan = $planner->plan(['estate_owner' => '+', 'new_name' => 'Ann Poe', 'new_password' => 'secret1', 'new_email' => 'ann@example.org']);
@@ -167,7 +167,7 @@ describe('The owner of the estate', function () {
     });
 });
 
-describe('The owner a setup file names', function () {
+describe('owner a setup file names', function () {
     test('is an account of the grid when it has it, a new account to make when it does not, one that has to exist when the accounts are not known', function () {
         $owner = ['name' => 'Jane Doe', 'password' => 'secret1', 'email' => 'jane@example.org'];
 
@@ -228,7 +228,7 @@ describe('A simulator that exists', function () {
     });
 });
 
-describe('The answers about a simulator', function () {
+describe('answers about a simulator', function () {
     test('are checked as they are given: its name, its ports, the owner and the password of an account to make', function () {
         $planner = sim_planner();
 

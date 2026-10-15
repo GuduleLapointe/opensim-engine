@@ -18,7 +18,7 @@ function instance_ports_file(string $name, string $text): string
     return "$dir/$name";
 }
 
-describe('The ports of an instance', function () {
+describe('ports of an instance', function () {
     test('are, for Robust, its public and private ports, its additional services, its console', function () {
         $ini = instance_ports_file('Robust.HG.ini', <<<'INI'
             [Const]

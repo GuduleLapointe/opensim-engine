@@ -2,7 +2,7 @@
 
 use OpenSim\Runtime\ShellService;
 
-describe('the output of the commands', function () {
+describe('output of the commands', function () {
     afterEach(fn() => ShellService::showOutputWith(null));
 
     test('goes where it is sent, with the status of the command, when something takes it', function () {

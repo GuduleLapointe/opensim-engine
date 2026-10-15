@@ -38,7 +38,7 @@ function stats_database(array $tables = ['accounts', 'visits', 'presence', 'regi
     return $pdo;
 }
 
-describe('The numbers of a grid', function () {
+describe('numbers of a grid', function () {
     test('are counted in one database when the services share it', function () {
         $db = stats_database();
 

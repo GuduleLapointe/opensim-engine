@@ -20,7 +20,7 @@ function cores_root(array $cores): string
     return $root;
 }
 
-describe('The cores of a folder', function () {
+describe('cores of a folder', function () {
     test('are the releases by version, then the builds', function () {
         $root = cores_root(['0.9.3.0' => 'OpenSim.dll', '0.9.2.2' => 'OpenSim.exe', 'unstable' => 'OpenSim.dll', '0.9.10.0' => 'OpenSim.dll']);
 
@@ -40,7 +40,7 @@ describe('The cores of a folder', function () {
     });
 });
 
-describe('The runtime of a core', function () {
+describe('runtime of a core', function () {
     test('is .NET from 0.9.3.0, Mono before', function () {
         $new = Core::at(cores_root(['0.9.3.0' => 'OpenSim.dll']) . '/0.9.3.0');
         $old = Core::at(cores_root(['0.9.2.2' => 'OpenSim.exe']) . '/0.9.2.2');

@@ -59,7 +59,7 @@ function avatars_in(OSPDO $pdo): void
 
 afterEach(fn() => Connections::using(null));
 
-describe('The avatars', function () {
+describe('avatars', function () {
     test('are listed with their account, their last visit and their profile', function () {
         avatars_in(avatar_database());
         $list = Avatar::all(avatar_grid());
@@ -214,7 +214,7 @@ describe('What a list of avatars offers', function () {
     });
 });
 
-describe('The account of the services of the grid', function () {
+describe('account of the services of the grid', function () {
     test('is not a person: the filter leaves it out', function () {
         $pdo = avatar_database();
         $pdo->exec("INSERT INTO UserAccounts (PrincipalID, FirstName, LastName, Created) VALUES ('99999999-9999-9999-9999-999999999999', 'GRID', 'SERVICES', 1500000000)");
@@ -230,7 +230,7 @@ describe('The account of the services of the grid', function () {
     });
 })->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
 
-describe('The picks and the classifieds of an avatar', function () {
+describe('picks and the classifieds of an avatar', function () {
     test('are what it published and what has not expired', function () {
         avatars_in(avatar_database());
         $ada = Avatar::find(avatar_grid(), 'Ada Love');
@@ -296,7 +296,7 @@ describe('An avatar that is changed', function () {
     });
 })->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
 
-describe('The avatars of a grid whose services have their own databases', function () {
+describe('avatars of a grid whose services have their own databases', function () {
     test('are read from each, the visits and the profiles of the page added to the accounts', function () {
         $accounts = new OSPDO(['driver' => 'sqlite', 'name' => ':memory:']);
         $accounts->exec('CREATE TABLE UserAccounts (PrincipalID CHAR(36) PRIMARY KEY, ScopeID CHAR(36), FirstName VARCHAR(64), LastName VARCHAR(64), Email VARCHAR(64), Created INT, UserLevel INT DEFAULT 0, UserFlags INT DEFAULT 0, UserTitle VARCHAR(64) DEFAULT \'\', active INT DEFAULT 1)');

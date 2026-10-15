@@ -62,7 +62,7 @@ describe('Reading a file', function () {
     });
 });
 
-describe('The files a file includes', function () {
+describe('files a file includes', function () {
     /** The merged settings of the main file of a test folder. */
     $chain = fn(array $files, string $main = 'OpenSim.ini') => OpenSim_Config::read(config_folder($files) . "/$main");
 
@@ -118,7 +118,7 @@ describe('The files a file includes', function () {
     });
 });
 
-describe('The config of a grid folder', function () {
+describe('config of a grid folder', function () {
     $folder = fn(array $more = [], string $robust = 'Robust.HG.ini') => OpenSim_Config::from_folder(
         config_folder(['MoneyServer.ini' => "[MoneyServer]\nMoneyScriptAccessKey = \"k\"\n", $robust => ROBUST_INI] + $more),
         ['Helpers' => 'Helpers.ini'],

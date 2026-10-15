@@ -18,7 +18,7 @@ function layout_conf(string $text): string
     return "$dir/opensim.conf";
 }
 
-describe('The layout of an install', function () {
+describe('layout of an install', function () {
     test('is [Defaults], the profile it points to over them', function () {
         $layout = Layout::load(layout_conf("[Defaults]\nDefaultProfile = opensim-0.9.3.0\nEtcRoot = /etc/opensim\nSystemUser = opensim\n\n[opensim-0.9.3.0]\nCoreDirectory = /usr/share/opensim/0.9.3.0\nEtcRoot = /srv/etc\nVarRoot = /var/lib/opensim\n"));
 
@@ -69,7 +69,7 @@ describe('The layout of an install', function () {
     });
 });
 
-describe('The layout a front-end works with', function () {
+describe('layout a front-end works with', function () {
     test('is what its environment says, then opensim.conf, then the defaults of an install by the book', function () {
         $file = layout_conf("[Defaults]\nEtcRoot = /srv/etc\nVarRoot = /srv/var\n");
         $layout = Layout::resolve(['OPENSIM_CONF' => $file, 'OPENSIM_VAR_ROOT' => '/tmp/mine', 'OPENSIM_GRID' => 'not a setting of the layout']);
@@ -101,7 +101,7 @@ describe('The layout a front-end works with', function () {
     });
 });
 
-describe('The layouts of an install', function () {
+describe('layouts of an install', function () {
     test('put the folders where opensim setup proposes them', function () {
         expect(OpenSim\Config\DirectoryLayout::roots('system', '', '0.9.3.0'))->toBe([
             'CoreRoot' => '/usr/local/share/opensim',

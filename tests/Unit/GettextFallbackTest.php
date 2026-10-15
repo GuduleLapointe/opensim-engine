@@ -25,7 +25,7 @@ describe('Without the gettext extension', function () {
             ->toBe('%d region|%d regions|%d regions');
     });
 
-    test('the domain is set up as the extension answers', function () {
+    test('domain is set up as the extension answers', function () {
         expect(gettext_fallback_run('echo bindtextdomain("opensim-kit", "/locales"), "|", bind_textdomain_codeset("opensim-kit", "UTF-8"), "|", textdomain("opensim-kit");'))
             ->toBe('/locales|UTF-8|opensim-kit');
     });

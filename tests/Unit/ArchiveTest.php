@@ -45,7 +45,7 @@ function archive_install(): array
     return ['root' => $root, 'EtcRoot' => $etc, 'DataRoot' => "$root/data", 'LogsRoot' => "$root/logs"];
 }
 
-describe('the names of the archives', function () {
+describe('names of the archives', function () {
     test('tell what is in them, the modes in suffixes', function () {
         $stamp = '20261003-101500';
 
@@ -93,7 +93,7 @@ describe('the names of the archives', function () {
     });
 });
 
-describe('the arguments of a command on an archive', function () {
+describe('arguments of a command on an archive', function () {
     test('are the kind, the options and the other words', function () {
         $spec = Archives::parse('save', [
             'oar',
@@ -160,7 +160,7 @@ describe('the arguments of a command on an archive', function () {
     });
 });
 
-describe('the instance a command names', function () {
+describe('instance a command names', function () {
     test('is a grid, a simulator or a region', function () {
         $profile = archive_install();
 

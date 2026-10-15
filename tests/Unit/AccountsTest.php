@@ -71,7 +71,7 @@ describe('A list of accounts', function () {
     });
 });
 
-describe('The statements of an account', function () {
+describe('statements of an account', function () {
     test('write it with the tables Robust has, in one transaction', function () {
         $made = accounts_writer()->statements(
             'Jane',
@@ -128,7 +128,7 @@ describe('The statements of an account', function () {
     });
 });
 
-describe('The import', function () {
+describe('import', function () {
     /**
      * An importer over a database that is a list of statements, and a grid.
      *

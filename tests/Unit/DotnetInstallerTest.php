@@ -103,7 +103,7 @@ function dotnet_tools(array $more = []): array
     ];
 }
 
-describe('The .NET runtime', function () {
+describe('.NET runtime', function () {
     test('is left alone when there is one that fits, a newer one included', function () {
         [$capture, $run, $ran] = dotnet_machine(dotnet_tools([
             '/command -v .dotnet./' => '/usr/bin/dotnet',

@@ -7,7 +7,7 @@
 
 use OpenSim\Provisioning\SimName;
 
-describe('The name proposed for a simulator', function () {
+describe('name proposed for a simulator', function () {
     $fine = static fn(string $v): ?string => null;
     $taken = static fn(string ...$names): Closure => static fn(string $v): ?string => in_array($v, $names, true) ? 'taken' : null;
 

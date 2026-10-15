@@ -82,7 +82,7 @@ function parcels_in(array $databases, ?OSPDO $robust = null): void
 
 afterEach(fn() => Connections::using(null));
 
-describe('The flags of a parcel', function () {
+describe('flags of a parcel', function () {
     test('have the values of LSL, and of the protocol for FOR_SALE and SHOW_DIRECTORY', function () {
         expect([Parcel::ALLOW_FLY, Parcel::ALLOW_SCRIPTS, Parcel::FOR_SALE, Parcel::ALLOW_LANDMARK, Parcel::ALLOW_TERRAFORM, Parcel::ALLOW_DAMAGE, Parcel::ALLOW_CREATE_OBJECTS])->toBe([1, 2, 4, 8, 16, 32, 64])
             ->and([Parcel::USE_ACCESS_GROUP, Parcel::USE_ACCESS_LIST, Parcel::USE_BAN_LIST, Parcel::USE_LAND_PASS_LIST, Parcel::SHOW_DIRECTORY, Parcel::LOCAL_SOUND_ONLY])->toBe([256, 512, 1024, 2048, 4096, 32768])
@@ -91,7 +91,7 @@ describe('The flags of a parcel', function () {
     });
 });
 
-describe('The parcels', function () {
+describe('parcels', function () {
     test('are listed from the land of every simulator, with their region and their owner', function () {
         parcels_in(parcel_databases());
         $list = Parcel::all(parcel_config());
@@ -160,7 +160,7 @@ describe('The parcels', function () {
     });
 })->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
 
-describe('The bitmap of a parcel', function () {
+describe('bitmap of a parcel', function () {
     test('says which square holds a point, 4 meters a square, the south-west corner first', function () {
         parcels_in(parcel_databases());
         $garden = Parcel::find(parcel_config(), 'p1');

@@ -27,7 +27,7 @@ function master_machine(): Machine
     return $machine;
 }
 
-describe('The master', function () {
+describe('master', function () {
     test('is the defaults of the core, the model of the toolset, the grid and what the grid decided, in this order', function () {
         $machine = master_machine();
         $master = (new SimulatorMaster())->ensure($machine->grid, $machine->core . '/bin');
@@ -138,7 +138,7 @@ function master_plan(string $gridDir, string $core): SimPlan
     return $plan;
 }
 
-describe('The config of a simulator', function () {
+describe('config of a simulator', function () {
     test('says only what makes it its own when its grid has a master', function () {
         $machine = master_machine();
         (new SimulatorMaster())->ensure($machine->grid, $machine->core . '/bin');
@@ -186,7 +186,7 @@ describe('The config of a simulator', function () {
     });
 });
 
-describe('The features of a grid with a master', function () {
+describe('features of a grid with a master', function () {
     function master_features(Machine $machine): Features
     {
         return new Features(GridInfo::load(['EtcRoot' => $machine->etc, 'CoreDirectory' => $machine->core], 'demo'));
@@ -231,7 +231,7 @@ describe('The features of a grid with a master', function () {
     });
 });
 
-describe('The grid made by the setup', function () {
+describe('grid made by the setup', function () {
     /** Run the part of the provisioning that makes the master, for a grid with helpers in a folder. */
     function master_provision(Machine $machine, bool $helpers = true): void
     {

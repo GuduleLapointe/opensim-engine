@@ -35,7 +35,7 @@ function sql_ui(): UiInterface
     };
 }
 
-describe('the rows of a statement', function () {
+describe('rows of a statement', function () {
     test('are one line each, the columns separated by tabs', function () {
         $pdo = new OSPDO(['driver' => 'sqlite', 'name' => ':memory:']);
         $pdo->exec('CREATE TABLE t (id INTEGER, name TEXT, note TEXT)');
@@ -73,7 +73,7 @@ describe('an error', function () {
     })->skip(fn() => !extension_loaded('pdo_mysql'), 'pdo_mysql is missing');
 });
 
-describe('the connection of OSPDO', function () {
+describe('connection of OSPDO', function () {
     test('has the DSN of its driver, the port apart from the host', function () {
         expect(OSPDO::dsn('mysql', 'db.example.org:3307', 'grid'))->toBe('mysql:host=db.example.org;port=3307;dbname=grid')
             ->and(OSPDO::dsn('mysql', 'localhost'))->toBe('mysql:host=localhost')
@@ -116,7 +116,7 @@ describe('the connection of OSPDO', function () {
     })->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
 });
 
-describe('the options file of the person who runs', function () {
+describe('options file of the person who runs', function () {
     test('gives the user, the password and the socket of the client sections, the last one winning', function () {
         $file = test_tmp() . '/my-' . bin2hex(random_bytes(4)) . '.cnf';
         file_put_contents($file, <<<'CNF'
@@ -146,7 +146,7 @@ describe('the options file of the person who runs', function () {
     });
 });
 
-describe('the process started with sudo', function () {
+describe('process started with sudo', function () {
     test('reads what to run on its input and answers in JSON', function () {
         $script = 'require_once ' . var_export(dirname(__DIR__, 2) . '/class-database.php', true)
             . '; require ' . var_export(dirname(__DIR__, 2) . '/src/Provisioning/SqlRunner.php', true)
@@ -161,7 +161,7 @@ describe('the process started with sudo', function () {
     })->skip(fn() => !extension_loaded('pdo_mysql'), 'pdo_mysql is missing');
 });
 
-describe('the database service', function () {
+describe('database service', function () {
     test('says it cannot reach a server that does not answer, and can be tried again', function () {
         $ui = sql_ui();
         $plan = new GridPlan();

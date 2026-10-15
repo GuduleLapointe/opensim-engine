@@ -5,7 +5,6 @@
  * read back from it.
  */
 
-
 use OpenSim\Models\GridInfo;
 use OpenSim\Models\Region;
 use OpenSim\Provisioning\GridPlan;
@@ -157,7 +156,7 @@ describe('Roles of a region', function () {
     });
 });
 
-describe('The landing region of a grid', function () {
+describe('landing region of a grid', function () {
     test('is needed until a region is default', function () {
         $grid = new GridInfo();
 
@@ -212,21 +211,23 @@ describe('A name to propose', function () {
     });
 });
 
-describe('The roles found in a Robust config', function () {
+describe('roles found in a Robust config', function () {
     test('are the ones of the Region_ keys, however the value is written', function () {
-        $text = "[GridService]\r\n"
-            . "    ; Region_Example = \"DefaultRegion, FallbackRegion\"\r\n"
-            . "Region_Welcome = \"DefaultRegion, DefaultHGRegion, Persistent\"  ; the landing region\r\n"
-            . "\tRegion_Second_Place = DefaultHGRegion\r\n"
-            . "Region_0a1b2c3d-0000-4000-8000-000000000001 = \"FallbackRegion\" # by id\r\n"
-            . "[Other]\r\n"
-            . "NotARegion = \"DefaultRegion\"\r\n";
+        $text =
+            "[GridService]\r\n" .
+            "    ; Region_Example = \"DefaultRegion, FallbackRegion\"\r\n" .
+            "Region_Welcome = \"DefaultRegion, DefaultHGRegion, Persistent\"  ; the landing region\r\n" .
+            "\tRegion_Second_Place = DefaultHGRegion\r\n" .
+            "Region_0a1b2c3d-0000-4000-8000-000000000001 = \"FallbackRegion\" # by id\r\n" .
+            "[Other]\r\n" .
+            "NotARegion = \"DefaultRegion\"\r\n";
 
         expect(Region::rolesIn($text))->toBe(['DefaultRegion', 'DefaultHGRegion', 'Persistent', 'FallbackRegion']);
     });
 
     test('are none in a config that has only the examples', function () {
-        expect(Region::rolesIn("[GridService]\n    ; Region_Welcome_Area = \"DefaultRegion, DefaultHGRegion\"\n"))->toBe([]);
+        expect(
+            Region::rolesIn("[GridService]\n    ; Region_Welcome_Area = \"DefaultRegion, DefaultHGRegion\"\n"),
+        )->toBe([]);
     });
 });
-

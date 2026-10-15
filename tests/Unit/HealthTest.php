@@ -212,7 +212,7 @@ describe('An address with a certificate this server does not trust', function ()
     })->skip(fn() => trim((string) shell_exec('command -v openssl 2>/dev/null')) === '', 'no openssl to make a certificate');
 });
 
-describe('The sections of a grid', function () {
+describe('sections of a grid', function () {
     /** A config as the files give it: Robust.HG.ini has all of it, as in the tests of the sections. */
     $config = fn(array $sections, array $roles = []) => new OpenSim_Config(['Robust' => $sections] + $roles, ['Robust' => '/etc/opensim/grids/alpha/Robust.HG.ini']);
     $in = fn(array $sections, array $more = []) => ['config' => $config($sections)] + $more;

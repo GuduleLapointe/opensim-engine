@@ -4,8 +4,8 @@ use OpenSim\Provisioning\DatabaseService;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\SimPlan;
 
-describe('the password of a database account, in a session', function () {
-    test('the plans made before it was entered take it, the other accounts keep theirs', function () {
+describe('password of a database account, in a session', function () {
+    test('plans made before it was entered take it, the other accounts keep theirs', function () {
         // The quick setup plans the simulator, with a password made at random, before the database of the grid is settled
         $sim = new SimPlan();
         [$sim->dbHost, $sim->dbUser, $sim->dbPass] = ['db.example.org', 'quick_user', 'made-at-random'];

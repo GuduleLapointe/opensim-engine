@@ -123,14 +123,14 @@ describe('UUIDs', function () {
     });
 });
 
-test('the search tables take Latin-1: what it cannot hold becomes a question mark', function () {
+test('search tables take Latin-1: what it cannot hold becomes a question mark', function () {
     expect(opensim_latin1_only('Café Zoë'))
         ->toBe('Café Zoë')
         ->and(opensim_latin1_only('Price: 5€ 日本'))
         ->toBe('Price: 5? ??');
 });
 
-describe('The session of an avatar', function () {
+describe('session of an avatar', function () {
     $presence = function (array $rows): object {
         return new class($rows) {
             public function __construct(private array $rows) {}

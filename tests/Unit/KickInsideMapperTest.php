@@ -45,7 +45,7 @@ final class FakeGateway implements Gateway
     }
 }
 
-describe('The kick-inside port mapper', function () {
+describe('kick-inside port mapper', function () {
     test('opens and closes a port by protocol, and gives the public address', function () {
         $gateway = new FakeGateway();
         $mapper = new KickInsideMapper(static fn(): PortMapper => new PortMapper($gateway, '192.168.1.10'));

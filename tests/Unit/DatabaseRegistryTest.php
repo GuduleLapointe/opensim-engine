@@ -30,7 +30,7 @@ function registry_grid(array $files = []): GridConfig
     return GridConfig::fromFolder($dir, ['Helpers' => 'Helpers.ini']);
 }
 
-describe('the databases of the grid', function () {
+describe('databases of the grid', function () {
     test('are the default one of Robust, or the one the service has in its section', function () {
         $config = registry_grid();
 
@@ -81,7 +81,7 @@ describe('the databases of the grid', function () {
     });
 });
 
-describe('the databases of a simulator', function () {
+describe('databases of a simulator', function () {
     test('are its own, the estates falling back to the estate connection, then to the simulator', function () {
         $config = registry_grid();
 
@@ -108,7 +108,7 @@ describe('the databases of a simulator', function () {
     });
 });
 
-describe('the economy', function () {
+describe('economy', function () {
     $module = static fn(string $name) => "[Economy]\n economymodule = $name\n";
 
     test('has no database with the module OpenSimulator has by default, or none', function () use ($module) {
@@ -150,7 +150,7 @@ describe('the economy', function () {
     });
 });
 
-describe('the list of the databases', function () {
+describe('list of the databases', function () {
     test('has the ones of the grid once and the ones of each simulator', function () {
         $known = Database::known(registry_grid());
         $names = array_map(static fn(array $row): string => $row['database']->value . ($row['simulator'] !== null ? ':' . $row['simulator'] : ''), $known);
@@ -178,7 +178,7 @@ describe('the list of the databases', function () {
     });
 });
 
-describe('the ban', function () {
+describe('ban', function () {
     test('reads the databases of Robust, of the simulators and of their estates, each once', function () {
         $machine = new OpenSim\Testing\Machine();
         $db = static fn(string $name) => "ConnectionString = \"Data Source=localhost;Database=$name;User ID=os;Password=pw;\"\n";

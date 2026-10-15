@@ -7,7 +7,7 @@ use OpenSim\Provisioning\GridRegistry;
  * listener, which is in its URI.
  */
 
-describe('The ports of the registered regions', function () {
+describe('ports of the registered regions', function () {
     test('are the port of each region and the one of its address, once', function () {
         expect(GridRegistry::portsOf(["9001\thttp://10.0.0.5:9000/", "9002\thttp://10.0.0.5:9000/", "9101\thttp://play.example.org:9100"]))
             ->toBe([9001, 9000, 9002, 9101, 9100]);

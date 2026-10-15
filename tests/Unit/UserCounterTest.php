@@ -35,7 +35,7 @@ function counted_simulator(Machine $machine, array $agents = []): OpenSim\Models
 
 const ALPHA_REGION = '11111111-1111-4111-8111-111111111111';
 
-describe('The users read in show users', function () {
+describe('users read in show users', function () {
     test('are the roots, the NPCs and the child agents are not counted', function () {
         expect(UserCounter::realUsers(SHOW_USERS))->toBe(2);
     });
@@ -58,7 +58,7 @@ describe('The users read in show users', function () {
     });
 });
 
-describe('The users of a simulator', function () {
+describe('users of a simulator', function () {
     test('are none when its HTTP port says none, the console is not asked', function () {
         $machine = new Machine();
         $simulator = counted_simulator($machine, [ALPHA_REGION => 0]);

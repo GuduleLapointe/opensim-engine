@@ -161,7 +161,7 @@ describe('A grid that exists', function () {
     });
 });
 
-describe('The fields of a grid', function () {
+describe('fields of a grid', function () {
     test('are the standard ones, the nick being hidden for a grid that exists, with the names of the setup file', function () {
         $names = array_column(Grid::fields(), 'name');
 

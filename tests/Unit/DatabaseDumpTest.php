@@ -32,7 +32,7 @@ describe('a value in an INSERT', function () {
     });
 });
 
-describe('the dump of a database that cannot be read', function () {
+describe('dump of a database that cannot be read', function () {
     test('fails with the reason and writes nothing worth keeping', function () {
         $file = test_tmp() . '/dump-' . bin2hex(random_bytes(4)) . '.sql.gz';
 

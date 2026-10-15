@@ -9,7 +9,7 @@ declare(strict_types=1);
 use OpenSim\Runtime\StopService;
 use OpenSim\Testing\Machine;
 
-describe('The countdown', function () {
+describe('countdown', function () {
     test('counts down to the shutdown, not to the next warning', function () {
         $machine = new Machine();
 

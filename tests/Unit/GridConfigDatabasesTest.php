@@ -29,7 +29,7 @@ function databases_config(): GridConfig
     ]))->withDatabaseDefaults();
 }
 
-describe('The database settings of a config', function () {
+describe('database settings of a config', function () {
     test('are those of [DatabaseService] for a service of Robust that gives none', function () {
         $config = databases_config();
 
