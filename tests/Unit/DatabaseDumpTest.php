@@ -8,11 +8,9 @@ declare(strict_types=1);
 
 use OpenSim\Archives\DatabaseDump;
 
-require_once dirname(__DIR__, 2) . '/class-database.php';
-
 describe('a value in an INSERT', function () {
     test('is NULL, a number as it is, text quoted, what is not text in hexadecimal', function () {
-        $pdo = OSPDO::open(['driver' => 'sqlite', 'name' => ':memory:']);
+        $pdo = new OSPDO(['driver' => 'sqlite', 'name' => ':memory:']);
 
         expect(DatabaseDump::literal($pdo, null))->toBe('NULL')
             ->and(DatabaseDump::literal($pdo, 42))->toBe('42')

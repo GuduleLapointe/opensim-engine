@@ -14,9 +14,6 @@ namespace OpenSim\Provisioning;
  */
 final class SqlRunner
 {
-    /** Seconds to wait for the server. */
-    public const TIMEOUT = 5;
-
     /**
      * @param array{host?:string,port?:?int,user?:string,pass?:string,socket?:?string,own?:bool,sudo?:bool} $access
      * @param ?string $database the database to use, none for a connection to the server
@@ -33,19 +30,22 @@ final class SqlRunner
         if ($access['own'] ?? false) {
             $access = array_merge($access, self::own());
         }
-        self::load();
 
-        try {
-            $pdo = \OSPDO::open([
+        $pdo = new \OSPDO(
+            [
                 'host' => $access['host'] ?? 'localhost',
                 'port' => $access['port'] ?? null,
                 'socket' => $access['socket'] ?? null,
                 'user' => $access['user'] ?? '',
                 'pass' => $access['pass'] ?? '',
                 'name' => $database,
-                'timeout' => self::TIMEOUT,
-            ]);
-
+                'log' => false,
+            ],
+        );
+        if (!$pdo->connected) {
+            return [1, '', self::describe($pdo->error)];
+        }
+        try {
             return [0, self::rows($pdo, $sql), ''];
         } catch (\PDOException $e) {
             return [1, '', self::describe($e)];
@@ -84,8 +84,11 @@ final class SqlRunner
     }
 
     /** The error as the client writes it. */
-    public static function describe(\PDOException $e): string
+    public static function describe(\Throwable $e): string
     {
+        if (!$e instanceof \PDOException) {
+            return 'ERROR 0 (HY000): ' . $e->getMessage();
+        }
         $state = (string) ($e->errorInfo[0] ?? 'HY000');
         $number = (int) ($e->errorInfo[1] ?? 0);
         $message = (string) ($e->errorInfo[2] ?? '');
@@ -154,7 +157,9 @@ final class SqlRunner
      */
     private static function viaSudo(array $access, string $sql, ?string $database): array
     {
-        $script = 'require ' . var_export(__FILE__, true) . '; exit(OpenSim\\Provisioning\\SqlRunner::child());';
+        $script =
+            'require_once ' . var_export(dirname(__DIR__, 2) . '/class-database.php', true) . '; require ' . var_export(__FILE__, true) .
+            '; exit(OpenSim\\Provisioning\\SqlRunner::child());';
         $process = @proc_open(
             ['sudo', '-n', PHP_BINARY, '-d', 'display_errors=0', '-r', $script],
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
@@ -186,11 +191,5 @@ final class SqlRunner
         echo json_encode(self::run($request['access'] ?? [], (string) ($request['sql'] ?? ''), $request['database'] ?? null));
 
         return 0;
-    }
-
-    /** OSPDO, from the engine, when no bootstrap has loaded it. */
-    private static function load(): void
-    {
-        class_exists(\OSPDO::class, false) || require_once dirname(__DIR__, 2) . '/class-database.php';
     }
 }

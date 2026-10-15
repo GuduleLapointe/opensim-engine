@@ -52,6 +52,7 @@
             "OpenSim\\": "src/"
         },
         "classmap": [
+            "class-database.php",
             "class-health.php",
             "legacy/"
         ],

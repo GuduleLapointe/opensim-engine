@@ -8,19 +8,20 @@
  * This class extends PDO and provides additional methods for common operations.
  *
  * Accepts mixed arguments:
- * - DSN string (e.g. 'mysql:host=localhost;dbname=mydb')
- * - Array with credentials:
+ * - DSN string as PDO takes it (e.g. 'mysql:host=localhost;dbname=mydb'), with the username, the password and the driver
+ *   options (e.g. PDO::ATTR_TIMEOUT) as the other arguments
+ * - Array with credentials, the driver options being the fourth argument:
  *   - 'user' => 'username'
  *   - 'pass' => 'password'
- *   - 'name' => 'database_name'
+ *   - 'name' => 'database_name' (optional: without it, a connection to the server)
  *   - 'host' => 'localhost'
  *   - 'port' => 3306 (optional, defaults to 3306)
  *   - 'driver' => 'mysql' (optional, any PDO driver: for sqlite, 'name' is the file or ':memory:')
  *   - 'socket' => path of the local socket (optional, instead of host and port)
- *   - 'timeout' => seconds to wait for the server (optional)
- *   - 'throw' => true to get the PDOException of a failed connection instead of a not connected object;
- *     the database name is then optional (a connection to the server only)
+ *   - 'log' => false to keep a failed connection out of the error log (optional)
  * - Single string with service URI (e.g. 'http://localhost:8002')
+ *
+ * A connection that fails does not throw: $connected is false and $error says why.
  *
  * @package magicoli/opensim-helpers
  * @since 3.0.0
@@ -28,21 +29,14 @@
 
 class OSPDO extends PDO
 {
+    /** Seconds to wait for a server that does not answer, unless the driver options say otherwise. */
+    public const TIMEOUT = 5;
+
     public $connected = false;
     public $db_name;
 
-    /** @var PDOException|null why the connection failed */
+    /** @var Throwable|null why the connection failed */
     public $error = null;
-
-    /**
-     * A connection that throws a PDOException when it fails.
-     *
-     * @param array $credentials see the class description
-     */
-    public static function open(array $credentials): static
-    {
-        return new static($credentials + ['throw' => true]);
-    }
 
     public function __construct($dsn, $username = null, $password = null, $driver_options = null)
     {
@@ -51,31 +45,10 @@ class OSPDO extends PDO
             $this->show_errors();
         }
 
-        $driver = 'mysql';
-        $throw = false;
-        $socket = null;
-
+        $log = true;
+        $dbname = null;
         // First handle the different attributes formatting
-        $args = func_get_args();
-        if (count($args) == 1 && is_string($args[0])) {
-            // If a single string is passed, assume it's service URI.
-            $url_parts = parse_url($args[0]);
-            $serviceURI = $url_parts['host'] . (empty($url_parts['port']) ? '' : ':' . $url_parts['port']);
-            $credentials = W4OS3::get_credentials($serviceURI);
-
-            $db_enabled = $credentials['db']['enabled'] ?? false;
-            if (!$db_enabled) {
-                $this->connected = false;
-                return false;
-            }
-
-            $username = $credentials['db']['user'];
-            $password = $credentials['db']['pass'];
-            $dbname = $credentials['db']['name'] ?? ($credentials['db']['database'] ?? null);
-            $dbhost =
-                $credentials['db']['host'] .
-                (empty($credentials['db']['port']) ? '' : ':' . $credentials['db']['port']);
-        } elseif (is_array($args[0])) {
+        if (is_array($dsn)) {
             // If args are passed as an array, extract them.
             $credentials = array_merge(
                 [
@@ -86,88 +59,65 @@ class OSPDO extends PDO
                     'port' => null,
                     'driver' => 'mysql',
                     'socket' => null,
-                    'timeout' => null,
-                    'throw' => false,
+                    'log' => true,
                 ],
-                $args[0],
+                $dsn,
             );
-            $username = $credentials['user'];
-            $password = $credentials['pass'];
+            $username = $credentials['user'] ?? $username;
+            $password = $credentials['pass'] ?? $password;
             $dbname = $credentials['name'] ?? ($credentials['database'] ?? null);
-            $dbhost = $credentials['host'] . (empty($credentials['port']) ? '' : ':' . $credentials['port']);
-            $driver = $credentials['driver'];
-            $socket = $credentials['socket'];
-            $throw = (bool) $credentials['throw'];
-            if (!empty($credentials['timeout'])) {
-                $driver_options = [PDO::ATTR_TIMEOUT => (int) $credentials['timeout']] + (array) $driver_options;
-            }
-        } else {
-            // split $dsn string formatted as 'mysql:host=$dbhost;dbname=$dbname' into $dbhost and $dbname
-            $dsn_parts = explode(';', $dsn);
-            $dbhost = str_replace('mysql:host=', '', $dsn_parts[0]);
-            $dbname = str_replace('dbname=', '', $dsn_parts[1] ?? '');
-            $username = $username ?? null;
-            $password = $password ?? null;
-            $credentials = [
-                'user' => $username,
-                'pass' => $password,
-                'name' => $dbname,
-                'host' => $dbhost,
-            ];
-        }
-
-        if ($throw) {
-            // The caller handles the failure
-            parent::__construct(
-                self::dsn($driver, (string) $dbhost, $dbname, $socket),
-                $username,
-                $password,
-                $driver_options,
+            $log = (bool) $credentials['log'];
+            $dsn = self::dsn(
+                $credentials['driver'],
+                (string) $credentials['host'] . (empty($credentials['port']) ? '' : ':' . $credentials['port']),
+                $dbname,
+                $credentials['socket'],
             );
-            $this->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            $this->connected = true;
-            $this->db_name = $dbname;
-            return;
+        } elseif (func_num_args() === 1 && is_string($dsn) && !self::is_dsn($dsn)) {
+            // If a single string is passed, assume it's service URI.
+            $url_parts = parse_url($dsn);
+            $serviceURI = ($url_parts['host'] ?? '') . (empty($url_parts['port']) ? '' : ':' . $url_parts['port']);
+            $credentials = class_exists('W4OS3') ? W4OS3::get_credentials($serviceURI) : [];
+
+            if (!($credentials['db']['enabled'] ?? false)) {
+                $this->error = new Exception("No database enabled for the service $serviceURI");
+                return;
+            }
+
+            $username = $credentials['db']['user'];
+            $password = $credentials['db']['pass'];
+            $dbname = $credentials['db']['name'] ?? ($credentials['db']['database'] ?? null);
+            if (empty($dbname)) {
+                $this->error = new Exception("Database name is empty, cannot connect to the database of $serviceURI");
+                error_log($this->error->getMessage());
+                return;
+            }
+            $dsn = self::dsn(
+                'mysql',
+                $credentials['db']['host'] . (empty($credentials['db']['port']) ? '' : ':' . $credentials['db']['port']),
+                $dbname,
+            );
+        } elseif (preg_match('/(?:^|[:;])dbname=([^;]*)/', $dsn, $m)) {
+            $dbname = $m[1];
+        } elseif (strpos($dsn, 'sqlite:') === 0) {
+            $dbname = substr($dsn, 7);
         }
 
-        if (empty($dbname)) {
-            error_log('Database name is empty, aborting connection to ' . print_r($dsn, true));
-            return new Exception('Database name is empty, cannot connect to ' . print_r($dsn, true));
-        }
-
-        // Fast connection check before attempting lengthy PDO connection
-        // TODO: make connection check a global OpenSim method for any kind of service connection
-        $url_parts = parse_url($dbhost);
-        $test_host = $url_parts['host'] ?? ($url_parts['path'] ?? 'localhost');
-        $test_port = $url_parts['port'] ?? 3306;
-        // $socket    = @fsockopen( $test_host, $test_port, $errno, $errstr, 1 );
-        // if ( ! $socket ) {
-        $connection_test = service_available($test_host, $test_port);
-        if (!service_available($test_host, $test_port)) {
-            throw new Exception('Failed to connect to the database server: ' . print_r($connection_test, true));
-        }
-
-        $dsn = self::dsn($driver, (string) $dbhost, $dbname, $socket);
+        $driver_options = (array) $driver_options + [PDO::ATTR_TIMEOUT => self::TIMEOUT];
 
         try {
-            @parent::__construct($dsn, $username, $password, $driver_options);
+            parent::__construct($dsn, $username, $password, $driver_options);
             $this->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            // Check the database is really connected
+            $this->query('SELECT 1');
             $this->connected = true;
-            // DEBUG check if the db is really connected
-            if ($this->connected) {
-                try {
-                    $this->query('SELECT 1');
-                    $this->db_name = $dbname;
-                } catch (PDOException $e) {
-                    error_log('Database connection failed: ' . $e->getMessage());
-                    $this->error = $e;
-                    $this->connected = false;
-                }
-            }
+            $this->db_name = $dbname;
         } catch (PDOException $e) {
-            error_log("Could not connect to database $dsn as $username");
             $this->error = $e;
             $this->connected = false;
+            if ($log) {
+                error_log("Could not connect to database $dsn as $username: " . $e->getMessage());
+            }
         }
     }
 
@@ -204,6 +154,12 @@ class OSPDO extends PDO
         return $driver . ':' . implode(';', $parts);
     }
 
+    /** Whether a string is a DSN (driver:...), not the URI of a service (http://host:port, host:port). */
+    private static function is_dsn($string)
+    {
+        return preg_match('/^[a-z0-9]+:(?!\/\/|\d+$)/i', $string) === 1;
+    }
+
     /**
      * Prepare SQL query, execute with params and log error if any
      *
@@ -217,11 +173,27 @@ class OSPDO extends PDO
         $trace = debug_backtrace()[0];
         $trace = $trace['file'] . ':' . $trace['line'];
 
-        $statement = $this->prepare($query, $options);
-        $result = $statement->execute($params);
+        try {
+            $statement = $this->prepare($query, $options);
+            $result = $statement->execute($params);
+        } catch (PDOException $e) {
+            error_log(
+                'Error ' .
+                    $e->getCode() .
+                    ' ' .
+                    $e->getMessage() .
+                    ' query ' .
+                    print_r($query, true) .
+                    ' params ' .
+                    print_r($params, true) .
+                    ' ' .
+                    $trace,
+            );
+            return false;
+        }
 
         if ($result) {
-            return $result;
+            return $statement;
         }
 
         error_log('Error ' . $statement->errorCode() . ' ' . $statement->errorInfo()[2] . ' ' . $trace);

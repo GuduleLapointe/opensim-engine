@@ -186,20 +186,11 @@ final class DatabaseDump
      */
     private static function connect(array $db): \PDO
     {
-        if (!extension_loaded('pdo_mysql')) {
-            throw new \RuntimeException('the PHP extension pdo_mysql is missing (php-mysql)');
+        $pdo = new \OSPDO(['host' => $db['host'], 'name' => $db['name'], 'user' => $db['user'], 'pass' => $db['pass'], 'log' => false]);
+        if (!$pdo->connected) {
+            throw new \RuntimeException("cannot connect to {$db['name']}: " . SqlRunner::describe($pdo->error));
         }
-        class_exists(\OSPDO::class, false) || require_once dirname(__DIR__, 2) . '/class-database.php';
-        try {
-            return \OSPDO::open([
-                'host' => $db['host'],
-                'name' => $db['name'],
-                'user' => $db['user'],
-                'pass' => $db['pass'],
-                'timeout' => SqlRunner::TIMEOUT,
-            ]);
-        } catch (\PDOException $e) {
-            throw new \RuntimeException("cannot connect to {$db['name']}: " . SqlRunner::describe($e), 0, $e);
-        }
+
+        return $pdo;
     }
 }

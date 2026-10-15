@@ -12,8 +12,6 @@ use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\SqlRunner;
 use OpenSim\Provisioning\UiInterface;
 
-require_once dirname(__DIR__, 2) . '/class-database.php';
-
 /** An interface that keeps what it is told and says no to every question. */
 function sql_ui(): UiInterface
 {
@@ -39,7 +37,7 @@ function sql_ui(): UiInterface
 
 describe('the rows of a statement', function () {
     test('are one line each, the columns separated by tabs', function () {
-        $pdo = OSPDO::open(['driver' => 'sqlite', 'name' => ':memory:']);
+        $pdo = new OSPDO(['driver' => 'sqlite', 'name' => ':memory:']);
         $pdo->exec('CREATE TABLE t (id INTEGER, name TEXT, note TEXT)');
         $pdo->exec("INSERT INTO t VALUES (1, 'Ada', NULL), (2, 'tab\there', 'back\\slash')");
 
@@ -57,7 +55,7 @@ describe('the rows of a statement', function () {
 
 describe('an error', function () {
     test('is told as "ERROR <number> (<state>): <message>"', function () {
-        $pdo = OSPDO::open(['driver' => 'sqlite', 'name' => ':memory:']);
+        $pdo = new OSPDO(['driver' => 'sqlite', 'name' => ':memory:']);
 
         expect(fn() => SqlRunner::rows($pdo, 'SELECT * FROM nothing'))->toThrow(PDOException::class);
         try {
@@ -84,11 +82,37 @@ describe('the connection of OSPDO', function () {
             ->and(OSPDO::dsn('sqlite', '', ':memory:'))->toBe('sqlite::memory:');
     });
 
-    test('throws what the caller handles, with no database name needed', function () {
-        $pdo = OSPDO::open(['driver' => 'sqlite', 'name' => ':memory:']);
+    test('says why it is not connected instead of throwing', function () {
+        $pdo = new OSPDO(['driver' => 'sqlite', 'name' => ':memory:']);
+        $down = new OSPDO(['driver' => 'sqlite', 'name' => '/nowhere/at/all.db', 'log' => false]);
 
-        expect($pdo->connected)->toBeTrue()->and($pdo->db_name)->toBe(':memory:');
-        expect(fn() => OSPDO::open(['driver' => 'sqlite', 'name' => '/nowhere/at/all.db']))->toThrow(PDOException::class);
+        expect($pdo->connected)->toBeTrue()->and($pdo->error)->toBeNull()->and($pdo->db_name)->toBe(':memory:')
+            ->and($down->connected)->toBeFalse()->and($down->error)->toBeInstanceOf(PDOException::class);
+    })->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
+
+    test('takes a DSN and the driver options as PDO does', function () {
+        $pdo = new OSPDO('sqlite::memory:', null, null, [PDO::ATTR_TIMEOUT => 1]);
+
+        expect($pdo->connected)->toBeTrue()->and($pdo->db_name)->toBe(':memory:')
+            ->and($pdo->getAttribute(PDO::ATTR_ERRMODE))->toBe(PDO::ERRMODE_EXCEPTION);
+    })->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
+
+    test('tells a DSN from the URI of a service', function () {
+        $uri = new OSPDO('http://localhost:8002');
+
+        expect($uri->connected)->toBeFalse()->and($uri->error->getMessage())->toContain('localhost:8002');
+    });
+
+    test('answers its queries as statements', function () {
+        $pdo = new OSPDO(['driver' => 'sqlite', 'name' => ':memory:']);
+        $pdo->exec('CREATE TABLE t (id INTEGER, name TEXT)');
+        $pdo->insert('t', ['id' => 1, 'name' => 'Ada']);
+
+        expect($pdo->get_var('SELECT name FROM t WHERE id = ?', [1]))->toBe('Ada')
+            ->and($pdo->get_row('SELECT * FROM t')->name)->toBe('Ada')
+            ->and($pdo->get_results('SELECT * FROM t'))->toHaveCount(1)
+            ->and($pdo->table_exists('t'))->toBeTrue()
+            ->and($pdo->table_exists('nothing'))->toBeFalse();
     })->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
 });
 
@@ -124,7 +148,8 @@ describe('the options file of the person who runs', function () {
 
 describe('the process started with sudo', function () {
     test('reads what to run on its input and answers in JSON', function () {
-        $script = 'require ' . var_export(dirname(__DIR__, 2) . '/src/Provisioning/SqlRunner.php', true)
+        $script = 'require_once ' . var_export(dirname(__DIR__, 2) . '/class-database.php', true)
+            . '; require ' . var_export(dirname(__DIR__, 2) . '/src/Provisioning/SqlRunner.php', true)
             . '; exit(OpenSim\\Provisioning\\SqlRunner::child());';
         $process = proc_open([PHP_BINARY, '-r', $script], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
         fwrite($pipes[0], json_encode(['access' => ['host' => '127.0.0.1', 'port' => 1, 'user' => 'x', 'pass' => 'y'], 'sql' => 'SELECT 1', 'database' => null]));
