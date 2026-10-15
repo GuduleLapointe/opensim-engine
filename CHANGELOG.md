@@ -2,6 +2,7 @@
 
 ### Unreleased
 
+- new: `Models\Parcel` (the `land` of the simulators: list, search, sort, filters, the bitmap of 4 m squares, `Parcel::at()`), its flags as constants
 - update: `Models\Region` is a model (list, search, sort, filters, flags as constants named as in OpenSimulator); `RegionFlags` is gone (`Region::roles()`, `rolesIn()`, `giveRoles()`)
 - new: `Models\OpenSimModelInterface`, `Models\Avatar` (list, search, sort, filters, pages, one avatar), `Data\Collection` and `Data\Connections`
 - new: `Data\Database`, the databases of a grid (services, assets, profiles, offline, simulators, estates, economy, search) and where each is set
