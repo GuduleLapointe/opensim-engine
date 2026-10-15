@@ -208,7 +208,7 @@ final class Region extends Model
      * The regions of the grid. A link to a region of another grid is not one of them unless asked.
      *
      * Options: `search` (words of the name), `sort` ("name", "lastSeen desc"...), `filters` (`online`, `default`, `fallback`,
-     * `hyperlink`: yes or no; `hyperlink` is no unless given), `page` and `perPage`.
+     * `hyperlink`: yes or no; `hyperlink` is no unless given), `uuids` (only these regions), `page` and `perPage`.
      *
      * @throws ChannelUnavailable when the database of the grid service cannot be reached
      */
@@ -227,6 +227,13 @@ final class Region extends Model
         foreach ($words as $i => $word) {
             $where[] = "r.regionName LIKE :w$i ESCAPE '!'";
             $params["w$i"] = self::contains($word);
+        }
+        if (isset($options['uuids'])) {
+            $uuids = array_values(array_unique(array_map('strtolower', array_map('strval', (array) $options['uuids']))));
+            foreach ($uuids as $i => $uuid) {
+                $params["u$i"] = $uuid;
+            }
+            $where[] = $uuids === [] ? '0 = 1' : 'LOWER(r.uuid) IN (' . implode(', ', array_map(static fn(int $i): string => ":u$i", array_keys($uuids))) . ')';
         }
         $filters = [
             'online' => self::REGION_ONLINE,
@@ -268,6 +275,27 @@ final class Region extends Model
                 'applied' => $applied,
             ],
         );
+    }
+
+    /**
+     * Which of these regions the grid knows (registered or linked).
+     *
+     * @param list<string> $uuids
+     * @return list<string> lower case UUIDs
+     * @throws ChannelUnavailable
+     */
+    public static function known(GridConfig $config, array $uuids): array
+    {
+        $pdo = self::connect($config, 'GridService', null, 'read the regions');
+        $found = [];
+        foreach (array_chunk(array_values(array_unique(array_map('strtolower', $uuids))), 500) as $group) {
+            $marks = implode(',', array_fill(0, count($group), '?'));
+            foreach ($pdo->get_results("SELECT uuid FROM regions WHERE LOWER(uuid) IN ($marks)", $group, \PDO::FETCH_COLUMN) as $uuid) {
+                $found[] = strtolower((string) $uuid);
+            }
+        }
+
+        return $found;
     }
 
     /** A region by its UUID or its name. */

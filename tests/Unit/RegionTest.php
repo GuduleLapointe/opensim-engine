@@ -141,6 +141,18 @@ describe('The regions', function () {
             ->and(Region::all($config, ['perPage' => 2])->pages())->toBe(2);
     });
 
+    test('can be asked by their UUIDs, and the grid says which of some it knows', function () {
+        Connections::using(static fn() => region_database());
+        $config = region_config();
+        $names = static fn(array $options) => array_column(Region::all($config, $options)->array(), 'name');
+
+        expect($names(['uuids' => ['AAAAAAAA-0000-0000-0000-000000000002', 'aaaaaaaa-0000-0000-0000-000000000001', 'cccccccc-0000-0000-0000-000000000000']]))->toBe(['Garden', 'Welcome'])
+            ->and($names(['uuids' => []]))->toBe([])
+            ->and(Region::all($config, ['uuids' => ['aaaaaaaa-0000-0000-0000-000000000002'], 'perPage' => 5])->total())->toBe(1)
+            ->and(array_values(array_diff(Region::known($config, ['aaaaaaaa-0000-0000-0000-000000000004', 'cccccccc-0000-0000-0000-000000000000', 'AAAAAAAA-0000-0000-0000-000000000001']), ['aaaaaaaa-0000-0000-0000-000000000001'])))->toBe(['aaaaaaaa-0000-0000-0000-000000000004'])
+            ->and(Region::known($config, ['cccccccc-0000-0000-0000-000000000000']))->toBe([]);
+    });
+
     test('are found by their UUID or their name', function () {
         Connections::using(static fn() => region_database());
         $config = region_config();
