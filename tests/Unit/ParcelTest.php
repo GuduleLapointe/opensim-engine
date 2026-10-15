@@ -158,7 +158,7 @@ describe('The parcels', function () {
         expect(fn() => Parcel::all(parcel_config()))->toThrow(ChannelUnavailable::class)
             ->and(Parcel::find(parcel_config(), 'p1'))->toBeNull();
     });
-});
+})->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
 
 describe('The bitmap of a parcel', function () {
     test('says which square holds a point, 4 meters a square, the south-west corner first', function () {
@@ -197,4 +197,4 @@ describe('The bitmap of a parcel', function () {
 
         expect($big->holds(400, 4, 512))->toBeTrue()->and($big->holds(400, 4))->toBeTrue()->and($big->holds(404, 4, 512))->toBeFalse();
     });
-});
+})->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');

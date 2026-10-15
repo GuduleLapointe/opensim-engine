@@ -157,4 +157,4 @@ describe('The regions', function () {
         expect(fn() => Region::all(region_config()))->toThrow(ChannelUnavailable::class)
             ->and(Region::find(region_config(), 'Welcome'))->toBeNull();
     });
-});
+})->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');

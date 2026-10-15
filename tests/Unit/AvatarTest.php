@@ -171,7 +171,7 @@ describe('The avatars', function () {
             ->and($csv[0])->toBe('name,email,created,level,active,online,lastSeen')
             ->and($csv[1])->toBe('"Ada Love",ada@example.org,1700000000,0,1,1,1700005000');
     });
-});
+})->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
 
 describe('An avatar that is changed', function () {
     test('is changed in the database of the accounts, for the email, the title, the level and active', function () {
@@ -216,7 +216,7 @@ describe('An avatar that is changed', function () {
             ->and(fn() => $ada->disable())->toThrow(ChannelUnavailable::class)
             ->and(fn() => Avatar::all($config))->toThrow(ChannelUnavailable::class);
     });
-});
+})->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
 
 describe('The avatars of a grid whose services have their own databases', function () {
     test('are read from each, the visits and the profiles of the page added to the accounts', function () {
@@ -254,4 +254,4 @@ describe('The avatars of a grid whose services have their own databases', functi
             ->and($bob->detail()['profileImage'])->toBe('img-bob')
             ->and(array_column(array_filter($list->columns(), static fn(array $c) => $c['sortable']), 'name'))->toBe(['name', 'email', 'created', 'level', 'active']);
     });
-});
+})->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
