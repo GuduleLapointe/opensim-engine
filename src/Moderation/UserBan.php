@@ -38,7 +38,7 @@ final class UserBan
     {
     }
 
-    /** The ban through the mysql client, with the accounts of the connection strings. */
+    /** The ban through the database service, with the accounts of the connection strings. */
     public static function with(DatabaseService $database): self
     {
         return new self(static function (ConnectionString $db, string $sql) use ($database): ?array {

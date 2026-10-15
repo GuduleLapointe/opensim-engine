@@ -15,6 +15,11 @@
  *   - 'name' => 'database_name'
  *   - 'host' => 'localhost'
  *   - 'port' => 3306 (optional, defaults to 3306)
+ *   - 'driver' => 'mysql' (optional, any PDO driver: for sqlite, 'name' is the file or ':memory:')
+ *   - 'socket' => path of the local socket (optional, instead of host and port)
+ *   - 'timeout' => seconds to wait for the server (optional)
+ *   - 'throw' => true to get the PDOException of a failed connection instead of a not connected object;
+ *     the database name is then optional (a connection to the server only)
  * - Single string with service URI (e.g. 'http://localhost:8002')
  *
  * @package magicoli/opensim-helpers
@@ -26,12 +31,29 @@ class OSPDO extends PDO
     public $connected = false;
     public $db_name;
 
+    /** @var PDOException|null why the connection failed */
+    public $error = null;
+
+    /**
+     * A connection that throws a PDOException when it fails.
+     *
+     * @param array $credentials see the class description
+     */
+    public static function open(array $credentials): static
+    {
+        return new static($credentials + ['throw' => true]);
+    }
+
     public function __construct($dsn, $username = null, $password = null, $driver_options = null)
     {
         // TODO: move this UI-related code in the closest UI calling class/function
-        if (Engine_Settings::get('show_errors')) {
+        if (class_exists('Engine_Settings') && Engine_Settings::get('show_errors')) {
             $this->show_errors();
         }
+
+        $driver = 'mysql';
+        $throw = false;
+        $socket = null;
 
         // First handle the different attributes formatting
         $args = func_get_args();
@@ -55,17 +77,30 @@ class OSPDO extends PDO
                 (empty($credentials['db']['port']) ? '' : ':' . $credentials['db']['port']);
         } elseif (is_array($args[0])) {
             // If args are passed as an array, extract them.
-            $credentials = OpenSim::parse_args($args[0], [
-                'user' => null,
-                'pass' => null,
-                'name' => null,
-                'host' => null,
-                'port' => null,
-            ]);
+            $credentials = array_merge(
+                [
+                    'user' => null,
+                    'pass' => null,
+                    'name' => null,
+                    'host' => null,
+                    'port' => null,
+                    'driver' => 'mysql',
+                    'socket' => null,
+                    'timeout' => null,
+                    'throw' => false,
+                ],
+                $args[0],
+            );
             $username = $credentials['user'];
             $password = $credentials['pass'];
             $dbname = $credentials['name'] ?? ($credentials['database'] ?? null);
             $dbhost = $credentials['host'] . (empty($credentials['port']) ? '' : ':' . $credentials['port']);
+            $driver = $credentials['driver'];
+            $socket = $credentials['socket'];
+            $throw = (bool) $credentials['throw'];
+            if (!empty($credentials['timeout'])) {
+                $driver_options = [PDO::ATTR_TIMEOUT => (int) $credentials['timeout']] + (array) $driver_options;
+            }
         } else {
             // split $dsn string formatted as 'mysql:host=$dbhost;dbname=$dbname' into $dbhost and $dbname
             $dsn_parts = explode(';', $dsn);
@@ -79,6 +114,20 @@ class OSPDO extends PDO
                 'name' => $dbname,
                 'host' => $dbhost,
             ];
+        }
+
+        if ($throw) {
+            // The caller handles the failure
+            parent::__construct(
+                self::dsn($driver, (string) $dbhost, $dbname, $socket),
+                $username,
+                $password,
+                $driver_options,
+            );
+            $this->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $this->connected = true;
+            $this->db_name = $dbname;
+            return;
         }
 
         if (empty($dbname)) {
@@ -98,7 +147,7 @@ class OSPDO extends PDO
             throw new Exception('Failed to connect to the database server: ' . print_r($connection_test, true));
         }
 
-        $dsn = 'mysql:host=' . $dbhost . ';dbname=' . $dbname;
+        $dsn = self::dsn($driver, (string) $dbhost, $dbname, $socket);
 
         try {
             @parent::__construct($dsn, $username, $password, $driver_options);
@@ -111,13 +160,48 @@ class OSPDO extends PDO
                     $this->db_name = $dbname;
                 } catch (PDOException $e) {
                     error_log('Database connection failed: ' . $e->getMessage());
+                    $this->error = $e;
                     $this->connected = false;
                 }
             }
         } catch (PDOException $e) {
             error_log("Could not connect to database $dsn as $username");
+            $this->error = $e;
             $this->connected = false;
         }
+    }
+
+    /**
+     * The DSN of a driver.
+     *
+     * @param  string      $driver sqlite uses the name as its file; the others take host, socket and database name
+     * @param  string      $host   may carry its port (host:port)
+     * @param  string|null $name   database name, none for a connection to the server
+     * @param  string|null $socket path of a local socket, instead of the host
+     * @return string
+     */
+    public static function dsn($driver, $host, $name = null, $socket = null)
+    {
+        if ($driver === 'sqlite') {
+            return 'sqlite:' . $name;
+        }
+
+        $parts = [];
+        if (!empty($socket)) {
+            $parts[] = 'unix_socket=' . $socket;
+        } elseif ($host !== '') {
+            if (substr_count($host, ':') === 1 && preg_match('/^(.+):(\d+)$/', $host, $m)) {
+                $parts[] = 'host=' . $m[1];
+                $parts[] = 'port=' . $m[2];
+            } else {
+                $parts[] = 'host=' . $host;
+            }
+        }
+        if (!empty($name)) {
+            $parts[] = 'dbname=' . $name;
+        }
+
+        return $driver . ':' . implode(';', $parts);
     }
 
     /**

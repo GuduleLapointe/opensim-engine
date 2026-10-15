@@ -2,6 +2,7 @@
 
 ### Unreleased
 
+- update: the database is reached through PDO (`OSPDO`) only, no `mysql` client is run
 - new: `GridConfig::withDatabaseDefaults()`: the StorageProvider and ConnectionString OpenSimulator takes from [DatabaseService] for the services, the regions and the estates
 - new: `OpenSim\SignIn`: an avatar signs in with the grid itself, never in its database: `PrivateServiceAuthenticator` (accounts and authentication services of the private port), `OpenIdAuthenticator` (the password is asked by the grid), `LoginServiceAuthenticator` (the login of the viewers, which opens a session in the world)
 - update: `gettext` is suggested, not required: without it the messages stay in English

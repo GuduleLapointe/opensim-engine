@@ -30,6 +30,7 @@ use OpenSim\Runtime\ShellService;
  * The grid's account is always tried with its own credentials, and nothing
  * else, as OpenSim will: no option file of the running user is read for it.
  *
+ * Every statement goes through PDO (see SqlRunner), no client program is run.
  * MySQL and MariaDB only: Robust, and many modules, do not support others.
  */
 final class DatabaseService
@@ -47,7 +48,7 @@ final class DatabaseService
     /** @var array<string,array{0:string,1:string}> administrator accounts entered during this session, [user, password] by server */
     private static array $admins = [];
 
-    /** @var array{command:list<string>,env:array<string,string>}|false|null how the administrator's statements run: null until searched, false when there is no way */
+    /** @var array<string,mixed>|false|null the access of the administrator (see SqlRunner): null until searched, false when there is no way */
     private array|false|null $adminAccess = null;
 
     /** @var string why there is no administrator access */
@@ -80,9 +81,8 @@ final class DatabaseService
     public function ensure(GridPlan $plan): int
     {
         $this->adminAccess = null;
-        $client = $this->client();
-        if ($client === null) {
-            $this->ui->error(_('The MySQL client is missing: install default-mysql-client (or mariadb-client).'));
+        if (!self::available()) {
+            $this->ui->error(_('The PHP extension for MySQL is missing: install php-mysql.'));
 
             return self::ABORT;
         }
@@ -93,7 +93,7 @@ final class DatabaseService
         }
 
         // 1. The account, before any database: valid credentials need no creation.
-        [$code, , $err] = $this->run($client, $plan, null);
+        [$code, , $err] = $this->run($plan, null);
         if ($code !== 0) {
             // Without a database, any "Access denied for user" is a refused
             // login: 1045 for a wrong password, 1698 for an account that does
@@ -109,14 +109,14 @@ final class DatabaseService
 
                 return self::RETRY;
             }
-            $result = $this->account($client, $plan);
+            $result = $this->account($plan);
             if ($result !== self::OK) {
                 return $result;
             }
         }
 
         // 2. The database, with this account.
-        [$code, , $err] = $this->run($client, $plan, $plan->dbName);
+        [$code, , $err] = $this->run($plan, $plan->dbName);
         if ($code === 0) {
             $this->ui->note(sprintf(_('Database %s on %s: connection OK.'), $plan->dbName, $plan->dbHost));
 
@@ -130,7 +130,7 @@ final class DatabaseService
             return self::RETRY;
         }
 
-        return $this->database($client, $plan);
+        return $this->database($plan);
     }
 
     /**
@@ -154,11 +154,10 @@ final class DatabaseService
      */
     public function query(ConnectionString $db, string $sql): ?array
     {
-        $client = $this->client();
-        if ($client === null) {
+        if (!self::available()) {
             return null;
         }
-        [$code, $out] = $this->run($client, $db, $db->database, $sql);
+        [$code, $out] = $this->run($db, $db->database, $sql);
 
         return $code === 0
             ? array_values(array_filter(explode("\n", $out), static fn(string $line): bool => $line !== ''))
@@ -166,10 +165,10 @@ final class DatabaseService
     }
 
     /** Login refused: wrong password, or no such account for this host. */
-    private function account(string $client, GridPlan $plan): int
+    private function account(GridPlan $plan): int
     {
         $host = $this->accountHost($plan);
-        $hosts = $this->accountHosts($client, $plan);
+        $hosts = $this->accountHosts($plan);
 
         if ($hosts === null) {
             $this->ui->error(
@@ -217,15 +216,11 @@ final class DatabaseService
         }
 
         $account = $this->quote($plan->dbUser) . '@' . $this->quote($host);
-        [$code, , $err] = $this->admin(
-            $client,
-            $plan,
-            "CREATE USER $account IDENTIFIED BY " . $this->quote($plan->dbPass),
-        );
+        [$code, , $err] = $this->admin($plan, "CREATE USER $account IDENTIFIED BY " . $this->quote($plan->dbPass));
         if ($code !== 0) {
             return $this->failed('create the user', $err, $plan, $host, true, true);
         }
-        [$code, , $err] = $this->run($client, $plan, null);
+        [$code, , $err] = $this->run($plan, null);
         if ($code !== 0) {
             $this->ui->error(sprintf(_('The user was created but still cannot log in: %s'), trim($err)));
 
@@ -236,10 +231,10 @@ final class DatabaseService
     }
 
     /** The account works, the database does not: missing, or without rights. */
-    private function database(string $client, GridPlan $plan): int
+    private function database(GridPlan $plan): int
     {
         $host = $this->accountHost($plan);
-        $exists = $this->databaseExists($client, $plan);
+        $exists = $this->databaseExists($plan);
         if ($exists === null) {
             $this->ui->warn(
                 sprintf(
@@ -278,18 +273,18 @@ final class DatabaseService
         }
 
         if (!$exists) {
-            [$code, , $err] = $this->admin($client, $plan, "CREATE DATABASE `{$plan->dbName}` CHARACTER SET utf8");
+            [$code, , $err] = $this->admin($plan, "CREATE DATABASE `{$plan->dbName}` CHARACTER SET utf8");
             if ($code !== 0) {
                 return $this->failed('create the database', $err, $plan, $host, false, true);
             }
         }
         $account = $this->quote($plan->dbUser) . '@' . $this->quote($host);
-        [$code, , $err] = $this->admin($client, $plan, "GRANT ALL ON `{$plan->dbName}`.* TO $account");
+        [$code, , $err] = $this->admin($plan, "GRANT ALL ON `{$plan->dbName}`.* TO $account");
         if ($code !== 0) {
             return $this->failed('give the user access to the database', $err, $plan, $host, false, !$exists);
         }
 
-        [$code, , $err] = $this->run($client, $plan, $plan->dbName);
+        [$code, , $err] = $this->run($plan, $plan->dbName);
         if ($code !== 0) {
             $this->ui->error(sprintf(_('Still cannot use database %s: %s'), $plan->dbName, trim($err)));
 
@@ -340,22 +335,17 @@ final class DatabaseService
      *
      * @return list<string>|null
      */
-    private function accountHosts(string $client, GridPlan $plan): ?array
+    private function accountHosts(GridPlan $plan): ?array
     {
-        [$code, $out] = $this->admin(
-            $client,
-            $plan,
-            'SELECT Host FROM mysql.user WHERE User=' . $this->quote($plan->dbUser),
-        );
+        [$code, $out] = $this->admin($plan, 'SELECT Host FROM mysql.user WHERE User=' . $this->quote($plan->dbUser));
 
         return $code === 0 ? array_values(array_filter(array_map('trim', explode("\n", $out)))) : null;
     }
 
     /** Whether the database exists, or null when it cannot be told. */
-    private function databaseExists(string $client, GridPlan $plan): ?bool
+    private function databaseExists(GridPlan $plan): ?bool
     {
         [$code, $out] = $this->admin(
-            $client,
             $plan,
             'SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME=' . $this->quote($plan->dbName),
         );
@@ -382,27 +372,21 @@ final class DatabaseService
         return in_array($host, ['localhost', '127.0.0.1', '::1'], true);
     }
 
-    private function client(): ?string
+    /** Whether PHP can talk to MySQL and MariaDB. */
+    private static function available(): bool
     {
-        foreach (['mysql', 'mariadb'] as $command) {
-            if (ShellService::commandExists($command)) {
-                return $command;
-            }
-        }
-
-        return null;
+        return extension_loaded('pdo_mysql');
     }
 
-    /** The client prints "ERROR <number> (<state>): <message>". */
+    /** SqlRunner reports "ERROR <number> (<state>): <message>". */
     private function errno(string $err): int
     {
         return preg_match('/ERROR (\d+)/', $err, $m) ? (int) $m[1] : 0;
     }
 
     /**
-     * What went wrong, from the client's output: it prints the failed
-     * statement, password included, before its "ERROR <number>" line, so only
-     * that line is shown.
+     * What went wrong, from the error: only its "ERROR <number>" line is shown,
+     * as a failed statement may hold a password.
      */
     private function errorLine(string $err): string
     {
@@ -420,26 +404,17 @@ final class DatabaseService
 
     /**
      * A statement as the grid's account, with or without a database: its
-     * credentials only (the password goes through the environment, not the
-     * command line), no option file.
+     * credentials only, no option file.
      *
-     * @return array{0:int,1:string,2:string} [exit code, stdout, stderr]
+     * @return array{0:int,1:string,2:string} [exit code, rows, error]
      */
-    private function run(string $client, ConnectionString|GridPlan $db, ?string $database, string $sql = 'SELECT 1'): array
+    private function run(ConnectionString|GridPlan $db, ?string $database, string $sql = 'SELECT 1'): array
     {
         if ($db instanceof GridPlan) {
             $db = ConnectionString::for($db->dbHost, $db->dbName, $db->dbUser, $db->dbPass);
         }
-        $command = [$client, '--no-defaults', '-h', $db->host];
-        if ($db->port !== null) {
-            array_push($command, '-P', (string) $db->port);
-        }
-        array_push($command, '-u', $db->user, '--connect-timeout=5', '-BN', '-e', $sql);
-        if ($database !== null) {
-            $command[] = $database;
-        }
 
-        return $this->exec($command, ['MYSQL_PWD' => $db->password]);
+        return SqlRunner::run($this->credentials($db->host, $db->port, $db->user, $db->password), $sql, $database);
     }
 
     /**
@@ -447,26 +422,26 @@ final class DatabaseService
      *
      * @return array{0:int,1:string,2:string}
      */
-    private function admin(string $client, GridPlan $plan, string $sql): array
+    private function admin(GridPlan $plan, string $sql): array
     {
-        $access = $this->adminAccess($client, $plan);
+        $access = $this->adminAccess($plan);
         if ($access === false) {
             return [1, '', $this->adminReason];
         }
 
-        return $this->exec(array_merge($access['command'], ['-BN', '-e', $sql]), $access['env']);
+        return SqlRunner::run($access, $sql);
     }
 
     /**
      * How to run statements as an administrator, found once per check, in
      * this order: the account entered earlier in the session; on a local
-     * server, what the running user already has (root through the socket,
-     * their own database account, sudo without a password), tried silently;
-     * an account asked to the user.
+     * server, what the running user already has (their own database account,
+     * root through sudo without a password), tried silently; an account asked
+     * to the user.
      *
-     * @return array{command:list<string>,env:array<string,string>}|false
+     * @return array<string,mixed>|false
      */
-    private function adminAccess(string $client, GridPlan $plan): array|false
+    private function adminAccess(GridPlan $plan): array|false
     {
         if ($this->adminAccess !== null) {
             return $this->adminAccess;
@@ -474,19 +449,18 @@ final class DatabaseService
         $this->adminReason = 'no administrator account was given';
 
         if (isset(self::$admins[$plan->dbHost])) {
-            $access = $this->explicitAccess($client, $plan->dbHost, ...self::$admins[$plan->dbHost]);
+            $access = $this->explicitAccess($plan->dbHost, ...self::$admins[$plan->dbHost]);
             if ($this->works($access, 'SELECT 1')) {
                 return $this->adminAccess = $access;
             }
         }
 
         if ($this->isLocal($plan->dbHost)) {
-            $candidates = [[$client]];
+            $candidates = [['own' => true]];
             if (ShellService::commandExists('sudo')) {
-                $candidates[] = ['sudo', '-n', $client];
+                $candidates[] = ['own' => true, 'sudo' => true];
             }
-            foreach ($candidates as $candidate) {
-                $access = ['command' => $candidate, 'env' => []];
+            foreach ($candidates as $access) {
                 // Reading the accounts tells an administrator from a user
                 // who has only a database of their own
                 if ($this->works($access, 'SELECT COUNT(*) FROM mysql.user')) {
@@ -495,11 +469,15 @@ final class DatabaseService
             }
         }
 
-        return $this->adminAccess = $this->askAdmin($client, $plan);
+        return $this->adminAccess = $this->askAdmin($plan);
     }
 
-    /** Ask for an administrator account until one logs in, or the user gives up. */
-    private function askAdmin(string $client, GridPlan $plan): array|false
+    /**
+     * Ask for an administrator account until one logs in, or the user gives up.
+     *
+     * @return array<string,mixed>|false
+     */
+    private function askAdmin(GridPlan $plan): array|false
     {
         $this->ui->note(
             sprintf(
@@ -526,15 +504,10 @@ final class DatabaseService
                 'root',
                 fn(string $value) => trim($value) === '' ? 'Required.' : null,
             );
-            $access = $this->explicitAccess(
-                $client,
-                $plan->dbHost,
-                $user,
-                $this->ui->secret(sprintf(_('Password of %s'), $user)),
-            );
-            [$code, , $err] = $this->exec(array_merge($access['command'], ['-BN', '-e', 'SELECT 1']), $access['env']);
+            $access = $this->explicitAccess($plan->dbHost, $user, $this->ui->secret(sprintf(_('Password of %s'), $user)));
+            [$code, , $err] = SqlRunner::run($access, 'SELECT 1');
             if ($code === 0) {
-                self::$admins[$plan->dbHost] = [$user, $access['env']['MYSQL_PWD']];
+                self::$admins[$plan->dbHost] = [$user, $access['pass']];
 
                 return $access;
             }
@@ -547,39 +520,27 @@ final class DatabaseService
     }
 
     /**
-     * The client's arguments for an account given explicitly: no option file
-     * of the running user, the password through the environment.
+     * The access for an account given explicitly: no option file of the
+     * running user.
      *
-     * @return array{command:list<string>,env:array<string,string>}
+     * @return array<string,mixed>
      */
-    private function explicitAccess(string $client, string $host, string $user, string $password): array
+    private function explicitAccess(string $source, string $user, string $password): array
     {
-        return [
-            'command' => [$client, '--no-defaults', '-h', $host, '-u', $user, '--connect-timeout=5'],
-            'env' => ['MYSQL_PWD' => $password],
-        ];
+        $db = ConnectionString::for($source, '', $user, $password);
+
+        return $this->credentials($db->host, $db->port, $user, $password);
     }
 
-    /** @param array{command:list<string>,env:array<string,string>} $access */
+    /** @return array<string,mixed> */
+    private function credentials(string $host, ?int $port, string $user, string $password): array
+    {
+        return ['host' => $host, 'port' => $port, 'user' => $user, 'pass' => $password];
+    }
+
+    /** @param array<string,mixed> $access */
     private function works(array $access, string $sql): bool
     {
-        return $this->exec(array_merge($access['command'], ['-BN', '-e', $sql]), $access['env'])[0] === 0;
-    }
-
-    /** @return array{0:int,1:string,2:string} */
-    private function exec(array $command, array $env): array
-    {
-        $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
-        $process = @proc_open($command, $descriptors, $pipes, null, $env === [] ? null : array_merge(getenv(), $env));
-        if (!is_resource($process)) {
-            return [1, '', 'could not run ' . $command[0]];
-        }
-        fclose($pipes[0]);
-        $out = (string) stream_get_contents($pipes[1]);
-        $err = (string) stream_get_contents($pipes[2]);
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-
-        return [proc_close($process), $out, $err];
+        return SqlRunner::run($access, $sql)[0] === 0;
     }
 }
