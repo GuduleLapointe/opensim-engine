@@ -88,7 +88,13 @@ describe('The statements of an account', function () {
             expect($made['sql'])->toContain("INSERT INTO $table ");
         }
         expect($made['sql'])->toContain("'Jane', 'Doe', 'jane@example.org'");
-        expect($made['sql'])->toContain("'607c44e9-3d01-45eb-a07e-937dc72dbadb', '<128,128,0>'");
+        expect($made['sql'])->toContain("'607c44e9-3d01-45eb-a07e-937dc72dbadb', '<128,128,22>'");
+    });
+
+    test('moves the home Robust gives from the sea floor, and no other', function () {
+        $sql = OpenSim\Provisioning\GridAccounts::raiseHomeSql('11111111-2222-3333-4444-555555555555');
+
+        expect($sql)->toBe("UPDATE GridUser SET HomePosition = '<128,128,22>' WHERE UserID = '11111111-2222-3333-4444-555555555555' AND HomePosition = '<128,128,0>'");
     });
 
     test('keeps the password as Robust does', function () {

@@ -13,6 +13,12 @@ use OpenSim\Runtime\ShellService;
  */
 final class GridAccounts
 {
+    /** The home position of a new account: just above the sea level. */
+    public const HOME_POSITION = '<128,128,22>';
+
+    /** The home position Robust gives to a new account. */
+    private const ROBUST_HOME_POSITION = '<128,128,0>';
+
     public function __construct(private DatabaseService $database, private UiInterface $ui) {}
 
     /** What a name of a person is made of: first and last name, as OpenSimulator has it. */
@@ -56,11 +62,11 @@ final class GridAccounts
 
     /**
      * The statement that gives an account a home: the row of GridUser, with the names as Robust
-     * creates the table. The position and the look-at are the ones Robust gives to the home it sets.
+     * creates the table. The position is HOME_POSITION, the look-at the one Robust gives to the home it sets.
      */
     public static function homeSql(string $userId, string $regionId): string
     {
-        return "INSERT INTO GridUser (UserID, HomeRegionID, HomePosition, HomeLookAt) VALUES ('$userId', '$regionId', '<128,128,0>', '<0,1,0>') " .
+        return "INSERT INTO GridUser (UserID, HomeRegionID, HomePosition, HomeLookAt) VALUES ('$userId', '$regionId', '" . self::HOME_POSITION . "', '<0,1,0>') " .
             'ON DUPLICATE KEY UPDATE HomeRegionID = VALUES(HomeRegionID), HomePosition = VALUES(HomePosition), HomeLookAt = VALUES(HomeLookAt)';
     }
 
@@ -100,6 +106,32 @@ final class GridAccounts
     }
 
     /**
+     * Replace the home position Robust gave to an account by HOME_POSITION; any other position is kept.
+     *
+     * @return bool|null whether it could be written, null when it cannot be told
+     */
+    public function raiseHome(GridInfo $grid, string $name): ?bool
+    {
+        if (!self::validName($name)) {
+            return false;
+        }
+        [$first, $last] = explode(' ', $name);
+        $plan = $grid->databasePlan();
+        $id = $this->database->select($plan, "SELECT PrincipalID FROM UserAccounts WHERE FirstName = '$first' AND LastName = '$last'");
+        if ($id === null || $id === []) {
+            return $id === null ? null : false;
+        }
+
+        return $this->database->select($plan, self::raiseHomeSql($id[0])) !== null;
+    }
+
+    /** The statement that moves a home from the position Robust gives to HOME_POSITION, and leaves any other home. */
+    public static function raiseHomeSql(string $userId): string
+    {
+        return "UPDATE GridUser SET HomePosition = '" . self::HOME_POSITION . "' WHERE UserID = '$userId' AND HomePosition = '" . self::ROBUST_HOME_POSITION . "'";
+    }
+
+    /**
      * Create an account, through the console of the grid's Robust, which is
      * started when it is not running. Runs as the user of the instances.
      */
@@ -129,6 +161,8 @@ final class GridAccounts
         // is refused by the console, which does no harm)
         for ($i = 0; $i < 24; $i++) {
             if ($this->exists($grid, $name) === true) {
+                $this->raiseHome($grid, $name);
+
                 return true;
             }
             sleep(1);
