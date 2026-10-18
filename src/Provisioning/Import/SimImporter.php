@@ -59,6 +59,7 @@ final class SimImporter
         $plan->publicPort = $grid->publicPort;
         $plan->privatePort = $grid->privatePort;
         $plan->logsDirectory = $grid->logsDirectory;
+        $plan->gridHere = !$grid->remote;
         $plan->coreDirectory = $core;
         $plan->simName = $name;
         $plan->slug = GridInfo::instanceName($grid->nick . '_' . $name);

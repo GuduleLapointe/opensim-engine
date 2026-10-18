@@ -251,6 +251,7 @@ final class SimPlanner
         $plan->publicPort = $grid->publicPort;
         $plan->privatePort = $grid->privatePort;
         $plan->logsDirectory = $grid->logsDirectory;
+        $plan->gridHere = !$grid->remote;
         // A remote grid not kept yet is written with the simulator
         $plan->remoteGrid = $grid->remote && !is_file("{$grid->dir}/{$grid->nick}.conf") ? $grid->describe() : null;
         // A grid joined by a preset: the simulators read the files of the preset, where they are

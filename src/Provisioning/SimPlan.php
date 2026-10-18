@@ -20,6 +20,8 @@ final class SimPlan
     public int $privatePort = 8003;
     /** The description of the grid when it is a remote one not kept yet (GridInfo::describe()). */
     public ?array $remoteGrid = null;
+    /** The grid runs on this machine (its Robust is here), not at another host. */
+    public bool $gridHere = true;
     /** The preset the grid is joined by (see Presets), empty for a grid of this machine. */
     public string $preset = '';
     /** What the preset gives to the simulators themselves, a text laid over its config (Presets::settings()). */

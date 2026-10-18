@@ -52,6 +52,24 @@ describe('Configuring a grid that exists', function () {
         expect($kept)->toContain('search = "https://other.example.org/q"')->not->toContain('search = "${Const|WebURL}/search"');
     });
 
+    test('tells the gatekeeper of a hypergrid in the grid info, and keeps the one the grid has', function () use ($plan) {
+        $plan = $plan();
+        $plan->enableHypergrid = true;
+        file_put_contents("{$plan->binDir}/Robust.HG.ini.example", "[GridInfoService]\n    ; gatekeeper = \${Const|BaseURL}:\${Const|PublicPort}/\n");
+        $robust = new RobustConfig();
+
+        $text = $robust->generate($plan);
+        expect($text)->toMatch('/^\s*gatekeeper = \$\{Const\|BaseURL\}:\$\{Const\|PublicPort\}$/m');
+
+        file_put_contents($plan->robustIni(), str_replace('gatekeeper = ${Const|BaseURL}:${Const|PublicPort}', 'gatekeeper = http://hg.example.org:8002', $text));
+        expect($robust->generate($plan))->toContain('gatekeeper = http://hg.example.org:8002');
+
+        // Not a hypergrid: nothing to tell
+        $plan->enableHypergrid = false;
+        file_put_contents("{$plan->binDir}/Robust.ini.example", "[GridInfoService]\n    ; gatekeeper = x\n");
+        expect($robust->generate($plan))->not->toMatch('/^\s*gatekeeper\s*=/m');
+    });
+
     test('gives the search of the web to both settings that say it when only one is given, and keeps two that differ', function () use ($plan) {
         $plan = $plan();
         $robust = new RobustConfig();

@@ -104,6 +104,10 @@ final class RobustConfig
                     'GatekeeperURI' => $this->q('${Const|BaseURL}:${Const|PublicPort}'),
                 ],
             ]);
+            // The gatekeeper the viewers and the other grids read in get_grid_info, when the grid has not set another
+            if (($ini->get('GridInfoService', 'gatekeeper') ?? '') === '') {
+                $ini->set('GridInfoService', 'gatekeeper', '${Const|BaseURL}:${Const|PublicPort}');
+            }
         }
 
         // The remote console, every right on Robust through its port

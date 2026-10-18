@@ -177,15 +177,19 @@ final class SimConfig
     }
 
     /**
-     * The host the scripts of the simulator see as its own: the address of the machine it runs on, whatever the server of the
-     * grid (never the host of the grid). The address its regions announce when it is given, else the name of the machine; empty
-     * when the machine has no name of its own (OpenSimulator then takes the one of its regions).
+     * The host the scripts of the simulator see as its own: the address of the machine it runs on, never the host of a grid
+     * that is somewhere else. The address its regions announce when it is given; else the host of the grid when the simulator
+     * runs on the machine of the grid; else the name of the machine, empty when it has no name of its own (OpenSimulator then
+     * takes the one of its regions).
      */
     public static function lslHost(SimPlan $plan): string
     {
         $host = trim($plan->externalHost);
         if ($host !== '' && strcasecmp($host, 'SYSTEMIP') !== 0) {
             return $host;
+        }
+        if ($plan->gridHere && $plan->preset === '') {
+            return '${Const|BaseHostname}';
         }
         $name = (string) gethostname();
 
