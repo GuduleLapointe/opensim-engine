@@ -26,16 +26,13 @@ final class SimulatorProvisioner
     /**
      * The writing itself: run as the system user of the install, root, or the
      * user of an install without one.
-     *
-     * @param array<string,mixed> $profile
      */
-    public function apply(SimulatorPlan $plan, array $profile): void
+    public function apply(SimulatorPlan $plan, Environment $environment): void
     {
-        $etcRoot = $profile['EtcRoot'];
         if ($plan->remoteGrid !== null) {
             $this->ui->note(sprintf(_('Wrote %s'), (new GridConf())->writeRemote($plan->remoteGrid)));
         }
-        $grid = Grid::find(Environment::forProfile($profile), $plan->gridNick);
+        $grid = Grid::find($environment, $plan->gridNick);
         if ($grid === null) {
             $this->ui->error(sprintf(_("Grid '%s' not found."), $plan->gridNick));
 
@@ -43,7 +40,7 @@ final class SimulatorProvisioner
         }
 
         if ($plan->regionOnly) {
-            $this->applyRegion($plan, $profile, $grid);
+            $this->applyRegion($plan, $environment, $grid);
             SetupFile::record($plan->gridDir, static fn(array $data): array => SetupFile::withSimulator($data, $plan));
 
             return;
@@ -77,7 +74,7 @@ final class SimulatorProvisioner
         if ($plan->preset !== '') {
             // A grid joined by a preset: its folder in presets/ is made complete, the same way every time (the distribution
             // merged with the preset), and the simulator reads it there
-            $presets = new Presets([], $etcRoot);
+            $presets = new Presets([], $environment->layout->etcRoot());
             foreach ($presets->install($plan->preset, $plan->binDir(), $plan->hypergrid) as $file) {
                 $this->ui->note(sprintf(_('Wrote %s'), $file));
             }
@@ -107,7 +104,7 @@ final class SimulatorProvisioner
 
         SetupFile::record($plan->gridDir, static fn(array $data): array => SetupFile::withSimulator($data, $plan));
 
-        $systemUser = $profile['SystemUser'] ?? '';
+        $systemUser = $environment->layout->systemUser();
         $this->giveToSystemUser(
             $systemUser,
             array_filter([$plan->gridDir, $plan->preset !== '' ? $plan->configDir : '', $plan->dataDirectory, $plan->cacheDirectory]),
@@ -117,12 +114,12 @@ final class SimulatorProvisioner
         GridFileService::protect($plan->gridDir);
 
         if ($plan->enable) {
-            $simulator = new Simulator(Environment::forProfile($profile), $plan->iniPath());
+            $simulator = new Simulator($environment, $plan->iniPath());
             if ($simulator->enable()) {
                 $this->giveToSystemUser($systemUser, [$simulator->link()], false);
                 $this->ui->note(sprintf(_('Enabled: %s'), $simulator->link()));
                 if ($plan->start) {
-                    $this->startSimulator($plan, $grid, $profile);
+                    $this->startSimulator($plan, $grid, $environment);
                 }
             } else {
                 $this->ui->warn(_('Could not enable the simulator (config missing).'));
@@ -135,7 +132,7 @@ final class SimulatorProvisioner
      * Start the simulator and report whether it came up: the launcher's
      * answer, then, for a new region, its registration in the grid.
      */
-    private function startSimulator(SimulatorPlan $plan, Grid $grid, array $profile): void
+    private function startSimulator(SimulatorPlan $plan, Grid $grid, Environment $environment): void
     {
 
         // A region registers with the grid when it starts: the grid has to run (when
@@ -176,7 +173,7 @@ final class SimulatorProvisioner
             }
             if ($plan->createRegion) {
                 $this->giveHome($plan, $grid);
-                $this->initRegion($plan, $profile);
+                $this->initRegion($plan, $environment);
             }
             $this->ui->note(
                 !$plan->createRegion
@@ -225,7 +222,7 @@ final class SimulatorProvisioner
      *
      * Not fatal: a region without it is a region whose parcel is named "Your Parcel".
      */
-    private function initRegion(SimulatorPlan $plan, array $profile): void
+    private function initRegion(SimulatorPlan $plan, Environment $environment): void
     {
         $archive = $this->initArchive();
         if ($archive === null || RegionName::problem($plan->regionName) !== null) {
@@ -246,7 +243,7 @@ final class SimulatorProvisioner
         }
 
         // The database of the simulator, as its config says (a region added to a simulator knows no more)
-        $own = new Simulator(Environment::forProfile($profile), $plan->iniPath());
+        $own = new Simulator($environment, $plan->iniPath());
         $db = new GridPlan();
         $db->dbHost = (string) ($own->databaseHost() ?? $plan->dbHost);
         $db->dbName = (string) ($own->databaseName() ?? $plan->dbName);
@@ -392,7 +389,7 @@ final class SimulatorProvisioner
      * Write the region, and load it in the simulator through its console, which does not restart
      * it. The simulator is started when it is not running.
      */
-    private function applyRegion(SimulatorPlan $plan, array $profile, Grid $grid): void
+    private function applyRegion(SimulatorPlan $plan, Environment $environment, Grid $grid): void
     {
         @mkdir($plan->regionsDir(), 0o755, true);
         $region = (new SimulatorConfig())->writeRegion($plan);
@@ -401,18 +398,18 @@ final class SimulatorProvisioner
                 ? sprintf(_('Wrote %s'), $region)
                 : sprintf(_('Region %s already described, left as it is.'), $plan->regionName),
         );
-        $this->giveToSystemUser($profile['SystemUser'] ?? '', [$plan->regionsDir()], true);
+        $this->giveToSystemUser($environment->layout->systemUser(), [$plan->regionsDir()], true);
         GridFileService::protect($plan->gridDir);
         $this->giveRoles($plan, $grid);
         if ($plan->overwriteRegion) {
-            $this->needRestart($profile, $plan, 'changed');
+            $this->needRestart($environment, $plan, 'changed');
         }
         if (!$plan->start) {
             return;
         }
 
-        if (!InstanceConsoleService::running(Grid::at(Environment::forProfile($profile), $plan->gridDir)->simulatorLink($plan->slug))) {
-            $this->startSimulator($plan, $grid, $profile);
+        if (!InstanceConsoleService::running(Grid::at($environment, $plan->gridDir)->simulatorLink($plan->slug))) {
+            $this->startSimulator($plan, $grid, $environment);
 
             return;
         }
@@ -443,7 +440,7 @@ final class SimulatorProvisioner
             );
         }
         $this->giveHome($plan, $grid);
-        $this->initRegion($plan, $profile);
+        $this->initRegion($plan, $environment);
         $this->ui->note(sprintf(_('Region %s is online.'), $plan->regionName));
     }
     /** Robust gives the roles to a region when it registers, from its config read when it starts. */
@@ -462,8 +459,8 @@ final class SimulatorProvisioner
         }
     }
     /** The simulator has to restart to take the region into account (its parcel is named then, see Actions). */
-    private function needRestart(array $profile, SimulatorPlan $plan, string $why): void
+    private function needRestart(Environment $environment, SimulatorPlan $plan, string $why): void
     {
-        PendingRestarts::add($profile, $plan->slug, "region {$plan->regionName} $why");
+        PendingRestarts::add($environment, $plan->slug, "region {$plan->regionName} $why");
     }
 }

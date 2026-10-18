@@ -8,6 +8,7 @@ use OpenSim\Config\ConnectionString;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\RobustConfig;
 use OpenSim\Provisioning\Slug;
+use OpenSim\Runtime\Environment;
 
 /**
  * Ports the configuration of a Robust that was not made by the kit: what the setup asks is detected in its config
@@ -24,10 +25,9 @@ final class RobustImporter
      * What the setup asks, read from the original config: a plan for NewGrid.
      *
      * @param array<string,array<string,string>> $raw the original, as written (see ConfigReader::load)
-     * @param array<string,string>               $profile the install profile (roots of the kit)
      * @return GridPlan|string the plan, or what makes it impossible
      */
-    public static function plan(array $raw, string $path, array $profile, ?string $nick, string $core): GridPlan|string
+    public static function plan(array $raw, string $path, Environment $environment, ?string $nick, string $core): GridPlan|string
     {
         $ini = ConfigReader::expand($raw);
         $name = $ini['GridInfoService']['gridname'] ?? '';
@@ -69,11 +69,11 @@ final class RobustImporter
             $plan->consoleMode = 'screen';
         }
 
-        $plan->gridDir = ($profile['EtcRoot'] ?? '') . "/grids/$nick";
+        $plan->gridDir = $environment->layout->etcRoot() . "/grids/$nick";
         $plan->etcDirectory = $plan->gridDir;
-        $plan->dataDirectory = ($profile['DataRoot'] ?? '') . "/$nick";
-        $plan->cacheDirectory = ($profile['CacheRoot'] ?? '') . "/$nick";
-        $plan->logsDirectory = $profile['LogsRoot'] ?? '';
+        $plan->dataDirectory = $environment->layout->dataRoot() . "/$nick";
+        $plan->cacheDirectory = $environment->layout->cacheRoot() . "/$nick";
+        $plan->logsDirectory = $environment->layout->logsRoot();
         $plan->enable = false;
         $plan->start = false;
 

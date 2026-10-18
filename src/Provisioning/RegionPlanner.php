@@ -276,7 +276,9 @@ final class RegionPlanner
             return ($this->context['nextPort'])($httpPort, $taken);
         }
 
-        return Ports::nextRegion($httpPort, $taken) ?? Ports::next($httpPort + 1, $taken);
+        $ports = new Ports($this->context['grid']->environment());
+
+        return $ports->nextRegion($httpPort, $taken) ?? $ports->next($httpPort + 1, $taken);
     }
 
     private function flag(mixed $value): bool

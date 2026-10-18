@@ -2,6 +2,8 @@
 
 namespace OpenSim\Provisioning;
 
+use OpenSim\Runtime\Environment;
+
 /**
  * The instances that have to restart to take into account what the setup did, and why: a text
  * file, one `<instance> <reason>` per line, kept until they restart (the setup offers it when it
@@ -9,18 +11,16 @@ namespace OpenSim\Provisioning;
  */
 final class PendingRestarts
 {
-    /** @param array<string,mixed> $profile */
-    public static function path(array $profile): string
+    public static function path(Environment $environment): string
     {
-        $root = (string) ($profile['DataRoot'] ?? '');
+        $root = $environment->layout->dataRoot();
 
         return $root === '' ? '' : "$root/pending-restarts.txt";
     }
 
-    /** @param array<string,mixed> $profile */
-    public static function add(array $profile, string $instance, string $reason): void
+    public static function add(Environment $environment, string $instance, string $reason): void
     {
-        $path = self::path($profile);
+        $path = self::path($environment);
         $line = "$instance " . trim((string) preg_replace('/\s+/', ' ', $reason));
         if ($path === '' || in_array($line, self::lines($path), true)) {
             return;
@@ -31,14 +31,11 @@ final class PendingRestarts
         @file_put_contents($path, "$line\n", FILE_APPEND);
     }
 
-    /**
-     * @param array<string,mixed> $profile
-     * @return list<array{instance:string,reason:string}>
-     */
-    public static function read(array $profile): array
+    /** @return list<array{instance:string,reason:string}> */
+    public static function read(Environment $environment): array
     {
         $entries = [];
-        foreach (self::lines(self::path($profile)) as $line) {
+        foreach (self::lines(self::path($environment)) as $line) {
             [$instance, $reason] = array_pad(explode(' ', $line, 2), 2, '');
             $entries[] = ['instance' => $instance, 'reason' => $reason];
         }
@@ -46,10 +43,9 @@ final class PendingRestarts
         return $entries;
     }
 
-    /** @param array<string,mixed> $profile */
-    public static function clear(array $profile): void
+    public static function clear(Environment $environment): void
     {
-        $path = self::path($profile);
+        $path = self::path($environment);
         if ($path !== '' && is_file($path)) {
             @unlink($path);
         }

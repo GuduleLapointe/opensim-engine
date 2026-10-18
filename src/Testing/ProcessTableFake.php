@@ -21,6 +21,9 @@ final class ProcessTableFake implements ProcessTableInterface
     /** @var list<string> the signals that make a process go: the others are ignored by it */
     public array $obeys = ['TERM', 'KILL'];
 
+    /** @var list<int> the ports bound on the machine */
+    public array $listening = [];
+
     private int $next = 4000;
 
     public function add(string $arguments, string $user = 'opensim', float $cpu = 1.5, float $memory = 2.5, int $rss = 100000): Process
@@ -44,6 +47,11 @@ final class ProcessTableFake implements ProcessTableInterface
     public function alive(int $pid): bool
     {
         return isset($this->processes[$pid]);
+    }
+
+    public function listening(): array
+    {
+        return $this->listening;
     }
 
     public function signal(int $pid, string $signal): bool

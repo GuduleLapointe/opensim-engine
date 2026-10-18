@@ -27,7 +27,9 @@ describe('layout of an install', function () {
             ->and($layout->etcRoot())->toBe('/srv/etc')
             ->and($layout->varRoot())->toBe('/var/lib/opensim')
             ->and($layout->systemUser())->toBe('opensim')
-            ->and($layout->get('CoreDirectory'))->toBe('/usr/share/opensim/0.9.3.0');
+            ->and($layout->get('CoreDirectory'))->toBe('/usr/share/opensim/0.9.3.0')
+            ->and($layout->coreDirectory())->toBe('/usr/share/opensim/0.9.3.0')
+            ->and($layout->dataSource())->toBe('');
     });
 
     test('can be another profile than the default one', function () {

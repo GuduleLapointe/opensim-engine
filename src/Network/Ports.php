@@ -3,15 +3,14 @@
 namespace OpenSim\Network;
 
 use OpenSim\Config\GridFileService;
-use OpenSim\Config\Layout;
-use OpenSim\Runtime\ShellService;
+use OpenSim\Runtime\Environment;
 
 /**
  * The next free ports, shared by the setup and `opensim next port`: a port is
  * "in use" if it appears (even commented) in any OpenSim config .ini under the
- * known roots (every grid of the machine) — as InternalPort / PublicPort /
+ * roots of the environment (every grid of the machine) — as InternalPort / PublicPort /
  * PrivatePort / http_listener_port / console_port — if a socket of this machine
- * listens on it (netstat), or if the caller says so: the regions the grids of
+ * listens on it (the process table of the environment), or if the caller says so: the regions the grids of
  * this machine know on other machines (GridRegistry::knownPorts), which are no
  * problem for this one but easier to maintain when every port is different.
  * next()/nextFree() then return the first free port(s) at or above $min.
@@ -27,6 +26,10 @@ use OpenSim\Runtime\ShellService;
  */
 final class Ports
 {
+    public function __construct(private readonly Environment $environment)
+    {
+    }
+
     /**
      * Where the simulators of a grid are looked for: the thousand above the grid, in
      * its hundred, which is where the users are used to find them (Robust on 8002:
@@ -37,9 +40,9 @@ final class Ports
         return intdiv($gridPublicPort + 1000, 100) * 100;
     }
 
-    public static function next(int $min = 9010, array $exclude = []): int
+    public function next(int $min = 9010, array $exclude = []): int
     {
-        return self::nextFree($min, 1, $exclude)[0];
+        return $this->nextFree($min, 1, $exclude)[0];
     }
 
     /**
@@ -48,9 +51,9 @@ final class Ports
      *
      * @param list<int> $exclude ports to treat as used: those of other machines
      */
-    public static function nextBlock(int $min = 9010, array $exclude = []): int
+    public function nextBlock(int $min = 9010, array $exclude = []): int
     {
-        $inUse = self::inUse($exclude);
+        $inUse = $this->inUse($exclude);
         for ($base = (int) (ceil($min / 10) * 10); ; $base += 10) {
             $free = true;
             for ($port = $base; $port < $base + 10; $port++) {
@@ -66,9 +69,9 @@ final class Ports
     }
 
     /** Whether a port is free: not in a config file, not bound here, not in the list. */
-    public static function isFree(int $port, array $exclude = []): bool
+    public function isFree(int $port, array $exclude = []): bool
     {
-        return !in_array($port, self::inUse($exclude), true);
+        return !in_array($port, $this->inUse($exclude), true);
     }
 
     /**
@@ -87,14 +90,14 @@ final class Ports
      *
      * @param list<int> $exclude
      */
-    public static function nextRegion(int $httpPort, array $exclude = []): ?int
+    public function nextRegion(int $httpPort, array $exclude = []): ?int
     {
         $base = self::simulatorBlock($httpPort);
         if ($base === null) {
             return null;
         }
 
-        $inUse = self::inUse($exclude);
+        $inUse = $this->inUse($exclude);
         foreach ($httpPort % 10 === 0 ? [1, 2, 3, 5, 6, 7, 8, 9] : [5, 6, 7, 8, 9, 3] as $offset) {
             if (!in_array($base + $offset, $inUse, true)) {
                 return $base + $offset;
@@ -108,9 +111,9 @@ final class Ports
      * @param list<int> $exclude
      * @return list<int>
      */
-    public static function nextFree(int $min = 9010, int $count = 1, array $exclude = []): array
+    public function nextFree(int $min = 9010, int $count = 1, array $exclude = []): array
     {
-        $inUse = self::inUse($exclude);
+        $inUse = $this->inUse($exclude);
 
         $found = [];
         for ($port = $min; count($found) < $count; $port++) {
@@ -126,12 +129,12 @@ final class Ports
      * @param list<int> $exclude
      * @return list<int>
      */
-    private static function inUse(array $exclude): array
+    private function inUse(array $exclude): array
     {
         $ports = array_map('intval', $exclude);
 
-        $profile = Layout::load()->all();
-        foreach (self::configFiles($profile['EtcRoot'] ?? '', $profile['DataRoot'] ?? '') as $file) {
+        $layout = $this->environment->layout;
+        foreach (self::configFiles($layout->etcRoot(), $layout->dataRoot()) as $file) {
             $text = GridFileService::read($file);
             if (
                 preg_match_all(
@@ -146,7 +149,7 @@ final class Ports
             }
         }
 
-        foreach (self::boundPorts() as $p) {
+        foreach ($this->environment->processes->listening() as $p) {
             $ports[] = $p;
         }
 
@@ -199,40 +202,5 @@ final class Ports
     {
         return in_array(basename($path), ['OpenSim.ini', 'OpenSimDefaults.ini', \OpenSim\Provisioning\SimulatorMaster::FILE], true) ||
             str_contains($path, '/config-include/');
-    }
-
-    /** @return list<int> ports currently bound here, from netstat */
-    private static function boundPorts(): array
-    {
-        [, $out] = ShellService::capture('netstat -an');
-
-        return self::parseBound($out);
-    }
-
-    /**
-     * The ports a machine has bound, from the output of `netstat -an` (BSD '.port', Linux ':port'): the local port of a TCP socket
-     * that listens and of a UDP socket. The connections to other machines (their port is theirs, the local one is temporary)
-     * are not ports this machine keeps.
-     *
-     * @return list<int>
-     */
-    public static function parseBound(string $netstat): array
-    {
-        $ports = [];
-        foreach (preg_split('/\R/', $netstat) ?: [] as $line) {
-            $cols = preg_split('/\s+/', trim($line)) ?: [];
-            $proto = $cols[0] ?? '';
-            if (!str_starts_with($proto, 'tcp') && !str_starts_with($proto, 'udp')) {
-                continue;
-            }
-            if (str_starts_with($proto, 'tcp') && !in_array('LISTEN', $cols, true)) {
-                continue;
-            }
-            if (isset($cols[3]) && preg_match('/[.:](\d+)$/', $cols[3], $m)) {
-                $ports[] = (int) $m[1];
-            }
-        }
-
-        return $ports;
     }
 }

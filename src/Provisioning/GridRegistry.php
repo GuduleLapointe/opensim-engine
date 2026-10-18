@@ -42,14 +42,13 @@ final class GridRegistry
      * are no problem for this one, but keeping every port different makes the maintenance easier. The grid given is one of them
      * even when it is not kept here.
      *
-     * @param  array<string,string> $profile the setup of the user (EtcRoot)
      * @return list<int>
      */
-    public function knownPorts(array $profile, ?Grid $grid = null): array
+    public function knownPorts(Environment $environment, ?Grid $grid = null): array
     {
         $infos = [];
-        foreach (\OpenSim\Archives\Instances::grids((string) ($profile['EtcRoot'] ?? '')) as $nick) {
-            if (($info = Grid::find(Environment::forProfile($profile), $nick)) !== null) {
+        foreach (\OpenSim\Archives\Instances::grids($environment->layout->etcRoot()) as $nick) {
+            if (($info = Grid::find($environment, $nick)) !== null) {
                 $infos[$nick] = $info;
             }
         }

@@ -10,6 +10,7 @@ use OpenSim\Models\Grid;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Runtime\Environment;
 use OpenSim\Testing\Machine;
+use OpenSim\Testing\EnvironmentFake;
 
 describe('grid of this machine', function () {
     test('has what its files say: names, ports, database, folders, connectors', function () {
@@ -80,7 +81,7 @@ describe('grid that is planned', function () {
         $plan->helpers = true;
         $plan->webUrl = 'https://garden.example.org';
 
-        $grid = Grid::planned(Environment::forProfile([]), $plan);
+        $grid = Grid::planned(EnvironmentFake::with([]), $plan);
 
         expect($grid->sources())->toBe([Grid::PLAN])
             ->and($grid->isPlanned())->toBeTrue()
@@ -95,7 +96,7 @@ describe('grid that is planned', function () {
 
 describe('grid described or announced', function () {
     test('is a grid by the book for what its description does not say, and changes with the properties given', function () {
-        $grid = Grid::described(['nick' => 'far', 'baseHostname' => 'far.example.org']);
+        $grid = Grid::described(EnvironmentFake::with(), ['nick' => 'far', 'baseHostname' => 'far.example.org']);
 
         expect($grid->sources())->toBe([Grid::DESCRIBED])
             ->and($grid->in(Grid::FOLDER))->toBeFalse()

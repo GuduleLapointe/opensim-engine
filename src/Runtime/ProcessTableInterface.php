@@ -21,4 +21,11 @@ interface ProcessTableInterface
 
     /** Send a signal (TERM, KILL) to a process. */
     public function signal(int $pid, string $signal): bool;
+
+    /**
+     * The ports bound on the machine: a TCP socket that listens, a UDP socket.
+     *
+     * @return list<int>
+     */
+    public function listening(): array;
 }

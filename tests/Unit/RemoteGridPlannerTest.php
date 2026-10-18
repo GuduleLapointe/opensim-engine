@@ -7,6 +7,7 @@ declare(strict_types=1);
  */
 
 use OpenSim\Provisioning\RemoteGridPlanner;
+use OpenSim\Testing\EnvironmentFake;
 
 /** A planner whose install is a temporary tree, the grid at that address telling what it is given. */
 function remote_planner(array $says = [], array $more = []): array
@@ -15,7 +16,7 @@ function remote_planner(array $says = [], array $more = []): array
     mkdir("$etc/grids", 0o755, true);
     $calls = new ArrayObject();
     $planner = RemoteGridPlanner::with($more + [
-        'profile' => ['EtcRoot' => $etc, 'CoreDirectory' => '/cores/0.9.3.0', 'DataRoot' => '/data', 'CacheRoot' => '/cache', 'LogsRoot' => '/logs'],
+        'environment' => EnvironmentFake::with(['EtcRoot' => $etc, 'CoreDirectory' => '/cores/0.9.3.0', 'DataRoot' => '/data', 'CacheRoot' => '/cache', 'LogsRoot' => '/logs']),
         'says' => static function (string $host, int $port) use ($says, $calls): array {
             $calls[] = "$host:$port";
 

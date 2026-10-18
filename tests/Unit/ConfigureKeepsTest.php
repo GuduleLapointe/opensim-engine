@@ -11,6 +11,7 @@ use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\RobustConfig;
 use OpenSim\Provisioning\SimulatorConfig;
 use OpenSim\Provisioning\SimulatorPlan;
+use OpenSim\Testing\EnvironmentFake;
 
 describe('Configuring a grid that exists', function () {
     /** A grid plan over a folder that has the Robust.HG.ini.example of a distribution. */
@@ -234,7 +235,7 @@ describe('Configuring a simulator that exists', function () {
 
 describe('What a grid tells its simulators of the connectors its Robust serves', function () {
     test('is the counterpart of each: the bakes, the groups, the groups of the hypergrid', function () {
-        $lines = static fn(array $connectors): string => implode("\n", SimulatorConfig::gridLayer(Grid::described(['connectors' => $connectors])));
+        $lines = static fn(array $connectors): string => implode("\n", SimulatorConfig::gridLayer(Grid::described(EnvironmentFake::with(), ['connectors' => $connectors])));
 
         $none = $lines([]);
         expect($none)->not->toContain('[XBakes]')->not->toContain('[Groups]');

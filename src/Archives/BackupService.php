@@ -25,13 +25,12 @@ use OpenSim\Runtime\Environment;
 final class BackupService
 {
     /**
-     * @param array<string,mixed> $profile the install profile
      * @param \Closure(array{host:string,name:string,user:string,pass:string},string):void $dump writes the dump of a
      *        database, compressed, to a file; throws \RuntimeException when it cannot
      * @param \Closure(string):void $say what the person is told
      */
     public function __construct(
-        private array $profile,
+        private Environment $environment,
         private \Closure $dump,
         private \Closure $say,
         private string $stamp = '',
@@ -42,7 +41,7 @@ final class BackupService
     /** Where the backups go when nothing says: beside the data of the grids, not in it */
     public function defaultOutput(): string
     {
-        return rtrim($this->profile['DataRoot'] ?? '', '/') . '/backups/admin';
+        return rtrim($this->environment->layout->dataRoot(), '/') . '/backups/admin';
     }
 
     /**
@@ -55,7 +54,7 @@ final class BackupService
      */
     public function run(array $refs, array $options = []): array
     {
-        $etc = $this->profile['EtcRoot'] ?? '';
+        $etc = $this->environment->layout->etcRoot();
         $targets = [];
         if ($refs === []) {
             foreach (Instances::grids($etc) as $nick) {
@@ -65,7 +64,7 @@ final class BackupService
                 throw new \RuntimeException('no grid here');
             }
         } else {
-            $targets[] = Instances::resolve($this->profile, $refs);
+            $targets[] = Instances::resolve($this->environment, $refs);
         }
 
         $files = [];
@@ -81,9 +80,9 @@ final class BackupService
      */
     private function backup(string $nick, ?string $slug, array $options): string
     {
-        $etc = rtrim($this->profile['EtcRoot'] ?? '', '/');
-        $grid = Grid::find(Environment::forProfile($this->profile), $nick) ?? throw new \RuntimeException("grid '$nick' is not known here");
-        $model = Grid::at(Environment::forProfile($this->profile), $grid->directory());
+        $etc = rtrim($this->environment->layout->etcRoot(), '/');
+        $grid = Grid::find($this->environment, $nick) ?? throw new \RuntimeException("grid '$nick' is not known here");
+        $model = Grid::at($this->environment, $grid->directory());
         $output = rtrim($options['output'] ?? $this->defaultOutput(), '/');
         if (!is_dir($output) && !@mkdir($output, 0o750, true) && !is_dir($output)) {
             throw new \RuntimeException("cannot make the folder $output");
@@ -235,7 +234,7 @@ final class BackupService
      */
     private function databases(Grid $grid, ?string $slug): array
     {
-        $model = Grid::at(Environment::forProfile($this->profile), $grid->directory());
+        $model = Grid::at($this->environment, $grid->directory());
 
         return array_map(
             static fn(ConnectionString $db): array => ['host' => $db->source, 'name' => $db->database, 'user' => $db->user, 'pass' => $db->password],

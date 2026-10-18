@@ -29,8 +29,7 @@ final class Features
     /** The money modules the command knows, by the word it takes, and what OpenSim calls them in `economymodule`. */
     public const MONEY = ['beta' => 'BetaGridLikeMoneyModule', 'gloebit' => 'Gloebit'];
 
-    /** @param array<string,mixed> $profile the setup of the user (CoreDirectory, EnabledModules, ModulesRoot) */
-    public function __construct(private Grid $grid, private array $profile = []) {}
+    public function __construct(private Grid $grid) {}
 
     public static function isFeature(string $word): bool
     {
@@ -393,13 +392,13 @@ final class Features
      */
     private function moduleNotes(string $module): array
     {
-        $enabled = preg_split('/[\s,]+/', (string) ($this->profile['EnabledModules'] ?? ''), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $enabled = $this->grid->environment()->layout->enabledModules();
         $notes = [];
         if (!in_array($module, $enabled, true)) {
             $notes[] = "the module $module is not in EnabledModules of opensim.conf, the simulators do not load it";
         }
-        $root = (string) ($this->profile['ModulesRoot'] ?? '/usr/share/opensim-modules');
-        $core = basename((string) ($this->profile['CoreDirectory'] ?? ''));
+        $root = $this->grid->environment()->layout->modulesRoot();
+        $core = basename($this->grid->environment()->layout->coreDirectory());
         if ($core !== '' && !is_dir("$root/$core/$module")) {
             $notes[] = "the module $module is not installed for $core (apt install opensim-$core-$module)";
         }

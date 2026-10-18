@@ -10,6 +10,7 @@ use OpenSim\Models\Grid;
 use OpenSim\Models\Simulator;
 use OpenSim\Provisioning\SimulatorPlan;
 use OpenSim\Provisioning\SimulatorPlanner;
+use OpenSim\Testing\EnvironmentFake;
 
 /** A grid of this machine: demo, Robust at 8002, its database account known. */
 function sim_grid(array $set = []): Grid
@@ -17,7 +18,7 @@ function sim_grid(array $set = []): Grid
     $directory = test_tmp() . '/simgrid-' . bin2hex(random_bytes(4));
     mkdir("$directory/sims", 0o755, true);
 
-    return Grid::described([
+    return Grid::described(EnvironmentFake::with(), [
         'nick' => 'demo',
         'name' => 'Demo World',
         'directory' => $directory,
@@ -38,7 +39,6 @@ function simulator_planner(array $more = []): SimulatorPlanner
 
     return SimulatorPlanner::fromContext($more + [
         'grid' => sim_grid(),
-        'profile' => ['EtcRoot' => '/etc/opensim'],
         'cores' => ['/cores/0.9.3.0' => '0.9.3.0'],
         'defaultName' => 'Welcome',
         'block' => 9000,

@@ -11,6 +11,7 @@ use OpenSim\Models\Grid;
 use OpenSim\Models\Simulator;
 use OpenSim\Runtime\Environment;
 use OpenSim\Testing\Machine;
+use OpenSim\Testing\EnvironmentFake;
 
 describe('grids and simulators that can be enabled', function () {
     test('are Enablable, enabled by the link of their config and disabled by removing it', function () {
@@ -54,7 +55,7 @@ describe('grids and simulators that can be enabled', function () {
 describe('environment of a profile', function () {
     test('finds the grids of the install the profile describes', function () {
         $machine = new Machine();
-        $environment = Environment::forProfile(['EtcRoot' => $machine->etc]);
+        $environment = EnvironmentFake::with(['EtcRoot' => $machine->etc]);
 
         expect(Grid::find($environment, 'demo')?->robustIni())->toBe($machine->grid . '/Robust.HG.ini')
             ->and(Grid::find($environment, 'nowhere'))->toBeNull();

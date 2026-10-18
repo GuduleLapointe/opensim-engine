@@ -42,7 +42,6 @@ final class SimulatorPlanner
     {
         return [
             'grid' => null,       // the Grid of the grid it joins (one that is only planned is fine)
-            'profile' => [],
             'cores' => [],        // folder => name
             'modify' => false,    // the simulator is named by the caller: it exists and its name stays
             'simulatorName' => '',      // that name
@@ -62,27 +61,26 @@ final class SimulatorPlanner
      * @param ?string $simulatorName the simulator to change, null for a new one
      * @param ?string $regionName the region the simulator is made for, which gives it its name
      */
-    public static function forGrid(Grid $grid, array $profile, DatabaseService $database, UiInterface $ui, ?string $simulatorName = null, ?string $regionName = null): self
+    public static function forGrid(Grid $grid, DatabaseService $database, UiInterface $ui, ?string $simulatorName = null, ?string $regionName = null): self
     {
         $planner = new self([
             'grid' => $grid,
-            'profile' => $profile,
-            'cores' => Core::choices((string) ($profile['CoreRoot'] ?? '')),
+            'cores' => Core::choices($grid->environment()->layout->coreRoot()),
             'modify' => $simulatorName !== null,
             'simulatorName' => (string) $simulatorName,
         ]);
         // The first simulator of a grid has the name of its landing region, that is its first region; an accent is
         // transliterated (Noël becomes Noel)
-        $firstSimulator = !$grid->isRemote() && Grid::at(Environment::forProfile($profile), $grid->directory())->simulatorNames() === [];
+        $firstSimulator = !$grid->isRemote() && Grid::at($grid->environment(), $grid->directory())->simulatorNames() === [];
         $taken = static fn(string $v): ?string => Simulator::validateName($v) ?? (is_file("{$grid->directory()}/sims/" . $grid->instanceOf($v) . '.ini') ? 'taken' : null);
 
         // The ports of a simulator are a block of ten, the first free one from where the simulators of the grid start (9000 for
         // Robust on 8002), on this machine and among the regions the grids of this machine know on the others
-        $foreign = (new GridRegistry($database))->knownPorts($profile, $grid);
+        $foreign = (new GridRegistry($database))->knownPorts($grid->environment(), $grid);
 
         $context = [
             'defaultName' => $simulatorName ?? SimulatorName::suggest($regionName, $firstSimulator ? 'Welcome' : null, $taken),
-            'block' => Ports::nextBlock(Ports::simulatorsFrom($grid->publicPort()), $foreign),
+            'block' => (new Ports($grid->environment()))->nextBlock(Ports::simulatorsFrom($grid->publicPort()), $foreign),
             'accounts' => $grid->isRemote() ? null : (new GridAccounts($database, $ui))->names($grid),
         ];
 
@@ -107,7 +105,7 @@ final class SimulatorPlanner
         $grid = $this->context['grid'];
         $slug = $grid->instanceOf($name);
         $ini = "{$grid->directory()}/sims/$slug.ini";
-        $environment = Environment::forProfile($this->context['profile']);
+        $environment = $grid->environment();
         $sibling = null;
         foreach (glob("{$grid->directory()}/sims/*.ini") ?: [] as $other) {
             if (basename($other, '.ini') === $slug || $sibling !== null) {
@@ -257,7 +255,7 @@ final class SimulatorPlanner
         $plan->remoteGrid = $grid->isRemote() && !is_file("{$grid->directory()}/{$grid->nick()}.conf") ? $grid->describe() : null;
         // A grid joined by a preset: the simulators read the files of the preset, where they are
         $plan->preset = $grid->preset();
-        $plan->configDir = $grid->preset() !== '' ? (new Presets([], (string) ($this->context['profile']['EtcRoot'] ?? '')))->dir($grid->preset()) : '';
+        $plan->configDir = $grid->preset() !== '' ? (new Presets([], $grid->environment()->layout->etcRoot()))->dir($grid->preset()) : '';
 
         $plan->simulatorName = $v['name'];
         $plan->slug = $v['slug'];
@@ -312,7 +310,7 @@ final class SimulatorPlanner
 
     private function nextPort(int $min): int
     {
-        return $this->context['nextPort'] !== null ? ($this->context['nextPort'])($min) : Ports::next($min);
+        return $this->context['nextPort'] !== null ? ($this->context['nextPort'])($min) : (new Ports($this->context['grid']->environment()))->next($min);
     }
 
     /** Something made at random, once. */

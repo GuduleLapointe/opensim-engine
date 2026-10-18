@@ -12,6 +12,7 @@ use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\GridPlanner;
 use OpenSim\Runtime\Environment;
 use OpenSim\Testing\Machine;
+use OpenSim\Testing\EnvironmentFake;
 
 /** A planner for a machine called amy, with random things that are not: a counter. */
 function planner(array $more = []): GridPlanner
@@ -19,7 +20,7 @@ function planner(array $more = []): GridPlanner
     $counter = 0;
 
     return GridPlanner::with($more + [
-        'profile' => ['EtcRoot' => '/etc/opensim', 'DataRoot' => '/var/lib/opensim/data', 'CacheRoot' => '/var/cache/opensim', 'LogsRoot' => '/var/log/opensim', 'CoreDirectory' => '/usr/share/opensim/0.9.3.0'],
+        'environment' => EnvironmentFake::with(['EtcRoot' => '/etc/opensim', 'DataRoot' => '/var/lib/opensim/data', 'CacheRoot' => '/var/cache/opensim', 'LogsRoot' => '/var/log/opensim', 'CoreDirectory' => '/usr/share/opensim/0.9.3.0']),
         'cores' => ['/usr/share/opensim/0.9.3.0' => '0.9.3.0'],
         'defaultName' => 'Amy',
         'defaultHost' => 'amy.example.org',
@@ -67,7 +68,7 @@ function robust_current(array $set): RobustController
     }
     file_put_contents("$directory/Robust.ini", implode("\n", $ini) . "\n");
 
-    return new RobustController(Environment::forProfile([]), "$directory/Robust.ini", 'amy');
+    return new RobustController(EnvironmentFake::with([]), "$directory/Robust.ini", 'amy');
 }
 
 describe('A new grid', function () {
@@ -182,7 +183,7 @@ describe('The options of a new grid', function () {
     });
 
     test('tell the simulators where the search is: the helpers, the shared provider or nobody', function () {
-        $grid = Grid::described(['planned' => true, 'helpers' => true, 'webUrl' => 'https://play.example.org', 'helpersPath' => '/helpers']);
+        $grid = Grid::described(EnvironmentFake::with(), ['planned' => true, 'helpers' => true, 'webUrl' => 'https://play.example.org', 'helpersPath' => '/helpers']);
 
         expect($grid->helperUrl('query'))->toBe('https://play.example.org/helpers/query.php');
         $shared = $grid->with(['search' => 'shared']);
@@ -263,7 +264,7 @@ describe('grid planner from an existing grid of this machine', function () {
         $machine = new Machine();
         $machine->write($machine->grid . '/demo.conf', "[Grid]\nGridName = Demo\nRegionSpacing = 3\nCenter = \"1000,1000\"\nCoreDirectory = {$machine->core}\n");
 
-        $v = planner(['profile' => ['EtcRoot' => $machine->etc, 'DataRoot' => $machine->root . '/data']])->forNick('demo')->resolve();
+        $v = planner(['environment' => EnvironmentFake::with(['EtcRoot' => $machine->etc, 'DataRoot' => $machine->root . '/data'])])->forNick('demo')->resolve();
 
         expect($v)->toMatchArray(['spacing' => 3, 'center' => '1000,1000', 'public_port' => 8002, 'private_port' => 8003, 'hypergrid' => true]);
     });

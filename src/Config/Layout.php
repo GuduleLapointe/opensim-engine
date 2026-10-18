@@ -140,6 +140,18 @@ final class Layout
         return $this->get('CoreRoot');
     }
 
+    /** The core the install points to (CoreDirectory), empty when it says none. */
+    public function coreDirectory(): string
+    {
+        return $this->get('CoreDirectory');
+    }
+
+    /** The host the databases of the install are on (DataSource), empty when it says none. */
+    public function dataSource(): string
+    {
+        return $this->get('DataSource');
+    }
+
     public function varRoot(): string
     {
         return $this->get('VarRoot');
@@ -192,7 +204,7 @@ final class Layout
     {
         if (!$this->coreFound) {
             $this->coreFound = true;
-            $directory = $this->get('CoreDirectory');
+            $directory = $this->coreDirectory();
             $this->core = $directory !== '' && Core::at($directory)->exists()
                 ? Core::at($directory)
                 : Core::latest($this->coreRoot());

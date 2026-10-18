@@ -11,6 +11,7 @@ use OpenSim\Models\Region;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\RegionName;
 use OpenSim\Provisioning\RobustConfig;
+use OpenSim\Testing\EnvironmentFake;
 
 /**
  * The Robust config a plan generates, from a minimal example.
@@ -97,7 +98,7 @@ describe('Grid setup', function () {
 
 describe('Roles of a region', function () {
     test('a grid can give are default, default HG (on Hypergrid) and fallback', function () {
-        $grid = Grid::described(['hypergrid' => true]);
+        $grid = Grid::described(EnvironmentFake::with(), ['hypergrid' => true]);
         expect($grid->roles())->toBe(['DefaultRegion', 'DefaultHGRegion', 'FallbackRegion']);
         expect($grid->with(['hypergrid' => false])->roles())->toBe(['DefaultRegion', 'FallbackRegion']);
         expect($grid->with(['remote' => true])->roles())->toBe([]);
@@ -156,7 +157,7 @@ describe('Roles of a region', function () {
 
 describe('landing region of a grid', function () {
     test('is needed until a region is default', function () {
-        $grid = Grid::described([]);
+        $grid = Grid::described(EnvironmentFake::with(), []);
 
         expect($grid->needsLandingRegion())->toBeTrue();
         expect($grid->missingRoles())->toBe(['DefaultRegion', 'DefaultHGRegion', 'FallbackRegion']);
@@ -171,14 +172,14 @@ describe('landing region of a grid', function () {
     });
 
     test('skips the HG role without Hypergrid', function () {
-        $grid = Grid::described(['hypergrid' => false]);
+        $grid = Grid::described(EnvironmentFake::with(), ['hypergrid' => false]);
 
         expect($grid->missingRoles())->toBe(['DefaultRegion', 'FallbackRegion']);
         expect($grid->with(['regionFlags' => ['DefaultRegion']])->needsLandingRegion())->toBeFalse();
     });
 
     test('is the business of the grid run elsewhere', function () {
-        $remote = Grid::described(['remote' => true]);
+        $remote = Grid::described(EnvironmentFake::with(), ['remote' => true]);
 
         expect($remote->needsLandingRegion())->toBeFalse();
         expect($remote->missingRoles())->toBe([]);

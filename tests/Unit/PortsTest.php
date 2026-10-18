@@ -1,6 +1,18 @@
 <?php
 
 use OpenSim\Network\Ports;
+use OpenSim\Runtime\SystemProcessTable;
+use OpenSim\Testing\EnvironmentFake;
+use OpenSim\Testing\ProcessTableFake;
+
+/** The ports of a machine whose install is empty, where nothing listens. */
+function ports_of(array $layout = [], array $listening = []): Ports
+{
+    $processes = new ProcessTableFake();
+    $processes->listening = $listening;
+
+    return new Ports(EnvironmentFake::with($layout, $processes));
+}
 
 /**
  * The ports an instance gets: the simulators of a grid are looked for from the
@@ -22,12 +34,12 @@ describe('Ports of the simulators', function () {
 
     test('are a block of ten, the next block ten above', function () {
         // High ports: the blocks of the machine that runs the test (a simulator on 9010) are not the subject here
-        expect(Ports::nextBlock(29000, [29000, 29001, 29002, 29004]))->toBe(29010);
+        expect(ports_of()->nextBlock(29000, [29000, 29001, 29002, 29004]))->toBe(29010);
     });
 
     test('are the first free block from there', function () {
-        expect(Ports::nextBlock(9100, [9000]))->toBeGreaterThanOrEqual(9100);
-        expect(Ports::nextBlock(9100, [9000]) % 10)->toBe(0);
+        expect(ports_of()->nextBlock(9100, [9000]))->toBe(9100);
+        expect(ports_of(listening: [9101])->nextBlock(9100, [9000]))->toBe(9110);
     });
 });
 
@@ -43,26 +55,26 @@ describe('Ports of a simulator block', function () {
         $taken = [19000];
         $ports = [];
         for ($i = 0; $i < 8; $i++) {
-            $ports[] = $taken[] = Ports::nextRegion(19000, $taken);
+            $ports[] = $taken[] = ports_of()->nextRegion(19000, $taken);
         }
 
         expect($ports)->toBe([19001, 19002, 19003, 19005, 19006, 19007, 19008, 19009]);
-        expect(Ports::nextRegion(19000, $taken))->toBeNull();
+        expect(ports_of()->nextRegion(19000, $taken))->toBeNull();
     });
 
     test('keep x5 to x9 then x3 for a simulator made on x2', function () {
         $taken = [19002];
         $ports = [];
         for ($i = 0; $i < 6; $i++) {
-            $ports[] = $taken[] = Ports::nextRegion(19002, $taken);
+            $ports[] = $taken[] = ports_of()->nextRegion(19002, $taken);
         }
 
         expect($ports)->toBe([19005, 19006, 19007, 19008, 19009, 19003]);
-        expect(Ports::nextRegion(19002, $taken))->toBeNull();
+        expect(ports_of()->nextRegion(19002, $taken))->toBeNull();
     });
 
     test('give nothing for a port that is not in a block', function () {
-        expect(Ports::nextRegion(19003))->toBeNull();
+        expect(ports_of()->nextRegion(19003))->toBeNull();
     });
 });
 
@@ -85,31 +97,30 @@ describe('Ports bound on a machine', function () {
         unix  2      [ ACC ]     STREAM     LISTENING     12345    /run/x.sock
         NET;
 
-        expect(Ports::parseBound($bsd))
+        expect(SystemProcessTable::parseBound($bsd))
             ->toBe([8090, 9000, 9001])
-            ->and(Ports::parseBound($linux))
+            ->and(SystemProcessTable::parseBound($linux))
             ->toBe([8002, 9011])
-            ->and(Ports::parseBound(''))
+            ->and(SystemProcessTable::parseBound(''))
             ->toBe([]);
     });
 });
 
 describe('Ports in use', function () {
     test('are not the ones of the master of a grid, which is made of the defaults of the core', function () {
-        $root = sys_get_temp_dir() . '/ports-' . bin2hex(random_bytes(4));
+        $root = test_tmp() . '/ports-' . bin2hex(random_bytes(4));
         mkdir("$root/etc/grids/g/sims", 0o755, true);
-        mkdir("$root/home");
-        file_put_contents("$root/home/.opensim.conf", "[Defaults]\nEtcRoot = $root/etc\n");
         file_put_contents("$root/etc/grids/g/OpenSimGridDefaults.ini", "[Network]\nhttp_listener_port = 29000\nconsole_port = 29004\n");
         file_put_contents("$root/etc/grids/g/sims/one.ini", "[Network]\nhttp_listener_port = 29010\n");
-        $home = getenv('HOME');
-        putenv("HOME=$root/home");
-        try {
-            $free = Ports::nextFree(29000, 3);
-        } finally {
-            putenv('HOME=' . $home);
-        }
 
-        expect($free)->toBe([29000, 29001, 29002]);
+        expect(ports_of(['EtcRoot' => "$root/etc"])->nextFree(29000, 3))->toBe([29000, 29001, 29002]);
+    });
+
+    test('are the ones of the config files of the install and of the sockets that listen', function () {
+        $root = test_tmp() . '/ports-' . bin2hex(random_bytes(4));
+        mkdir("$root/etc/grids/g/sims", 0o755, true);
+        file_put_contents("$root/etc/grids/g/sims/one.ini", "[Network]\n; http_listener_port = 29001\nconsole_port = 29004\n");
+
+        expect(ports_of(['EtcRoot' => "$root/etc"], [29002])->nextFree(29000, 5))->toBe([29000, 29003, 29005, 29006, 29007]);
     });
 });

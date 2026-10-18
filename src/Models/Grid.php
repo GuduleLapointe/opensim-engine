@@ -450,10 +450,8 @@ final class Grid extends InstalledModel
      * @param array<string,mixed> $values by the names of the properties (nick, name, slug, directory, baseHostname, publicPort,
      *        privatePort, hypergrid, preset, remote...); what is not given is what a grid is by the book
      */
-    public static function described(array $values, ?Environment $environment = null): self
+    public static function described(Environment $environment, array $values): self
     {
-        $environment ??= Environment::forProfile([]);
-
         return new self($environment, rtrim((string) ($values['directory'] ?? ''), '/'), $values, [self::DESCRIBED]);
     }
 

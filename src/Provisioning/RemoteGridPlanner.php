@@ -34,7 +34,7 @@ final class RemoteGridPlanner
     public static function context(): array
     {
         return [
-            'profile' => [],
+            'environment' => null, // the Environment of the machine
             'presets' => [],     // name => name of the grid
             'describe' => null,  // Closure(string $preset): ?array, what a preset says of its grid (see Presets::describe())
             'says' => null,      // Closure(string $host, int $port): array<string,string>, what the grid says of itself (default: asks it)
@@ -42,12 +42,12 @@ final class RemoteGridPlanner
     }
 
     /** The planner of a machine. */
-    public static function forMachine(array $profile): self
+    public static function forMachine(Environment $environment): self
     {
-        $presets = new Presets([], (string) ($profile['EtcRoot'] ?? ''));
+        $presets = new Presets([], $environment->layout->etcRoot());
 
         return new self([
-            'profile' => $profile,
+            'environment' => $environment,
             'presets' => $presets->names(),
             'describe' => static fn(string $name): ?array => $presets->describe($name),
         ]);
@@ -117,9 +117,9 @@ final class RemoteGridPlanner
      */
     public function plan(array $answers, string $preset = ''): array
     {
-        $profile = $this->context['profile'];
-        $etcRoot = (string) ($profile['EtcRoot'] ?? '');
-        $environment = Environment::forProfile($profile);
+        $environment = $this->context['environment'] ?? throw new \LogicException('The planner knows no environment');
+        $layout = $environment->layout;
+        $etcRoot = $layout->etcRoot();
         $v = $this->resolve($answers);
         $result = ['grid' => null, 'error' => null, 'notes' => [], 'warnings' => []];
 
@@ -157,7 +157,7 @@ final class RemoteGridPlanner
             return $result;
         }
 
-        $result['grid'] = Grid::described([
+        $result['grid'] = Grid::described($environment, [
             'remote' => true,
             'preset' => $preset,
             'nick' => $nick,
@@ -168,11 +168,11 @@ final class RemoteGridPlanner
             'baseHostname' => $host,
             'publicPort' => $public,
             'privatePort' => trim((string) $v['private_port']) !== '' ? (int) $v['private_port'] : $public + 1,
-            'coreDirectory' => (string) ($profile['CoreDirectory'] ?? ''),
-            'dataDirectory' => ($profile['DataRoot'] ?? '') . "/$nick",
-            'cacheDirectory' => ($profile['CacheRoot'] ?? '') . "/$nick",
-            'logsDirectory' => (string) ($profile['LogsRoot'] ?? ''),
-        ], $environment);
+            'coreDirectory' => $layout->coreDirectory(),
+            'dataDirectory' => $layout->dataRoot() . "/$nick",
+            'cacheDirectory' => $layout->cacheRoot() . "/$nick",
+            'logsDirectory' => $layout->logsRoot(),
+        ]);
 
         return $result;
     }

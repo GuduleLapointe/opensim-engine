@@ -25,7 +25,6 @@ final class SimulatorImporter
         array $raw,
         string $path,
         Grid $grid,
-        array $profile,
         ?string $name,
         string $core,
     ): SimulatorPlan|string {

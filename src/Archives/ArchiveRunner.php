@@ -35,13 +35,12 @@ final class ArchiveRunner
     ];
 
     /**
-     * @param array<string,mixed> $profile the install profile
      * @param \Closure(string,string):bool $send gives the lines to the console of an instance
      * @param \Closure(string):bool $running whether the instance of a config runs
      * @param \Closure(string):void $say what the person is told
      */
     public function __construct(
-        private array $profile,
+        private Environment $environment,
         private \Closure $send,
         private \Closure $running,
         private \Closure $say,
@@ -49,10 +48,10 @@ final class ArchiveRunner
         private ?\Closure $ask = null,
     ) {}
 
-    public static function system(array $profile, int $timeout = 1800): self
+    public static function system(Environment $environment, int $timeout = 1800): self
     {
         return new self(
-            $profile,
+            $environment,
             static fn(string $instance, string $lines): bool => InstanceConsoleService::send($instance, $lines),
             static fn(string $ini): bool => InstanceConsoleService::running($ini),
             static function (string $message): void {
@@ -109,8 +108,8 @@ final class ArchiveRunner
             }
         }
 
-        [$nick, $slug, $named] = Instances::locate($this->profile, $refs);
-        $grid = Grid::find(Environment::forProfile($this->profile), $nick) ?? throw new \RuntimeException("grid '$nick' is not known here");
+        [$nick, $slug, $named] = Instances::locate($this->environment, $refs);
+        $grid = Grid::find($this->environment, $nick) ?? throw new \RuntimeException("grid '$nick' is not known here");
         if ($named !== null && !isset($options['region'])) {
             $options['region'] = $named;
         }
@@ -173,7 +172,7 @@ final class ArchiveRunner
     private function takeInstance(string $kind, array $words): array
     {
         $refs = [];
-        $grids = Instances::grids($this->profile['EtcRoot'] ?? '');
+        $grids = Instances::grids($this->environment->layout->etcRoot());
         if ($words === []) {
             return [[], []];
         }
@@ -196,7 +195,7 @@ final class ArchiveRunner
     private function names(array $refs): bool
     {
         try {
-            Instances::locate($this->profile, $refs);
+            Instances::locate($this->environment, $refs);
 
             return true;
         } catch (\InvalidArgumentException) {
@@ -207,7 +206,7 @@ final class ArchiveRunner
     /** A simulator of the grid that runs: any for a command that is the grid's (an inventory), the only one for a region */
     private function pickSimulator(Grid $grid, bool $onlyOne): string
     {
-        $model = Grid::at(Environment::forProfile($this->profile), $grid->directory());
+        $model = Grid::at($this->environment, $grid->directory());
         $names = $model->simulatorNames();
         $up = array_values(
             array_filter($names, fn(string $slug): bool => ($this->running)($model->simulatorLink($slug))),

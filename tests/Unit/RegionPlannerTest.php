@@ -10,11 +10,12 @@ use OpenSim\Models\Grid;
 use OpenSim\Models\Region;
 use OpenSim\Provisioning\RegionPlanner;
 use OpenSim\Provisioning\SimulatorPlan;
+use OpenSim\Testing\EnvironmentFake;
 
 /** A grid of this machine at 8002 whose center is 100,100, with Hypergrid and no region yet. */
 function region_grid(array $set = []): Grid
 {
-    return Grid::described(['nick' => 'demo', 'name' => 'Demo', 'directory' => '/nonexistent/grids/demo', 'center' => '100,100'])->with($set);
+    return Grid::described(EnvironmentFake::with(), ['nick' => 'demo', 'name' => 'Demo', 'directory' => '/nonexistent/grids/demo', 'center' => '100,100'])->with($set);
 }
 
 /** A planner whose random things are not: a name by a counter, a port by the block. */

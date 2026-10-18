@@ -4,6 +4,7 @@ use OpenSim\Archives\ArchiveRunner;
 use OpenSim\Archives\Archives;
 use OpenSim\Archives\BackupService;
 use OpenSim\Archives\Instances;
+use OpenSim\Testing\EnvironmentFake;
 
 /**
  * An install with one grid, alpha, whose simulators sim1 (a region, Welcome) and sim2 (two regions) are enabled.
@@ -164,23 +165,23 @@ describe('instance a command names', function () {
     test('is a grid, a simulator or a region', function () {
         $profile = archive_install();
 
-        expect(Instances::locate($profile, []))
+        expect(Instances::locate(EnvironmentFake::with($profile), []))
             ->toBe(['alpha', null, null])
-            ->and(Instances::locate($profile, ['alpha']))
+            ->and(Instances::locate(EnvironmentFake::with($profile), ['alpha']))
             ->toBe(['alpha', null, null])
-            ->and(Instances::locate($profile, ['alpha', 'sim1']))
+            ->and(Instances::locate(EnvironmentFake::with($profile), ['alpha', 'sim1']))
             ->toBe(['alpha', 'alpha_sim1', null])
-            ->and(Instances::locate($profile, ['alpha', '_sim2']))
+            ->and(Instances::locate(EnvironmentFake::with($profile), ['alpha', '_sim2']))
             ->toBe(['alpha', 'alpha_sim2', null])
-            ->and(Instances::locate($profile, ['alpha_sim2']))
+            ->and(Instances::locate(EnvironmentFake::with($profile), ['alpha_sim2']))
             ->toBe(['alpha', 'alpha_sim2', null])
-            ->and(Instances::locate($profile, ['alpha', 'south']))
+            ->and(Instances::locate(EnvironmentFake::with($profile), ['alpha', 'south']))
             ->toBe(['alpha', 'alpha_sim2', 'South'])
-            ->and(Instances::locate($profile, ['Welcome']))
+            ->and(Instances::locate(EnvironmentFake::with($profile), ['Welcome']))
             ->toBe(['alpha', 'alpha_sim1', 'Welcome'])
-            ->and(Instances::resolve($profile, ['North']))
+            ->and(Instances::resolve(EnvironmentFake::with($profile), ['North']))
             ->toBe(['alpha', 'alpha_sim2'])
-            ->and(fn() => Instances::locate($profile, ['alpha', 'nope']))
+            ->and(fn() => Instances::locate(EnvironmentFake::with($profile), ['alpha', 'nope']))
             ->toThrow(InvalidArgumentException::class);
     });
 });
@@ -190,7 +191,7 @@ describe('opensim save and load', function () {
     function archive_runner(array $profile, array &$sent, string $answer): ArchiveRunner
     {
         return new ArchiveRunner(
-            $profile,
+            EnvironmentFake::with($profile),
             function (string $instance, string $lines) use (&$sent, $answer, $profile): bool {
                 $sent[] = [$instance, $lines];
                 $log = "{$profile['LogsRoot']}/$instance.log";
@@ -374,7 +375,7 @@ describe('opensim save and load', function () {
         $sent = [];
         $messages = [];
         $runner = new ArchiveRunner(
-            $profile,
+            EnvironmentFake::with($profile),
             function (string $instance, string $lines) use ($profile): bool {
                 file_put_contents(
                     "{$profile['LogsRoot']}/alpha_sim1.log",
@@ -408,7 +409,7 @@ describe('opensim save and load', function () {
             ->and($sent)
             ->toBe([]);
 
-        $down = new ArchiveRunner($profile, fn() => true, fn() => false, static function (string $m): void {}, 1);
+        $down = new ArchiveRunner(EnvironmentFake::with($profile), fn() => true, fn() => false, static function (string $m): void {}, 1);
         expect($down->run('save', ['iar', 'Jane', 'Doe', '/', 'pw'])[0])->toBe(1);
 
         putenv('OPENSIM_IAR_PASSWORD');
@@ -422,7 +423,7 @@ describe('opensim backup', function () {
         $profile = archive_install();
         $dumped = [];
         $backup = new BackupService(
-            $profile,
+            EnvironmentFake::with($profile),
             function (array $db, string $file) use (&$dumped): void {
                 $dumped[] = $db['name'];
                 file_put_contents($file, 'dump');
@@ -466,7 +467,7 @@ describe('opensim backup', function () {
         $profile = archive_install();
         file_put_contents("{$profile['LogsRoot']}/alpha_sim1.log", 'log');
         $backup = new BackupService(
-            $profile,
+            EnvironmentFake::with($profile),
             fn(array $db, string $file) => file_put_contents($file, 'x'),
             static function (string $m): void {},
             '20261003-101500',
@@ -486,7 +487,7 @@ describe('opensim backup', function () {
         $profile = archive_install();
         $dumped = [];
         $backup = new BackupService(
-            $profile,
+            EnvironmentFake::with($profile),
             function (array $db, string $file) use (&$dumped): void {
                 $dumped[] = $db['name'];
                 file_put_contents($file, 'x');
@@ -514,7 +515,7 @@ describe('opensim backup', function () {
     test('keeps every backup unless asked', function () {
         $profile = archive_install();
         $make = static fn(string $stamp): array => (new BackupService(
-            $profile,
+            EnvironmentFake::with($profile),
             static function (array $db, string $file): void {
                 file_put_contents($file, 'dump');
             },
@@ -532,7 +533,7 @@ describe('opensim backup', function () {
     test('removes the older ones with --keep, series by series', function () {
         $profile = archive_install();
         $make = static fn(string $stamp, array $options = []): array => (new BackupService(
-            $profile,
+            EnvironmentFake::with($profile),
             static function (array $db, string $file): void {
                 file_put_contents($file, 'dump');
             },
@@ -555,7 +556,7 @@ describe('opensim backup', function () {
     test('leaves nothing behind when a dump fails', function () {
         $profile = archive_install();
         $backup = new BackupService(
-            $profile,
+            EnvironmentFake::with($profile),
             function (array $db, string $file): void {
                 throw new RuntimeException('dump failed');
             },

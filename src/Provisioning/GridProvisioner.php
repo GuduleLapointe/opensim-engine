@@ -24,7 +24,7 @@ final class GridProvisioner
     }
 
     /** The writing itself: run as the system user of the install, root, or the user of an install without one. */
-    public function apply(GridPlan $plan, array $profile): void
+    public function apply(GridPlan $plan, Environment $environment): void
     {
         $this->makeDirs($plan);
         $conf = (new GridConf())->write($plan);
@@ -32,8 +32,8 @@ final class GridProvisioner
         $this->writeRobust($plan);
         $this->writeHelpers($plan);
         $this->copyConfigInclude($plan);
-        $this->writeMaster($plan, $profile);
-        $this->applyOptions($plan, $profile);
+        $this->writeMaster($plan, $environment);
+        $this->applyOptions($plan, $environment);
 
         $logConfig = (new RobustLogConfig())->write($plan);
         if ($logConfig !== null) {
@@ -43,7 +43,7 @@ final class GridProvisioner
         // What was asked is kept, to make the same grid again from a file (opensim import)
         SetupFile::record($plan->gridDir, static fn(array $data): array => SetupFile::withGrid($data, $plan));
 
-        $systemUser = $profile['SystemUser'] ?? '';
+        $systemUser = $environment->layout->systemUser();
         $this->giveToSystemUser($systemUser, [$plan->etcDirectory, $plan->dataDirectory, $plan->cacheDirectory], true);
         // Every ini file may hold a password, and the web server reads them: 640, the group of the web server
         if (!GridFileService::protect($plan->gridDir) && $plan->helpers) {
@@ -58,7 +58,7 @@ final class GridProvisioner
         }
 
         if ($plan->enable) {
-            $grid = Grid::at(Environment::forProfile($profile), $plan->gridDir);
+            $grid = Grid::at($environment, $plan->gridDir);
             if ($grid->enable()) {
                 $link = (string) $grid->robust()?->link();
                 $this->giveToSystemUser($systemUser, [$link], false);
@@ -159,10 +159,8 @@ final class GridProvisioner
     /**
      * The options of a grid that is made, which the files do not carry by themselves: more OSSL (an ini file combined into the one of
      * the grid) and the currency. The default of each is what the files already say, nothing to do.
-     *
-     * @param array<string,mixed> $profile
      */
-    private function applyOptions(GridPlan $plan, array $profile): void
+    private function applyOptions(GridPlan $plan, Environment $environment): void
     {
         if ($plan->ossl && ($file = GridOptions::combine('ossl-extended', "{$plan->etcDirectory}/config-include/osslEnable.ini")) !== null) {
             $this->ui->note(sprintf(_('Wrote %s'), $file));
@@ -170,8 +168,8 @@ final class GridProvisioner
         if ($plan->economy !== 'gloebit') {
             return;
         }
-        $grid = Grid::find(Environment::forProfile($profile), $plan->gridNick);
-        $result = $grid === null ? ['error' => 'the grid is not there', 'notes' => []] : (new Features($grid, $profile))->enable(Features::ECONOMY, ['money' => 'gloebit']);
+        $grid = Grid::find($environment, $plan->gridNick);
+        $result = $grid === null ? ['error' => 'the grid is not there', 'notes' => []] : (new Features($grid))->enable(Features::ECONOMY, ['money' => 'gloebit']);
         $result['error'] === null || $this->ui->warn(sprintf(_('The currency of the grid was not set: %s'), $result['error']));
         foreach ($result['notes'] as $note) {
             $this->ui->note($note);
@@ -184,7 +182,7 @@ final class GridProvisioner
      * decide: a feature that was disabled stays so), then the master is made from the core, the model of the toolset, the grid and
      * these decisions. The simulators say only what makes them their own.
      */
-    private function writeMaster(GridPlan $plan, array $profile): void
+    private function writeMaster(GridPlan $plan, Environment $environment): void
     {
         $general = "{$plan->etcDirectory}/OpenSim.ini";
         if (!is_file($general)) {
@@ -193,7 +191,7 @@ final class GridProvisioner
         if (!SimulatorMaster::exists($plan->etcDirectory)) {
             $ini = IniEditor::load($general);
             $before = $ini->toString();
-            $ini->overlay(implode("\n", SimulatorConfig::gridLayer(Grid::planned(Environment::forProfile($profile), $plan))));
+            $ini->overlay(implode("\n", SimulatorConfig::gridLayer(Grid::planned($environment, $plan))));
             if ($ini->toString() !== $before) {
                 $ini->save($general);
             }

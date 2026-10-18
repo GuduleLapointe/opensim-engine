@@ -83,16 +83,16 @@ final class GridFileService
         return $text;
     }
 
-    /** The content of a file read as the system user of the install, null when there is none, or when it cannot (no sudo). */
+    /** The content of a file read as the user who owns it, null when that is the caller or root, or when it cannot (no sudo). */
     private static function sudoRead(string $path): ?string
     {
-        $user = Layout::load()->systemUser();
+        $owner = function_exists('posix_getpwuid') ? (posix_getpwuid((int) @fileowner($path))['name'] ?? '') : '';
         $me = function_exists('posix_geteuid') ? (posix_getpwuid(posix_geteuid())['name'] ?? '') : '';
-        if ($user === '' || $me === $user || $me === 'root') {
+        if ($owner === '' || $me === $owner || $me === 'root') {
             return null;
         }
         // A password is asked on the terminal when there is one, else sudo must not need it
-        $command = ['sudo', ...(function_exists('posix_isatty') && posix_isatty(STDIN) ? [] : ['-n']), '-H', '-u', $user, 'cat', '--', $path];
+        $command = ['sudo', ...(function_exists('posix_isatty') && posix_isatty(STDIN) ? [] : ['-n']), '-H', '-u', $owner, 'cat', '--', $path];
         $process = @proc_open($command, [0 => STDIN, 1 => ['pipe', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes);
         if (!is_resource($process)) {
             return null;

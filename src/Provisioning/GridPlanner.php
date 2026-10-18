@@ -46,7 +46,7 @@ final class GridPlanner
     public static function context(): array
     {
         return [
-            'profile' => [],        // the install (EtcRoot, DataRoot, CacheRoot, LogsRoot, CoreDirectory, DataSource)
+            'environment' => null,  // the Environment of the machine (its layout gives the roots, the core and the data source)
             'cores' => [],          // folder => name of the cores that can run the grid
             'modify' => false,      // the grid exists and is changed: its nick stays
             'nick' => '',           // the grid whose settings are the starting point
@@ -66,15 +66,15 @@ final class GridPlanner
     }
 
     /** The planner of a machine, for a new grid or for the grid of this nick. */
-    public static function forMachine(array $profile, ?string $modifyNick = null): self
+    public static function forMachine(Environment $environment, ?string $modifyNick = null): self
     {
         $planner = new self([
-            'profile' => $profile,
-            'cores' => Core::choices((string) ($profile['CoreRoot'] ?? '')),
+            'environment' => $environment,
+            'cores' => Core::choices($environment->layout->coreRoot()),
             'modify' => $modifyNick !== null,
             'defaultName' => self::defaultName(),
             'defaultHost' => self::defaultHost(),
-            'defaultPublic' => self::defaultPublicPort(),
+            'defaultPublic' => self::defaultPublicPort($environment),
             // The helpers are proposed when the machine has them; their path is the default one until a grid says another
             'helpersAvailable' => is_dir(Snippets::WEBROOT),
             'helpersPath' => HelpersConfig::basePath('/nonexistent'),
@@ -93,8 +93,8 @@ final class GridPlanner
     /** The same planner, starting from the grid of this nick: its settings are the ones proposed. */
     public function forNick(string $nick): self
     {
-        $dir = rtrim((string) ($this->context['profile']['EtcRoot'] ?? ''), '/') . "/grids/$nick";
-        $grid = Grid::find(Environment::forProfile($this->context['profile']), $nick);
+        $dir = rtrim($this->environment()->layout->etcRoot(), '/') . "/grids/$nick";
+        $grid = Grid::find($this->environment(), $nick);
         $center = ConfigReader::file("$dir/$nick.conf")['Grid']['Center'] ?? '';
 
         return new self([
@@ -127,9 +127,9 @@ final class GridPlanner
     }
 
     /** The public port a grid is proposed: the one of the first block of ten ports that is free, ending with 2. */
-    public static function defaultPublicPort(): int
+    public static function defaultPublicPort(Environment $environment): int
     {
-        return Ports::nextBlock(8000) + 2;
+        return (new Ports($environment))->nextBlock(8000) + 2;
     }
 
     /** The name a grid is proposed: the one of the machine. */
@@ -167,7 +167,7 @@ final class GridPlanner
     {
         $c = $this->context;
         $current = $c['current'];
-        $profile = $c['profile'];
+        $layout = $this->environment()->layout;
         $modify = $c['modify'];
         $text = static fn(string $name, mixed $default): string => trim((string) ($answers[$name] ?? $default));
 
@@ -176,7 +176,7 @@ final class GridPlanner
         $hypergrid = self::flag($answers['hypergrid'] ?? $c['currentHypergrid'] ?? true);
         $spacing = (int) ($answers['spacing'] ?? $c['savedSpacing']);
         $cores = $c['cores'];
-        $core = $text('core', count($cores) > 1 ? (string) ($profile['CoreDirectory'] ?? '') : '');
+        $core = $text('core', count($cores) > 1 ? $layout->coreDirectory() : '');
         $core = $core !== '' ? $core : (string) array_key_first($cores);
 
         $host0 = (string) ($current?->baseHostname() ?? $c['defaultHost']);
@@ -214,7 +214,7 @@ final class GridPlanner
             'ossl' => self::flag($answers['ossl'] ?? false),
             'web_server' => self::choice($answers['web_server'] ?? null, ['caddy', 'apache', 'nginx'], $c['webServer']),
             'web_site' => self::choice($answers['web_site'] ?? null, ['helpers', 'website'], 'helpers'),
-            'database_host' => $text('database_host', $current?->databaseHost() ?? ($profile['DataSource'] ?? 'localhost')),
+            'database_host' => $text('database_host', $current?->databaseHost() ?? ($layout->dataSource() ?: 'localhost')),
             'database_name' => $text('database_name', $current?->databaseName() ?? strtolower($nick) . '_robust'),
             'database_user' => $text('database_user', $current?->databaseUser() ?? 'opensim'),
             // A password found is reused, otherwise one is made (never changeme)
@@ -242,10 +242,10 @@ final class GridPlanner
     public function plan(array $answers = []): GridPlan
     {
         $v = $this->resolve($answers);
-        $profile = $this->context['profile'];
+        $layout = $this->environment()->layout;
         $current = $this->context['current'];
         $nick = (string) $v['nick'];
-        $gridDir = rtrim((string) ($profile['EtcRoot'] ?? ''), '/') . "/grids/$nick";
+        $gridDir = rtrim($layout->etcRoot(), '/') . "/grids/$nick";
 
         $plan = new GridPlan();
         $plan->gridName = $v['name'];
@@ -253,9 +253,9 @@ final class GridPlanner
         $plan->gridSlug = Slug::slug($v['name']);
         $plan->gridDir = $gridDir;
         $plan->etcDirectory = $gridDir;
-        $plan->dataDirectory = ($profile['DataRoot'] ?? '') . "/$nick";
-        $plan->cacheDirectory = ($profile['CacheRoot'] ?? '') . "/$nick";
-        $plan->logsDirectory = (string) ($profile['LogsRoot'] ?? '');
+        $plan->dataDirectory = $layout->dataRoot() . "/$nick";
+        $plan->cacheDirectory = $layout->cacheRoot() . "/$nick";
+        $plan->logsDirectory = $layout->logsRoot();
         $plan->enableHypergrid = $v['hypergrid'];
         // The rule that places the regions: free blocks between them
         $plan->regionSpacing = $v['spacing'];
@@ -305,9 +305,15 @@ final class GridPlanner
         return $public % 10 === 2 ? $public + 2 : $this->nextPort($private + 1);
     }
 
+    /** The machine the plan is made for. */
+    private function environment(): Environment
+    {
+        return $this->context['environment'] ?? throw new \LogicException('The planner knows no environment');
+    }
+
     private function nextPort(int $min): int
     {
-        return $this->context['nextPort'] !== null ? ($this->context['nextPort'])($min) : Ports::next($min);
+        return $this->context['nextPort'] !== null ? ($this->context['nextPort'])($min) : (new Ports($this->environment()))->next($min);
     }
 
     /** Something made at random, once. */

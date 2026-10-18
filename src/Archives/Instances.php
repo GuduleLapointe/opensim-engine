@@ -5,6 +5,7 @@ namespace OpenSim\Archives;
 use OpenSim\Models\Grid;
 use OpenSim\Models\Region;
 use OpenSim\Provisioning\Slug;
+use OpenSim\Runtime\Environment;
 
 /**
  * Which grid, and which simulator or region of it, the words of a command name: `GRID`, `GRID SIM`, `GRID _SIM`,
@@ -16,15 +17,14 @@ final class Instances
      * Which grid, which simulator, which region the words name: a grid, a grid and a simulator or a region of it, the
      * simulator or the region alone, or nothing when the install has one grid.
      *
-     * @param array<string,mixed> $profile the install profile
      * @param list<string> $refs the words, none to two
      * @return array{0:string,1:?string,2:?string} the nick of the grid, the instance of the simulator (the one that has the
      *         region when a region is named), the region
      * @throws \InvalidArgumentException
      */
-    public static function locate(array $profile, array $refs): array
+    public static function locate(Environment $environment, array $refs): array
     {
-        $etc = $profile['EtcRoot'] ?? '';
+        $etc = $environment->layout->etcRoot();
         $nicks = self::grids($etc);
         $nick = null;
         $target = null;
@@ -75,9 +75,9 @@ final class Instances
      * @param list<string> $refs
      * @return array{0:string,1:?string}
      */
-    public static function resolve(array $profile, array $refs): array
+    public static function resolve(Environment $environment, array $refs): array
     {
-        [$nick, $slug] = self::locate($profile, $refs);
+        [$nick, $slug] = self::locate($environment, $refs);
 
         return [$nick, $slug];
     }
