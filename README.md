@@ -24,12 +24,14 @@ The code has been **battle-tested** across different implementations before bein
 
 ## 🎯 What This Library Does
 
-- ✅ **Database Operations** - Robust/OpenSim database management
-- ✅ **OpenSim Protocol** - REST API communication with grids
-- ✅ **Configuration Management** - Grid and region settings management and storage
-- ✅ **Security Functions** - Input validation and output escaping
-- ✅ **Form Generation** - Dynamic configuration forms
-- ✅ **Installation** - Process setup automation (initiated by parent)
+- ✅ **The models of a grid** - grids, simulators, services, avatars, regions, parcels, estates: listed, found, changed, the same way (`docs/data.md`)
+- ✅ **The controllers** - Robust and OpenSim processes: start, stop, restart, status, console
+- ✅ **Configuration** - the ini files read as OpenSimulator reads them, written without losing what the person added
+- ✅ **Databases** - every database asked as itself, wherever the grid keeps it (MySQL, MariaDB)
+- ✅ **Provisioning** - planners and provisioners that make a grid, a simulator, a region
+- ✅ **Scheduling** - tasks that run by cron or by pseudo cron, locked, with their last run kept
+- ✅ **A contract** - resources as JSON:API documents, errors as RFC 9457 problems, an OpenAPI document checked against the models
+- ✅ **Security functions, forms, archives (OAR, IAR), health checks**
 
 ## 🚫 What This Library Does NOT Do
 
@@ -37,7 +39,6 @@ The code has been **battle-tested** across different implementations before bein
 - ❌ No user HTTP request handling
 - ❌ No user authentication
 - ❌ No WordPress or other CMS/framework dependencies
-- ❌ No standalone application functionality
 
 ### **For Developers:**
 
@@ -58,11 +59,39 @@ PHP 8.2 or newer, with the `curl`, `filter`, `intl`, `json`, `mbstring`, `mysqli
 
 On Debian and Ubuntu: `sudo apt install php-cli php-curl php-intl php-mbstring php-mysql php-xml`, the other extensions come with `php-common` and `php-cli`.
 
-`OpenSim_Oar` makes, reads and checks OpenSimulator archives (`pack`, `entries`, `info`, `check`, `unpack`).
+## The machine and its models
 
-`OpenSim_Config` reads the config of an OpenSim environment into a tree that follows the structure of the ini files, with the files they include and their constants: `OpenSim_Config::from_folder($dir)`, then `$config->get('Robust.GridInfoService.SearchURL')`, `$config->find('GridInfoService', 'SearchURL')` (first file that says it), `$config->section('GridInfoService')`, `$config->tree()`.
+Everything the engine does on a machine goes through an `Environment`: where the install is (`Layout`), its processes, its launcher, its consoles, its clock. A front-end makes one, a test makes one with fakes.
 
-`OpenSim_Health` checks a grid and gives the result as data, for any page or command that shows it: `grid()` starts with what the grid says (`get_grid_info`), then lists the addresses of the config by file, section and setting, and compares both; `answers()` asks them all at once (code where the redirections lead, time, certificate); `xmlrpc()`, `post()` and `query()` build the two calls a service must pass (with nothing it must refuse, with what it expects it must answer); `extensions()` and `files()` say what an install lacks.
+```php
+use OpenSim\Config\Layout;
+use OpenSim\Models\{Grid, Simulator, Service};
+use OpenSim\Runtime\Environment;
+
+$environment = Environment::system(Layout::resolve());      // the install of this machine
+$grid = Grid::find($environment, 'vonda');
+$grid->robust()->isRunning();                                // its Robust (a controller)
+$grid->service('asset')->uri();                              // a service of the grid, and who serves it
+$simulator = $grid->simulator('welcome');
+$simulator->service('profile')->uri();                       // the service as this simulator reaches it
+$grid->start(simulators: true);
+```
+
+A grid has one or several Robust instances, each serving some of its services; a standalone grid has none, its simulator serves everything. The simulators inherit the services of their grid.
+
+| Namespace | What it is |
+| --- | --- |
+| `OpenSim\Models` | `Grid`, `Simulator`, `Service` (of the machine), `Avatar`, `Region`, `Parcel`, `Estate` (of a grid's databases) |
+| `OpenSim\Controllers` | `RobustController`, `OpenSimController`: the processes that serve |
+| `OpenSim\Runtime` | `Environment`, `Core` (an OpenSimulator release), the process table, the launcher |
+| `OpenSim\Config` | `Layout` (opensim.conf), `GridConfig` (the files of a grid), `ConfigReader`, `IniEditor` |
+| `OpenSim\Data` | `Database` (the databases of a grid), `Connections`, `OSPDO`, `Collection` |
+| `OpenSim\Provisioning` | planners and provisioners: they answer "what would this be" before "make it" |
+| `OpenSim\Scheduling` | `Scheduler`, `Task`: cron and pseudo cron |
+| `OpenSim\Api` | `Api`, `Contract`, `Problem`: the resources as JSON:API, the errors as RFC 9457 |
+| `OpenSim\Archives`, `Health`, `Hypergrid`, `Network`, `Security`, `Forms`, `Testing` | archives, health checks, hypergrid links, ports, escaping, forms, fakes |
+
+`OpenSim\Testing\Machine` is a machine that is a folder (a grid `demo`, two simulators), `EnvironmentFake::with($layout)` an environment that touches nothing: the suite runs anywhere (`composer test`).
 
 ## 🛠️ Developer Installation
 
@@ -81,20 +110,14 @@ git submodule add https://github.com/magicoli/opensim-engine.git engine
 ### Usage in Code
 
 ```php
-// Bootstrap the engine
-require_once 'engine/bootstrap.php';
-// or require_once 'vendor/magicoli/opensim-engine/bootstrap.php' if installed via composer
-
-// Engine provides the core classes and functions
-// See parent projects (W4OS, Helpers) for implementation examples
+require 'vendor/autoload.php';   // PSR-4: OpenSim\ is src/; the gettext stand-in and the xmlrpc polyfill load by themselves
 ```
 
 ## 📚 Documentation
 
 - **[Developer Guide](DEVELOPERS.md)** - Architecture rules and patterns
 - **[The data of a grid](docs/data.md)** - the models (avatars, regions, parcels), the collections and the databases
-- **API Reference** - (planned after migration completion)
-- **Examples** - (planned after migration completion)
+- **[Migration of the consumers](docs/MIGRATION.md)** - what was renamed, moved or removed
 
 ## 🤝 Contributing
 
@@ -106,7 +129,6 @@ This library follows strict architectural principles:
 
 See [DEVELOPERS.md](DEVELOPERS.md) for complete guidelines.
 
-**Note:** The library is undergoing architectural migration. API documentation and examples will be added once the refactoring is complete and the API is stable.
 
 ## 📄 License
 

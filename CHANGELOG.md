@@ -2,6 +2,13 @@
 
 ### Unreleased
 
+- new: `Api`, `Contract`, `Problem`: JSON:API documents, an OpenAPI 3.1 contract checked by the tests, RFC 9457 errors
+- new: `Scheduling\Scheduler` and `Task`: cron and pseudo cron, locked, last run kept
+- new: `Avatar::create()` and a fuller `update()`; `AccountImporter::forModels()`
+- new: `Models\Service` and `Grid::services()`, `Simulator::service()`; standalone grids (`Standalone = true`)
+- update: every operation takes an `Environment` (no profile array); `Ports` is built on one; `EnvironmentFake` for tests
+- update: `Instance` and `Robust` are `Controllers\Controller` and `RobustController`; `Core` is `Runtime\Core`
+- update: `sims` is `simulators` in the code (`GridConfig::SIMULATORS` names the folder); the region form field is `simulator`
 - update: `OSPDO` is `OpenSim\Data\OSPDO` and the health checks `OpenSim\Health\Health`; the `legacy/` aliases (`OpenSim_Config`, `OpenSim_Oar`) are gone, the classes load through the autoloader only
 - update: the classes and functions of the WordPress plugin nobody here uses are gone (`OpenSim_Avatar`, `OpenSim_Form`..., the escaping and the dead functions); the plugin has its own copy
 - new: `Data\Stats`: the numbers of a grid (members, who is in world, regions, area), from the database of each service

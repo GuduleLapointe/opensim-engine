@@ -1,61 +1,26 @@
 # OpenSim Engine Development Rules
 
-Although this library is primarily designed to be used with W4OS WordPress plugin and the OpenSim Helpers project, it can also be used independently. Therefore, it is important to follow the rules below to ensure that the code remains generic and does not depend on WordPress or the Helpers library.
+The engine is a pure library: it reads and writes the data of OpenSimulator grids (files, databases, consoles, processes) and nothing else. It never accepts HTTP input nor gives HTTP output, it never reads a global: a front-end (the helpers, the manager, a command, a plugin) gives it what it needs and shows what it returns.
 
-**The Engine is a pure library responsible for data manipulation and storage only.**
-It should never accept HTTP input nor provide HTTP output. All requests must be made by calling internal methods and functions, and all responses must be returned by those methods and functions. It is not responsible for user interactions.
+- **Nothing of the projects that use it** (no `w4os`, `wordpress`, `helpers` in a name), no framework.
+- **The engine is the only reader of the databases, the files and the consoles of a grid.** The consumers ask it; they never query a table or parse an ini themselves.
+- **Environment, not globals.** Whatever acts on a machine takes an `OpenSim\Runtime\Environment` (its layout, processes, launcher, consoles, clock). Whatever reads a grid's databases takes a `GridConfig`. No `Layout::load()` in the middle of a class.
+- **Names.** PSR-4, `OpenSim\` is `src/`; a class goes with its domain thing (`Avatar`, `Estate`, `Parcel`, `Region`, `Service`), not in a folder of its feature. Say `Simulator`, never `Sim` (except what OpenSimulator itself names so: `index_sims`, the console commands). A slug is kebab-case (`green-field`), a table or database name snake_case, the slug of a simulator is its grid, an underscore, its own slug (`vonda_welcome`), its id is its URI (`host:port`).
+- **Every model offers the same** (`ModelInterface`: `id() name() slug() uri() detail() channels() update() delete()`, `all()` and `find()`), whatever it comes from. A write goes through a channel and is refused with `ChannelUnavailable` when none can do it.
+- **Every database is asked as itself**: the `ConnectionString` of its service, else `[DatabaseService]` (`OpenSim\Data\Database`). Never assume the services share one.
+- **Never delete logic because nothing calls it**; port it, tag it, say what was dropped and why.
+- **Errors are explicit**: an exception that says what failed (`ChannelUnavailable`, `InvalidArgumentException`), told as a problem (RFC 9457) by `OpenSim\Api\Problem`. No intentional 500.
+- **Comments say what, not why or how**: the docblocks tell what a thing is, its arguments, its result. The history is in git.
 
-When working on files in the `engine/` directory:
+## Tests
 
-- **never use code or concepts related to projects consuming this library**, it must be generic and work with any project.
-- Use only generic PHP - no WordPress functions, no Helpers functions
-- No `w4os`, `wordpress` or `helpers` references in variable names or constants
-- Class names: `Engine_*`, `OpenSim_*`
-- Settings use only `Engine_Settings` class
-- Pass data as parameters instead of accessing globals directly
-- All methods should work standalone without the need of usual parents like w4os plugin or Helpers
+The suite needs nothing of the machine it runs on: `composer test` (Pest). The fakes of `OpenSim\Testing` stand for the install, the processes, the consoles and the clock; the databases are SQLite in memory with the tables of OpenSimulator. A test that needs more (podman, a real database) is skipped, with the reason, where it cannot run.
 
-## Example Patterns
+`vendor/bin/pest --filter=ServiceTest` runs some tests. After a class is added, `composer dump-autoload` (the class map is authoritative). The packaging test (`PACKAGING=1`) builds the packages in a container.
 
-```php
-// Good - Generic
-Engine_Settings::get('database_host')
-$wizard_data = $_SESSION['opensim_engine']['received_data']
+## Formatting
 
-// Good - Pass data explicitly
-function process_avatar($avatar_data, $db_config) {
-    // Work with provided data
-}
-
-// Bad - WordPress specific
-get_option('w4os_database_host')
-$wp_data = $_SESSION['w4os_wizard_data']
-
-// Bad - Hidden dependencies
-function process_avatar() {
-    global $wpdb;
-    $config = get_option('w4os_config');
-    // Accessing globals makes code unpredictable
-}
-
-// Bad - Direct HTTP handling (Engine should NOT do this)
-function handle_avatar_request() {
-    $avatar_data = $_POST['avatar'];
-    echo json_encode($result);
-    // Engine should never handle HTTP directly
-}
-
-// Good - Pure data processing (Engine SHOULD do this)
-function process_avatar_data($avatar_data) {
-    // Process and return data only
-    return $processed_data;
-}
-```
-
-## Engine vs Helpers Responsibility
-
-- **Engine:** Data processing, database operations, OpenSim protocol
-- **Helpers:** HTTP handling, form processing, HTML output, user interface
+Prettier with the PHP plugin (`.prettierrc.json`, `.editorconfig`), no PHP binary needed. The plugin has a known bug: it drops the parentheses of `($a ? $b : $c) ?: $d`, which then does not compile; write it in two statements. `php -l` every file it changed.
 
 ## Build
 

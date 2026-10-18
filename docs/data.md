@@ -43,6 +43,26 @@ The flags are constants of the model, with the value and the name OpenSimulator 
 `Region::FALLBACK_REGION`, `Region::REGION_ONLINE`... (`Region::flagName()` is the name in the config of Robust, `DefaultRegion`; `Region::flagNames($flags)` the names of the flags of a value that can be given there, `$region->roles()` those of a region),
 `Parcel::ALLOW_FLY`, `Parcel::SHOW_DIRECTORY`... (the names of the constants of LSL).
 
+## Making and changing an avatar
+
+```php
+$avatar = Avatar::create($config, ['name' => 'Ada Love', 'email' => 'ada@example.org', 'password' => 'secret']);   // account, password, inventory, outfit
+$avatar->update(['password' => 'new', 'home' => $regionId, 'about' => 'Hello', 'level' => 0]);
+```
+
+Each row is written in the database of its service (the accounts, the passwords, the inventories, the home, the profile may be in different ones), the account last. `passwordHash` (`['hash' => ..., 'salt' => ...]`) and `uuid` serve an account that is moved. The name does not change.
+
+## Services
+
+A grid has services (assets, inventories, profiles, login...), served by its Robust instances or declared for its simulators. A standalone grid serves them with its simulator.
+
+```php
+$grid->services();                       // a Collection of Service
+$grid->service('asset')->provider();     // the controller that serves it, null when none does
+$grid->service('profile')->isExternal(); // declared, served somewhere else
+$simulator->service('profile')->uri();   // as this simulator reaches it: its own config, else its grid's
+```
+
 ## Collection
 
 What every list gives back: `first() last() count() isEmpty()`, `total()` (before the pages), `page() perPage() pages()`,

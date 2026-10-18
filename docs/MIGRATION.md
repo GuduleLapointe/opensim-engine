@@ -13,6 +13,63 @@ required by path. Method names that are snake_case keep their shape in the class
 | `OpenSim_Oar` | `OpenSim\Archives\Oar` |
 | `bootstrap.php`, `Engine_Settings`, `OpenSim_*` of the plugin | gone (see NOT-PORTED.md) |
 
+## Models and controllers
+
+| Before | Now |
+| --- | --- |
+| `Models\Instance` | `Controllers\Controller` (abstract) |
+| `Models\Robust` | `Controllers\RobustController`; `Grid::robust()` gives it, `Grid::robusts()` the list |
+| the process part of `Models\Simulator` | `Controllers\OpenSimController`; `Simulator::controller()` |
+| `Models\Core` | `Runtime\Core` |
+| `GridInfo` | `Models\Grid` (one class for a grid, whatever it comes from: folder, plan, description, announcement) |
+| `GridState`, `SimState`, `RegionState` | `isEnabled()`, `enable()`, `disable()` of the models (`Interfaces\Enablable`) |
+| `Grid::all()` as an array | a `Collection` (`->items()`) |
+| the services of a grid, as connectors | `Models\Service`: `Grid::services()`, `Grid::service($key)`, `Simulator::service($key)` |
+| a grid without Robust | a standalone: `Standalone = true` in `<nick>.conf`, `Grid::isStandalone()` |
+
+## The environment
+
+The profile arrays (`['EtcRoot' => ..., 'DataRoot' => ...]`) are gone: whatever acts on a machine takes an `Environment`.
+
+| Before | Now |
+| --- | --- |
+| `Environment::forProfile($profile)` | `Environment::system(new Layout($profile))` |
+| `GridPlanner::forMachine($profile, $nick)` | `GridPlanner::forMachine($environment, $nick)`; `defaultPublicPort($environment)` |
+| `SimulatorPlanner::forGrid($grid, $profile, $db, $ui, ...)` | `SimulatorPlanner::forGrid($grid, $db, $ui, ...)` (the environment is the grid's) |
+| `RemoteGridPlanner::forMachine($profile)` | `RemoteGridPlanner::forMachine($environment)` |
+| `GridProvisioner::apply($plan, $profile)`, `SimulatorProvisioner::apply(...)` | `apply($plan, $environment)` |
+| `new Features($grid, $profile)` | `new Features($grid)` |
+| `PendingRestarts::add|read|clear|path($profile, ...)` | the same with an `Environment` |
+| `GridRegistry::knownPorts($profile, $grid)` | `knownPorts($environment, $grid)` |
+| `ArchiveRunner::system($profile)`, `new BackupService($profile, ...)`, `Instances::locate|resolve($profile, ...)` | an `Environment` in place of the profile |
+| `RobustImporter::plan($raw, $path, $profile, ...)` | `plan($raw, $path, $environment, ...)`; `SimulatorImporter::plan` has no profile |
+| `Grid::described($values, $environment = null)` | `Grid::described($environment, $values)` |
+| `Ports::next()`, `nextBlock()`, `nextFree()`, `nextRegion()`, `isFree()` (static, read the machine) | `(new Ports($environment))->next()`...; `simulatorsFrom()` and `simulatorBlock()` stay static |
+| `Ports::parseBound()` | `Runtime\SystemProcessTable::parseBound()`; the sockets are `ProcessTableInterface::listening()` |
+| `GridFileService::read()` elevates as the system user of the layout | it elevates as the owner of the file |
+
+`OpenSim\Testing\EnvironmentFake::with($layout)` is the environment of a test.
+
+## Simulators, not sims
+
+| Before | Now |
+| --- | --- |
+| the role `sims/<name>` and the key `sims` of `GridConfig::tree()` | `simulators/<name>`, `simulators` |
+| the folder `sims` written in paths | `GridConfig::SIMULATORS`, `GridConfig::simulatorsDirectory($gridDirectory)` (the folder on disk is still `sims`) |
+| the `sim` field of the region form | `simulator` |
+
+## Accounts
+
+| Before | Now |
+| --- | --- |
+| `AccountImporter::forDatabase($databaseService)` | `AccountImporter::forModels()` |
+| accounts written as one stream of SQL | `Avatar::create($config, $values)`: each row in the database of its service; `AccountWriter::tables()` |
+| `Avatar::update()` of 4 values | also `password`, `home` and the profile it has |
+
+## New
+
+`Scheduling\Scheduler` and `Task` (cron and pseudo cron), `Api\Api`, `Contract`, `Problem` (JSON:API, OpenAPI, RFC 9457).
+
 ## Functions
 
 | Before | Now |
