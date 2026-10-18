@@ -413,6 +413,27 @@ final class Simulator extends InstalledModel
         return $this->controller->grid();
     }
 
+    /**
+     * The services the simulator uses, as it reaches them: its grid's, each at the address its own config says when it says one
+     * (see Service::of() for the options).
+     */
+    public function services(array $options = []): Collection
+    {
+        return Service::of($this->grid(), $this, $options);
+    }
+
+    /** A service as the simulator reaches it (`$simulator->service('profile')->uri()`), null when it has none. */
+    public function service(string $key): ?Service
+    {
+        $grid = $this->grid();
+        if ($grid === null || !in_array($key, Service::keys(), true)) {
+            return null;
+        }
+        $service = new Service($this->environment, $grid, $key, $this);
+
+        return $service->exists() ? $service : null;
+    }
+
     public function gridDirectory(): ?string
     {
         return $this->controller->gridDirectory();

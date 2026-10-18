@@ -1019,6 +1019,37 @@ final class Grid extends InstalledModel
     }
 
     /**
+     * The Robust instances of the grid on this machine. A grid has one or several, each serving some of its services.
+     *
+     * @return list<RobustController>
+     */
+    public function robusts(): array
+    {
+        $robust = $this->robust();
+
+        return $robust !== null ? [$robust] : [];
+    }
+
+    /**
+     * The services the grid has, served by its Robust instances or declared for its simulators (see Service::of() for the options).
+     */
+    public function services(array $options = []): Collection
+    {
+        return Service::of($this, null, $options);
+    }
+
+    /** A service of the grid by its key (`asset`, `profile`), null when the grid does not have it. */
+    public function service(string $key): ?Service
+    {
+        if (!in_array($key, Service::keys(), true)) {
+            return null;
+        }
+        $service = new Service($this->environment, $this, $key);
+
+        return $service->exists() ? $service : null;
+    }
+
+    /**
      * Its simulators, enabled or not, by name.
      *
      * @return list<Simulator>
