@@ -50,6 +50,8 @@ final class GridInfo
     public string $webUrl = '';
     public bool $helpers = false;
     public string $helpersPath = '/helpers';
+    /** Where the search of a grid that is planned is: internal (its helpers), shared (see Grid::SHARED_SEARCH) or disabled. */
+    public string $search = 'internal';
 
     /**
      * @param array<string,mixed> $profile the install profile (Config::profile())
@@ -125,6 +127,7 @@ final class GridInfo
         $grid->connectors = is_file($grid->robustIni)
             ? self::connectorsIn($grid->robustIni)
             : \OpenSim\Provisioning\RobustConfig::connectors($plan->helpers, $plan->enableHypergrid);
+        $grid->search = $plan->search;
         $grid->helpers = $plan->helpers;
         $grid->webUrl = $plan->webUrl;
         $grid->helpersPath = $plan->helpersPath;
@@ -139,6 +142,11 @@ final class GridInfo
     public function helperUrl(string $service): string
     {
         if ($this->planned) {
+            // The search of the simulators (query, register) is the helpers' own, another provider's or nobody's
+            if (in_array($service, ['query', 'register'], true) && $this->search !== 'internal') {
+                return $this->search === 'shared' ? Grid::SHARED_SEARCH . "/$service.php" : '';
+            }
+
             return $this->helpers ? (new \OpenSim\Provisioning\Web\Services($this->helpersPath))->url($this->webUrl, $service) : '';
         }
         $webUrl = \OpenSim\Provisioning\Web\HelpersConfig::webUrl($this->dir);

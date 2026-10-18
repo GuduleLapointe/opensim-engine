@@ -132,10 +132,77 @@ final class Grid
                 'callback' => [self::class, 'validateHelpersPath'],
                 'condition' => ['helpers' => true],
             ],
+            ...self::optionFields($options),
             ['name' => 'database_host', 'group' => 'database', 'type' => 'string', 'required' => true, 'label' => _('Database host')],
             ['name' => 'database_name', 'follows' => ['nick'], 'group' => 'database', 'type' => 'string', 'required' => true, 'label' => _('Database name')],
             ['name' => 'database_user', 'group' => 'database', 'type' => 'string', 'required' => true, 'label' => _('Database user')],
             ['name' => 'database_password', 'group' => 'database', 'type' => 'string', 'required' => true, 'label' => _('Database password')],
+        ];
+    }
+
+    /** The shared search provider a grid can use instead of its own: the one of 2do.directory. */
+    public const SHARED_SEARCH = 'https://2do.directory/helpers';
+
+    /**
+     * The options of a new grid, each with its default: what the setup offers to enable or not. They are decided when the grid is made;
+     * after that `opensim enable|disable` and the files of the grid decide.
+     *
+     * @param array{modify?:bool} $options
+     * @return list<array<string,mixed>>
+     */
+    private static function optionFields(array $options): array
+    {
+        $new = !($options['modify'] ?? false);
+
+        return [
+            [
+                'name' => 'search',
+                'group' => 'options',
+                'type' => 'select',
+                'label' => _('Search of the grid'),
+                'options' => [
+                    'internal' => _('Provided by this grid (opensim-helpers)'),
+                    'shared' => _('Shared provider (2do.directory)'),
+                    'disabled' => _('No search'),
+                ],
+                'callback' => static fn(mixed $value, array $answers): ?string => $value === 'internal' && !($answers['helpers'] ?? true)
+                    ? _('The search of this grid is served by opensim-helpers.')
+                    : null,
+                'enable' => $new,
+            ],
+            [
+                'name' => 'economy',
+                'group' => 'options',
+                'type' => 'select',
+                'label' => _('Currency'),
+                'options' => ['beta' => _('BetaGridLikeMoneyModule (no real money)'), 'gloebit' => _('Gloebit')],
+                'enable' => $new,
+            ],
+            [
+                'name' => 'ossl',
+                'group' => 'options',
+                'type' => 'boolean',
+                'label' => _('Allow more OSSL functions to parcel owners (NPC, animations, drawing...)?'),
+                'enable' => $new,
+            ],
+            [
+                'name' => 'web_server',
+                'group' => 'options',
+                'type' => 'select',
+                'label' => _('Web server'),
+                'options' => ['caddy' => 'Caddy', 'apache' => 'Apache', 'nginx' => 'nginx'],
+                'condition' => ['helpers' => true],
+                'enable' => $new,
+            ],
+            [
+                'name' => 'web_site',
+                'group' => 'options',
+                'type' => 'select',
+                'label' => _('Web site'),
+                'options' => ['helpers' => _('The helpers only'), 'website' => _('The helpers and the mini website (opensim-web)')],
+                'condition' => ['helpers' => true],
+                'enable' => $new,
+            ],
         ];
     }
 

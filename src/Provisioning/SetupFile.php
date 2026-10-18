@@ -10,6 +10,8 @@ use Symfony\Component\Yaml\Yaml;
  *
  *   grid:        name, nick, hostname, web_url, hypergrid, helpers, helpers_path, public_port, private_port,
  *                console (rest|screen), console_port, enable, start,
+ *                options of a new grid: search (internal|shared|disabled), economy (beta|gloebit), ossl (true|false),
+ *                web_server (caddy|apache|nginx), web_site (helpers|website),
  *                database: host, name, user, password, admin_user, admin_password
  *   owner:       name (First Last), password, or password_hash and password_salt (as Robust keeps them),
  *                email (optional): the account that owns the estate
@@ -38,6 +40,11 @@ final class SetupFile
         'hypergrid' => 'grid.hypergrid',
         'helpers' => 'grid.helpers',
         'helpers_path' => 'grid.helpers_path',
+        'search' => 'grid.search',
+        'economy' => 'grid.economy',
+        'ossl' => 'grid.ossl',
+        'web_server' => 'grid.web_server',
+        'web_site' => 'grid.web_site',
         'public_port' => 'grid.public_port',
         'private_port' => 'grid.private_port',
         'center' => 'grid.center',
@@ -360,6 +367,11 @@ final class SetupFile
             'hypergrid' => $plan->enableHypergrid,
             'helpers' => $plan->helpers,
             'helpers_path' => $plan->helpersPath,
+            'search' => $plan->search,
+            'economy' => $plan->economy,
+            'ossl' => $plan->ossl,
+            'web_server' => $plan->webServer,
+            'web_site' => $plan->webSite,
             'public_port' => $plan->publicPort,
             'private_port' => $plan->privatePort,
             'console' => $plan->consoleMode,

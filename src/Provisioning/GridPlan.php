@@ -41,6 +41,17 @@ final class GridPlan
     /** Where the helpers are on the web site: the path of the economy the viewers are given. */
     public string $helpersPath = '/helpers';
 
+    // The options of a grid that is made (see Models\Grid::fields(), group options).
+    /** Where the search is: 'internal' (the helpers of the grid), 'shared' (the provider of 2do.directory) or 'disabled'. */
+    public string $search = 'internal';
+    /** The currency: 'beta' (BetaGridLikeMoneyModule) or 'gloebit'. */
+    public string $economy = 'beta';
+    /** More OSSL functions for the owners and the groups of the parcels (NPC, animations, drawing...). */
+    public bool $ossl = false;
+    /** The web server the configuration is written for (caddy, apache, nginx), and what it serves: 'helpers' or 'website'. */
+    public string $webServer = 'caddy';
+    public string $webSite = 'helpers';
+
     // Database.
     public string $dbHost = 'localhost';
     public string $dbName = '';

@@ -113,6 +113,52 @@ describe('A new grid', function () {
     });
 });
 
+describe('The options of a new grid', function () {
+    test('have their default: the search of the helpers, the beta currency, the OSSL of the core, the first web server the machine has', function () {
+        $v = planner(['helpersAvailable' => true, 'webServer' => 'nginx'])->resolve();
+
+        expect($v)->toMatchArray(['search' => 'internal', 'economy' => 'beta', 'ossl' => false, 'web_server' => 'nginx', 'web_site' => 'helpers', 'helpers' => true])
+            // Without the helpers there is no search of the grid
+            ->and(planner()->resolve()['search'])->toBe('disabled');
+    });
+
+    test('are the ones asked, among the choices there are', function () {
+        $planner = planner(['helpersAvailable' => true]);
+        $plan = $planner->plan(['search' => 'shared', 'economy' => 'gloebit', 'ossl' => 'yes', 'web_server' => 'apache', 'web_site' => 'website']);
+
+        expect([$plan->search, $plan->economy, $plan->ossl, $plan->webServer, $plan->webSite])->toBe(['shared', 'gloebit', true, 'apache', 'website'])
+            ->and($planner->resolve(['search' => 'nothing', 'economy' => 'gold', 'web_server' => 'iis']))->toMatchArray(['search' => 'internal', 'economy' => 'beta', 'web_server' => 'caddy']);
+    });
+
+    test('cannot say the search is the grid\'s own without the helpers', function () {
+        expect(planner(['helpersAvailable' => false])->problems(['search' => 'internal', 'helpers' => false]))->toHaveKey('search')
+            ->and(planner()->problems(['search' => 'shared', 'helpers' => false]))->not->toHaveKey('search');
+    });
+
+    test('are not asked for a grid that exists', function () {
+        $hidden = array_column(array_filter(Grid::fields(['modify' => true]), static fn(array $f): bool => ($f['enable'] ?? true) === false), 'name');
+
+        expect($hidden)->toContain('nick', 'search', 'economy', 'ossl', 'web_server', 'web_site');
+    });
+
+    test('tell the simulators where the search is: the helpers, the shared provider or nobody', function () {
+        $grid = new \OpenSim\Models\GridInfo();
+        $grid->planned = true;
+        $grid->helpers = true;
+        $grid->webUrl = 'https://play.example.org';
+        $grid->helpersPath = '/helpers';
+
+        expect($grid->helperUrl('query'))->toBe('https://play.example.org/helpers/query.php');
+        $grid->search = 'shared';
+        expect($grid->helperUrl('query'))->toBe('https://2do.directory/helpers/query.php')
+            ->and($grid->helperUrl('register'))->toBe('https://2do.directory/helpers/register.php')
+            // What is not the search stays the grid's own
+            ->and($grid->helperUrl('offline'))->toBe('https://play.example.org/helpers/offline.php');
+        $grid->search = 'disabled';
+        expect($grid->helperUrl('query'))->toBe('')->and($grid->helperUrl('register'))->toBe('');
+    });
+});
+
 describe('A grid that exists', function () {
     function existing_planner(array $more = []): GridPlanner
     {
@@ -169,7 +215,7 @@ describe('fields of a grid', function () {
     test('are the standard ones, the nick being hidden for a grid that exists, with the names of the setup file', function () {
         $names = array_column(Grid::fields(), 'name');
 
-        expect($names)->toBe(['name', 'nick', 'hypergrid', 'spacing', 'core', 'hostname', 'public_port', 'private_port', 'center', 'console', 'console_port', 'web_url', 'helpers', 'helpers_path', 'database_host', 'database_name', 'database_user', 'database_password']);
+        expect($names)->toBe(['name', 'nick', 'hypergrid', 'spacing', 'core', 'hostname', 'public_port', 'private_port', 'center', 'console', 'console_port', 'web_url', 'helpers', 'helpers_path', 'search', 'economy', 'ossl', 'web_server', 'web_site', 'database_host', 'database_name', 'database_user', 'database_password']);
         expect(Grid::fields(['modify' => true])[1]['enable'])->toBeFalse()->and(Grid::fields()[1]['enable'])->toBeTrue();
     });
 });

@@ -33,6 +33,7 @@ final class GridProvisioner
         $this->writeHelpers($plan);
         $this->copyConfigInclude($plan);
         $this->writeMaster($plan);
+        $this->applyOptions($plan, $profile);
 
         $logConfig = (new RobustLogConfig())->write($plan);
         if ($logConfig !== null) {
@@ -73,13 +74,10 @@ final class GridProvisioner
             $this->ui->note(
                 sprintf(
                     _(
-                        'Web site: the helpers are in %s, the placeholder site in /usr/share/opensim-web/html (when the opensim-web package is installed). The configuration for your web server is in %s/web: %s.caddyfile, %s-nginx.conf, %s-apache.conf, to include in the site of the grid (opensim web %s snippet <caddy|nginx|apache> writes it again).',
+                        'Web site: the helpers are in %s. The configuration for your web server is in %s/web, to include in the site of the grid (opensim web %s snippet <caddy|nginx|apache> writes it for another server).',
                     ),
                     Snippets::WEBROOT,
                     $plan->gridDir,
-                    $plan->gridNick,
-                    $plan->gridNick,
-                    $plan->gridNick,
                     $plan->gridNick,
                 ),
             );
@@ -157,6 +155,28 @@ final class GridProvisioner
         $this->ui->note(_('Copied config-include defaults.'));
     }
     /**
+     * The options of a grid that is made, which the files do not carry by themselves: more OSSL (an ini file combined into the one of
+     * the grid) and the currency. The default of each is what the files already say, nothing to do.
+     *
+     * @param array<string,mixed> $profile
+     */
+    private function applyOptions(GridPlan $plan, array $profile): void
+    {
+        if ($plan->ossl && ($file = GridOptions::combine('ossl-extended', "{$plan->etcDirectory}/config-include/osslEnable.ini")) !== null) {
+            $this->ui->note(sprintf(_('Wrote %s'), $file));
+        }
+        if ($plan->economy !== 'gloebit') {
+            return;
+        }
+        $grid = GridInfo::load($profile, $plan->gridNick);
+        $result = $grid === null ? ['error' => 'the grid is not there', 'notes' => []] : (new Features($grid, $profile))->enable(Features::ECONOMY, ['money' => 'gloebit']);
+        $result['error'] === null || $this->ui->warn(sprintf(_('The currency of the grid was not set: %s'), $result['error']));
+        foreach ($result['notes'] as $note) {
+            $this->ui->note($note);
+        }
+    }
+
+    /**
      * The master of the simulators of the grid: what the grid decides for them (the search, the offline messages, the profiles)
      * goes in its OpenSim.ini, which the helpers read, when the grid is made (after that the operator and `opensim enable|disable`
      * decide: a feature that was disabled stays so), then the master is made from the core, the model of the toolset, the grid and
@@ -205,21 +225,27 @@ final class GridProvisioner
             $this->ui->note(sprintf(_('Wrote %s'), $money));
         }
 
-        // The configuration of the web server for this grid, one file for each server, to include in its site
+        // The configuration of the web server chosen, to include in the site of the grid. Named for the grid and the server, with the
+        // extension the editors know. A grid that has one keeps it: it is the operator's
         $webDir = "{$plan->gridDir}/web";
-        is_dir($webDir) || mkdir($webDir, 0o755, true);
-        // Named for the grid and the server, with the extension the editors know
         $names = [
             'caddy' => "{$plan->gridNick}.caddyfile",
             'nginx' => "{$plan->gridNick}-nginx.conf",
             'apache' => "{$plan->gridNick}-apache.conf",
         ];
-        foreach (Snippets::SERVERS as $server) {
+        $server = in_array($plan->webServer, Snippets::SERVERS, true) ? $plan->webServer : 'caddy';
+        $kept = array_filter($names, static fn(string $name): bool => is_file("$webDir/$name"));
+        if ($kept === []) {
+            is_dir($webDir) || mkdir($webDir, 0o755, true);
             $file = "$webDir/{$names[$server]}";
-            file_put_contents($file, Snippets::render($server, $plan->gridNick, webUrl: $plan->webUrl));
+            $docroot = $plan->webSite === 'website' ? Snippets::WEBSITE : Snippets::DOCROOT;
+            file_put_contents($file, Snippets::render($server, $plan->gridNick, $docroot, webUrl: $plan->webUrl));
             chmod($file, 0o644);
+            $this->ui->note(sprintf(_('Wrote %s'), $file));
         }
-        $this->ui->note(sprintf(_('Wrote the web server files in %s'), $webDir));
+        if ($plan->webSite === 'website' && !is_dir(Snippets::WEBSITE)) {
+            $this->ui->warn(_('The mini website is the package opensim-web: install it (apt install opensim-web).'));
+        }
     }
     private function writeRobust(GridPlan $plan): void
     {

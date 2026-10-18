@@ -16,6 +16,8 @@ final class Snippets
     /** The helpers, and the document root of the default site, whose index.php hands over to them. */
     public const WEBROOT = '/usr/share/opensim-helpers';
     public const DOCROOT = '/var/www/html';
+    /** The document root of the mini website (the package opensim-web). */
+    public const WEBSITE = '/usr/share/opensim-web/html';
     public const SOCKET = '/run/php/php-fpm.sock';
 
     /**

@@ -58,6 +58,7 @@ final class GridPlanner
             'defaultPublic' => 8002,
             'helpersAvailable' => false,
             'helpersPath' => '/helpers',
+            'webServer' => 'caddy',  // the web server the machine has
             'nextPort' => null,     // Closure(int $min): int, the first free port from there (default: Ports::next)
             'random' => null,       // Closure(int $length, bool $letters): string (default: random_int)
         ];
@@ -76,6 +77,7 @@ final class GridPlanner
             // The helpers are proposed when the machine has them; their path is the default one until a grid says another
             'helpersAvailable' => is_dir(Snippets::WEBROOT),
             'helpersPath' => HelpersConfig::basePath('/nonexistent'),
+            'webServer' => self::defaultWebServer(),
         ]);
 
         return $modifyNick !== null ? $planner->forNick($modifyNick) : $planner;
@@ -113,6 +115,18 @@ final class GridPlanner
     public static function defaultHost(): string
     {
         return trim(ShellService::capture('hostname -f')[1]) ?: 'localhost';
+    }
+
+    /** The web server a grid is proposed: the first the machine has (Caddy, nginx, Apache), else Caddy. */
+    public static function defaultWebServer(): string
+    {
+        foreach (['caddy' => 'caddy', 'nginx' => 'nginx', 'apache' => 'apache2'] as $server => $program) {
+            if (trim(ShellService::capture('command -v ' . $program)[1]) !== '') {
+                return $server;
+            }
+        }
+
+        return 'caddy';
     }
 
     /** The public port a grid is proposed: the one of the first block of ten ports that is free, ending with 2. */
@@ -197,6 +211,12 @@ final class GridPlanner
             'web_url' => $web,
             'helpers' => self::flag($answers['helpers'] ?? $c['helpersAvailable']),
             'helpers_path' => $text('helpers_path', $c['helpersPath']),
+            // Without the helpers the grid has no search of its own
+            'search' => self::choice($answers['search'] ?? null, ['internal', 'shared', 'disabled'], self::flag($answers['helpers'] ?? $c['helpersAvailable']) ? 'internal' : 'disabled'),
+            'economy' => self::choice($answers['economy'] ?? null, ['beta', 'gloebit'], 'beta'),
+            'ossl' => self::flag($answers['ossl'] ?? false),
+            'web_server' => self::choice($answers['web_server'] ?? null, ['caddy', 'apache', 'nginx'], $c['webServer']),
+            'web_site' => self::choice($answers['web_site'] ?? null, ['helpers', 'website'], 'helpers'),
             'database_host' => $text('database_host', $current['dbHost'] ?? ($profile['DataSource'] ?? 'localhost')),
             'database_name' => $text('database_name', $current['dbName'] ?? strtolower($nick) . '_robust'),
             'database_user' => $text('database_user', $current['dbUser'] ?? 'opensim'),
@@ -255,6 +275,11 @@ final class GridPlanner
             // The URL of the web site is given, the path after it is the choice of the operator
             $plan->helpersPath = Services::normalize($v['helpers_path']);
         }
+        $plan->search = $v['search'];
+        $plan->economy = $v['economy'];
+        $plan->ossl = $v['ossl'];
+        $plan->webServer = $v['web_server'];
+        $plan->webSite = $v['web_site'];
         $plan->consoleMode = $v['console'];
         if ($plan->consoleMode === 'rest') {
             $plan->consolePort = $v['console_port'];
@@ -304,6 +329,14 @@ final class GridPlanner
         }
 
         return $string;
+    }
+
+    /** An answer among the choices there are, else the default. */
+    private static function choice(mixed $value, array $choices, string $default): string
+    {
+        $value = strtolower(trim((string) $value));
+
+        return in_array($value, $choices, true) ? $value : $default;
     }
 
     private static function flag(mixed $value): bool
