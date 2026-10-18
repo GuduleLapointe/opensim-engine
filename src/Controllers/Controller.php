@@ -66,7 +66,9 @@ abstract class Controller implements Enablable
     {
         $executable = $this->launchSetting('executable', 'Executable');
 
-        return $executable !== '' ? (string) preg_replace('/\.(exe|dll)$/', '', basename($executable)) : $this->assembly();
+        return $executable !== ''
+            ? (string) preg_replace('/\.(exe|dll)$/', '', basename($executable))
+            : $this->assembly();
     }
 
     /** The name an instance has: lower case, letters, digits, underscores and hyphens (the name of its screen session). */
@@ -293,7 +295,12 @@ abstract class Controller implements Enablable
     /** The link that enables it: a config linked in the enabled folder, where the launcher finds it. */
     public function link(): string
     {
-        return rtrim($this->environment->layout->etcRoot(), '/') . '/' . static::enabledFolder() . '/' . $this->linkName() . '.ini';
+        return rtrim($this->environment->layout->etcRoot(), '/') .
+            '/' .
+            static::enabledFolder() .
+            '/' .
+            $this->linkName() .
+            '.ini';
     }
 
     /** The name of its link: the name of its config file, or of its grid for a Robust. */
@@ -347,7 +354,11 @@ abstract class Controller implements Enablable
     /** The folder its logs are in: the one it names, else the one of its includes, else the one of the install. */
     public function logsDirectory(): string
     {
-        $common = str_replace(['${Launch|SimName}', '${Launch|MachineName}'], $this->name, $this->setting('Const', 'LogsRoot'));
+        $common = str_replace(
+            ['${Launch|SimName}', '${Launch|MachineName}'],
+            $this->name,
+            $this->setting('Const', 'LogsRoot'),
+        );
 
         return $this->launchSetting('LogsDirectory') ?: ($common ?: $this->environment->layout->logsRoot());
     }

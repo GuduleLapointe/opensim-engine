@@ -54,7 +54,14 @@ final class DotnetInstaller
 
         $found = $this->suitable('dotnet', $major);
         if ($found !== null) {
-            $this->ui->note(sprintf(_('.NET %d found (%s), it can run OpenSim (.NET %d or newer).'), $found, $this->path('dotnet'), $major));
+            $this->ui->note(
+                sprintf(
+                    _('.NET %d found (%s), it can run OpenSim (.NET %d or newer).'),
+                    $found,
+                    $this->path('dotnet'),
+                    $major,
+                ),
+            );
 
             return true;
         }
@@ -82,7 +89,7 @@ final class DotnetInstaller
         // A runtime installed elsewhere, not on the PATH
         $existing = trim($this->ui->text(_('Path of an installed dotnet executable (empty to install one)'), ''));
         if ($existing !== '') {
-            is_dir($existing) && $existing = rtrim($existing, '/') . '/dotnet';
+            is_dir($existing) && ($existing = rtrim($existing, '/') . '/dotnet');
             if (!is_executable($existing)) {
                 $this->ui->error(sprintf(_('%s is not an executable'), $existing));
 
@@ -108,13 +115,20 @@ final class DotnetInstaller
             return;
         }
         if ($this->isRoot() && $this->candidate('libgdiplus')) {
-            if ($this->ui->confirm(_('Install libgdiplus, needed by the regions?'), true) && ($this->run)('apt-get install -y libgdiplus') !== 0) {
+            if (
+                $this->ui->confirm(_('Install libgdiplus, needed by the regions?'), true) &&
+                ($this->run)('apt-get install -y libgdiplus') !== 0
+            ) {
                 $this->ui->error(_('Could not install libgdiplus'));
             }
 
             return;
         }
-        $this->ui->warn(_('OpenSim regions also need libgdiplus: install it with your package manager (e.g. sudo apt install libgdiplus).'));
+        $this->ui->warn(
+            _(
+                'OpenSim regions also need libgdiplus: install it with your package manager (e.g. sudo apt install libgdiplus).',
+            ),
+        );
     }
 
     /** The install script of Microsoft, into a folder for every user as root, in the home of the person otherwise. */
@@ -123,15 +137,27 @@ final class DotnetInstaller
         $home = $this->home !== '' ? $this->home : (string) getenv('HOME');
         $default = $this->isRoot() ? '/usr/local/share/dotnet' : "$home/.dotnet";
         $dir = trim($this->ui->text(_('Install directory'), $default)) ?: $default;
-        if (!$this->ui->confirm(sprintf(_("Install the .NET %d runtime in %s with Microsoft's install script?"), $major, $dir), true)) {
+        if (
+            !$this->ui->confirm(
+                sprintf(_("Install the .NET %d runtime in %s with Microsoft's install script?"), $major, $dir),
+                true,
+            )
+        ) {
             $this->ui->error(sprintf(_('OpenSim cannot run without the .NET %d runtime'), $major));
 
             return false;
         }
 
         // The runtime needs ICU, which a minimal system may lack
-        if ($this->isRoot() && $this->exists('apt-get') && !str_contains(($this->capture)('ldconfig -p'), 'libicuuc.so')) {
-            $names = array_filter(explode("\n", ($this->capture)('apt-cache pkgnames libicu')), static fn(string $name): bool => preg_match('/^libicu\d+$/', $name) === 1);
+        if (
+            $this->isRoot() &&
+            $this->exists('apt-get') &&
+            !str_contains(($this->capture)('ldconfig -p'), 'libicuuc.so')
+        ) {
+            $names = array_filter(
+                explode("\n", ($this->capture)('apt-cache pkgnames libicu')),
+                static fn(string $name): bool => preg_match('/^libicu\d+$/', $name) === 1,
+            );
             usort($names, 'strnatcmp');
             if ($names !== [] && ($this->run)('apt-get install -y ' . escapeshellarg((string) end($names))) !== 0) {
                 $this->ui->error(sprintf(_('Could not install %s'), (string) end($names)));
@@ -152,7 +178,14 @@ final class DotnetInstaller
 
                 return false;
             }
-            $status = ($this->run)('bash ' . escapeshellarg($script) . ' --runtime dotnet --channel ' . escapeshellarg("$major.0") . ' --install-dir ' . escapeshellarg($dir));
+            $status = ($this->run)(
+                'bash ' .
+                    escapeshellarg($script) .
+                    ' --runtime dotnet --channel ' .
+                    escapeshellarg("$major.0") .
+                    ' --install-dir ' .
+                    escapeshellarg($dir),
+            );
         } finally {
             is_file($script) && unlink($script);
         }
@@ -181,14 +214,27 @@ final class DotnetInstaller
 
             return;
         }
-        $this->ui->note(sprintf(_("Add %s to your PATH, e.g. in ~/.profile:\n  export PATH=\"%s:\$PATH\""), dirname($dotnet), dirname($dotnet)));
+        $this->ui->note(
+            sprintf(
+                _("Add %s to your PATH, e.g. in ~/.profile:\n  export PATH=\"%s:\$PATH\""),
+                dirname($dotnet),
+                dirname($dotnet),
+            ),
+        );
     }
 
     /** The lowest major of the runtimes of a dotnet that is this one or a newer one, null when there is none. */
     private function suitable(string $dotnet, int $major): ?int
     {
-        preg_match_all('/Microsoft\.NETCore\.App (\d+)/', ($this->capture)(escapeshellarg($dotnet) . ' --list-runtimes 2>/dev/null'), $m);
-        $majors = array_filter(array_unique(array_map('intval', $m[1])), static fn(int $found): bool => $found >= $major);
+        preg_match_all(
+            '/Microsoft\.NETCore\.App (\d+)/',
+            ($this->capture)(escapeshellarg($dotnet) . ' --list-runtimes 2>/dev/null'),
+            $m,
+        );
+        $majors = array_filter(
+            array_unique(array_map('intval', $m[1])),
+            static fn(int $found): bool => $found >= $major,
+        );
         sort($majors);
 
         return $majors[0] ?? null;
@@ -206,7 +252,10 @@ final class DotnetInstaller
 
     private function hasLibrary(string $name): bool
     {
-        return str_contains(($this->capture)('ldconfig -p 2>/dev/null || /sbin/ldconfig -p 2>/dev/null'), "lib$name.so");
+        return str_contains(
+            ($this->capture)('ldconfig -p 2>/dev/null || /sbin/ldconfig -p 2>/dev/null'),
+            "lib$name.so",
+        );
     }
 
     /** Whether the package manager has a package to install. */
@@ -226,6 +275,7 @@ final class DotnetInstaller
 
     private function isRoot(): bool
     {
-        return $this->root ?? (function_exists('posix_geteuid') ? posix_geteuid() === 0 : trim(($this->capture)('id -u')) === '0');
+        return $this->root ??
+            (function_exists('posix_geteuid') ? posix_geteuid() === 0 : trim(($this->capture)('id -u')) === '0');
     }
 }

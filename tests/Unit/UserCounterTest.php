@@ -27,7 +27,8 @@ const SHOW_USERS = [
 function counted_simulator(Machine $machine, array $agents = []): OpenSim\Controllers\OpenSimController
 {
     foreach ($agents as $uuid => $count) {
-        $machine->http["http://127.0.0.1:9000/monitorstats/$uuid"] = $count === null ? null : "<data><AgentCountMonitor>$count</AgentCountMonitor></data>";
+        $machine->http["http://127.0.0.1:9000/monitorstats/$uuid"] =
+            $count === null ? null : "<data><AgentCountMonitor>$count</AgentCountMonitor></data>";
     }
 
     return Grid::find($machine->environment, 'demo')->simulator('alpha')->controller();
@@ -50,11 +51,26 @@ describe('users read in show users', function () {
 
     test('are read in the rows a screen cut at 80 columns', function () {
         // Only an NPC is there (the root count includes it), the type is in the 80 columns
-        expect(UserCounter::realUsers(['Root agents in region Sim1: 1 (root 1, child 0)', 'Bob              NPC              11111111-2222-3333-4444-555555555556  NPC Roo', 't    <1, 2, 3>']))->toBe(0)
+        expect(
+            UserCounter::realUsers([
+                'Root agents in region Sim1: 1 (root 1, child 0)',
+                'Bob              NPC              11111111-2222-3333-4444-555555555556  NPC Roo',
+                't    <1, 2, 3>',
+            ]),
+        )
+            ->toBe(0)
             // A real user whose type was cut off counts
-            ->and(UserCounter::realUsers(['Root agents in region Sim1: 2 (root 2, child 0)', 'Ann              Lee              11111111-2222-3333-4444-555555555555', 'Bob              NPC              11111111-2222-3333-4444-555555555556  NPC Roo']))->toBe(1)
+            ->and(
+                UserCounter::realUsers([
+                    'Root agents in region Sim1: 2 (root 2, child 0)',
+                    'Ann              Lee              11111111-2222-3333-4444-555555555555',
+                    'Bob              NPC              11111111-2222-3333-4444-555555555556  NPC Roo',
+                ]),
+            )
+            ->toBe(1)
             // Root agents without the rows to tell who they are: no answer
-            ->and(UserCounter::realUsers(['Root agents in region Sim1: 1 (root 1, child 0)', 'Ann Lee 1111-truncated']))->toBeNull();
+            ->and(UserCounter::realUsers(['Root agents in region Sim1: 1 (root 1, child 0)', 'Ann Lee 1111-truncated']))
+            ->toBeNull();
     });
 });
 
@@ -65,17 +81,22 @@ describe('users of a simulator', function () {
 
         expect((new UserCounter($machine->environment))->count($simulator))
             ->toBe(0)
-            ->and($machine->consoles->console('alpha')->sent)->toBe([]);
+            ->and($machine->consoles->console('alpha')->sent)
+            ->toBe([]);
     });
 
     test('are asked to the console when its HTTP port says some: it tells the users from the NPCs', function () {
         $machine = new Machine();
         $simulator = counted_simulator($machine, [ALPHA_REGION => 1]);
-        $machine->consoles->console('alpha')->answers['show users'] = ['Root agents in region Plaza: 1 (root 1, child 0)', 'Bob              NPC              11111111-2222-3333-4444-555555555556  NPC Root'];
+        $machine->consoles->console('alpha')->answers['show users'] = [
+            'Root agents in region Plaza: 1 (root 1, child 0)',
+            'Bob              NPC              11111111-2222-3333-4444-555555555556  NPC Root',
+        ];
 
         expect((new UserCounter($machine->environment))->count($simulator))
             ->toBe(0)
-            ->and($machine->consoles->console('alpha')->sent)->toBe(['change region root', 'show users']);
+            ->and($machine->consoles->console('alpha')->sent)
+            ->toBe(['change region root', 'show users']);
     });
 
     test('are the agents it counts when the console does not answer', function () {
@@ -94,7 +115,8 @@ describe('users of a simulator', function () {
 
         expect($counter->count($simulator))
             ->toBeNull()
-            ->and($counter->nobodyToWaitFor($simulator))->toBe(['nobody' => true, 'unknown' => true]);
+            ->and($counter->nobodyToWaitFor($simulator))
+            ->toBe(['nobody' => true, 'unknown' => true]);
     });
 
     test('are waited for when there are some', function () {
@@ -102,12 +124,18 @@ describe('users of a simulator', function () {
         $simulator = counted_simulator($machine, [ALPHA_REGION => 2]);
         $machine->consoles->console('alpha')->available = false;
 
-        expect((new UserCounter($machine->environment))->nobodyToWaitFor($simulator))->toBe(['nobody' => false, 'unknown' => false]);
+        expect((new UserCounter($machine->environment))->nobodyToWaitFor($simulator))->toBe([
+            'nobody' => false,
+            'unknown' => false,
+        ]);
     });
 
     test('add the agents of every region', function () {
         $machine = new Machine();
-        file_put_contents($machine->grid . '/sims/alpha/regions/Park.ini', "[Park]\nRegionUUID = \"22222222-2222-4222-8222-222222222222\"\n");
+        file_put_contents(
+            $machine->grid . '/sims/alpha/regions/Park.ini',
+            "[Park]\nRegionUUID = \"22222222-2222-4222-8222-222222222222\"\n",
+        );
         $simulator = counted_simulator($machine, [ALPHA_REGION => 1, '22222222-2222-4222-8222-222222222222' => 2]);
         $machine->consoles->console('alpha')->available = false;
 
@@ -116,7 +144,10 @@ describe('users of a simulator', function () {
 
     test('are not known when a region does not answer', function () {
         $machine = new Machine();
-        file_put_contents($machine->grid . '/sims/alpha/regions/Park.ini', "[Park]\nRegionUUID = 22222222-2222-4222-8222-222222222222\n");
+        file_put_contents(
+            $machine->grid . '/sims/alpha/regions/Park.ini',
+            "[Park]\nRegionUUID = 22222222-2222-4222-8222-222222222222\n",
+        );
         $simulator = counted_simulator($machine, [ALPHA_REGION => 0]);
         $machine->consoles->console('alpha')->available = false;
 

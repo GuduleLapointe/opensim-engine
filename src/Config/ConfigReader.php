@@ -75,8 +75,12 @@ final class ConfigReader
      * @param bool $directory read the `*.ini` of the `ConfigDirectory` of `[Startup]` too, as Robust does
      * @return array<string,array<string,string>> section => key => value, empty when unreadable
      */
-    public static function load(string|array $path, array $constants = [], bool $expand = true, bool $directory = false): array
-    {
+    public static function load(
+        string|array $path,
+        array $constants = [],
+        bool $expand = true,
+        bool $directory = false,
+    ): array {
         $merged = [];
         $paths = (array) $path;
         $queue = $paths;

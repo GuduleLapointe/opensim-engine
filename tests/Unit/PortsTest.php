@@ -79,38 +79,44 @@ describe('Ports of a simulator block', function () {
 });
 
 describe('Ports bound on a machine', function () {
-    test('are the ones of the sockets that listen and of UDP, not the ports of the machines it is connected to', function () {
-        $bsd = <<<'NET'
-        Active Internet connections (including servers)
-        Proto Recv-Q Send-Q  Local Address          Foreign Address        (state)
-        tcp4       0      0  192.168.8.101.62466    192.168.8.105.9000     ESTABLISHED
-        tcp4       0      0  127.0.0.1.8090         *.*                    LISTEN
-        tcp6       0      0  *.9000                 *.*                    LISTEN
-        udp4       0      0  *.9001                 *.*
-        NET;
-        $linux = <<<'NET'
-        Active Internet connections (servers and established)
-        Proto Recv-Q Send-Q Local Address           Foreign Address         State
-        tcp        0      0 0.0.0.0:8002            0.0.0.0:*               LISTEN
-        tcp        0      0 10.0.0.2:41234          10.0.0.9:9010           ESTABLISHED
-        udp        0      0 0.0.0.0:9011            0.0.0.0:*
-        unix  2      [ ACC ]     STREAM     LISTENING     12345    /run/x.sock
-        NET;
+    test(
+        'are the ones of the sockets that listen and of UDP, not the ports of the machines it is connected to',
+        function () {
+            $bsd = <<<'NET'
+            Active Internet connections (including servers)
+            Proto Recv-Q Send-Q  Local Address          Foreign Address        (state)
+            tcp4       0      0  192.168.8.101.62466    192.168.8.105.9000     ESTABLISHED
+            tcp4       0      0  127.0.0.1.8090         *.*                    LISTEN
+            tcp6       0      0  *.9000                 *.*                    LISTEN
+            udp4       0      0  *.9001                 *.*
+            NET;
+            $linux = <<<'NET'
+            Active Internet connections (servers and established)
+            Proto Recv-Q Send-Q Local Address           Foreign Address         State
+            tcp        0      0 0.0.0.0:8002            0.0.0.0:*               LISTEN
+            tcp        0      0 10.0.0.2:41234          10.0.0.9:9010           ESTABLISHED
+            udp        0      0 0.0.0.0:9011            0.0.0.0:*
+            unix  2      [ ACC ]     STREAM     LISTENING     12345    /run/x.sock
+            NET;
 
-        expect(SystemProcessTable::parseBound($bsd))
-            ->toBe([8090, 9000, 9001])
-            ->and(SystemProcessTable::parseBound($linux))
-            ->toBe([8002, 9011])
-            ->and(SystemProcessTable::parseBound(''))
-            ->toBe([]);
-    });
+            expect(SystemProcessTable::parseBound($bsd))
+                ->toBe([8090, 9000, 9001])
+                ->and(SystemProcessTable::parseBound($linux))
+                ->toBe([8002, 9011])
+                ->and(SystemProcessTable::parseBound(''))
+                ->toBe([]);
+        },
+    );
 });
 
 describe('Ports in use', function () {
     test('are not the ones of the master of a grid, which is made of the defaults of the core', function () {
         $root = test_tmp() . '/ports-' . bin2hex(random_bytes(4));
         mkdir("$root/etc/grids/g/sims", 0o755, true);
-        file_put_contents("$root/etc/grids/g/OpenSimGridDefaults.ini", "[Network]\nhttp_listener_port = 29000\nconsole_port = 29004\n");
+        file_put_contents(
+            "$root/etc/grids/g/OpenSimGridDefaults.ini",
+            "[Network]\nhttp_listener_port = 29000\nconsole_port = 29004\n",
+        );
         file_put_contents("$root/etc/grids/g/sims/one.ini", "[Network]\nhttp_listener_port = 29010\n");
 
         expect(ports_of(['EtcRoot' => "$root/etc"])->nextFree(29000, 3))->toBe([29000, 29001, 29002]);
@@ -119,8 +125,17 @@ describe('Ports in use', function () {
     test('are the ones of the config files of the install and of the sockets that listen', function () {
         $root = test_tmp() . '/ports-' . bin2hex(random_bytes(4));
         mkdir("$root/etc/grids/g/sims", 0o755, true);
-        file_put_contents("$root/etc/grids/g/sims/one.ini", "[Network]\n; http_listener_port = 29001\nconsole_port = 29004\n");
+        file_put_contents(
+            "$root/etc/grids/g/sims/one.ini",
+            "[Network]\n; http_listener_port = 29001\nconsole_port = 29004\n",
+        );
 
-        expect(ports_of(['EtcRoot' => "$root/etc"], [29002])->nextFree(29000, 5))->toBe([29000, 29003, 29005, 29006, 29007]);
+        expect(ports_of(['EtcRoot' => "$root/etc"], [29002])->nextFree(29000, 5))->toBe([
+            29000,
+            29003,
+            29005,
+            29006,
+            29007,
+        ]);
     });
 });

@@ -56,7 +56,10 @@ function portmapping_setup(string $config): array
     mkdir("$grid/sims/demo_sim/regions", 0o755, true);
     file_put_contents("$grid/demo.conf", "[Grid]\n$config");
     file_put_contents("$grid/Robust.HG.ini", "[Const]\n");
-    file_put_contents("$grid/sims/demo_sim.ini", "[Startup]\nregionload_regionsdir = \"$grid/sims/demo_sim/regions\"\n");
+    file_put_contents(
+        "$grid/sims/demo_sim.ini",
+        "[Startup]\nregionload_regionsdir = \"$grid/sims/demo_sim/regions\"\n",
+    );
     file_put_contents("$grid/sims/demo_sim/regions/R.ini", "[R]\nExternalHostName = SYSTEMIP\n");
 
     FakeMapper::$calls = [];
@@ -97,11 +100,20 @@ describe('Port mapping, enabled', function () {
         $t['service']->start('demo_sim', $t['sim']);
 
         expect(FakeMapper::$calls)
-            ->toContain('open 8002/tcp', 'open 8003/tcp', 'open 9020/tcp', 'open 9021/udp', 'open 9024/tcp', 'open 9025/tcp')
+            ->toContain(
+                'open 8002/tcp',
+                'open 8003/tcp',
+                'open 9020/tcp',
+                'open 9021/udp',
+                'open 9024/tcp',
+                'open 9025/tcp',
+            )
             ->and(file_get_contents($t['regions']))
             ->toContain('ExternalHostName = 203.0.113.7')
             ->and((array) $t['log'])
-            ->toContain('demo_sim: mapping ports 9020/tcp, 9021/udp, 9024/tcp, 9025/tcp (fake), this can take a moment');
+            ->toContain(
+                'demo_sim: mapping ports 9020/tcp, 9021/udp, 9024/tcp, 9025/tcp (fake), this can take a moment',
+            );
 
         return $t;
     });
@@ -127,7 +139,11 @@ describe('Port mapping, enabled', function () {
             ->toContain('close 8888/tcp', 'close 9020/tcp', 'close 9021/udp', 'close 9024/tcp', 'close 9025/tcp')
             ->and(file_exists(dirname($t['grid'], 2) . '/var/portmap/demo_sim'))
             ->toBeFalse()
-            ->and(array_values(array_filter((array) $t['log'], static fn(string $l): bool => str_contains($l, 'closing'))))
+            ->and(
+                array_values(
+                    array_filter((array) $t['log'], static fn(string $l): bool => str_contains($l, 'closing')),
+                ),
+            )
             ->toHaveCount(1);
     });
 
@@ -197,8 +213,9 @@ describe('Port mapping, not enabled', function () {
         $t['service']->stop('demo_sim', $t['sim']);
         $t['service']->start('demo_sim', $t['sim']);
 
-        expect(array_values(array_filter((array) $t['log'], static fn(string $l): bool => str_contains($l, 'closing'))))
-            ->toHaveCount(1);
+        expect(
+            array_values(array_filter((array) $t['log'], static fn(string $l): bool => str_contains($l, 'closing'))),
+        )->toHaveCount(1);
     });
 
     test('gives the regions SYSTEMIP back on a restart, the state being gone', function () {
@@ -250,7 +267,9 @@ describe('Upnpc mapper', function () {
     });
 
     test('opens nothing without a LAN address, and gives no address that is not one', function () {
-        $module = new UpnpcMapper(static fn(array $command): array => $command[0] === 'external-ip' ? [0, "error\n"] : [1, '']);
+        $module = new UpnpcMapper(
+            static fn(array $command): array => $command[0] === 'external-ip' ? [0, "error\n"] : [1, ''],
+        );
 
         expect($module->prepare())
             ->toBeFalse()
@@ -269,16 +288,21 @@ describe('Port mapping, the module', function () {
             dirname($t['grid'], 2) . '/var/portmap-default',
             static fn(string $message, bool $problem) => null,
             static fn(string $ini): array => [['port' => 8002, 'proto' => 'tcp']],
-            ['kick-inside' => static function () use (&$made): PortMapperInterface {
-                $made[] = 'kick-inside';
+            [
+                'kick-inside' => static function () use (&$made): PortMapperInterface {
+                    $made[] = 'kick-inside';
 
-                return new FakeMapper();
-            }],
+                    return new FakeMapper();
+                },
+            ],
         );
 
         $service->start('demo', $t['robust']);
 
-        expect($made)->toBe(['kick-inside'])->and(FakeMapper::$calls)->toContain('open 8002/tcp');
+        expect($made)
+            ->toBe(['kick-inside'])
+            ->and(FakeMapper::$calls)
+            ->toContain('open 8002/tcp');
     });
 
     test('is made once for an instance, the router is looked for once', function () {
@@ -288,11 +312,13 @@ describe('Port mapping, the module', function () {
             dirname($t['grid'], 2) . '/var/portmap-once',
             static fn(string $message, bool $problem) => null,
             static fn(string $ini): array => [['port' => 8002, 'proto' => 'tcp'], ['port' => 8003, 'proto' => 'tcp']],
-            ['fake' => static function () use (&$made): PortMapperInterface {
-                $made++;
+            [
+                'fake' => static function () use (&$made): PortMapperInterface {
+                    $made++;
 
-                return new FakeMapper();
-            }],
+                    return new FakeMapper();
+                },
+            ],
         );
 
         $service->start('demo', $t['robust']);

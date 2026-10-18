@@ -26,9 +26,7 @@ use OpenSim\Runtime\Environment;
  */
 final class Ports
 {
-    public function __construct(private readonly Environment $environment)
-    {
-    }
+    public function __construct(private readonly Environment $environment) {}
 
     /**
      * Where the simulators of a grid are looked for: the thousand above the grid, in
@@ -200,7 +198,10 @@ final class Ports
      */
     private static function isDefaults(string $path): bool
     {
-        return in_array(basename($path), ['OpenSim.ini', 'OpenSimDefaults.ini', \OpenSim\Provisioning\SimulatorMaster::FILE], true) ||
-            str_contains($path, '/config-include/');
+        return in_array(
+            basename($path),
+            ['OpenSim.ini', 'OpenSimDefaults.ini', \OpenSim\Provisioning\SimulatorMaster::FILE],
+            true,
+        ) || str_contains($path, '/config-include/');
     }
 }

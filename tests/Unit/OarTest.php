@@ -107,10 +107,7 @@ test('refuses what is not an archive', function () {
     $file = tempnam(sys_get_temp_dir(), 'oar');
     file_put_contents($file, 'plain text');
 
-    expect(fn() => Oar::entries($file))
-        ->toThrow(RuntimeException::class)
-        ->and(Oar::check($file))
-        ->not->toBe([]);
+    expect(fn() => Oar::entries($file))->toThrow(RuntimeException::class)->and(Oar::check($file))->not->toBe([]);
 });
 
 test('refuses a folder without a control file', function () {

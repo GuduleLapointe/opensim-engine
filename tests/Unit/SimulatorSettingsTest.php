@@ -13,7 +13,9 @@ use OpenSim\Testing\Machine;
 describe('simulator', function () {
     test('tells what its own config says: ports, console, database, estate', function () {
         $machine = new Machine();
-        $machine->write($machine->grid . '/sims/alpha.ini', <<<INI
+        $machine->write(
+            $machine->grid . '/sims/alpha.ini',
+            <<<INI
             [Startup]
                 regionload_regionsdir = "{$machine->grid}/sims/alpha/regions"
             [Network]
@@ -27,16 +29,27 @@ describe('simulator', function () {
             [Estates]
                 DefaultEstateName = "Demo Estate"
                 DefaultEstateOwnerName = "Ann Poe"
-            INI);
+            INI
+            ,
+        );
         $alpha = Grid::find($machine->environment, 'demo')->simulator('alpha');
 
-        expect($alpha->exists())->toBeTrue()
-            ->and([$alpha->httpPort(), $alpha->consolePort(), $alpha->consoleHost(), $alpha->consoleUser(), $alpha->consolePassword()])
-                ->toBe([9000, 9004, 'play.example.org', 'admin', 'secret'])
+        expect($alpha->exists())
+            ->toBeTrue()
+            ->and([
+                $alpha->httpPort(),
+                $alpha->consolePort(),
+                $alpha->consoleHost(),
+                $alpha->consoleUser(),
+                $alpha->consolePassword(),
+            ])
+            ->toBe([9000, 9004, 'play.example.org', 'admin', 'secret'])
             ->and([$alpha->databaseHost(), $alpha->databaseName(), $alpha->databaseUser(), $alpha->databasePassword()])
-                ->toBe(['db.example.org', 'demo_alpha', 'simaccount', 'simpass'])
-            ->and([$alpha->estateName(), $alpha->estateOwner()])->toBe(['Demo Estate', 'Ann Poe'])
-            ->and($alpha->detail())->toMatchArray([
+            ->toBe(['db.example.org', 'demo_alpha', 'simaccount', 'simpass'])
+            ->and([$alpha->estateName(), $alpha->estateOwner()])
+            ->toBe(['Demo Estate', 'Ann Poe'])
+            ->and($alpha->detail())
+            ->toMatchArray([
                 'name' => 'alpha',
                 'grid' => 'demo',
                 'enabled' => true,
@@ -46,20 +59,28 @@ describe('simulator', function () {
                 'databaseName' => 'demo_alpha',
                 'estateOwner' => 'Ann Poe',
             ])
-            ->and($alpha->detail())->not->toHaveKey('databasePassword')->not->toHaveKey('consolePassword');
+            ->and($alpha->detail())
+            ->not->toHaveKey('databasePassword')
+            ->not->toHaveKey('consolePassword');
     });
 
     test('says nothing it does not know, and nothing at all when it is not made yet', function () {
         $machine = new Machine();
         $ghost = new Simulator($machine->environment, $machine->grid . '/sims/ghost.ini');
 
-        expect($ghost->exists())->toBeFalse()
-            ->and([$ghost->httpPort(), $ghost->consolePort(), $ghost->databaseName(), $ghost->estateOwner()])->toBe([null, null, null, null])
-            ->and($ghost->isEnabled())->toBeFalse();
+        expect($ghost->exists())
+            ->toBeFalse()
+            ->and([$ghost->httpPort(), $ghost->consolePort(), $ghost->databaseName(), $ghost->estateOwner()])
+            ->toBe([null, null, null, null])
+            ->and($ghost->isEnabled())
+            ->toBeFalse();
 
         // Alpha of the machine has no database nor estate in its config
         $alpha = Grid::find($machine->environment, 'demo')->simulator('alpha');
-        expect([$alpha->databaseName(), $alpha->estateName()])->toBe([null, null])->and($alpha->httpPort())->toBe(9000);
+        expect([$alpha->databaseName(), $alpha->estateName()])
+            ->toBe([null, null])
+            ->and($alpha->httpPort())
+            ->toBe(9000);
     });
 });
 
@@ -68,22 +89,27 @@ describe('grid detail', function () {
         $machine = new Machine();
         $detail = Grid::find($machine->environment, 'demo')->detail();
 
-        expect($detail)->toMatchArray([
-            'nick' => 'demo',
-            'sources' => ['folder'],
-            'enabled' => true,
-            'hypergrid' => true,
-            'publicPort' => 8002,
-            'simulators' => ['alpha', 'beta'],
-        ])->not->toHaveKey('databasePassword')
-            ->and(json_encode($detail))->toBeString();
+        expect($detail)
+            ->toMatchArray([
+                'nick' => 'demo',
+                'sources' => ['folder'],
+                'enabled' => true,
+                'hypergrid' => true,
+                'publicPort' => 8002,
+                'simulators' => ['alpha', 'beta'],
+            ])
+            ->not->toHaveKey('databasePassword')
+            ->and(json_encode($detail))
+            ->toBeString();
     });
 });
 
 describe('Robust', function () {
     test('tells what its own config says: names, ports, console, database, services, roles of regions', function () {
         $machine = new Machine();
-        $machine->write($machine->grid . '/Robust.HG.ini', <<<INI
+        $machine->write(
+            $machine->grid . '/Robust.HG.ini',
+            <<<INI
             [Const]
                 BaseHostname = "play.example.org"
                 PublicPort = 8002
@@ -103,19 +129,38 @@ describe('Robust', function () {
                 BakedTextureService = "8003/OpenSim.Server.Handlers.dll:XBakesConnector"
             [GridService]
                 Region_Welcome = "DefaultRegion, FallbackRegion"
-            INI);
+            INI
+            ,
+        );
         $robust = Grid::find($machine->environment, 'demo')->robust();
 
-        expect($robust->exists())->toBeTrue()
-            ->and([$robust->gridName(), $robust->baseHostname(), $robust->webUrl(), $robust->publicPort(), $robust->privatePort()])
-                ->toBe(['Demo World', 'play.example.org', 'https://play.example.org', 8002, 8003])
-            ->and([$robust->consolePort(), $robust->consoleHost(), $robust->consoleUser(), $robust->consolePassword()])->toBe([8404, 'play.example.org', 'admin', 'secret'])
-            ->and([$robust->databaseHost(), $robust->databaseName(), $robust->databaseUser(), $robust->databasePassword()])
-                ->toBe(['db.example.org', 'demo_robust', 'gridaccount', 'gridpass'])
-            ->and($robust->connectors())->toBe(['AssetServiceConnector', 'BakedTextureService'])
-            ->and($robust->serves('BakedTextureService'))->toBeTrue()
-            ->and($robust->serves('GroupsServiceConnector'))->toBeFalse()
-            ->and($robust->regionFlags())->toBe(['DefaultRegion', 'FallbackRegion']);
+        expect($robust->exists())
+            ->toBeTrue()
+            ->and([
+                $robust->gridName(),
+                $robust->baseHostname(),
+                $robust->webUrl(),
+                $robust->publicPort(),
+                $robust->privatePort(),
+            ])
+            ->toBe(['Demo World', 'play.example.org', 'https://play.example.org', 8002, 8003])
+            ->and([$robust->consolePort(), $robust->consoleHost(), $robust->consoleUser(), $robust->consolePassword()])
+            ->toBe([8404, 'play.example.org', 'admin', 'secret'])
+            ->and([
+                $robust->databaseHost(),
+                $robust->databaseName(),
+                $robust->databaseUser(),
+                $robust->databasePassword(),
+            ])
+            ->toBe(['db.example.org', 'demo_robust', 'gridaccount', 'gridpass'])
+            ->and($robust->connectors())
+            ->toBe(['AssetServiceConnector', 'BakedTextureService'])
+            ->and($robust->serves('BakedTextureService'))
+            ->toBeTrue()
+            ->and($robust->serves('GroupsServiceConnector'))
+            ->toBeFalse()
+            ->and($robust->regionFlags())
+            ->toBe(['DefaultRegion', 'FallbackRegion']);
     });
 });
 
@@ -124,12 +169,19 @@ describe('simulator identity', function () {
         $machine = new Machine();
         $grid = Grid::find($machine->environment, 'demo');
         $alpha = $grid->simulator('alpha');
-        $machine->write($machine->grid . '/sims/alpha/regions/Plaza.ini', "[Plaza]\nRegionUUID = 11111111-1111-4111-8111-111111111111\nExternalHostName = \"play.example.org\"\n");
+        $machine->write(
+            $machine->grid . '/sims/alpha/regions/Plaza.ini',
+            "[Plaza]\nRegionUUID = 11111111-1111-4111-8111-111111111111\nExternalHostName = \"play.example.org\"\n",
+        );
 
-        expect($alpha->uri())->toBe('play.example.org:9000')
-            ->and($alpha->id())->toBe('play.example.org:9000')
-            ->and($alpha->slug())->toBe('alpha')
-            ->and($alpha->detail())->toMatchArray(['id' => 'play.example.org:9000', 'uri' => 'play.example.org:9000', 'slug' => 'alpha']);
+        expect($alpha->uri())
+            ->toBe('play.example.org:9000')
+            ->and($alpha->id())
+            ->toBe('play.example.org:9000')
+            ->and($alpha->slug())
+            ->toBe('alpha')
+            ->and($alpha->detail())
+            ->toMatchArray(['id' => 'play.example.org:9000', 'uri' => 'play.example.org:9000', 'slug' => 'alpha']);
 
         // SYSTEMIP is this machine; a simulator with no region yet has no host announced
         $machine->write($machine->grid . '/sims/alpha/regions/Plaza.ini', "[Plaza]\nExternalHostName = SYSTEMIP\n");

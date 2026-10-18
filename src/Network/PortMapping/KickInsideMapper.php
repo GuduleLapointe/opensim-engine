@@ -58,9 +58,10 @@ final class KickInsideMapper implements PortMapperInterface
     {
         if ($this->mapper === null) {
             try {
-                $this->mapper = $this->discover !== null
-                    ? ($this->discover)()
-                    : PortMapper::discover($this->timeout, $this->internalClient);
+                $this->mapper =
+                    $this->discover !== null
+                        ? ($this->discover)()
+                        : PortMapper::discover($this->timeout, $this->internalClient);
             } catch (\Throwable) {
                 return null;
             }

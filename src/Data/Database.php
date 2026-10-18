@@ -103,9 +103,15 @@ enum Database: string
         return match ($this) {
             self::Robust => ['Robust.DatabaseService.ConnectionString'],
             self::Assets => ['Robust.AssetService.ConnectionString', 'Robust.DatabaseService.ConnectionString'],
-            self::Profiles => ['Robust.UserProfilesService.ConnectionString', 'Robust.DatabaseService.ConnectionString'],
+            self::Profiles => [
+                'Robust.UserProfilesService.ConnectionString',
+                'Robust.DatabaseService.ConnectionString',
+            ],
             self::Offline => ['Robust.Messaging.ConnectionString', 'Robust.DatabaseService.ConnectionString'],
-            self::Simulator => ['Simulator.SimulationDataStore.ConnectionString', 'Simulator.DatabaseService.ConnectionString'],
+            self::Simulator => [
+                'Simulator.SimulationDataStore.ConnectionString',
+                'Simulator.DatabaseService.ConnectionString',
+            ],
             self::Estate => [
                 'Simulator.EstateDataStore.ConnectionString',
                 'Simulator.DatabaseService.EstateConnectionString',
@@ -129,21 +135,65 @@ enum Database: string
     {
         return match ($this) {
             self::Robust => [
-                'UserAccounts', 'GridUser', 'Presence', 'auth', 'tokens', 'regions', 'Avatars', 'AgentPrefs', 'Friends', 'MuteList',
-                'inventoryfolders', 'inventoryitems', 'hg_traveling_data', 'os_groups_groups', 'os_groups_membership',
-                'os_groups_roles', 'os_groups_rolemembership', 'os_groups_principals', 'os_groups_notices', 'os_groups_invites',
+                'UserAccounts',
+                'GridUser',
+                'Presence',
+                'auth',
+                'tokens',
+                'regions',
+                'Avatars',
+                'AgentPrefs',
+                'Friends',
+                'MuteList',
+                'inventoryfolders',
+                'inventoryitems',
+                'hg_traveling_data',
+                'os_groups_groups',
+                'os_groups_membership',
+                'os_groups_roles',
+                'os_groups_rolemembership',
+                'os_groups_principals',
+                'os_groups_notices',
+                'os_groups_invites',
             ],
             self::Assets => ['assets', 'fsassets', 'XAssetsMeta', 'XAssetsData'],
             self::Profiles => ['userprofile', 'userdata', 'usernotes', 'userpicks', 'usersettings', 'classifieds'],
             self::Offline => ['im_offline'],
             self::Simulator => [
-                'regionsettings', 'land', 'landaccesslist', 'prims', 'primshapes', 'primitems', 'terrain', 'bakedterrain',
-                'regionban', 'regionenvironment', 'regionextra', 'regionwindlight', 'spawn_points',
+                'regionsettings',
+                'land',
+                'landaccesslist',
+                'prims',
+                'primshapes',
+                'primitems',
+                'terrain',
+                'bakedterrain',
+                'regionban',
+                'regionenvironment',
+                'regionextra',
+                'regionwindlight',
+                'spawn_points',
             ],
-            self::Estate => ['estate_settings', 'estate_map', 'estate_managers', 'estate_groups', 'estate_users', 'estateban'],
+            self::Estate => [
+                'estate_settings',
+                'estate_map',
+                'estate_managers',
+                'estate_groups',
+                'estate_users',
+                'estateban',
+            ],
             self::Economy => ['balances', 'transactions', 'totalsales', 'userinfo'],
             self::Search => [
-                'parcels', 'allparcels', 'regions', 'regionsregister', 'objects', 'popularplaces', 'events', 'classifieds', 'hostsregister', 'parcelsales',
+                'parcels',
+                'allparcels',
+                'regions',
+                'regionsregister',
+                'objects',
+                'popularplaces',
+                'events',
+                'classifieds',
+                'hostsregister',
+                'parcelsales',
                 'oshelpers_cache',
             ],
         };
@@ -233,7 +283,10 @@ enum Database: string
      */
     public static function serviceSettings(string $section): array
     {
-        return [...(self::SERVICE_SETTINGS[$section] ?? ["Robust.$section.ConnectionString"]), 'Robust.DatabaseService.ConnectionString'];
+        return [
+            ...self::SERVICE_SETTINGS[$section] ?? ["Robust.$section.ConnectionString"],
+            'Robust.DatabaseService.ConnectionString',
+        ];
     }
 
     /**
@@ -342,7 +395,9 @@ enum Database: string
         } elseif ($role === 'Robust') {
             // The services are in the Robust config; a web host has a reduced copy of it in Helpers.ini, a standalone simulator has
             // them in its OpenSim.ini
-            $value = $tree['Robust'][$section][$key] ?? ($tree['Helpers'][$section][$key] ?? ($tree['OpenSim'][$section][$key] ?? null));
+            $value =
+                $tree['Robust'][$section][$key] ??
+                ($tree['Helpers'][$section][$key] ?? ($tree['OpenSim'][$section][$key] ?? null));
         } else {
             $value = $tree[$role][$section][$key] ?? null;
         }

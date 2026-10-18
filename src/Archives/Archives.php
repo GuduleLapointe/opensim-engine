@@ -208,8 +208,13 @@ final class Archives
      *
      * @param array<string,string|true> $options
      */
-    public static function oarName(string $grid, string $simulator, ?string $region, array $options, string $stamp): string
-    {
+    public static function oarName(
+        string $grid,
+        string $simulator,
+        ?string $region,
+        array $options,
+        string $stamp,
+    ): string {
         $parts = [self::part($grid), self::part($simulator)];
         if ($region !== null && !isset($options['all'])) {
             $parts[] = self::part($region);

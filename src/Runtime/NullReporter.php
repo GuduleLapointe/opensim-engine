@@ -9,25 +9,15 @@ namespace OpenSim\Runtime;
  */
 final class NullReporter implements ReporterInterface
 {
-    public function info(string $message): void
-    {
-    }
+    public function info(string $message): void {}
 
-    public function error(string $message): void
-    {
-    }
+    public function error(string $message): void {}
 
-    public function debug(string $message): void
-    {
-    }
+    public function debug(string $message): void {}
 
-    public function step(string $text): void
-    {
-    }
+    public function step(string $text): void {}
 
-    public function stepEnd(): void
-    {
-    }
+    public function stepEnd(): void {}
 
     public function isTerminal(): bool
     {

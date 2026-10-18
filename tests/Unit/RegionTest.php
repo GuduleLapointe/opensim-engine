@@ -313,8 +313,12 @@ describe('region as the search engine knows it', function () {
         $grid = region_database();
         $search = $shared ? $grid : new OSPDO(['driver' => 'sqlite', 'name' => ':memory:']);
         $table = $shared ? 'regionsregister' : 'regions';
-        $search->exec("CREATE TABLE $table (regionname VARCHAR(255), regionUUID CHAR(36) PRIMARY KEY, regionhandle VARCHAR(255), url VARCHAR(255), owner VARCHAR(255), owneruuid CHAR(36), gatekeeperURL VARCHAR(255))");
-        $search->exec("INSERT INTO $table VALUES ('Welcome', 'AAAAAAAA-0000-0000-0000-000000000001', '1', 'http://play.example.org:9000/', 'Ada Love', '11111111-1111-1111-1111-111111111111', 'http://play.example.org:8002/')");
+        $search->exec(
+            "CREATE TABLE $table (regionname VARCHAR(255), regionUUID CHAR(36) PRIMARY KEY, regionhandle VARCHAR(255), url VARCHAR(255), owner VARCHAR(255), owneruuid CHAR(36), gatekeeperURL VARCHAR(255))",
+        );
+        $search->exec(
+            "INSERT INTO $table VALUES ('Welcome', 'AAAAAAAA-0000-0000-0000-000000000001', '1', 'http://play.example.org:9000/', 'Ada Love', '11111111-1111-1111-1111-111111111111', 'http://play.example.org:8002/')",
+        );
 
         return [$grid, $search];
     }
@@ -330,20 +334,27 @@ describe('region as the search engine knows it', function () {
 
         $region = Region::inSearch(region_config(), 'aaaaaaaa-0000-0000-0000-000000000001');
 
-        expect($region->sources())->toBe(['search'])
-            ->and([$region->name(), $region->uuid()])->toBe(['Welcome', 'aaaaaaaa-0000-0000-0000-000000000001'])
-            ->and($asked)->toBe(['search'])
-            ->and(Region::inSearch(region_config(), 'aaaaaaaa-0000-0000-0000-0000000000ff'))->toBeNull();
+        expect($region->sources())
+            ->toBe(['search'])
+            ->and([$region->name(), $region->uuid()])
+            ->toBe(['Welcome', 'aaaaaaaa-0000-0000-0000-000000000001'])
+            ->and($asked)
+            ->toBe(['search'])
+            ->and(Region::inSearch(region_config(), 'aaaaaaaa-0000-0000-0000-0000000000ff'))
+            ->toBeNull();
     });
 
-    test('is in a table of its own when the search shares the database of Robust, whose regions are another table', function () {
-        [$shared] = region_search_databases(true);
+    test(
+        'is in a table of its own when the search shares the database of Robust, whose regions are another table',
+        function () {
+            [$shared] = region_search_databases(true);
 
-        expect(Region::searchTable($shared))->toBe('regionsregister');
-        Connections::using(static fn(): OSPDO => $shared);
+            expect(Region::searchTable($shared))->toBe('regionsregister');
+            Connections::using(static fn(): OSPDO => $shared);
 
-        expect(Region::inSearch(region_config(), 'aaaaaaaa-0000-0000-0000-000000000001')?->name())->toBe('Welcome');
-        [, $apart] = region_search_databases(false);
-        expect(Region::searchTable($apart))->toBe('regions');
-    });
+            expect(Region::inSearch(region_config(), 'aaaaaaaa-0000-0000-0000-000000000001')?->name())->toBe('Welcome');
+            [, $apart] = region_search_databases(false);
+            expect(Region::searchTable($apart))->toBe('regions');
+        },
+    );
 })->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');

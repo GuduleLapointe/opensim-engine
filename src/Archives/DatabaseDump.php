@@ -29,15 +29,11 @@ final class DatabaseDump
             throw new \RuntimeException("cannot write $file");
         }
         try {
-            self::dump(
-                self::connect($db),
-                $db['name'],
-                static function (string $chunk) use ($out, $file): void {
-                    if (gzwrite($out, $chunk) === false) {
-                        throw new \RuntimeException("cannot write $file");
-                    }
-                },
-            );
+            self::dump(self::connect($db), $db['name'], static function (string $chunk) use ($out, $file): void {
+                if (gzwrite($out, $chunk) === false) {
+                    throw new \RuntimeException("cannot write $file");
+                }
+            });
         } catch (\PDOException $e) {
             throw new \RuntimeException("dump of {$db['name']} failed: " . SqlRunner::describe($e), 0, $e);
         } finally {
@@ -115,7 +111,10 @@ final class DatabaseDump
         $size = 0;
         $statement = $pdo->query("SELECT * FROM $quoted");
         while (($row = $statement->fetch(\PDO::FETCH_NUM)) !== false) {
-            $tuple = '(' . implode(',', array_map(static fn(mixed $value): string => self::literal($pdo, $value), $row)) . ')';
+            $tuple =
+                '(' .
+                implode(',', array_map(static fn(mixed $value): string => self::literal($pdo, $value), $row)) .
+                ')';
             $tuples[] = $tuple;
             $size += strlen($tuple);
             if ($size >= self::INSERT_SIZE) {
@@ -175,7 +174,9 @@ final class DatabaseDump
         $quoted = self::identifier($name);
         $create = $pdo->query("SHOW CREATE $kind $quoted")->fetch(\PDO::FETCH_NUM)[$column] ?? null;
         if ($create === null) {
-            throw new \RuntimeException("the definition of the " . strtolower($kind) . " $name cannot be read, the account lacks a privilege");
+            throw new \RuntimeException(
+                'the definition of the ' . strtolower($kind) . " $name cannot be read, the account lacks a privilege",
+            );
         }
 
         return "\nDELIMITER ;;\nDROP $kind IF EXISTS $quoted;;\n$create;;\nDELIMITER ;\n";
@@ -187,7 +188,13 @@ final class DatabaseDump
      */
     private static function connect(array $db): \PDO
     {
-        $pdo = new OSPDO(['host' => $db['host'], 'name' => $db['name'], 'user' => $db['user'], 'pass' => $db['pass'], 'log' => false]);
+        $pdo = new OSPDO([
+            'host' => $db['host'],
+            'name' => $db['name'],
+            'user' => $db['user'],
+            'pass' => $db['pass'],
+            'log' => false,
+        ]);
         if (!$pdo->connected) {
             throw new \RuntimeException("cannot connect to {$db['name']}: " . SqlRunner::describe($pdo->error));
         }

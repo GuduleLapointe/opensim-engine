@@ -19,9 +19,7 @@ use OpenSim\Runtime\ShellService;
  */
 final class SimulatorProvisioner
 {
-    public function __construct(private UiInterface $ui)
-    {
-    }
+    public function __construct(private UiInterface $ui) {}
 
     /**
      * The writing itself: run as the system user of the install, root, or the
@@ -107,7 +105,12 @@ final class SimulatorProvisioner
         $systemUser = $environment->layout->systemUser();
         $this->giveToSystemUser(
             $systemUser,
-            array_filter([$plan->gridDir, $plan->preset !== '' ? $plan->configDir : '', $plan->dataDirectory, $plan->cacheDirectory]),
+            array_filter([
+                $plan->gridDir,
+                $plan->preset !== '' ? $plan->configDir : '',
+                $plan->dataDirectory,
+                $plan->cacheDirectory,
+            ]),
             true,
         );
         // The ini files may hold passwords and the web server reads them (the helpers): 640, the group of the web server
@@ -134,12 +137,16 @@ final class SimulatorProvisioner
      */
     private function startSimulator(SimulatorPlan $plan, Grid $grid, Environment $environment): void
     {
-
         // A region registers with the grid when it starts: the grid has to run (when
         // it is ours: a Robust on another machine is its administrator's)
         if (!$grid->isRemote()) {
             // Robust reads the roles of its regions when it starts: it starts again to give them
-            [$code] = InstanceControl::run($this->ui, $plan->regionRoles !== [] ? 'restart' : 'start', $grid->nick(), true);
+            [$code] = InstanceControl::run(
+                $this->ui,
+                $plan->regionRoles !== [] ? 'restart' : 'start',
+                $grid->nick(),
+                true,
+            );
             if ($code !== 0) {
                 $this->failed(
                     $plan,
@@ -316,7 +323,11 @@ final class SimulatorProvisioner
         if ($owner === '') {
             return;
         }
-        $done = (new GridAccounts(new DatabaseService($this->ui), $this->ui))->setHome($grid, $owner, $plan->regionUuid);
+        $done = (new GridAccounts(new DatabaseService($this->ui), $this->ui))->setHome(
+            $grid,
+            $owner,
+            $plan->regionUuid,
+        );
         if ($done !== true) {
             $this->ui->warn(
                 sprintf(
@@ -368,7 +379,12 @@ final class SimulatorProvisioner
         foreach ($paths as $path) {
             if (is_link($path) || file_exists($path)) {
                 ShellService::run(
-                    'chown -h' . ($recursive ? 'R' : '') . ' ' . ShellService::arg($user) . ': ' . ShellService::arg($path),
+                    'chown -h' .
+                        ($recursive ? 'R' : '') .
+                        ' ' .
+                        ShellService::arg($user) .
+                        ': ' .
+                        ShellService::arg($path),
                 );
             }
         }

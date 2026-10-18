@@ -17,9 +17,7 @@ final class UserCounter
 {
     private const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 
-    public function __construct(private readonly Environment $environment)
-    {
-    }
+    public function __construct(private readonly Environment $environment) {}
 
     /** The real users in all the regions, null when nothing answers. */
     public function count(OpenSimController $simulator): ?int

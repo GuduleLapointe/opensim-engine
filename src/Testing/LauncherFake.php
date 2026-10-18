@@ -20,9 +20,7 @@ final class LauncherFake implements LauncherInterface
 
     public bool $exitsAtOnce = false;
 
-    public function __construct(private readonly ProcessTableFake $processes)
-    {
-    }
+    public function __construct(private readonly ProcessTableFake $processes) {}
 
     public function launch(LaunchSpec $spec): bool
     {

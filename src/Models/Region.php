@@ -93,7 +93,7 @@ final class Region extends Model
     /** Its UUID, else the simulator and the name for a region that has none yet. */
     public function id(): string
     {
-        return $this->uuid() ?? (($this->local['simulator'] ?? '') . ':' . $this->name());
+        return $this->uuid() ?? ($this->local['simulator'] ?? '') . ':' . $this->name();
     }
 
     /** Its UUID, null while none was given (a region configured and never started has one in its file). */
@@ -112,7 +112,13 @@ final class Region extends Model
     /** The sources that know it: grid, config, search. */
     public function sources(): array
     {
-        return array_keys(array_filter([self::GRID => $this->row !== [], self::CONFIG => $this->local !== [], self::SEARCH => $this->indexed !== []]));
+        return array_keys(
+            array_filter([
+                self::GRID => $this->row !== [],
+                self::CONFIG => $this->local !== [],
+                self::SEARCH => $this->indexed !== [],
+            ]),
+        );
     }
 
     /** Whether this source knows the region (see GRID, CONFIG, SEARCH). */
@@ -241,7 +247,8 @@ final class Region extends Model
 
     public function height(): int
     {
-        return (int) ($this->row['sizeY'] ?? ($this->local['SizeY'] ?? ($this->local['SizeX'] ?? 0))) ?: self::DEFAULT_SIZE;
+        return (int) ($this->row['sizeY'] ?? ($this->local['SizeY'] ?? ($this->local['SizeX'] ?? 0))) ?:
+            self::DEFAULT_SIZE;
     }
 
     public function detail(): array
@@ -285,9 +292,17 @@ final class Region extends Model
     }
 
     /** A region from its file in the regions folder of a simulator. */
-    public static function fromConfig(GridConfig $config, string $simulator, string $file, string $name, array $values, bool $enabled): static
-    {
-        return (new static($config, []))->withConfig(['name' => $name, 'simulator' => $simulator, 'file' => $file, 'enabled' => $enabled] + $values);
+    public static function fromConfig(
+        GridConfig $config,
+        string $simulator,
+        string $file,
+        string $name,
+        array $values,
+        bool $enabled,
+    ): static {
+        return (new static($config, []))->withConfig(
+            ['name' => $name, 'simulator' => $simulator, 'file' => $file, 'enabled' => $enabled] + $values,
+        );
     }
 
     /** A region from a row of the search tables. */
@@ -343,7 +358,11 @@ final class Region extends Model
         if ($pdo === null) {
             return null;
         }
-        $rows = $pdo->get_results('SELECT * FROM ' . self::searchTable($pdo) . ' WHERE LOWER(regionUUID) = :id', ['id' => strtolower($uuid)], \PDO::FETCH_ASSOC);
+        $rows = $pdo->get_results(
+            'SELECT * FROM ' . self::searchTable($pdo) . ' WHERE LOWER(regionUUID) = :id',
+            ['id' => strtolower($uuid)],
+            \PDO::FETCH_ASSOC,
+        );
 
         return isset($rows[0]) ? static::fromSearch($config, $rows[0]) : null;
     }
@@ -380,7 +399,14 @@ final class Region extends Model
         $regions = [];
         foreach (ConfigReader::parse(GridFileService::read($file)) as $name => $values) {
             $name = trim((string) $name);
-            $regions[] = static::fromConfig($config, $simulator, $file, $name, $values, !str_ends_with($file, self::DISABLED));
+            $regions[] = static::fromConfig(
+                $config,
+                $simulator,
+                $file,
+                $name,
+                $values,
+                !str_ends_with($file, self::DISABLED),
+            );
         }
 
         return $regions;
@@ -430,7 +456,9 @@ final class Region extends Model
             }
         }
 
-        return $registered !== null && $configured !== null ? $registered->withConfig($configured->local) : ($registered ?? $configured);
+        return $registered !== null && $configured !== null
+            ? $registered->withConfig($configured->local)
+            : $registered ?? $configured;
     }
 
     /**
@@ -446,13 +474,19 @@ final class Region extends Model
         $local = static::configured($config, $simulator !== '' ? $simulator : null);
         $byUuid = [];
         foreach ($local as $region) {
-            $region->uuid() === null || $byUuid[$region->uuid()] = $region;
+            $region->uuid() === null || ($byUuid[$region->uuid()] = $region);
         }
         $perPage = max(1, (int) ($options['perPage'] ?? 25));
         $page = max(1, (int) ($options['page'] ?? 1));
         $filters = (array) ($options['filters'] ?? []);
         $search = (string) ($options['search'] ?? '');
-        $request = ['search' => $search, 'sort' => (string) ($options['sort'] ?? 'name'), 'filters' => $filters, 'page' => $page, 'perPage' => $perPage];
+        $request = [
+            'search' => $search,
+            'sort' => (string) ($options['sort'] ?? 'name'),
+            'filters' => $filters,
+            'page' => $page,
+            'perPage' => $perPage,
+        ];
         if ($simulator !== '') {
             $request['uuids'] = array_keys($byUuid);
         }
@@ -467,24 +501,46 @@ final class Region extends Model
             $registered = $list->items();
             $total = $list->total();
             $known = array_flip(static::known($config, array_keys($byUuid)));
-            $meta = ['sort' => $list->sort(), 'columns' => $list->columns(), 'filters' => $list->filters(), 'applied' => $list->applied()];
+            $meta = [
+                'sort' => $list->sort(),
+                'columns' => $list->columns(),
+                'filters' => $list->filters(),
+                'applied' => $list->applied(),
+            ];
         } catch (ChannelUnavailable $e) {
             $problem = $e->getMessage();
         }
 
-        $unknown = array_values(array_filter(
-            $local,
-            static fn(self $region): bool => ($region->uuid() === null || !isset($known[$region->uuid()])) && $region->matches($search, $filters),
-        ));
+        $unknown = array_values(
+            array_filter(
+                $local,
+                static fn(self $region): bool => ($region->uuid() === null || !isset($known[$region->uuid()])) &&
+                    $region->matches($search, $filters),
+            ),
+        );
         usort($unknown, static fn(self $a, self $b): int => strcasecmp($a->name(), $b->name()));
 
-        $items = array_map(static fn(self $region): self => isset($byUuid[$region->uuid()]) ? $region->withConfig($byUuid[$region->uuid()]->local) : $region, $registered);
+        $items = array_map(
+            static fn(self $region): self => isset($byUuid[$region->uuid()])
+                ? $region->withConfig($byUuid[$region->uuid()]->local)
+                : $region,
+            $registered,
+        );
         $take = $perPage - count($items);
         if ($take > 0) {
             array_push($items, ...array_slice($unknown, max(0, ($page - 1) * $perPage - $total), $take));
         }
 
-        return new Collection($items, ['total' => $total + count($unknown), 'page' => $page, 'perPage' => $perPage, 'search' => trim($search), 'problem' => $problem] + $meta);
+        return new Collection(
+            $items,
+            [
+                'total' => $total + count($unknown),
+                'page' => $page,
+                'perPage' => $perPage,
+                'search' => trim($search),
+                'problem' => $problem,
+            ] + $meta,
+        );
     }
 
     /**
@@ -585,7 +641,11 @@ final class Region extends Model
     public static function all(GridConfig $config, array $options = []): Collection
     {
         $pdo = self::connect($config, 'GridService', null, 'read the regions');
-        [$sortName, $direction] = array_pad(preg_split('/\s+/', trim((string) ($options['sort'] ?? 'name'))) ?: [], 2, 'asc');
+        [$sortName, $direction] = array_pad(
+            preg_split('/\s+/', trim((string) ($options['sort'] ?? 'name'))) ?: [],
+            2,
+            'asc',
+        );
         if (!isset(self::SORTS[$sortName])) {
             [$sortName, $direction] = ['name', 'asc'];
         }
@@ -599,11 +659,18 @@ final class Region extends Model
             $params["w$i"] = self::contains($word);
         }
         if (isset($options['uuids'])) {
-            $uuids = array_values(array_unique(array_map('strtolower', array_map('strval', (array) $options['uuids']))));
+            $uuids = array_values(
+                array_unique(array_map('strtolower', array_map('strval', (array) $options['uuids']))),
+            );
             foreach ($uuids as $i => $uuid) {
                 $params["u$i"] = $uuid;
             }
-            $where[] = $uuids === [] ? '0 = 1' : 'LOWER(r.uuid) IN (' . implode(', ', array_map(static fn(int $i): string => ":u$i", array_keys($uuids))) . ')';
+            $where[] =
+                $uuids === []
+                    ? '0 = 1'
+                    : 'LOWER(r.uuid) IN (' .
+                        implode(', ', array_map(static fn(int $i): string => ":u$i", array_keys($uuids))) .
+                        ')';
         }
         $filters = [
             'online' => self::REGION_ONLINE,
@@ -623,28 +690,29 @@ final class Region extends Model
         $clause = $where === [] ? '' : ' WHERE ' . implode(' AND ', $where);
 
         $total = (int) $pdo->get_var("SELECT COUNT(*) FROM regions r$clause", $params);
-        $order = implode(', ', array_map(static fn(string $e): string => $e . ' ' . strtoupper($direction), self::SORTS[$sortName])) . ', r.uuid';
+        $order =
+            implode(
+                ', ',
+                array_map(static fn(string $e): string => $e . ' ' . strtoupper($direction), self::SORTS[$sortName]),
+            ) . ', r.uuid';
         $sql = 'SELECT ' . self::COLUMNS . " FROM regions r$clause ORDER BY $order";
         $perPage = max(0, (int) ($options['perPage'] ?? 0));
         $page = max(1, (int) ($options['page'] ?? 1));
         if ($perPage > 0) {
-            $sql .= ' LIMIT ' . $perPage . ' OFFSET ' . (($page - 1) * $perPage);
+            $sql .= ' LIMIT ' . $perPage . ' OFFSET ' . ($page - 1) * $perPage;
         }
         $rows = self::withOwnerNames($config, $pdo->get_results($sql, $params, \PDO::FETCH_ASSOC));
 
-        return new Collection(
-            array_map(static fn(array $row): self => new self($config, $row), $rows),
-            [
-                'total' => $total,
-                'page' => $page,
-                'perPage' => $perPage,
-                'sort' => "$sortName $direction",
-                'search' => trim((string) ($options['search'] ?? '')),
-                'columns' => self::columns(),
-                'filters' => array_fill_keys(array_keys($filters), ['yes', 'no']),
-                'applied' => $applied,
-            ],
-        );
+        return new Collection(array_map(static fn(array $row): self => new self($config, $row), $rows), [
+            'total' => $total,
+            'page' => $page,
+            'perPage' => $perPage,
+            'sort' => "$sortName $direction",
+            'search' => trim((string) ($options['search'] ?? '')),
+            'columns' => self::columns(),
+            'filters' => array_fill_keys(array_keys($filters), ['yes', 'no']),
+            'applied' => $applied,
+        ]);
     }
 
     /**
@@ -660,7 +728,10 @@ final class Region extends Model
         $found = [];
         foreach (array_chunk(array_values(array_unique(array_map('strtolower', $uuids))), 500) as $group) {
             $marks = implode(',', array_fill(0, count($group), '?'));
-            foreach ($pdo->get_results("SELECT uuid FROM regions WHERE LOWER(uuid) IN ($marks)", $group, \PDO::FETCH_COLUMN) as $uuid) {
+            foreach (
+                $pdo->get_results("SELECT uuid FROM regions WHERE LOWER(uuid) IN ($marks)", $group, \PDO::FETCH_COLUMN)
+                as $uuid
+            ) {
                 $found[] = strtolower((string) $uuid);
             }
         }
@@ -677,7 +748,13 @@ final class Region extends Model
         }
         $isUuid = preg_match('/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i', $id) === 1;
         $rows = $pdo->get_results(
-            'SELECT ' . self::COLUMNS . ' FROM regions r WHERE ' . ($isUuid ? 'r.uuid = :id' : 'r.regionName = :id') . ' ORDER BY r.flags & ' . self::HYPERLINK . ', r.uuid',
+            'SELECT ' .
+                self::COLUMNS .
+                ' FROM regions r WHERE ' .
+                ($isUuid ? 'r.uuid = :id' : 'r.regionName = :id') .
+                ' ORDER BY r.flags & ' .
+                self::HYPERLINK .
+                ', r.uuid',
             ['id' => $isUuid ? strtolower($id) : $id],
             \PDO::FETCH_ASSOC,
         );
@@ -703,7 +780,10 @@ final class Region extends Model
             ['name' => 'lastSeen', 'label' => _('Last seen')],
         ];
 
-        return array_map(static fn(array $column): array => $column + ['sortable' => isset(self::SORTS[$column['name']])], $columns);
+        return array_map(
+            static fn(array $column): array => $column + ['sortable' => isset(self::SORTS[$column['name']])],
+            $columns,
+        );
     }
 
     /** What a flag is called for a person ("Default Region"). */
@@ -782,7 +862,7 @@ final class Region extends Model
                 }
                 foreach (explode(',', (string) $value) as $flag) {
                     $flag = trim($flag);
-                    $flag === '' || $found[$flag] = true;
+                    $flag === '' || ($found[$flag] = true);
                 }
             }
         }
@@ -814,13 +894,23 @@ final class Region extends Model
      */
     private static function withOwnerNames(GridConfig $config, array $rows): array
     {
-        $ids = array_values(array_unique(array_filter(array_column($rows, 'PrincipalID'), static fn($id): bool => $id !== null && $id !== '')));
+        $ids = array_values(
+            array_unique(
+                array_filter(array_column($rows, 'PrincipalID'), static fn($id): bool => $id !== null && $id !== ''),
+            ),
+        );
         $accounts = $ids === [] ? null : Connections::pdo($config, 'UserAccountService');
         if ($accounts === null) {
             return $rows;
         }
         $names = [];
-        $found = $accounts->get_results('SELECT PrincipalID, FirstName, LastName FROM UserAccounts WHERE PrincipalID IN (' . implode(',', array_fill(0, count($ids), '?')) . ')', $ids, \PDO::FETCH_ASSOC);
+        $found = $accounts->get_results(
+            'SELECT PrincipalID, FirstName, LastName FROM UserAccounts WHERE PrincipalID IN (' .
+                implode(',', array_fill(0, count($ids), '?')) .
+                ')',
+            $ids,
+            \PDO::FETCH_ASSOC,
+        );
         foreach ($found as $row) {
             $names[$row['PrincipalID']] = trim($row['FirstName'] . ' ' . $row['LastName']);
         }

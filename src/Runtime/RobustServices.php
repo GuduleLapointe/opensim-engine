@@ -17,7 +17,7 @@ final class RobustServices
     public static function of(Controller $instance): array
     {
         $values = array_values($instance->settings()['ServiceList'] ?? []);
-        array_push($values, ...(preg_split('/[,\s]+/', $instance->setting('Startup', 'ServiceConnectors')) ?: []));
+        array_push($values, ...preg_split('/[,\s]+/', $instance->setting('Startup', 'ServiceConnectors')) ?: []);
 
         $classes = [];
         foreach ($values as $value) {
@@ -26,7 +26,9 @@ final class RobustServices
                 continue;
             }
             $connector = str_contains($value, '/') ? substr($value, strpos($value, '/') + 1) : $value;
-            $classes[] = str_contains($connector, ':') ? substr($connector, (int) strrpos($connector, ':') + 1) : $connector;
+            $classes[] = str_contains($connector, ':')
+                ? substr($connector, (int) strrpos($connector, ':') + 1)
+                : $connector;
         }
 
         return array_values(array_unique($classes));

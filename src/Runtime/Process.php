@@ -16,8 +16,7 @@ final class Process
         public readonly float $memory,
         public readonly int $rss,
         public readonly string $arguments,
-    ) {
-    }
+    ) {}
 
     /** The config file it was started with (`-inifile=`), empty when it has none. */
     public function ini(): string

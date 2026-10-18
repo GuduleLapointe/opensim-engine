@@ -6,7 +6,6 @@
  * region on port 1).
  */
 
-
 use OpenSim\Config\GridFileService;
 use OpenSim\Exceptions\SetupFailedException;
 

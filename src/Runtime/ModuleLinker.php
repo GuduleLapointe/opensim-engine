@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace OpenSim\Runtime;
 
-
 /**
  * Enable the modules of the install for an instance: their files linked in the addins folder of its registry, where OpenSim
  * loads add-ins from, so that a core kept read-only needs nothing written in its bin folder. The modules to enable are the

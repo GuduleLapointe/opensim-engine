@@ -9,9 +9,7 @@ namespace OpenSim\Console;
  */
 final class ScreenConsole implements ScreenInterface
 {
-    public function __construct(private readonly string $name)
-    {
-    }
+    public function __construct(private readonly string $name) {}
 
     /** Drop the dead sessions, so that they are not taken for a running one. */
     public static function wipe(): void
@@ -24,7 +22,10 @@ final class ScreenConsole implements ScreenInterface
     {
         $list = (string) @shell_exec('screen -ls 2>/dev/null');
         foreach (explode("\n", $list) as $line) {
-            if (preg_match('/^\s*\d+\.' . preg_quote($this->name, '/') . '\s/', $line) && !str_contains($line, 'Dead')) {
+            if (
+                preg_match('/^\s*\d+\.' . preg_quote($this->name, '/') . '\s/', $line) &&
+                !str_contains($line, 'Dead')
+            ) {
                 return true;
             }
         }
@@ -48,7 +49,13 @@ final class ScreenConsole implements ScreenInterface
         }
         file_put_contents($file, $line . "\n");
         $name = escapeshellarg($this->name);
-        exec("screen -S $name -X readreg p " . escapeshellarg($file) . " >/dev/null 2>&1 && screen -S $name -X paste p >/dev/null 2>&1", $output, $code);
+        exec(
+            "screen -S $name -X readreg p " .
+                escapeshellarg($file) .
+                " >/dev/null 2>&1 && screen -S $name -X paste p >/dev/null 2>&1",
+            $output,
+            $code,
+        );
         // screen reads the file when it gets the command, not when we return
         usleep(500_000);
         @unlink($file);
@@ -86,7 +93,13 @@ final class ScreenConsole implements ScreenInterface
         if (($file = tempnam(sys_get_temp_dir(), 'osscreen')) === false) {
             return '';
         }
-        exec('screen -S ' . escapeshellarg($this->name) . ' -X hardcopy -h ' . escapeshellarg($file) . ' >/dev/null 2>&1');
+        exec(
+            'screen -S ' .
+                escapeshellarg($this->name) .
+                ' -X hardcopy -h ' .
+                escapeshellarg($file) .
+                ' >/dev/null 2>&1',
+        );
         usleep(500_000);
         $text = (string) @file_get_contents($file);
         @unlink($file);

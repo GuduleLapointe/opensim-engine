@@ -96,7 +96,9 @@ describe('statements of an account', function () {
     test('moves the home Robust gives from the sea floor, and no other', function () {
         $sql = OpenSim\Provisioning\GridAccounts::raiseHomeSql('11111111-2222-3333-4444-555555555555');
 
-        expect($sql)->toBe("UPDATE GridUser SET HomePosition = '<128,128,22>' WHERE UserID = '11111111-2222-3333-4444-555555555555' AND HomePosition = '<128,128,0>'");
+        expect($sql)->toBe(
+            "UPDATE GridUser SET HomePosition = '<128,128,22>' WHERE UserID = '11111111-2222-3333-4444-555555555555' AND HomePosition = '<128,128,0>'",
+        );
     });
 
     test('keeps the password as Robust does', function () {
@@ -168,21 +170,39 @@ describe('import', function () {
     test('writes each account, makes missing passwords', function () {
         $log = [];
 
-        $done = accounts_importer([], false, $log)->run(Grid::described(EnvironmentFake::with(), []), accounts_to_make(), true);
+        $done = accounts_importer([], false, $log)->run(
+            Grid::described(EnvironmentFake::with(), []),
+            accounts_to_make(),
+            true,
+        );
 
         expect($log)->toHaveCount(3);
         expect(array_column($done['results'], 'status'))->toBe(['created', 'created', 'created']);
         expect($done['results'][0]['generated'])->toBeFalse();
         expect($done['results'][1]['generated'])->toBeTrue();
         expect(strlen($done['results'][1]['password']))->toBe(12);
-        expect($log[1])->toMatchArray(['firstName' => 'John', 'lastName' => 'Roe', 'password' => $done['results'][1]['password'], 'home' => '607c44e9-3d01-45eb-a07e-937dc72dbadb']);
+        expect($log[1])->toMatchArray([
+            'firstName' => 'John',
+            'lastName' => 'Roe',
+            'password' => $done['results'][1]['password'],
+            'home' => '607c44e9-3d01-45eb-a07e-937dc72dbadb',
+        ]);
     });
 
     test('stops at the first failure', function () {
         $log = [];
-        $stopped = accounts_importer([], true, $log)->run(Grid::described(EnvironmentFake::with(), []), accounts_to_make(), true);
+        $stopped = accounts_importer([], true, $log)->run(
+            Grid::described(EnvironmentFake::with(), []),
+            accounts_to_make(),
+            true,
+        );
         $log = [];
-        $going = accounts_importer([], true, $log)->run(Grid::described(EnvironmentFake::with(), []), accounts_to_make(), true, true);
+        $going = accounts_importer([], true, $log)->run(
+            Grid::described(EnvironmentFake::with(), []),
+            accounts_to_make(),
+            true,
+            true,
+        );
 
         expect(array_column($stopped['results'], 'status'))->toBe(['failed', 'not tried', 'not tried']);
         expect(array_column($going['results'], 'status'))->toBe(['failed', 'failed', 'failed']);
@@ -190,7 +210,11 @@ describe('import', function () {
 
     test('gives only the passwords it made', function () {
         $log = [];
-        $done = accounts_importer([], false, $log)->run(Grid::described(EnvironmentFake::with(), []), accounts_to_make(), true);
+        $done = accounts_importer([], false, $log)->run(
+            Grid::described(EnvironmentFake::with(), []),
+            accounts_to_make(),
+            true,
+        );
 
         $csv = AccountImporter::resultCsv($done['results']);
 
@@ -200,7 +224,11 @@ describe('import', function () {
     });
 
     test('stops when the database of the grid cannot be read', function () {
-        $importer = new AccountImporter(static fn(Grid $grid): ?array => null, static fn(Grid $grid): ?string => null, static fn(Grid $grid, array $values) => null);
+        $importer = new AccountImporter(
+            static fn(Grid $grid): ?array => null,
+            static fn(Grid $grid): ?string => null,
+            static fn(Grid $grid, array $values) => null,
+        );
 
         $done = $importer->run(Grid::described(EnvironmentFake::with(), []), accounts_to_make(), true);
 

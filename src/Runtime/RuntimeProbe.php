@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace OpenSim\Runtime;
 
-
 /**
  * Whether the machine can run a core: the runtime it needs (Mono, a .NET of the major it asks for or a newer one), the native
  * libraries it cannot start without. Says what is missing, with the command that installs it.
@@ -18,8 +17,7 @@ class RuntimeProbe
     public function __construct(
         private readonly ?\Closure $capture = null,
         private readonly array $libraryFolders = ['/usr/lib', '/usr/lib64', '/usr/lib/*', '/usr/local/lib'],
-    ) {
-    }
+    ) {}
 
     /**
      * What stops the core from running with the runtime it asks for, null when nothing does.
@@ -30,7 +28,9 @@ class RuntimeProbe
     {
         $runtime = $core->runtime(preg_replace('/\.(dll|exe)$/', '', $assembly) ?? $assembly);
         if ($runtime === 'mono') {
-            return $this->exists('mono') ? null : 'mono is not installed (required for OpenSim < 0.9.3.0): install it with your package manager (e.g. sudo apt install mono-complete)';
+            return $this->exists('mono')
+                ? null
+                : 'mono is not installed (required for OpenSim < 0.9.3.0): install it with your package manager (e.g. sudo apt install mono-complete)';
         }
         $major = (int) explode('.', $core->dotnetRequired($assembly))[0];
         if (!$this->exists('dotnet')) {
@@ -44,9 +44,9 @@ class RuntimeProbe
             }
         }
 
-        return "OpenSim needs Microsoft.NETCore.App $major or newer, but none is installed (installed: "
-            . implode(' ', array_map(static fn(int $m): string => (string) $m, $installed))
-            . "). Install .NET $major+ (sudo $installer $major) and retry";
+        return "OpenSim needs Microsoft.NETCore.App $major or newer, but none is installed (installed: " .
+            implode(' ', array_map(static fn(int $m): string => (string) $m, $installed)) .
+            "). Install .NET $major+ (sudo $installer $major) and retry";
     }
 
     /** Whether a native library is installed (Linux): known to the loader, or in the usual folders. Name without lib and .so. */

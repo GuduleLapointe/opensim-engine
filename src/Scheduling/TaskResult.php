@@ -26,8 +26,7 @@ final class TaskResult
         public readonly string $status,
         public readonly string $message = '',
         public readonly float $duration = 0.0,
-    ) {
-    }
+    ) {}
 
     /** Whether the task was done without failing. */
     public function ok(): bool

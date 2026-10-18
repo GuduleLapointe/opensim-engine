@@ -65,8 +65,12 @@ final class DirectoryLayout
                 'CacheRoot' => "$base/var/cache",
                 'DataRoot' => "$base/var/data",
             ],
-            self::FLAT => $version === '' ? [] : array_fill_keys(['EtcRoot', 'VarRoot', 'LogsRoot', 'CacheRoot', 'DataRoot'], "$base/opensim-$version/bin")
-                + ['CoreRoot' => "$base/opensim-$version", 'CoreDirectory' => "$base/opensim-$version"],
+            self::FLAT => $version === ''
+                ? []
+                : array_fill_keys(
+                        ['EtcRoot', 'VarRoot', 'LogsRoot', 'CacheRoot', 'DataRoot'],
+                        "$base/opensim-$version/bin",
+                    ) + ['CoreRoot' => "$base/opensim-$version", 'CoreDirectory' => "$base/opensim-$version"],
             default => throw new \InvalidArgumentException("unknown directory layout '$layout'"),
         };
 

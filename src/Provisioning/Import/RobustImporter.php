@@ -27,8 +27,13 @@ final class RobustImporter
      * @param array<string,array<string,string>> $raw the original, as written (see ConfigReader::load)
      * @return GridPlan|string the plan, or what makes it impossible
      */
-    public static function plan(array $raw, string $path, Environment $environment, ?string $nick, string $core): GridPlan|string
-    {
+    public static function plan(
+        array $raw,
+        string $path,
+        Environment $environment,
+        ?string $nick,
+        string $core,
+    ): GridPlan|string {
         $ini = ConfigReader::expand($raw);
         $name = $ini['GridInfoService']['gridname'] ?? '';
         $nick = $nick ?: $ini['GridInfoService']['gridnick'] ?? '' ?: Slug::nick($name);
@@ -56,7 +61,12 @@ final class RobustImporter
         $plan->publicPort = (int) ($ini['Const']['PublicPort'] ?? 8002);
         $plan->privatePort = (int) ($ini['Const']['PrivatePort'] ?? $plan->publicPort + 1);
         $plan->webUrl = $ini['Const']['WebURL'] ?? "https://{$plan->baseHostname}";
-        [$plan->dbHost, $plan->dbName, $plan->dbUser, $plan->dbPass] = [$db->source, $db->database, $db->user, $db->password];
+        [$plan->dbHost, $plan->dbName, $plan->dbUser, $plan->dbPass] = [
+            $db->source,
+            $db->database,
+            $db->user,
+            $db->password,
+        ];
 
         $network = $ini['Network'] ?? [];
         if (($network['ConsoleUser'] ?? '') !== '' && (int) ($network['ConsolePort'] ?? 0) > 0) {

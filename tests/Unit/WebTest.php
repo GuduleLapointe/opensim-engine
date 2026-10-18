@@ -3,7 +3,6 @@
  * The web side of a grid: where its services are, its Helpers.ini, what the web server needs.
  */
 
-
 use OpenSim\Provisioning\Web\HelpersConfig;
 use OpenSim\Provisioning\Web\Services;
 use OpenSim\Provisioning\Web\Snippets;
@@ -49,18 +48,21 @@ describe('Services', function () {
 });
 
 describe('Helpers.ini', function () {
-    test('is a template that sets nothing: every setting is commented out, none is one of the official files', function () {
-        $text = HelpersConfig::template();
+    test(
+        'is a template that sets nothing: every setting is commented out, none is one of the official files',
+        function () {
+            $text = HelpersConfig::template();
 
-        expect($text)->toContain('[Helpers]');
-        expect($text)->toContain(';; GuideSource = "destinations.txt"');
-        expect($text)->toContain(';; SearchConnectionString = ');
-        // The currency is the business of the modules (Gloebit.ini...), not of this file
-        expect($text)->not->toMatch('/Currency/');
-        // What has its place in OpenSim.ini or Robust.ini is not copied there
-        expect($text)->not->toMatch('/^\s*(grid_name|login_uri|web_url|gridname|ConnectionString)\b/m');
-        expect($text)->not->toMatch('/^\[(robust_db|Urls)\]/m');
-    });
+            expect($text)->toContain('[Helpers]');
+            expect($text)->toContain(';; GuideSource = "destinations.txt"');
+            expect($text)->toContain(';; SearchConnectionString = ');
+            // The currency is the business of the modules (Gloebit.ini...), not of this file
+            expect($text)->not->toMatch('/Currency/');
+            // What has its place in OpenSim.ini or Robust.ini is not copied there
+            expect($text)->not->toMatch('/^\s*(grid_name|login_uri|web_url|gridname|ConnectionString)\b/m');
+            expect($text)->not->toMatch('/^\[(robust_db|Urls)\]/m');
+        },
+    );
 
     test('is the name of the file, in the folder of the grid', function () {
         expect(HelpersConfig::path('/etc/opensim/grids/alpha/'))->toBe('/etc/opensim/grids/alpha/Helpers.ini');
@@ -71,10 +73,15 @@ describe('Helpers.ini', function () {
         mkdir($dir);
         file_put_contents("$dir/helpers.ini", "[Helpers]\npath = \"/helper\"\n");
 
-        expect(HelpersConfig::unifyCase($dir))->toBe([['helpers.ini', 'Helpers.ini']])
-            ->and(scandir($dir))->toContain('Helpers.ini')->not->toContain('helpers.ini')
-            ->and(file_get_contents("$dir/Helpers.ini"))->toContain('/helper')
-            ->and(HelpersConfig::unifyCase($dir))->toBe([]);
+        expect(HelpersConfig::unifyCase($dir))
+            ->toBe([['helpers.ini', 'Helpers.ini']])
+            ->and(scandir($dir))
+            ->toContain('Helpers.ini')
+            ->not->toContain('helpers.ini')
+            ->and(file_get_contents("$dir/Helpers.ini"))
+            ->toContain('/helper')
+            ->and(HelpersConfig::unifyCase($dir))
+            ->toBe([]);
     });
 
     test('keeps the second file aside when the folder has both, where the system tells the cases apart', function () {
@@ -83,30 +90,36 @@ describe('Helpers.ini', function () {
         file_put_contents("$dir/Helpers.ini", 'new');
         file_put_contents("$dir/helpers.ini", 'old');
 
-        expect(HelpersConfig::unifyCase($dir))->toBe([['helpers.ini', 'helpers.ini~']])
-            ->and(file_get_contents("$dir/Helpers.ini"))->toBe('new')
-            ->and(file_get_contents("$dir/helpers.ini~"))->toBe('old');
+        expect(HelpersConfig::unifyCase($dir))
+            ->toBe([['helpers.ini', 'helpers.ini~']])
+            ->and(file_get_contents("$dir/Helpers.ini"))
+            ->toBe('new')
+            ->and(file_get_contents("$dir/helpers.ini~"))
+            ->toBe('old');
     })->skip(fn() => !web_test_fs_tells_cases(), 'the file system does not tell the cases apart');
 
-    test('gives the web address and the path of the helpers from the Robust config, the economy being their path', function () {
-        $dir = test_tmp() . '/helpers-ini-' . bin2hex(random_bytes(4));
-        mkdir($dir);
-        file_put_contents(
-            "$dir/Robust.HG.ini",
-            "[Const]\n    WebURL = \"https://play.example.org\"\n[GridInfoService]\n    economy = \"\${Const|WebURL}/helper\"\n",
-        );
+    test(
+        'gives the web address and the path of the helpers from the Robust config, the economy being their path',
+        function () {
+            $dir = test_tmp() . '/helpers-ini-' . bin2hex(random_bytes(4));
+            mkdir($dir);
+            file_put_contents(
+                "$dir/Robust.HG.ini",
+                "[Const]\n    WebURL = \"https://play.example.org\"\n[GridInfoService]\n    economy = \"\${Const|WebURL}/helper\"\n",
+            );
 
-        expect(HelpersConfig::webUrl($dir))
-            ->toBe('https://play.example.org')
-            ->and(HelpersConfig::basePath($dir))
-            ->toBe('/helper')
-            ->and(HelpersConfig::services($dir)->path('currency'))
-            ->toBe('/helper/currency.php');
+            expect(HelpersConfig::webUrl($dir))
+                ->toBe('https://play.example.org')
+                ->and(HelpersConfig::basePath($dir))
+                ->toBe('/helper')
+                ->and(HelpersConfig::services($dir)->path('currency'))
+                ->toBe('/helper/currency.php');
 
-        $bare = test_tmp() . '/helpers-ini-' . bin2hex(random_bytes(4));
-        mkdir($bare);
-        expect(HelpersConfig::basePath($bare))->toBe('/helpers')->and(HelpersConfig::webUrl($bare))->toBe('');
-    });
+            $bare = test_tmp() . '/helpers-ini-' . bin2hex(random_bytes(4));
+            mkdir($bare);
+            expect(HelpersConfig::basePath($bare))->toBe('/helpers')->and(HelpersConfig::webUrl($bare))->toBe('');
+        },
+    );
 });
 
 describe('Snippets for the web server', function () {

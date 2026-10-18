@@ -14,9 +14,7 @@ final class Core
     /** The first release built for .NET. */
     private const DOTNET_FROM = '0.9.3.0';
 
-    private function __construct(private readonly string $directory)
-    {
-    }
+    private function __construct(private readonly string $directory) {}
 
     /** The core whose folder is given (the one that has `bin/`). */
     public static function at(string $directory): self
@@ -74,7 +72,9 @@ final class Core
             return null;
         }
         $cores = self::all($root);
-        $releases = array_values(array_filter($cores, static fn(self $c): bool => (bool) preg_match('/\d+(\.\d+)+$/', $c->directory)));
+        $releases = array_values(
+            array_filter($cores, static fn(self $c): bool => (bool) preg_match('/\d+(\.\d+)+$/', $c->directory)),
+        );
         $pick = $releases !== [] ? $releases : $cores;
 
         return $pick === [] ? null : $pick[count($pick) - 1];
@@ -123,7 +123,8 @@ final class Core
     /** The runtime of an assembly: dotnet for the builds that come with a runtimeconfig.json, else by the version. */
     public function runtime(string $base = 'OpenSim'): string
     {
-        return is_file($this->bin() . "/$base.runtimeconfig.json") || version_compare($this->version() ?: '0', self::DOTNET_FROM, '>=')
+        return is_file($this->bin() . "/$base.runtimeconfig.json") ||
+            version_compare($this->version() ?: '0', self::DOTNET_FROM, '>=')
             ? 'dotnet'
             : 'mono';
     }
@@ -144,7 +145,10 @@ final class Core
     public function dotnetRequired(string $executable): string
     {
         $config = $this->bin() . '/' . preg_replace('/\.dll$/', '', $executable) . '.runtimeconfig.json';
-        if (is_file($config) && preg_match('/Microsoft\.NETCore\.App.{0,80}?(\d+\.\d+\.\d+)/s', (string) file_get_contents($config), $m)) {
+        if (
+            is_file($config) &&
+            preg_match('/Microsoft\.NETCore\.App.{0,80}?(\d+\.\d+\.\d+)/s', (string) file_get_contents($config), $m)
+        ) {
             return $m[1];
         }
 

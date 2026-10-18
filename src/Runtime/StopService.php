@@ -85,9 +85,11 @@ final class StopService
         if ($warnings > 0) {
             $state = $this->users->nobodyToWaitFor($simulator);
             if ($state['nobody']) {
-                $env->reporter->info($state['unknown']
-                    ? "$name: no answer about its users, nobody can be warned, stopping now"
-                    : "$name: no user in its regions, stopping now");
+                $env->reporter->info(
+                    $state['unknown']
+                        ? "$name: no answer about its users, nobody can be warned, stopping now"
+                        : "$name: no user in its regions, stopping now",
+                );
                 $warnings = 0;
                 $nobody = true;
             }
@@ -101,9 +103,18 @@ final class StopService
         $interval = $warnings > 0 ? intdiv($delay, $warnings) : 0;
         for ($warn = 0; $warn < $warnings; $warn++) {
             $remaining = $delay - $warn * $interval;
-            $console->send("alert Attention: this simulator will be stopped in $remaining seconds. Please teleport to another region to avoid being disconnected.");
+            $console->send(
+                "alert Attention: this simulator will be stopped in $remaining seconds. Please teleport to another region to avoid being disconnected.",
+            );
             // The countdown is the time left before the shutdown, not before the next warning
-            if (!$this->countdown($interval, "Stopping $name", $remaining - $interval, fn(): bool => $this->users->nobodyToWaitFor($simulator)['nobody'])) {
+            if (
+                !$this->countdown(
+                    $interval,
+                    "Stopping $name",
+                    $remaining - $interval,
+                    fn(): bool => $this->users->nobodyToWaitFor($simulator)['nobody'],
+                )
+            ) {
                 $env->reporter->info("$name: no user left in its regions, stopping now");
                 $nobody = true;
 
@@ -168,7 +179,8 @@ final class StopService
                 return false;
             }
             $last = $log?->lastLine();
-            $text = "  Waiting for $name to stop" . ($env->reporter->isTerminal() ? ' (' . intdiv($tick, 2) . 's)' : '');
+            $text =
+                "  Waiting for $name to stop" . ($env->reporter->isTerminal() ? ' (' . intdiv($tick, 2) . 's)' : '');
             $env->reporter->step($text . ($last !== null && $last !== '' ? ": $last" : ''));
             $env->clock->sleep(0.5);
         }

@@ -19,21 +19,32 @@ describe('grids and simulators that can be enabled', function () {
         $grid = Grid::find($machine->environment, 'demo');
         $beta = $grid->simulator('beta');
 
-        expect($grid)->toBeInstanceOf(Enablable::class)
-            ->and($beta)->toBeInstanceOf(Enablable::class)
-            ->and($grid->isEnabled())->toBeTrue()
-            ->and($beta->isEnabled())->toBeTrue();
+        expect($grid)
+            ->toBeInstanceOf(Enablable::class)
+            ->and($beta)
+            ->toBeInstanceOf(Enablable::class)
+            ->and($grid->isEnabled())
+            ->toBeTrue()
+            ->and($beta->isEnabled())
+            ->toBeTrue();
 
         $beta->disable();
         $grid->disable();
-        expect(file_exists($machine->etc . '/opensim.d/beta.ini'))->toBeFalse()
-            ->and(is_file($machine->etc . '/opensim.d/alpha.ini'))->toBeTrue()
-            ->and(Grid::find($machine->environment, 'demo')->isEnabled())->toBeFalse();
+        expect(file_exists($machine->etc . '/opensim.d/beta.ini'))
+            ->toBeFalse()
+            ->and(is_file($machine->etc . '/opensim.d/alpha.ini'))
+            ->toBeTrue()
+            ->and(Grid::find($machine->environment, 'demo')->isEnabled())
+            ->toBeFalse();
 
-        expect(Grid::find($machine->environment, 'demo')->enable())->toBeTrue()
-            ->and(Grid::find($machine->environment, 'demo')->simulator('beta')->enable())->toBeTrue()
-            ->and(is_link($machine->etc . '/robust.d/demo.ini'))->toBeTrue()
-            ->and(realpath($machine->etc . '/opensim.d/beta.ini'))->toBe(realpath($machine->grid . '/sims/beta.ini'));
+        expect(Grid::find($machine->environment, 'demo')->enable())
+            ->toBeTrue()
+            ->and(Grid::find($machine->environment, 'demo')->simulator('beta')->enable())
+            ->toBeTrue()
+            ->and(is_link($machine->etc . '/robust.d/demo.ini'))
+            ->toBeTrue()
+            ->and(realpath($machine->etc . '/opensim.d/beta.ini'))
+            ->toBe(realpath($machine->grid . '/sims/beta.ini'));
     });
 
     test('are refused when they have no config to link', function () {
@@ -47,8 +58,10 @@ describe('grids and simulators that can be enabled', function () {
         $machine = new Machine();
         $grid = Grid::find($machine->environment, 'demo');
 
-        expect($grid->simulatorNames())->toBe(['alpha', 'beta'])
-            ->and($grid->simulatorLink('beta'))->toBe($machine->etc . '/opensim.d/beta.ini');
+        expect($grid->simulatorNames())
+            ->toBe(['alpha', 'beta'])
+            ->and($grid->simulatorLink('beta'))
+            ->toBe($machine->etc . '/opensim.d/beta.ini');
     });
 });
 
@@ -57,7 +70,9 @@ describe('environment of a profile', function () {
         $machine = new Machine();
         $environment = EnvironmentFake::with(['EtcRoot' => $machine->etc]);
 
-        expect(Grid::find($environment, 'demo')?->robustIni())->toBe($machine->grid . '/Robust.HG.ini')
-            ->and(Grid::find($environment, 'nowhere'))->toBeNull();
+        expect(Grid::find($environment, 'demo')?->robustIni())
+            ->toBe($machine->grid . '/Robust.HG.ini')
+            ->and(Grid::find($environment, 'nowhere'))
+            ->toBeNull();
     });
 });

@@ -34,7 +34,9 @@ final class LoginServiceAuthenticator implements AvatarAuthenticator
         private readonly string $channel = 'opensim-engine',
         ?\Closure $post = null,
     ) {
-        $this->post = $post ?? static fn(string $url, string $call): ?string => Http::post($url, $call, ['Content-Type: text/xml']);
+        $this->post =
+            $post ??
+            static fn(string $url, string $call): ?string => Http::post($url, $call, ['Content-Type: text/xml']);
     }
 
     public function authenticate(string $name, string $password): SignInResult
@@ -44,48 +46,62 @@ final class LoginServiceAuthenticator implements AvatarAuthenticator
             return SignInResult::refused();
         }
         $encoder = new Encoder();
-        $call = (new Request('login_to_simulator', [$encoder->encode([
-            'first' => $avatar->first,
-            'last' => $avatar->last,
-            'passwd' => '$1$' . md5($password),
-            'start' => $this->start,
-            'channel' => $this->channel,
-            'version' => '1.0',
-            'platform' => PHP_OS_FAMILY,
-            'mac' => '',
-            'id0' => '',
-            'agree_to_tos' => 'true',
-            'read_critical' => 'true',
-            'viewer_digest' => '',
-            'options' => [],
-        ])]))->serialize();
+        $call = (new Request('login_to_simulator', [
+            $encoder->encode([
+                'first' => $avatar->first,
+                'last' => $avatar->last,
+                'passwd' => '$1$' . md5($password),
+                'start' => $this->start,
+                'channel' => $this->channel,
+                'version' => '1.0',
+                'platform' => PHP_OS_FAMILY,
+                'mac' => '',
+                'id0' => '',
+                'agree_to_tos' => 'true',
+                'read_critical' => 'true',
+                'viewer_digest' => '',
+                'options' => [],
+            ]),
+        ]))->serialize();
 
         $body = ($this->post)($this->url, $call);
         if ($body === null || $body === '') {
             return SignInResult::unavailable(sprintf(_('The login service does not answer on %s'), $this->url));
         }
         $answer = str_contains($body, '<methodResponse') ? @$encoder->decodeXml($body) : false;
-        if (!$answer instanceof Response || $answer->faultCode() !== 0) {
-            return SignInResult::unavailable(sprintf(_('The login service answers on %s, but not as a grid'), $this->url));
+        if (!($answer instanceof Response) || $answer->faultCode() !== 0) {
+            return SignInResult::unavailable(
+                sprintf(_('The login service answers on %s, but not as a grid'), $this->url),
+            );
         }
         $response = $encoder->decode($answer->value());
         if (!is_array($response) || !isset($response['login'])) {
-            return SignInResult::unavailable(sprintf(_('The login service answers on %s, but not as a grid'), $this->url));
+            return SignInResult::unavailable(
+                sprintf(_('The login service answers on %s, but not as a grid'), $this->url),
+            );
         }
 
         if (($response['login'] ?? '') === 'true' && ($response['agent_id'] ?? '') !== '') {
-            return SignInResult::granted(new Avatar(
-                id: (string) $response['agent_id'],
-                firstName: trim((string) ($response['first_name'] ?? $avatar->first), '"'),
-                lastName: trim((string) ($response['last_name'] ?? $avatar->last), '"'),
-            ), $response);
+            return SignInResult::granted(
+                new Avatar(
+                    id: (string) $response['agent_id'],
+                    firstName: trim((string) ($response['first_name'] ?? $avatar->first), '"'),
+                    lastName: trim((string) ($response['last_name'] ?? $avatar->last), '"'),
+                ),
+                $response,
+            );
         }
         $message = (string) ($response['message'] ?? '');
         if (str_starts_with($message, self::NOT_AUTHENTICATED)) {
             return SignInResult::refused();
         }
 
-        return SignInResult::unavailable(sprintf(_('The grid did not log the avatar in: %s'), $message !== '' ? $message : (string) ($response['reason'] ?? $response['login'])));
+        return SignInResult::unavailable(
+            sprintf(
+                _('The grid did not log the avatar in: %s'),
+                $message !== '' ? $message : (string) ($response['reason'] ?? $response['login']),
+            ),
+        );
     }
 
     public function opensSession(): bool

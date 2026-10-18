@@ -39,7 +39,9 @@ final class OpenSimController extends Controller
     {
         $grid = $this->gridDirectory();
 
-        return $grid !== null && SimulatorMaster::exists($grid) ? [SimulatorMaster::path($grid), $this->ini()] : [$this->ini()];
+        return $grid !== null && SimulatorMaster::exists($grid)
+            ? [SimulatorMaster::path($grid), $this->ini()]
+            : [$this->ini()];
     }
 
     /**

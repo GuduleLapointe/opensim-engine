@@ -30,9 +30,20 @@ class GridConfig
 
     /** The sections of Robust that store in a database: each takes its own StorageProvider and ConnectionString, else those of [DatabaseService]. */
     public const ROBUST_DATABASE_SECTIONS = [
-        'AgentPreferencesService', 'AssetService', 'AuthenticationService', 'AuthorizationService', 'AvatarService', 'FriendsService',
-        'GridService', 'GridUserService', 'InventoryService', 'MuteListService', 'PresenceService', 'UserAccountService',
-        'UserAgentService', 'UserProfilesService',
+        'AgentPreferencesService',
+        'AssetService',
+        'AuthenticationService',
+        'AuthorizationService',
+        'AvatarService',
+        'FriendsService',
+        'GridService',
+        'GridUserService',
+        'InventoryService',
+        'MuteListService',
+        'PresenceService',
+        'UserAccountService',
+        'UserAgentService',
+        'UserProfilesService',
     ];
 
     /** The folder of the simulators of the grid in this folder. */
@@ -45,9 +56,7 @@ class GridConfig
      * @param array<string,mixed> $tree role => section => key => value, in the order of authority
      * @param array<string,string> $files role => path
      */
-    public function __construct(private array $tree = [], private array $files = [])
-    {
-    }
+    public function __construct(private array $tree = [], private array $files = []) {}
 
     /**
      * The config of a grid folder: the files it has, each with the files it includes. The constants of Robust serve the files that
@@ -134,7 +143,10 @@ class GridConfig
     {
         foreach (self::ROBUST_DATABASE_SECTIONS as $section) {
             if (isset($ini[$section])) {
-                $ini[$section] = self::inherit($ini[$section], $ini['DatabaseService'] ?? [], ['StorageProvider', 'ConnectionString']);
+                $ini[$section] = self::inherit($ini[$section], $ini['DatabaseService'] ?? [], [
+                    'StorageProvider',
+                    'ConnectionString',
+                ]);
             }
         }
 
@@ -151,8 +163,12 @@ class GridConfig
         if (($database['ConnectionString'] ?? '') === '') {
             return $ini;
         }
-        $ini['DatabaseService']['EstateConnectionString'] = $estate = ($database['EstateConnectionString'] ?? '') ?: $database['ConnectionString'];
-        $ini['SimulationDataStore'] = self::inherit($ini['SimulationDataStore'] ?? [], $database, ['StorageProvider', 'ConnectionString']);
+        $ini['DatabaseService']['EstateConnectionString'] = $estate =
+            $database['EstateConnectionString'] ?? '' ?: $database['ConnectionString'];
+        $ini['SimulationDataStore'] = self::inherit($ini['SimulationDataStore'] ?? [], $database, [
+            'StorageProvider',
+            'ConnectionString',
+        ]);
         $ini['EstateDataStore'] = self::inherit(
             $ini['EstateDataStore'] ?? [],
             ['StorageProvider' => $database['StorageProvider'] ?? '', 'ConnectionString' => $estate],
@@ -215,7 +231,9 @@ class GridConfig
      */
     public function has(string $role): bool
     {
-        return str_starts_with($role, 'simulators/') ? isset($this->tree['simulators'][substr($role, 11)]) : isset($this->tree[$role]);
+        return str_starts_with($role, 'simulators/')
+            ? isset($this->tree['simulators'][substr($role, 11)])
+            : isset($this->tree[$role]);
     }
 
     /** The file a role was read from, null for a role that is not made of a file. */

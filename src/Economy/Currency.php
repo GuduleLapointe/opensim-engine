@@ -26,7 +26,11 @@ final class Currency
             return self::$currencyDb;
         }
         if (defined('CURRENCY_DB_HOST')) {
-            return self::$currencyDb = new OSPDO('mysql:host=' . CURRENCY_DB_HOST . ';dbname=' . CURRENCY_DB_NAME, CURRENCY_DB_USER, CURRENCY_DB_PASS);
+            return self::$currencyDb = new OSPDO(
+                'mysql:host=' . CURRENCY_DB_HOST . ';dbname=' . CURRENCY_DB_NAME,
+                CURRENCY_DB_USER,
+                CURRENCY_DB_PASS,
+            );
         }
 
         return self::db();
@@ -194,8 +198,15 @@ final class Currency
         return $cash;
     }
 
-    public static function saveTransaction($sourceId, $destId, $amount, $type, $flags, $description, &$deprecated = null)
-    {
+    public static function saveTransaction(
+        $sourceId,
+        $destId,
+        $amount,
+        $type,
+        $flags,
+        $description,
+        &$deprecated = null,
+    ) {
         $CurrencyDB = self::currencyDb();
 
         if (!is_numeric($amount)) {
@@ -261,10 +272,13 @@ final class Currency
             $row = $currentbalance ? $currentbalance->fetch() : false;
             if ($row) {
                 $balance = (int) $row[0] + (int) $amount;
-                $result = $CurrencyDB->prepareAndExecute("UPDATE $balances_table SET balance = :balance WHERE user = :user", [
-                    'balance' => $balance,
-                    'user' => $agentID,
-                ]);
+                $result = $CurrencyDB->prepareAndExecute(
+                    "UPDATE $balances_table SET balance = :balance WHERE user = :user",
+                    [
+                        'balance' => $balance,
+                        'user' => $agentID,
+                    ],
+                );
             } else {
                 $result = false;
             }
@@ -322,8 +336,17 @@ final class Currency
         return $response;
     }
 
-    public static function moveMoney($agentID, $destID, $amount, $type, $flags, $desc, $prminvent = 0, $nxtowner = 0, $ip = '')
-    {
+    public static function moveMoney(
+        $agentID,
+        $destID,
+        $amount,
+        $type,
+        $flags,
+        $desc,
+        $prminvent = 0,
+        $nxtowner = 0,
+        $ip = '',
+    ) {
         if (!CURRENCY_USE_MONEYSERVER) {
             self::recordLocal($agentID, $destID, $amount, $type, $flags, $desc, $prminvent, $nxtowner, $ip);
             return true;
@@ -557,10 +580,13 @@ final class Currency
             return false;
         }
 
-        $result = self::db('PresenceService')->prepareAndExecute('UPDATE Presence SET RegionID = :region WHERE UserID = :user', [
-            'region' => $regionid,
-            'user' => $agentID,
-        ]);
+        $result = self::db('PresenceService')->prepareAndExecute(
+            'UPDATE Presence SET RegionID = :region WHERE UserID = :user',
+            [
+                'region' => $regionid,
+                'user' => $agentID,
+            ],
+        );
 
         return (bool) $result;
     }
@@ -573,9 +599,12 @@ final class Currency
 
         // The last region of the user is in the database of the grid users, the region in the one of the grid service: two
         // databases that may not be the same, so no join
-        $user = self::db('GridUserService')->prepareAndExecute('SELECT LastRegionID FROM GridUser WHERE UserID = :user', [
-            'user' => $userid,
-        ]);
+        $user = self::db('GridUserService')->prepareAndExecute(
+            'SELECT LastRegionID FROM GridUser WHERE UserID = :user',
+            [
+                'user' => $userid,
+            ],
+        );
         $region = $user ? $user->fetchColumn() : false;
         if (!$region) {
             return [];
@@ -676,12 +705,12 @@ final class Currency
         return defined('CURRENCY_SCRIPT_KEY') && trim((string) CURRENCY_SCRIPT_KEY) !== '';
     }
 
-        public static function randomGuid()
-        {
-            $bytes = random_bytes(16);
-            $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
-            $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
+    public static function randomGuid()
+    {
+        $bytes = random_bytes(16);
+        $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
+        $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
 
-            return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($bytes), 4));
-        }
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($bytes), 4));
+    }
 }

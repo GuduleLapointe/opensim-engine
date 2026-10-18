@@ -16,9 +16,7 @@ use OpenSim\Runtime\Environment;
  */
 abstract class InstalledModel implements InstalledModelInterface
 {
-    public function __construct(protected readonly Environment $environment)
-    {
-    }
+    public function __construct(protected readonly Environment $environment) {}
 
     public function environment(): Environment
     {
@@ -72,7 +70,10 @@ abstract class InstalledModel implements InstalledModelInterface
 
     public static function create(Environment $environment, array $values): static
     {
-        throw ChannelUnavailable::for('create a ' . strtolower((new \ReflectionClass(static::class))->getShortName()), 'it is made by the setup');
+        throw ChannelUnavailable::for(
+            'create a ' . strtolower((new \ReflectionClass(static::class))->getShortName()),
+            'it is made by the setup',
+        );
     }
 
     /**
@@ -85,9 +86,18 @@ abstract class InstalledModel implements InstalledModelInterface
      * @param array<string,array{0:\Closure(static,string):bool,1:list<string>}> $filters what each filter asks of a model, and the values it takes
      * @param list<array{name:string,label:string,sortable?:bool}> $columns
      */
-    protected static function listing(array $items, array $options, \Closure $text, array $sorts, array $filters, array $columns): Collection
-    {
-        foreach (preg_split('/\s+/', trim((string) ($options['search'] ?? '')), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $word) {
+    protected static function listing(
+        array $items,
+        array $options,
+        \Closure $text,
+        array $sorts,
+        array $filters,
+        array $columns,
+    ): Collection {
+        foreach (
+            preg_split('/\s+/', trim((string) ($options['search'] ?? '')), -1, PREG_SPLIT_NO_EMPTY) ?: []
+            as $word
+        ) {
             $items = array_filter($items, static fn($model): bool => stripos($text($model), $word) !== false);
         }
         $applied = [];
@@ -99,7 +109,11 @@ abstract class InstalledModel implements InstalledModelInterface
             }
         }
 
-        [$sortName, $direction] = array_pad(preg_split('/\s+/', trim((string) ($options['sort'] ?? ''))) ?: [], 2, 'asc');
+        [$sortName, $direction] = array_pad(
+            preg_split('/\s+/', trim((string) ($options['sort'] ?? ''))) ?: [],
+            2,
+            'asc',
+        );
         if (!isset($sorts[$sortName])) {
             [$sortName, $direction] = [(string) array_key_first($sorts), 'asc'];
         }
@@ -110,7 +124,9 @@ abstract class InstalledModel implements InstalledModelInterface
             [$x, $y] = [$value($a), $value($b)];
             $order = is_string($x) || is_string($y) ? strcasecmp((string) $x, (string) $y) : $x <=> $y;
 
-            return ($direction === 'desc' ? -$order : $order) ?: strcmp((string) $a->id(), (string) $b->id());
+            $order = $direction === 'desc' ? -$order : $order;
+
+            return $order ?: strcmp((string) $a->id(), (string) $b->id());
         });
 
         $total = count($items);

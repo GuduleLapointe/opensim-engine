@@ -40,7 +40,5 @@ final class ConsoleFactoryFake implements ConsoleFactoryInterface
         return isset($this->sessions[$name]);
     }
 
-    public function wipeSessions(): void
-    {
-    }
+    public function wipeSessions(): void {}
 }

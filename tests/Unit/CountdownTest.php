@@ -15,8 +15,10 @@ describe('countdown', function () {
 
         expect((new StopService($machine->environment))->countdown(40, 'Stopping x', 40))
             ->toBeTrue()
-            ->and($machine->reporter->steps)->toBe(['  Stopping x in 80s'])
-            ->and($machine->clock->total())->toBe(40.0);
+            ->and($machine->reporter->steps)
+            ->toBe(['  Stopping x in 80s'])
+            ->and($machine->clock->total())
+            ->toBe(40.0);
     });
 
     test('shows each second on a terminal', function () {
@@ -33,7 +35,8 @@ describe('countdown', function () {
 
         expect((new StopService($machine->environment))->countdown(40, 'x', 0, fn(): bool => true))
             ->toBeFalse()
-            ->and($machine->clock->total())->toBe(5.0);
+            ->and($machine->clock->total())
+            ->toBe(5.0);
     });
 
     test('goes to the end when the check fails', function () {
@@ -41,6 +44,7 @@ describe('countdown', function () {
 
         expect((new StopService($machine->environment))->countdown(40, 'x', 0, fn(): bool => false))
             ->toBeTrue()
-            ->and($machine->clock->total())->toBe(40.0);
+            ->and($machine->clock->total())
+            ->toBe(40.0);
     });
 });

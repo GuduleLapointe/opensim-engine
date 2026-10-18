@@ -43,7 +43,7 @@ final class ConsoleFake implements ScreenInterface
     {
         $this->send($line);
 
-        return $this->available ? ($this->answers[$line] ?? []) : null;
+        return $this->available ? $this->answers[$line] ?? [] : null;
     }
 
     public function exists(): bool

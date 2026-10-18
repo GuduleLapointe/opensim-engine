@@ -96,7 +96,9 @@ final class Features
         $result = ['error' => null, 'simulators' => [], 'grid' => false, 'robust' => false, 'notes' => []];
         $prefix = rtrim(trim($options['prefix'] ?? ''), '/');
         if ($prefix !== '' && !preg_match('#^https?://[^\s/]+#i', $prefix)) {
-            $result['error'] = "'$prefix' is not an address, give the start of the address of the services (https://www.example.org/helpers)";
+            $result[
+                'error'
+            ] = "'$prefix' is not an address, give the start of the address of the services (https://www.example.org/helpers)";
 
             return $result;
         }
@@ -131,8 +133,9 @@ final class Features
         $query = $prefix !== '' ? "$prefix/query.php" : $this->grid->helperUrl('query');
         $register = $prefix !== '' ? "$prefix/register.php" : $this->grid->helperUrl('register');
         if ($on && ($query === '' || $register === '')) {
-            $result['error'] = "the grid {$this->grid->nick()} has no helpers: give the address of its search service, "
-                . "opensim enable {$this->grid->nick()} search https://www.example.org/helpers";
+            $result['error'] =
+                "the grid {$this->grid->nick()} has no helpers: give the address of its search service, " .
+                "opensim enable {$this->grid->nick()} search https://www.example.org/helpers";
 
             return $result;
         }
@@ -159,26 +162,27 @@ final class Features
         // The web search of the grid: the page of the helpers, which the viewers open from the setting of the grid info and of the
         // login service. Given to both when it has neither; a grid that sent its search elsewhere (a prefix) keeps its settings
         if ($prefix === '') {
-            $result['robust'] = $this->robust(function (IniEditor $ini) use ($on): void {
-                $path = $this->pagePath('search');
-                $search = $ini->get('GridInfoService', 'search') ?? '';
-                $url = $ini->get('LoginService', 'SearchURL') ?? '';
-                if (!$on) {
-                    $ini->comment('GridInfoService', 'search');
-                    $ini->comment('LoginService', 'SearchURL');
+            $result['robust'] =
+                $this->robust(function (IniEditor $ini) use ($on): void {
+                    $path = $this->pagePath('search');
+                    $search = $ini->get('GridInfoService', 'search') ?? '';
+                    $url = $ini->get('LoginService', 'SearchURL') ?? '';
+                    if (!$on) {
+                        $ini->comment('GridInfoService', 'search');
+                        $ini->comment('LoginService', 'SearchURL');
 
-                    return;
-                }
-                if ($path !== '' && $search === '' && $url === '') {
-                    $search = '${Const|WebURL}' . $path;
-                    $ini->set('GridInfoService', 'search', $this->quote($search));
-                    $ini->set('LoginService', 'SearchURL', $this->quote($search));
-                } elseif ($search !== '' && $url === '') {
-                    $ini->set('LoginService', 'SearchURL', $this->quote($search));
-                } elseif ($url !== '' && $search === '') {
-                    $ini->set('GridInfoService', 'search', $this->quote($url));
-                }
-            }, $result) || $result['robust'];
+                        return;
+                    }
+                    if ($path !== '' && $search === '' && $url === '') {
+                        $search = '${Const|WebURL}' . $path;
+                        $ini->set('GridInfoService', 'search', $this->quote($search));
+                        $ini->set('LoginService', 'SearchURL', $this->quote($search));
+                    } elseif ($search !== '' && $url === '') {
+                        $ini->set('LoginService', 'SearchURL', $this->quote($search));
+                    } elseif ($url !== '' && $search === '') {
+                        $ini->set('GridInfoService', 'search', $this->quote($url));
+                    }
+                }, $result) || $result['robust'];
         }
         if ($on) {
             array_push($result['notes'], ...$this->moduleNotes('opensimsearch'));
@@ -250,7 +254,10 @@ final class Features
             // The currency is served by the helpers: the viewers are told where
             $economy = $prefix !== '' ? $prefix : $this->economyUrl();
             if ($economy !== '') {
-                $result['robust'] = $this->robust(fn(IniEditor $ini) => $ini->set('GridInfoService', 'economy', $this->quote($economy)), $result);
+                $result['robust'] = $this->robust(
+                    fn(IniEditor $ini) => $ini->set('GridInfoService', 'economy', $this->quote($economy)),
+                    $result,
+                );
             }
             array_push($result['notes'], ...$this->moduleNotes('gloebit'));
             $missing = [];
@@ -262,14 +269,19 @@ final class Features
                     continue;
                 }
                 foreach (['GLBKey', 'GLBSecret', 'GLBOwnerName'] as $key) {
-                    if ($ini->get('Gloebit', $key) === null && ($file === null || $general?->get('Gloebit', $key) === null)) {
+                    if (
+                        $ini->get('Gloebit', $key) === null &&
+                        ($file === null || $general?->get('Gloebit', $key) === null)
+                    ) {
                         $missing[$key] = true;
                     }
                 }
             }
             if ($missing !== []) {
-                $result['notes'][] = 'the keys of your Gloebit application are yours to give: ' . implode(', ', array_keys($missing))
-                    . ' in [Gloebit] of the OpenSim.ini of the grid or of the simulators (Gloebit.ini.example), the module does nothing without them';
+                $result['notes'][] =
+                    'the keys of your Gloebit application are yours to give: ' .
+                    implode(', ', array_keys($missing)) .
+                    ' in [Gloebit] of the OpenSim.ini of the grid or of the simulators (Gloebit.ini.example), the module does nothing without them';
             }
         }
 
@@ -299,7 +311,11 @@ final class Features
             if (!$on) {
                 $ini->comment('GridInfoService', 'web_profile_url');
             } elseif ($path !== '' && ($ini->get('GridInfoService', 'web_profile_url') ?? '') === '') {
-                $ini->set('GridInfoService', 'web_profile_url', $this->quote('${Const|WebURL}' . $path . '/[AGENT_NAME]'));
+                $ini->set(
+                    'GridInfoService',
+                    'web_profile_url',
+                    $this->quote('${Const|WebURL}' . $path . '/[AGENT_NAME]'),
+                );
             }
         }, $result);
 
@@ -351,7 +367,9 @@ final class Features
     {
         $ini = $this->grid->robustIni();
         if ($this->grid->isRemote() || $ini === null || !is_file($ini)) {
-            $result['notes'][] = "Robust of {$this->grid->nick()} is not on this machine: the same change is to make in its config there";
+            $result[
+                'notes'
+            ][] = "Robust of {$this->grid->nick()} is not on this machine: the same change is to make in its config there";
 
             return false;
         }

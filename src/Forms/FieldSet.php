@@ -63,7 +63,9 @@ final class FieldSet
     /** The fields of one screen. */
     public function group(string $group): self
     {
-        return new self(array_values(array_filter($this->fields, static fn(array $f): bool => ($f['group'] ?? '') === $group)));
+        return new self(
+            array_values(array_filter($this->fields, static fn(array $f): bool => ($f['group'] ?? '') === $group)),
+        );
     }
 
     /** Whether a field is shown, for these answers. */

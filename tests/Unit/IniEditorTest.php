@@ -21,6 +21,7 @@ describe('IniEditor set', function () {
 
             [Other]
             INI
+            ,
         );
 
         $ini->set('DatabaseService', 'ConnectionString', '"Data Source=localhost;Database=mine;User ID=u;Password=p;"');
@@ -44,22 +45,25 @@ describe('IniEditor set', function () {
 
 describe('IniEditor in layers', function () {
     $distribution = <<<'INI'
-        ;; the distribution
-        [LoginService]
-            ; shown at login
-            WelcomeMessage = "Welcome to OpenSim!"
-            ;SearchURL = ""
-            NewInThisVersion = "default"
+    ;; the distribution
+    [LoginService]
+        ; shown at login
+        WelcomeMessage = "Welcome to OpenSim!"
+        ;SearchURL = ""
+        NewInThisVersion = "default"
 
-        [Hypergrid]
-            GatekeeperURI = "http://localhost:8002"
-        INI;
+    [Hypergrid]
+        GatekeeperURI = "http://localhost:8002"
+    INI;
 
     test('keep every setting of the distribution, with what the grid has set over it', function () use ($distribution) {
         $dir = test_tmp() . '/layers-' . bin2hex(random_bytes(4));
         mkdir($dir);
         file_put_contents("$dir/dist.ini", $distribution);
-        file_put_contents("$dir/grid.ini", "[LoginService]\nWelcomeMessage = \"Mine\"\nSearchURL = \"http://search\"\n[Custom]\nKeepMe = yes\n; a comment of the operator\n");
+        file_put_contents(
+            "$dir/grid.ini",
+            "[LoginService]\nWelcomeMessage = \"Mine\"\nSearchURL = \"http://search\"\n[Custom]\nKeepMe = yes\n; a comment of the operator\n",
+        );
 
         $text = IniEditor::layered("$dir/dist.ini", "$dir/grid.ini")->toString();
 
@@ -75,16 +79,19 @@ describe('IniEditor in layers', function () {
             ->toContain('GatekeeperURI = "http://localhost:8002"');
     });
 
-    test('are the distribution itself for a grid that has nothing yet, and what a file that is the same gives unchanged', function () use ($distribution) {
-        $dir = test_tmp() . '/layers-' . bin2hex(random_bytes(4));
-        mkdir($dir);
-        file_put_contents("$dir/dist.ini", $distribution);
+    test(
+        'are the distribution itself for a grid that has nothing yet, and what a file that is the same gives unchanged',
+        function () use ($distribution) {
+            $dir = test_tmp() . '/layers-' . bin2hex(random_bytes(4));
+            mkdir($dir);
+            file_put_contents("$dir/dist.ini", $distribution);
 
-        expect(IniEditor::layered("$dir/dist.ini", null)->toString())
-            ->toBe($distribution)
-            ->and(IniEditor::layered("$dir/dist.ini", "$dir/dist.ini")->toString())
-            ->toBe($distribution);
-    });
+            expect(IniEditor::layered("$dir/dist.ini", null)->toString())
+                ->toBe($distribution)
+                ->and(IniEditor::layered("$dir/dist.ini", "$dir/dist.ini")->toString())
+                ->toBe($distribution);
+        },
+    );
 
     test('count a key given twice in a section once, the first, as OpenSimulator reads it', function () {
         $ini = new IniEditor("[A]\none = base\n");
@@ -93,4 +100,3 @@ describe('IniEditor in layers', function () {
         expect($ini->toString())->toContain('one = first')->not->toContain('second');
     });
 });
-

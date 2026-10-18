@@ -33,7 +33,10 @@ final class GridRegistry
         if ($grid->databaseName() === '' || $grid->isPlanned()) {
             return null; // a grid of another machine: its database is not ours to read
         }
-        $rows = $this->database->select($grid->databasePlan('GridService'), 'SELECT serverPort, serverURI FROM regions');
+        $rows = $this->database->select(
+            $grid->databasePlan('GridService'),
+            'SELECT serverPort, serverURI FROM regions',
+        );
 
         return $rows === null ? null : self::portsOf($rows);
     }
@@ -58,7 +61,7 @@ final class GridRegistry
         }
         $ports = [];
         foreach ($infos as $info) {
-            array_push($ports, ...($this->ports($info) ?? []));
+            array_push($ports, ...$this->ports($info) ?? []);
         }
 
         return array_values(array_unique($ports));
@@ -117,7 +120,10 @@ final class GridRegistry
     {
         $names = [];
         foreach (glob(GridConfig::simulatorsDirectory($gridDir) . '/*/regions', GLOB_ONLYDIR) ?: [] as $dir) {
-            foreach (array_map(static fn(Region $region): string => $region->name(), Region::inDirectory($dir)) as $name) {
+            foreach (
+                array_map(static fn(Region $region): string => $region->name(), Region::inDirectory($dir))
+                as $name
+            ) {
                 $names[strtolower($name)] = true;
             }
         }

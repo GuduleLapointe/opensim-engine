@@ -21,13 +21,8 @@ final class SimulatorImporter
      * @param array<string,array<string,string>> $raw the original, as written, includes read
      * @return SimulatorPlan|string the plan, or what makes it impossible
      */
-    public static function plan(
-        array $raw,
-        string $path,
-        Grid $grid,
-        ?string $name,
-        string $core,
-    ): SimulatorPlan|string {
+    public static function plan(array $raw, string $path, Grid $grid, ?string $name, string $core): SimulatorPlan|string
+    {
         $ini = ConfigReader::expand($raw);
         $architecture =
             $ini['Architecture']['Include-Architecture'] ?? ($raw['Architecture']['Include-Architecture'] ?? '');
@@ -67,7 +62,12 @@ final class SimulatorImporter
         $plan->httpPort = $port;
         $plan->dataDirectory = "{$grid->dataDirectory()}/{$plan->slug}";
         $plan->cacheDirectory = "{$grid->cacheDirectory()}/{$plan->slug}";
-        [$plan->dbHost, $plan->dbName, $plan->dbUser, $plan->dbPass] = [$db->source, $db->database, $db->user, $db->password];
+        [$plan->dbHost, $plan->dbName, $plan->dbUser, $plan->dbPass] = [
+            $db->source,
+            $db->database,
+            $db->user,
+            $db->password,
+        ];
 
         $network = $ini['Network'] ?? [];
         if (($network['ConsoleUser'] ?? '') !== '' && (int) ($network['console_port'] ?? 0) > 0) {

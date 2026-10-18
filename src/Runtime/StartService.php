@@ -18,11 +18,15 @@ final class StartService
     private const TIMEOUT = 120;
 
     /** The questions of a first start, which a region fully described does not ask: each is answered with its default. */
-    private const QUESTIONS = ['RegionUUID', 'Internal IP address', 'External host name', 'Do you wish to join region .* to an existing estate', 'Name of estate to join'];
+    private const QUESTIONS = [
+        'RegionUUID',
+        'Internal IP address',
+        'External host name',
+        'Do you wish to join region .* to an existing estate',
+        'Name of estate to join',
+    ];
 
-    public function __construct(private readonly Environment $environment)
-    {
-    }
+    public function __construct(private readonly Environment $environment) {}
 
     public function start(Controller $instance): Result
     {
@@ -61,12 +65,23 @@ final class StartService
             return $this->fail($name, $problem);
         }
         // A region stops at once without libgdiplus (dynamic textures)
-        if ($base === 'OpenSim' && $runtime === 'dotnet' && PHP_OS_FAMILY === 'Linux' && !$env->probe->hasLibrary('gdiplus')) {
-            return $this->fail($name, "$name cannot start: the native library libgdiplus is missing. Install it with: sudo apt install libgdiplus (or sudo opensim install-dotnet)");
+        if (
+            $base === 'OpenSim' &&
+            $runtime === 'dotnet' &&
+            PHP_OS_FAMILY === 'Linux' &&
+            !$env->probe->hasLibrary('gdiplus')
+        ) {
+            return $this->fail(
+                $name,
+                "$name cannot start: the native library libgdiplus is missing. Install it with: sudo apt install libgdiplus (or sudo opensim install-dotnet)",
+            );
         }
         // A simulator needs a region: without one it waits for the answers of a first start, on a console nobody reads
         if ($instance instanceof OpenSimController && $base === 'OpenSim' && !$instance->hasRegion()) {
-            return $this->fail($name, "$name has no region to load (all disabled, or none yet): add one first, with opensim setup");
+            return $this->fail(
+                $name,
+                "$name has no region to load (all disabled, or none yet): add one first, with opensim setup",
+            );
         }
 
         // The master of its grid, when it has one, is made again if the core or the grid changed: it is the first the config reads
@@ -78,7 +93,15 @@ final class StartService
         // Regions load the modules enabled for the install from the addins folder of their registry
         $registry = $instance->launchSetting('RegistryLocation');
         if ($base === 'OpenSim' && $registry !== '') {
-            foreach (ModuleLinker::sync("$registry/addins", $core, $env->layout->enabledModules(), $env->layout->modulesRoot()) as $note) {
+            foreach (
+                ModuleLinker::sync(
+                    "$registry/addins",
+                    $core,
+                    $env->layout->enabledModules(),
+                    $env->layout->modulesRoot(),
+                )
+                as $note
+            ) {
                 $env->reporter->debug($note);
             }
         }
@@ -101,7 +124,12 @@ final class StartService
 
         $remote = $instance->remoteConsole();
         $native = $runtime === 'dotnet' ? $core->nativeLibraries($this->nativeRoot()) : '';
-        $command = [$runtime, ...array_values(array_filter(explode(' ', $core->runtimeOptions($base)))), $core->bin() . "/$executable", '-inifile=' . $instance->ini()];
+        $command = [
+            $runtime,
+            ...array_values(array_filter(explode(' ', $core->runtimeOptions($base)))),
+            $core->bin() . "/$executable",
+            '-inifile=' . $instance->ini(),
+        ];
         if ($master !== null) {
             $command[] = '-inimaster=' . $master;
         }
@@ -122,7 +150,12 @@ final class StartService
             $name,
             $core->bin(),
             $command,
-            $native !== '' ? ['LD_LIBRARY_PATH' => $native . ((string) getenv('LD_LIBRARY_PATH') !== '' ? ':' . getenv('LD_LIBRARY_PATH') : '')] : [],
+            $native !== ''
+                ? [
+                    'LD_LIBRARY_PATH' =>
+                        $native . ((string) getenv('LD_LIBRARY_PATH') !== '' ? ':' . getenv('LD_LIBRARY_PATH') : ''),
+                ]
+                : [],
             $output,
             $remote === null,
             $base === 'OpenSim',
@@ -146,8 +179,14 @@ final class StartService
     }
 
     /** Wait for the instance to be ready, and tell how it went. */
-    private function wait(Controller $instance, string $base, LogFile $log, int $mark, string $output, bool $remote): Result
-    {
+    private function wait(
+        Controller $instance,
+        string $base,
+        LogFile $log,
+        int $mark,
+        string $output,
+        bool $remote,
+    ): Result {
         $env = $this->environment;
         $name = $instance->name();
         $failed = [];
@@ -182,7 +221,11 @@ final class StartService
 
                 return new Result($name, Outcome::Started);
             case 4:
-                return $this->fail($name, "$name is up but these services failed to load: " . implode(' ', $failed), "Its log: {$log->path()}");
+                return $this->fail(
+                    $name,
+                    "$name is up but these services failed to load: " . implode(' ', $failed),
+                    "Its log: {$log->path()}",
+                );
             case 3:
                 $this->tell($output, 20);
 
@@ -290,10 +333,17 @@ final class StartService
      *
      * @return array{0:int,1:string} 0 and the lines that match, 3 when the session is gone, 1 at the end of the delay
      */
-    private function waitScreen(Controller $instance, ScreenInterface $console, string $pattern, StartProgress $progress): array
-    {
+    private function waitScreen(
+        Controller $instance,
+        ScreenInterface $console,
+        string $pattern,
+        StartProgress $progress,
+    ): array {
         for ($tick = 0; $tick < self::TIMEOUT * 2; $tick++) {
-            $matches = array_filter(explode("\n", $console->screenText()), static fn(string $line): bool => (bool) preg_match("/$pattern/", $line));
+            $matches = array_filter(
+                explode("\n", $console->screenText()),
+                static fn(string $line): bool => (bool) preg_match("/$pattern/", $line),
+            );
             if ($matches !== []) {
                 return [0, implode("\n", $matches)];
             }

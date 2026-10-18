@@ -154,7 +154,10 @@ final class IniEditor
             if ($inTarget && preg_match($keyRe, $text)) {
                 // The value it already has is left as it is, with the way it is written; a new one takes the place of the line
                 // (or of its commented example) with the same indentation
-                if (preg_match('/^\s*' . preg_quote($key, '/') . '\s*=\s*(.*?)\s*$/', $text, $current) && trim($current[1]) === trim($value)) {
+                if (
+                    preg_match('/^\s*' . preg_quote($key, '/') . '\s*=\s*(.*?)\s*$/', $text, $current) &&
+                    trim($current[1]) === trim($value)
+                ) {
                     return;
                 }
                 $this->lines[$i] = (preg_match('/^\s*/', $text, $indent) ? $indent[0] : '') . $newLine;

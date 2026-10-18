@@ -43,8 +43,11 @@ final class OpenSim
      * @param bool $simulators the enabled simulators of the grids named are started too
      * @return list<Result>
      */
-    public static function start(string|array|null $targets = null, ?Environment $environment = null, bool $simulators = false): array
-    {
+    public static function start(
+        string|array|null $targets = null,
+        ?Environment $environment = null,
+        bool $simulators = false,
+    ): array {
         $environment ??= self::environment();
         $results = [];
         foreach (self::resolve($environment, $targets, $results, $simulators) as $instance) {
@@ -63,8 +66,12 @@ final class OpenSim
      * @param bool $simulators the enabled simulators of the grids named are stopped too
      * @return list<Result>
      */
-    public static function stop(string|array|null $targets = null, bool $now = false, ?Environment $environment = null, bool $simulators = false): array
-    {
+    public static function stop(
+        string|array|null $targets = null,
+        bool $now = false,
+        ?Environment $environment = null,
+        bool $simulators = false,
+    ): array {
         $environment ??= self::environment();
         $results = [];
         foreach (self::stopOrder(self::resolve($environment, $targets, $results, $simulators)) as $instance) {
@@ -82,8 +89,12 @@ final class OpenSim
      * @param bool $simulators the enabled simulators of the grids named restart too
      * @return list<Result>
      */
-    public static function restart(string|array|null $targets = null, bool $now = false, ?Environment $environment = null, bool $simulators = false): array
-    {
+    public static function restart(
+        string|array|null $targets = null,
+        bool $now = false,
+        ?Environment $environment = null,
+        bool $simulators = false,
+    ): array {
         $environment ??= self::environment();
         $results = [];
         $instances = self::resolve($environment, $targets, $results, $simulators);
@@ -129,7 +140,13 @@ final class OpenSim
         $etc = rtrim($environment->layout->etcRoot(), '/');
         $instances = [];
         $seen = [];
-        foreach ([RobustController::class => ['robust.d', 'robust-enabled'], OpenSimController::class => ['opensim.d', 'simulators-enabled']] as $class => $folders) {
+        foreach (
+            [
+                RobustController::class => ['robust.d', 'robust-enabled'],
+                OpenSimController::class => ['opensim.d', 'simulators-enabled'],
+            ]
+            as $class => $folders
+        ) {
             foreach ($folders as $folder) {
                 $files = glob("$etc/$folder/*.ini") ?: [];
                 sort($files);
@@ -159,7 +176,9 @@ final class OpenSim
         if (str_ends_with($target, '.ini') && is_file($target)) {
             $real = realpath($target) ?: $target;
 
-            return str_contains(strtolower($target), 'robust') ? new RobustController($environment, $real) : new OpenSimController($environment, $real);
+            return str_contains(strtolower($target), 'robust')
+                ? new RobustController($environment, $real)
+                : new OpenSimController($environment, $real);
         }
         $name = Controller::cleanName($target);
         foreach (self::enabled($environment) as $instance) {
@@ -179,8 +198,12 @@ final class OpenSim
      * @param bool $simulators the enabled simulators of the grids named come after their Robust
      * @return list<Controller>
      */
-    private static function resolve(Environment $environment, string|array|null $targets, array &$results, bool $simulators = false): array
-    {
+    private static function resolve(
+        Environment $environment,
+        string|array|null $targets,
+        array &$results,
+        bool $simulators = false,
+    ): array {
         $targets = array_values(array_filter((array) $targets, static fn($t): bool => trim((string) $t) !== ''));
         if ($targets === []) {
             return self::enabled($environment);
@@ -222,7 +245,7 @@ final class OpenSim
     private static function stopOrder(array $instances): array
     {
         return [
-            ...array_filter($instances, static fn(Controller $i): bool => !$i instanceof RobustController),
+            ...array_filter($instances, static fn(Controller $i): bool => !($i instanceof RobustController)),
             ...array_filter($instances, static fn(Controller $i): bool => $i instanceof RobustController),
         ];
     }

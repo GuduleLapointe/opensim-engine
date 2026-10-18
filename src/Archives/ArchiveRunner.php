@@ -127,7 +127,9 @@ final class ArchiveRunner
             $simulator = $this->simulatorName($grid, $slug);
             $prefix = Archives::oarPrefix($grid->nick(), $simulator, isset($options['all']) ? null : $region);
             $name =
-                $verb === 'save' ? Archives::oarName($grid->nick(), $simulator, $region, $options, Archives::stamp()) : null;
+                $verb === 'save'
+                    ? Archives::oarName($grid->nick(), $simulator, $region, $options, Archives::stamp())
+                    : null;
         } else {
             $prefix = Archives::iarPrefix($grid->nick(), $given['first'], $given['last']);
             $name =
@@ -239,10 +241,15 @@ final class ArchiveRunner
      */
     private function region(Grid $grid, string $slug, array $options): ?string
     {
-        $names = array_values(array_map(
-            static fn(Region $region): string => $region->name(),
-            array_filter(Region::inDirectory(GridConfig::simulatorsDirectory($grid->directory()) . "/$slug/regions"), static fn(Region $region): bool => $region->isEnabled()),
-        ));
+        $names = array_values(
+            array_map(
+                static fn(Region $region): string => $region->name(),
+                array_filter(
+                    Region::inDirectory(GridConfig::simulatorsDirectory($grid->directory()) . "/$slug/regions"),
+                    static fn(Region $region): bool => $region->isEnabled(),
+                ),
+            ),
+        );
         if (isset($options['region'])) {
             if ($names !== [] && !in_array($options['region'], $names, true)) {
                 throw new \InvalidArgumentException(

@@ -46,11 +46,11 @@ final class GridPlanner
     public static function context(): array
     {
         return [
-            'environment' => null,  // the Environment of the machine (its layout gives the roots, the core and the data source)
-            'cores' => [],          // folder => name of the cores that can run the grid
-            'modify' => false,      // the grid exists and is changed: its nick stays
-            'nick' => '',           // the grid whose settings are the starting point
-            'current' => null,      // its Robust, when it exists: its settings are the ones proposed
+            'environment' => null, // the Environment of the machine (its layout gives the roots, the core and the data source)
+            'cores' => [], // folder => name of the cores that can run the grid
+            'modify' => false, // the grid exists and is changed: its nick stays
+            'nick' => '', // the grid whose settings are the starting point
+            'current' => null, // its Robust, when it exists: its settings are the ones proposed
             'currentHypergrid' => null,
             'savedSpacing' => 0,
             'savedCenter' => '',
@@ -59,9 +59,9 @@ final class GridPlanner
             'defaultPublic' => 8002,
             'helpersAvailable' => false,
             'helpersPath' => '/helpers',
-            'webServer' => 'caddy',  // the web server the machine has
-            'nextPort' => null,     // Closure(int $min): int, the first free port from there (default: Ports::next)
-            'random' => null,       // Closure(int $length, bool $letters): string (default: random_int)
+            'webServer' => 'caddy', // the web server the machine has
+            'nextPort' => null, // Closure(int $min): int, the first free port from there (default: Ports::next)
+            'random' => null, // Closure(int $length, bool $letters): string (default: random_int)
         ];
     }
 
@@ -97,15 +97,17 @@ final class GridPlanner
         $grid = Grid::find($this->environment(), $nick);
         $center = ConfigReader::file("$dir/$nick.conf")['Grid']['Center'] ?? '';
 
-        return new self([
-            'nick' => $nick,
-            'current' => $grid?->robust(),
-            'currentHypergrid' => $grid?->robust() !== null ? $grid->isHypergrid() : null,
-            'savedSpacing' => $grid?->regionSpacing() ?? 0,
-            'savedCenter' => trim((string) $center, " \t\""),
-            'helpersAvailable' => is_file(HelpersConfig::path($dir)) || is_dir(Snippets::WEBROOT),
-            'helpersPath' => HelpersConfig::basePath($dir),
-        ] + $this->context);
+        return new self(
+            [
+                'nick' => $nick,
+                'current' => $grid?->robust(),
+                'currentHypergrid' => $grid?->robust() !== null ? $grid->isHypergrid() : null,
+                'savedSpacing' => $grid?->regionSpacing() ?? 0,
+                'savedCenter' => trim((string) $center, " \t\""),
+                'helpersAvailable' => is_file(HelpersConfig::path($dir)) || is_dir(Snippets::WEBROOT),
+                'helpersPath' => HelpersConfig::basePath($dir),
+            ] + $this->context,
+        );
     }
 
     /** The host name a grid is proposed: the one of the machine. */
@@ -173,7 +175,7 @@ final class GridPlanner
 
         $name = $text('name', $current?->gridName() ?? ($modify ? Slug::nameOf($c['nick']) : $c['defaultName']));
         $nick = $modify ? $c['nick'] : $text('nick', Slug::nick($name));
-        $hypergrid = self::flag($answers['hypergrid'] ?? $c['currentHypergrid'] ?? true);
+        $hypergrid = self::flag($answers['hypergrid'] ?? ($c['currentHypergrid'] ?? true));
         $spacing = (int) ($answers['spacing'] ?? $c['savedSpacing']);
         $cores = $c['cores'];
         $core = $text('core', count($cores) > 1 ? $layout->coreDirectory() : '');
@@ -186,7 +188,9 @@ final class GridPlanner
         $private0 = (int) ($current?->privatePort() ?? $this->privateFor($public0));
         $private = (int) ($answers['private_port'] ?? ($public === $public0 ? $private0 : $this->privateFor($public)));
         $console0 = (int) ($current?->consolePort() ?? $this->consoleFor($public0, $private0));
-        $consolePort = (int) ($answers['console_port'] ?? ($public === $public0 ? $console0 : $this->consoleFor($public, $private)));
+        $consolePort =
+            (int) ($answers['console_port'] ??
+                ($public === $public0 ? $console0 : $this->consoleFor($public, $private)));
         $center = $text('center', $c['savedCenter'] !== '' ? $c['savedCenter'] : "$public,$public");
         $web0 = (string) ($current?->webUrl() ?? "https://$host0");
         $web = $text('web_url', $host === $host0 ? $web0 : "https://$host");
@@ -209,18 +213,27 @@ final class GridPlanner
             'helpers' => self::flag($answers['helpers'] ?? $c['helpersAvailable']),
             'helpers_path' => $text('helpers_path', $c['helpersPath']),
             // Without the helpers the grid has no search of its own
-            'search' => self::choice($answers['search'] ?? null, ['internal', 'shared', 'disabled'], self::flag($answers['helpers'] ?? $c['helpersAvailable']) ? 'internal' : 'disabled'),
+            'search' => self::choice(
+                $answers['search'] ?? null,
+                ['internal', 'shared', 'disabled'],
+                self::flag($answers['helpers'] ?? $c['helpersAvailable']) ? 'internal' : 'disabled',
+            ),
             'economy' => self::choice($answers['economy'] ?? null, ['beta', 'gloebit'], 'beta'),
             'ossl' => self::flag($answers['ossl'] ?? false),
             'web_server' => self::choice($answers['web_server'] ?? null, ['caddy', 'apache', 'nginx'], $c['webServer']),
             'web_site' => self::choice($answers['web_site'] ?? null, ['helpers', 'website'], 'helpers'),
-            'database_host' => $text('database_host', $current?->databaseHost() ?? ($layout->dataSource() ?: 'localhost')),
+            'database_host' => $text(
+                'database_host',
+                $current?->databaseHost() ?? ($layout->dataSource() ?: 'localhost'),
+            ),
             'database_name' => $text('database_name', $current?->databaseName() ?? strtolower($nick) . '_robust'),
             'database_user' => $text('database_user', $current?->databaseUser() ?? 'opensim'),
             // A password found is reused, otherwise one is made (never changeme)
             'database_password' => $text(
                 'database_password',
-                $foundPassword !== '' && $foundPassword !== 'changeme' ? $foundPassword : $this->secret('database_password', 20, false),
+                $foundPassword !== '' && $foundPassword !== 'changeme'
+                    ? $foundPassword
+                    : $this->secret('database_password', 20, false),
             ),
         ];
     }
@@ -283,7 +296,8 @@ final class GridPlanner
             // As the helpers make theirs: 12 lower case letters, 32 letters and digits
             $plan->consoleHost = (string) ($current?->consoleHost() ?? $plan->baseHostname);
             $plan->consoleUser = (string) ($current?->consoleUser() ?? $this->secret('console_user', 12, true));
-            $plan->consolePass = (string) ($current?->consolePassword() ?? $this->secret('console_password', 32, false));
+            $plan->consolePass =
+                (string) ($current?->consolePassword() ?? $this->secret('console_password', 32, false));
         }
         $plan->dbHost = $v['database_host'];
         $plan->dbName = $v['database_name'];
@@ -313,15 +327,23 @@ final class GridPlanner
 
     private function nextPort(int $min): int
     {
-        return $this->context['nextPort'] !== null ? ($this->context['nextPort'])($min) : (new Ports($this->environment()))->next($min);
+        return $this->context['nextPort'] !== null
+            ? $this->context['nextPort']($min)
+            : (new Ports($this->environment()))->next($min);
     }
 
     /** Something made at random, once. */
     private function secret(string $key, int $length, bool $letters): string
     {
-        return $this->secrets[$key] ??= $this->context['random'] !== null
-            ? ($this->context['random'])($length, $letters)
-            : self::randomString($length, $letters ? 'abcdefghijklmnopqrstuvwxyz' : 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789');
+        return $this->secrets[$key] ??=
+            $this->context['random'] !== null
+                ? $this->context['random']($length, $letters)
+                : self::randomString(
+                    $length,
+                    $letters
+                        ? 'abcdefghijklmnopqrstuvwxyz'
+                        : 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+                );
     }
 
     private static function randomString(int $length, string $alphabet): string

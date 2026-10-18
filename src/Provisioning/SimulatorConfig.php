@@ -47,11 +47,7 @@ final class SimulatorConfig
             '',
             '[Startup]',
             'regionload_regionsdir = "' . $plan->regionsDir() . '"',
-            ...$master
-                ? []
-                : [
-                    'RegistryLocation = "${Const|DataDirectory}/registry"',
-                ],
+            ...$master ? [] : ['RegistryLocation = "${Const|DataDirectory}/registry"'],
             'PIDFile = "${Const|CacheDirectory}/' . $slug . '.pid"',
             'ConsoleHistoryFile = "${Const|LogsDirectory}/' . $slug . '.OpenSimConsoleHistory.txt"',
             ...$master
@@ -104,13 +100,7 @@ final class SimulatorConfig
             'DefaultEstateName = "' . $plan->estateName . '"',
             'DefaultEstateOwnerName = "' . $plan->estateOwner . '"',
             '',
-            ...$master
-                ? []
-                : [
-                    '[Architecture]',
-                    'Include-Architecture = "' . $architecture . '"',
-                    '',
-                ],
+            ...$master ? [] : ['[Architecture]', 'Include-Architecture = "' . $architecture . '"', ''],
         ];
 
         $text = implode("\n", $lines);
@@ -134,7 +124,10 @@ final class SimulatorConfig
     public static function gridLayer(SimulatorPlan|Grid $from, bool $paths = false): array
     {
         $plan = $from instanceof SimulatorPlan;
-        $name = self::dataServiceNameOf($plan ? $from->gridNick : $from->nick(), $plan ? $from->gridName : $from->name());
+        $name = self::dataServiceNameOf(
+            $plan ? $from->gridNick : $from->nick(),
+            $plan ? $from->gridName : $from->name(),
+        );
         $search = $plan ? $from->searchUrl : $from->helperUrl('query');
         $register = $plan ? $from->registerUrl : $from->helperUrl('register');
         $offline = $plan ? $from->offlineUrl : $from->helperUrl('offline');
@@ -181,7 +174,9 @@ final class SimulatorConfig
                     '',
                 ]
                 : [],
-            ...in_array('GroupsServiceConnector', $plan ? $from->connectors : $from->connectors(), true) ? self::groupsLayer($from) : [],
+            ...in_array('GroupsServiceConnector', $plan ? $from->connectors : $from->connectors(), true)
+                ? self::groupsLayer($from)
+                : [],
         ];
     }
 
@@ -213,14 +208,20 @@ final class SimulatorConfig
      */
     private static function groupsLayer(SimulatorPlan|Grid $from): array
     {
-        $hypergrid = in_array('HGGroupsServiceConnector', $from instanceof SimulatorPlan ? $from->connectors : $from->connectors(), true);
+        $hypergrid = in_array(
+            'HGGroupsServiceConnector',
+            $from instanceof SimulatorPlan ? $from->connectors : $from->connectors(),
+            true,
+        );
 
         return [
             ';; The groups are kept by Robust',
             '[Groups]',
             'Enabled = true',
             'Module = "Groups Module V2"',
-            'ServicesConnectorModule = "' . ($hypergrid ? 'Groups HG Service Connector' : 'Groups Remote Service Connector') . '"',
+            'ServicesConnectorModule = "' .
+            ($hypergrid ? 'Groups HG Service Connector' : 'Groups Remote Service Connector') .
+            '"',
             ...$hypergrid ? ['LocalService = remote'] : [],
             'GroupsServerURI = "${Const|PrivURL}:${Const|PrivatePort}"',
             'MessagingEnabled = true',

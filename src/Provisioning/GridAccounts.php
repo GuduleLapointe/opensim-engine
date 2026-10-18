@@ -66,7 +66,9 @@ final class GridAccounts
      */
     public static function homeSql(string $userId, string $regionId): string
     {
-        return "INSERT INTO GridUser (UserID, HomeRegionID, HomePosition, HomeLookAt) VALUES ('$userId', '$regionId', '" . self::HOME_POSITION . "', '<0,1,0>') " .
+        return "INSERT INTO GridUser (UserID, HomeRegionID, HomePosition, HomeLookAt) VALUES ('$userId', '$regionId', '" .
+            self::HOME_POSITION .
+            "', '<0,1,0>') " .
             'ON DUPLICATE KEY UPDATE HomeRegionID = VALUES(HomeRegionID), HomePosition = VALUES(HomePosition), HomeLookAt = VALUES(HomeLookAt)';
     }
 
@@ -117,7 +119,10 @@ final class GridAccounts
             return false;
         }
         [$first, $last] = explode(' ', $name);
-        $id = $this->database->select($grid->databasePlan('UserAccountService'), "SELECT PrincipalID FROM UserAccounts WHERE FirstName = '$first' AND LastName = '$last'");
+        $id = $this->database->select(
+            $grid->databasePlan('UserAccountService'),
+            "SELECT PrincipalID FROM UserAccounts WHERE FirstName = '$first' AND LastName = '$last'",
+        );
         if ($id === null || $id === []) {
             return $id === null ? null : false;
         }
@@ -128,7 +133,11 @@ final class GridAccounts
     /** The statement that moves a home from the position Robust gives to HOME_POSITION, and leaves any other home. */
     public static function raiseHomeSql(string $userId): string
     {
-        return "UPDATE GridUser SET HomePosition = '" . self::HOME_POSITION . "' WHERE UserID = '$userId' AND HomePosition = '" . self::ROBUST_HOME_POSITION . "'";
+        return "UPDATE GridUser SET HomePosition = '" .
+            self::HOME_POSITION .
+            "' WHERE UserID = '$userId' AND HomePosition = '" .
+            self::ROBUST_HOME_POSITION .
+            "'";
     }
 
     /**

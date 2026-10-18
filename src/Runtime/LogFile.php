@@ -9,9 +9,7 @@ namespace OpenSim\Runtime;
  */
 final class LogFile
 {
-    public function __construct(private readonly string $path)
-    {
-    }
+    public function __construct(private readonly string $path) {}
 
     public function path(): string
     {
@@ -60,7 +58,9 @@ final class LogFile
         fseek($handle, max(0, $size - 4096));
         $tail = (string) stream_get_contents($handle);
         fclose($handle);
-        $lines = array_values(array_filter(explode("\n", str_replace("\r", '', $tail)), static fn(string $l): bool => trim($l) !== ''));
+        $lines = array_values(
+            array_filter(explode("\n", str_replace("\r", '', $tail)), static fn(string $l): bool => trim($l) !== ''),
+        );
         if ($lines === []) {
             return null;
         }

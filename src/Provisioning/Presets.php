@@ -69,11 +69,18 @@ final class Presets
      *
      * @param list<string> $files relative to the folder of the preset
      */
-    private function setting(string $name, string $section, string $key, array $files = ['config-include/GridCommon.ini', 'OpenSim.ini']): ?string
-    {
+    private function setting(
+        string $name,
+        string $section,
+        string $key,
+        array $files = ['config-include/GridCommon.ini', 'OpenSim.ini'],
+    ): ?string {
         foreach ($files as $file) {
             $path = $this->path($name) . "/$file";
-            if (is_file($path) && ($value = (new IniEditor(TextFileService::read($path)))->get($section, $key)) !== null) {
+            if (
+                is_file($path) &&
+                ($value = (new IniEditor(TextFileService::read($path)))->get($section, $key)) !== null
+            ) {
                 return $value;
             }
         }
@@ -92,7 +99,10 @@ final class Presets
         if ($this->path($name) === null) {
             return null;
         }
-        $gatekeeper = self::address($this->setting($name, 'Hypergrid', 'GatekeeperURI') ?? $this->setting($name, 'Messaging', 'Gatekeeper') ?? '');
+        $gatekeeper = self::address(
+            $this->setting($name, 'Hypergrid', 'GatekeeperURI') ??
+                ($this->setting($name, 'Messaging', 'Gatekeeper') ?? ''),
+        );
         if ($gatekeeper === null) {
             return null;
         }
@@ -130,10 +140,17 @@ final class Presets
         }
         $dir = $this->dir($name);
         $before = self::snapshot($dir);
-        $over = array_values(array_filter(array_map(static fn(string $root): string => "$root/$name", array_slice($this->roots, 1)), 'is_dir'));
+        $over = array_values(
+            array_filter(
+                array_map(static fn(string $root): string => "$root/$name", array_slice($this->roots, 1)),
+                'is_dir',
+            ),
+        );
 
         // What is not an ini to merge: the library the simulators read, the other files of the preset of the kit
-        is_dir("$dir/inventory") || !is_dir("$binDir/inventory") || self::copyTree("$binDir/inventory", "$dir/inventory", false);
+        is_dir("$dir/inventory") ||
+            !is_dir("$binDir/inventory") ||
+            self::copyTree("$binDir/inventory", "$dir/inventory", false);
         foreach ($over as $root) {
             self::copyTree($root, $dir, true);
         }
@@ -143,7 +160,13 @@ final class Presets
 
         $after = self::snapshot($dir);
 
-        return array_keys(array_filter($after, static fn(string $hash, string $path): bool => ($before[$path] ?? null) !== $hash, ARRAY_FILTER_USE_BOTH));
+        return array_keys(
+            array_filter(
+                $after,
+                static fn(string $hash, string $path): bool => ($before[$path] ?? null) !== $hash,
+                ARRAY_FILTER_USE_BOTH,
+            ),
+        );
     }
 
     /**
@@ -157,7 +180,11 @@ final class Presets
         if (!is_file($path)) {
             return '';
         }
-        $default = is_file("$binDir/OpenSim.ini") ? "$binDir/OpenSim.ini" : (is_file("$binDir/OpenSim.ini.example") ? "$binDir/OpenSim.ini.example" : null);
+        $default = is_file("$binDir/OpenSim.ini")
+            ? "$binDir/OpenSim.ini"
+            : (is_file("$binDir/OpenSim.ini.example")
+                ? "$binDir/OpenSim.ini.example"
+                : null);
 
         return IniEditor::load($path)->differences(IniEditor::layered($default, null));
     }
@@ -169,7 +196,10 @@ final class Presets
             return [];
         }
         $files = [];
-        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS)) as $file) {
+        foreach (
+            new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS))
+            as $file
+        ) {
             if ($file->isFile() && preg_match('/\.ini$/i', $file->getFilename()) === 1) {
                 $files[] = substr($file->getPathname(), strlen($dir) + 1);
             }
@@ -183,7 +213,10 @@ final class Presets
     {
         $files = [];
         if (is_dir($dir)) {
-            foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS)) as $file) {
+            foreach (
+                new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS))
+                as $file
+            ) {
                 if ($file->isFile()) {
                     $files[$file->getPathname()] = (string) md5_file($file->getPathname());
                 }
@@ -201,9 +234,16 @@ final class Presets
      */
     private static function copyTree(string $from, string $to, bool $skipIni): void
     {
-        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($from, \FilesystemIterator::SKIP_DOTS)) as $file) {
+        foreach (
+            new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($from, \FilesystemIterator::SKIP_DOTS))
+            as $file
+        ) {
             $relative = substr($file->getPathname(), strlen($from) + 1);
-            if (!$file->isFile() || is_file("$to/$relative") || ($skipIni && preg_match('/\.ini$/i', $relative) === 1)) {
+            if (
+                !$file->isFile() ||
+                is_file("$to/$relative") ||
+                ($skipIni && preg_match('/\.ini$/i', $relative) === 1)
+            ) {
                 continue;
             }
             is_dir(dirname("$to/$relative")) || mkdir(dirname("$to/$relative"), 0o755, true);

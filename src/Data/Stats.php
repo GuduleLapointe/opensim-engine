@@ -56,7 +56,10 @@ final class Stats
             return $statement ? $statement->fetchColumn() : 0;
         };
         // How many of the users are accounts: one query when both are in one database, else by groups of identifiers
-        $accountsAmong = static function (OSPDO $db, string $sql, array $params, string $idsSql) use ($accounts, $one): int {
+        $accountsAmong = static function (OSPDO $db, string $sql, array $params, string $idsSql) use (
+            $accounts,
+            $one,
+        ): int {
             if ($db === $accounts) {
                 return (int) $one($accounts, $sql, $params);
             }
@@ -65,7 +68,11 @@ final class Stats
             $count = 0;
             foreach (array_chunk($ids, self::GROUP) as $group) {
                 $marks = implode(',', array_fill(0, count($group), '?'));
-                $count += (int) $one($accounts, "SELECT COUNT(*) FROM UserAccounts WHERE PrincipalID IN ($marks)", $group);
+                $count += (int) $one(
+                    $accounts,
+                    "SELECT COUNT(*) FROM UserAccounts WHERE PrincipalID IN ($marks)",
+                    $group,
+                );
             }
 
             return $count;
@@ -86,9 +93,13 @@ final class Stats
                 'SELECT UserID FROM Presence WHERE RegionID != :zero',
             ),
             'active_users' => (int) $one($users, "SELECT COUNT(*) FROM GridUser WHERE Login + 0 > $month"),
-            'total_users' => (int) $one($presence, 'SELECT COUNT(*) FROM Presence WHERE RegionID != :zero', ['zero' => $zero]),
+            'total_users' => (int) $one($presence, 'SELECT COUNT(*) FROM Presence WHERE RegionID != :zero', [
+                'zero' => $zero,
+            ]),
             'regions' => (int) $one($grid, 'SELECT COUNT(*) FROM regions'),
-            'area' => ($area = $one($grid, 'SELECT ROUND(SUM(sizeX * sizeY) / 1000000.0, 2) FROM regions')) ? (float) $area : 0,
+            'area' => ($area = $one($grid, 'SELECT ROUND(SUM(sizeX * sizeY) / 1000000.0, 2) FROM regions'))
+                ? (float) $area
+                : 0,
         ];
     }
 }

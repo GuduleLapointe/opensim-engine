@@ -67,7 +67,10 @@ final class Gatekeeper
         if ($decoded instanceof \PhpXmlRpc\Response) {
             if ($decoded->faultCode()) {
                 error_log(
-                    "oxXmlRequest fault ($gatekeeper $method): " . $decoded->faultCode() . ' ' . $decoded->faultString(),
+                    "oxXmlRequest fault ($gatekeeper $method): " .
+                        $decoded->faultCode() .
+                        ' ' .
+                        $decoded->faultString(),
                 );
                 return false;
             }

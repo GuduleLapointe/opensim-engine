@@ -6,10 +6,14 @@ use OpenSim\Text\Identifier;
 
 describe('identifiers', function () {
     test('are lower case, accents out, one separator', function () {
-        expect(Identifier::id('Grand Place — Été'))->toBe('grand_place_ete')
-            ->and(Identifier::id('A--B  C'))->toBe('a-b_c')
-            ->and(Identifier::id(''))->toBeFalse()
-            ->and(Identifier::version('OpenSim 0.9.3.1 dev'))->toBe('opensim_0.9.3.1_dev');
+        expect(Identifier::id('Grand Place — Été'))
+            ->toBe('grand_place_ete')
+            ->and(Identifier::id('A--B  C'))
+            ->toBe('a-b_c')
+            ->and(Identifier::id(''))
+            ->toBeFalse()
+            ->and(Identifier::version('OpenSim 0.9.3.1 dev'))
+            ->toBe('opensim_0.9.3.1_dev');
     })->skip(fn() => !function_exists('transliterator_transliterate'), 'ext-intl is missing');
 });
 

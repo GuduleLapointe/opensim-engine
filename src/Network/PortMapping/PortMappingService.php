@@ -135,7 +135,11 @@ final class PortMappingService
 
         return [
             // The default only when the grid asks for the port mapping: nothing is looked for, nor closed, for a grid that does not
-            'module' => strtolower(trim((string) ($settings['portmappingmodule'] ?? ''))) ?: ($flag('portmappingenabled') ? self::DEFAULT_MODULE : ''),
+            'module' =>
+                strtolower(trim((string) ($settings['portmappingmodule'] ?? ''))) ?:
+                ($flag('portmappingenabled')
+                    ? self::DEFAULT_MODULE
+                    : ''),
             'enabled' => $flag('portmappingenabled'),
             'remote' => $flag('remote'),
             'nick' => $nick,

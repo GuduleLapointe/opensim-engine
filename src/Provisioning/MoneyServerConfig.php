@@ -25,7 +25,7 @@ final class MoneyServerConfig
     {
         $found = [];
         foreach ($root !== null ? [$root] : ResourceRegistry::directories('contrib/MoneyServer') as $directory) {
-            array_push($found, ...(glob("$directory/*/" . self::FILE) ?: []));
+            array_push($found, ...glob("$directory/*/" . self::FILE) ?: []);
         }
         natsort($found);
 

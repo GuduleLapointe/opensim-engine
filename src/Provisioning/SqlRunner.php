@@ -33,17 +33,15 @@ final class SqlRunner
             $access = array_merge($access, self::own());
         }
 
-        $pdo = new OSPDO(
-            [
-                'host' => $access['host'] ?? 'localhost',
-                'port' => $access['port'] ?? null,
-                'socket' => $access['socket'] ?? null,
-                'user' => $access['user'] ?? '',
-                'pass' => $access['pass'] ?? '',
-                'name' => $database,
-                'log' => false,
-            ],
-        );
+        $pdo = new OSPDO([
+            'host' => $access['host'] ?? 'localhost',
+            'port' => $access['port'] ?? null,
+            'socket' => $access['socket'] ?? null,
+            'user' => $access['user'] ?? '',
+            'pass' => $access['pass'] ?? '',
+            'name' => $database,
+            'log' => false,
+        ]);
         if (!$pdo->connected) {
             return [1, '', self::describe($pdo->error)];
         }
@@ -88,7 +86,7 @@ final class SqlRunner
     /** The error as the client writes it. */
     public static function describe(\Throwable $e): string
     {
-        if (!$e instanceof \PDOException) {
+        if (!($e instanceof \PDOException)) {
             return 'ERROR 0 (HY000): ' . $e->getMessage();
         }
         $state = (string) ($e->errorInfo[0] ?? 'HY000');
@@ -129,7 +127,7 @@ final class SqlRunner
     {
         $options = [];
         $section = '';
-        foreach (is_readable($file) ? file($file, FILE_IGNORE_NEW_LINES) ?: [] : [] as $line) {
+        foreach (is_readable($file) ? (file($file, FILE_IGNORE_NEW_LINES) ?: []) : [] as $line) {
             $line = trim($line);
             if ($line === '' || in_array($line[0], ['#', ';', '!'], true)) {
                 continue;
@@ -144,7 +142,9 @@ final class SqlRunner
             }
             [$name, $value] = array_pad(explode('=', $line, 2), 2, '');
             $value = trim($value);
-            $value = preg_match('/^(["\'])(.*?)\1/', $value, $q) ? stripcslashes($q[2]) : trim(preg_replace('/\s+#.*$/', '', $value));
+            $value = preg_match('/^(["\'])(.*?)\1/', $value, $q)
+                ? stripcslashes($q[2])
+                : trim(preg_replace('/\s+#.*$/', '', $value));
             $options[str_replace('_', '-', trim($name))] = $value;
         }
 
@@ -160,7 +160,10 @@ final class SqlRunner
     private static function viaSudo(array $access, string $sql, ?string $database): array
     {
         $script =
-            'require_once ' . var_export(dirname(__DIR__) . '/Data/OSPDO.php', true) . '; require ' . var_export(__FILE__, true) .
+            'require_once ' .
+            var_export(dirname(__DIR__) . '/Data/OSPDO.php', true) .
+            '; require ' .
+            var_export(__FILE__, true) .
             '; exit(OpenSim\\Provisioning\\SqlRunner::child());';
         $process = @proc_open(
             ['sudo', '-n', PHP_BINARY, '-d', 'display_errors=0', '-r', $script],
@@ -170,7 +173,10 @@ final class SqlRunner
         if (!is_resource($process)) {
             return [1, '', 'could not run sudo'];
         }
-        fwrite($pipes[0], (string) json_encode(['access' => ['sudo' => false] + $access, 'sql' => $sql, 'database' => $database]));
+        fwrite(
+            $pipes[0],
+            (string) json_encode(['access' => ['sudo' => false] + $access, 'sql' => $sql, 'database' => $database]),
+        );
         fclose($pipes[0]);
         $out = (string) stream_get_contents($pipes[1]);
         $err = trim((string) stream_get_contents($pipes[2]));
@@ -180,7 +186,9 @@ final class SqlRunner
 
         $answer = json_decode($out, true);
 
-        return is_array($answer) && count($answer) === 3 ? $answer : [1, '', $err !== '' ? $err : 'sudo did not run the statements'];
+        return is_array($answer) && count($answer) === 3
+            ? $answer
+            : [1, '', $err !== '' ? $err : 'sudo did not run the statements'];
     }
 
     /** The process started by sudo: reads what to run, writes the three parts of its answer as JSON. */
@@ -190,7 +198,9 @@ final class SqlRunner
         if (!is_array($request)) {
             return 1;
         }
-        echo json_encode(self::run($request['access'] ?? [], (string) ($request['sql'] ?? ''), $request['database'] ?? null));
+        echo json_encode(
+            self::run($request['access'] ?? [], (string) ($request['sql'] ?? ''), $request['database'] ?? null),
+        );
 
         return 0;
     }

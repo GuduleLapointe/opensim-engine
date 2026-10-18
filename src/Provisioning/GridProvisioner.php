@@ -20,9 +20,7 @@ use OpenSim\Config\GridConfig;
  */
 final class GridProvisioner
 {
-    public function __construct(private UiInterface $ui)
-    {
-    }
+    public function __construct(private UiInterface $ui) {}
 
     /** The writing itself: run as the system user of the install, root, or the user of an install without one. */
     public function apply(GridPlan $plan, Environment $environment): void
@@ -144,7 +142,12 @@ final class GridProvisioner
         foreach ($paths as $path) {
             if (is_link($path) || file_exists($path)) {
                 ShellService::run(
-                    'chown -h' . ($recursive ? 'R' : '') . ' ' . ShellService::arg($user) . ': ' . ShellService::arg($path),
+                    'chown -h' .
+                        ($recursive ? 'R' : '') .
+                        ' ' .
+                        ShellService::arg($user) .
+                        ': ' .
+                        ShellService::arg($path),
                 );
             }
         }
@@ -163,15 +166,23 @@ final class GridProvisioner
      */
     private function applyOptions(GridPlan $plan, Environment $environment): void
     {
-        if ($plan->ossl && ($file = GridOptions::combine('ossl-extended', "{$plan->etcDirectory}/config-include/osslEnable.ini")) !== null) {
+        if (
+            $plan->ossl &&
+            ($file = GridOptions::combine('ossl-extended', "{$plan->etcDirectory}/config-include/osslEnable.ini")) !==
+                null
+        ) {
             $this->ui->note(sprintf(_('Wrote %s'), $file));
         }
         if ($plan->economy !== 'gloebit') {
             return;
         }
         $grid = Grid::find($environment, $plan->gridNick);
-        $result = $grid === null ? ['error' => 'the grid is not there', 'notes' => []] : (new Features($grid))->enable(Features::ECONOMY, ['money' => 'gloebit']);
-        $result['error'] === null || $this->ui->warn(sprintf(_('The currency of the grid was not set: %s'), $result['error']));
+        $result =
+            $grid === null
+                ? ['error' => 'the grid is not there', 'notes' => []]
+                : (new Features($grid))->enable(Features::ECONOMY, ['money' => 'gloebit']);
+        $result['error'] === null ||
+            $this->ui->warn(sprintf(_('The currency of the grid was not set: %s'), $result['error']));
         foreach ($result['notes'] as $note) {
             $this->ui->note($note);
         }
@@ -209,7 +220,9 @@ final class GridProvisioner
     private function writeHelpers(GridPlan $plan): void
     {
         foreach (HelpersConfig::unifyCase($plan->gridDir) as [$from, $to]) {
-            $this->ui->note(sprintf(_('Renamed %s to %s: the file of the helpers is %s.'), $from, $to, HelpersConfig::FILE));
+            $this->ui->note(
+                sprintf(_('Renamed %s to %s: the file of the helpers is %s.'), $from, $to, HelpersConfig::FILE),
+            );
         }
         if (!$plan->helpers) {
             return;
@@ -221,7 +234,11 @@ final class GridProvisioner
         }
         // The MoneyServer.ini, the original whole, with the key the currency helpers share with the MoneyServer (made at random once)
         if (MoneyServerConfig::original() === null) {
-            $this->ui->warn(_('The original MoneyServer.ini is not in this install: the grid has none, and the currency is not served without its key.'));
+            $this->ui->warn(
+                _(
+                    'The original MoneyServer.ini is not in this install: the grid has none, and the currency is not served without its key.',
+                ),
+            );
         } elseif (($money = MoneyServerConfig::write($plan->gridDir)) !== null) {
             $this->ui->note(sprintf(_('Wrote %s'), $money));
         }

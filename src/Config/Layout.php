@@ -32,8 +32,7 @@ final class Layout
         private readonly array $values = [],
         private readonly ?string $file = null,
         private readonly string $profile = '',
-    ) {
-    }
+    ) {}
 
     /**
      * The layout of the install: `opensim.conf` found in the usual places (or given), then the profile.
@@ -59,7 +58,18 @@ final class Layout
     /**
      * The settings of opensim.conf an environment may give as `OPENSIM_<NAME_IN_CAPITALS>` (`OPENSIM_ETC_ROOT` for EtcRoot).
      */
-    public const ENVIRONMENT_KEYS = ['CoreRoot', 'CoreDirectory', 'EtcRoot', 'VarRoot', 'LogsRoot', 'CacheRoot', 'DataRoot', 'SystemUser', 'ModulesRoot', 'EnabledModules'];
+    public const ENVIRONMENT_KEYS = [
+        'CoreRoot',
+        'CoreDirectory',
+        'EtcRoot',
+        'VarRoot',
+        'LogsRoot',
+        'CacheRoot',
+        'DataRoot',
+        'SystemUser',
+        'ModulesRoot',
+        'EnabledModules',
+    ];
 
     /**
      * The layout of a front-end: the OPENSIM_* variables of its environment, then opensim.conf, then the defaults of the system layout.
@@ -175,7 +185,11 @@ final class Layout
     /** The folder for what the engine writes while running (state, caches): the var root, else the data one. */
     public function stateRoot(): string
     {
-        return $this->varRoot() !== '' ? $this->varRoot() : ($this->dataRoot() !== '' ? $this->dataRoot() : sys_get_temp_dir());
+        return $this->varRoot() !== ''
+            ? $this->varRoot()
+            : ($this->dataRoot() !== ''
+                ? $this->dataRoot()
+                : sys_get_temp_dir());
     }
 
     /** The user the instances run as, empty when the install has none (they run as whoever starts them). */
@@ -205,9 +219,10 @@ final class Layout
         if (!$this->coreFound) {
             $this->coreFound = true;
             $directory = $this->coreDirectory();
-            $this->core = $directory !== '' && Core::at($directory)->exists()
-                ? Core::at($directory)
-                : Core::latest($this->coreRoot());
+            $this->core =
+                $directory !== '' && Core::at($directory)->exists()
+                    ? Core::at($directory)
+                    : Core::latest($this->coreRoot());
         }
 
         return $this->core;

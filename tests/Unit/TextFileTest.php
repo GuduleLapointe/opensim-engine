@@ -5,7 +5,6 @@
  * brought to Unix ones wherever the kit reads or copies them.
  */
 
-
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\RobustConfig;
 

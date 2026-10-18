@@ -50,7 +50,11 @@ final class Destination
         $e_float = '(\d+(\.\d+)?)';
 
         $normalized_url = preg_replace(
-            ["#^{$e_scheme}?{$e_host}{$e_port}?[:\+_ ]#", "#^{$e_scheme}?{$e_short_host}{$e_port}[:\+_ ]#", '/(\+|%20|_)/'],
+            [
+                "#^{$e_scheme}?{$e_host}{$e_port}?[:\+_ ]#",
+                "#^{$e_scheme}?{$e_short_host}{$e_port}[:\+_ ]#",
+                '/(\+|%20|_)/',
+            ],
             ["\\1\\2:\\5/", "\\1\\2:\\5/", ' '],
             urldecode(trim($url)),
         );
@@ -63,7 +67,9 @@ final class Destination
         }
 
         if (!empty($parsed['host']) || !empty($default_gatekeeper)) {
-            $parsed['host'] ??= empty($default_gatekeeper) ? null : parse_url($default_gatekeeper, PHP_URL_HOST) ?? null;
+            $parsed['host'] ??= empty($default_gatekeeper)
+                ? null
+                : parse_url($default_gatekeeper, PHP_URL_HOST) ?? null;
             $parsed['host'] = strtolower(trim($parsed['host']));
             $parsed['port'] ??= parse_url($default_gatekeeper ?? '', PHP_URL_PORT) ?? 80;
             $parsed['gatekeeper'] = 'http://' . $parsed['host'] . ':' . $parsed['port'];
@@ -222,7 +228,8 @@ final class Destination
             $links[self::APPTP] =
                 (empty($host)
                     ? "secondlife:///app/teleport/$region_urlencode/"
-                    : "secondlife:///app/teleport/$host:$port+$region_urlencode/") . (!empty($pos_sl) ? "$pos_sl/" : '');
+                    : "secondlife:///app/teleport/$host:$port+$region_urlencode/") .
+                (!empty($pos_sl) ? "$pos_sl/" : '');
         }
         // TODO: Alternative web url when maps implemented in API
         // (No direct map slurl support in the viewer)

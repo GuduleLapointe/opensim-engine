@@ -42,7 +42,10 @@ final class StartProgress
     {
         $steps = [];
         if ($this->output !== '' && is_file($this->output)) {
-            array_push($steps, ...StartupProgress::steps((string) file_get_contents($this->output), $this->regions, true));
+            array_push(
+                $steps,
+                ...StartupProgress::steps((string) file_get_contents($this->output), $this->regions, true),
+            );
         }
         array_push($steps, ...StartupProgress::steps($this->log->since($this->mark), $this->regions));
         foreach ($steps as $step) {
@@ -61,7 +64,10 @@ final class StartProgress
     {
         for ($tick = 0; $tick < 120; $tick++) {
             $this->show();
-            if (preg_match_all('/\[GRID SERVICE\]: Region .* registered at/', $this->log->since($this->mark)) >= $this->regions) {
+            if (
+                preg_match_all('/\[GRID SERVICE\]: Region .* registered at/', $this->log->since($this->mark)) >=
+                $this->regions
+            ) {
                 break;
             }
             if (!$this->instance->isRunning()) {

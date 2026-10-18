@@ -58,9 +58,13 @@ describe('Reading a file', function () {
     });
 
     test('keeps the first of a key given twice in a section, as OpenSimulator does', function () {
-        $dir = config_folder(['twice.ini' => "[DatabaseService]\nConnectionString = \"first\"\nConnectionString = \"second\"\n"]);
+        $dir = config_folder([
+            'twice.ini' => "[DatabaseService]\nConnectionString = \"first\"\nConnectionString = \"second\"\n",
+        ]);
 
-        expect(ConfigReader::expand(ConfigReader::file("$dir/twice.ini"))['DatabaseService']['ConnectionString'])->toBe('first');
+        expect(ConfigReader::expand(ConfigReader::file("$dir/twice.ini"))['DatabaseService']['ConnectionString'])->toBe(
+            'first',
+        );
     });
 });
 
@@ -68,16 +72,25 @@ describe('files a file includes', function () {
     /** The merged settings of the main file of a test folder. */
     $chain = fn(array $files, string $main = 'OpenSim.ini') => ConfigReader::load(config_folder($files) . "/$main");
 
-    test('are read after the file that includes them, in any section, a relative path being relative to that file', function () use ($chain) {
-        $ini = $chain([
-            'OpenSim.ini' => "[Economy]\neconomymodule = Gloebit\n[Architecture]\nInclude-Gloebit = \"config-include/Gloebit.ini\"\n",
-            'config-include/Gloebit.ini' => "[Gloebit]\nGLBEnvironment = sandbox\n",
-        ]);
+    test(
+        'are read after the file that includes them, in any section, a relative path being relative to that file',
+        function () use ($chain) {
+            $ini = $chain([
+                'OpenSim.ini' =>
+                    "[Economy]\neconomymodule = Gloebit\n[Architecture]\nInclude-Gloebit = \"config-include/Gloebit.ini\"\n",
+                'config-include/Gloebit.ini' => "[Gloebit]\nGLBEnvironment = sandbox\n",
+            ]);
 
-        expect($ini['Gloebit']['GLBEnvironment'])->toBe('sandbox')->and($ini['Economy']['economymodule'])->toBe('Gloebit');
-    });
+            expect($ini['Gloebit']['GLBEnvironment'])
+                ->toBe('sandbox')
+                ->and($ini['Economy']['economymodule'])
+                ->toBe('Gloebit');
+        },
+    );
 
-    test('give their values over the ones read before, and the ones they include theirs in turn', function () use ($chain) {
+    test('give their values over the ones read before, and the ones they include theirs in turn', function () use (
+        $chain,
+    ) {
         $ini = $chain([
             'OpenSim.ini' => "[A]\none = main\ntwo = main\n[Includes]\nInclude-First = \"first.ini\"\n",
             'first.ini' => "[A]\ntwo = first\n[Other]\nInclude-Second = \"sub/second.ini\"\n",
@@ -90,7 +103,8 @@ describe('files a file includes', function () {
 
     test('can be given with a constant, an absolute path or a wildcard', function () {
         $dir = config_folder([
-            'OpenSim.ini' => "[Const]\nEtc = \"ETC\"\n[Includes]\nInclude-A = \"\${Const|Etc}/a.ini\"\nInclude-B = \"ETC/more/*.ini\"\n",
+            'OpenSim.ini' =>
+                "[Const]\nEtc = \"ETC\"\n[Includes]\nInclude-A = \"\${Const|Etc}/a.ini\"\nInclude-B = \"ETC/more/*.ini\"\n",
             'a.ini' => "[A]\nfrom = a\n",
             'more/b.ini' => "[B]\nfrom = b\n",
             'more/c.ini' => "[C]\nfrom = c\n",
@@ -101,7 +115,9 @@ describe('files a file includes', function () {
         expect(array_keys(ConfigReader::load("$dir/OpenSim.ini")))->toBe(['Const', 'Includes', 'A', 'B', 'C']);
     });
 
-    test('are not read when nothing includes them, nor the constants of a file that is not read', function () use ($chain) {
+    test('are not read when nothing includes them, nor the constants of a file that is not read', function () use (
+        $chain,
+    ) {
         $ini = $chain([
             'OpenSim.ini' => "[A]\none = 1\n",
             'config-include/Gloebit.ini' => "[Gloebit]\nGLBEnvironment = sandbox\n",
@@ -122,11 +138,15 @@ describe('files a file includes', function () {
 
 describe('config of a grid folder', function () {
     $folder = fn(array $more = [], string $robust = 'Robust.HG.ini') => GridConfig::fromFolder(
-        config_folder(['MoneyServer.ini' => "[MoneyServer]\nMoneyScriptAccessKey = \"k\"\n", $robust => ROBUST_INI] + $more),
+        config_folder(
+            ['MoneyServer.ini' => "[MoneyServer]\nMoneyScriptAccessKey = \"k\"\n", $robust => ROBUST_INI] + $more,
+        ),
         ['Helpers' => 'Helpers.ini'],
     );
 
-    test('is a tree that follows the structure of the ini files, a setting found by its path', function () use ($folder) {
+    test('is a tree that follows the structure of the ini files, a setting found by its path', function () use (
+        $folder,
+    ) {
         $config = $folder();
 
         expect($config->get('Robust.GridInfoService.SearchURL'))
@@ -142,7 +162,11 @@ describe('config of a grid folder', function () {
     });
 
     test('has the roles of the files that are there, in the order of their authority', function () use ($folder) {
-        $config = $folder(['OpenSim.ini' => "[Search]\nSearchURL = \"a\"\n", 'sims/one.ini' => "[Search]\nSearchURL = \"b\"\n", 'Helpers.ini' => "[Helpers]\nGuideSource = \"g\"\n"]);
+        $config = $folder([
+            'OpenSim.ini' => "[Search]\nSearchURL = \"a\"\n",
+            'sims/one.ini' => "[Search]\nSearchURL = \"b\"\n",
+            'Helpers.ini' => "[Helpers]\nGuideSource = \"g\"\n",
+        ]);
 
         expect(array_keys($config->tree()))
             ->toBe(['Robust', 'OpenSim', 'simulators', 'MoneyServer', 'Helpers'])
@@ -162,27 +186,41 @@ describe('config of a grid folder', function () {
         expect(basename((string) $folder([], 'Robust.ini')->file('Robust')))->toBe('Robust.ini');
     });
 
-    test('says a setting by the first file that has it, a key of a section being found whichever the file', function () use ($folder) {
-        $config = $folder(['OpenSim.ini' => "[Search]\nSearchURL = \"a\"\n", 'sims/one.ini' => "[Search]\nSearchURL = \"b\"\n[Messaging]\nOfflineMessageURL = \"o\"\n"]);
+    test(
+        'says a setting by the first file that has it, a key of a section being found whichever the file',
+        function () use ($folder) {
+            $config = $folder([
+                'OpenSim.ini' => "[Search]\nSearchURL = \"a\"\n",
+                'sims/one.ini' => "[Search]\nSearchURL = \"b\"\n[Messaging]\nOfflineMessageURL = \"o\"\n",
+            ]);
 
-        expect($config->find('Search', 'SearchURL'))
-            ->toBe('a')
-            ->and($config->find('Messaging', 'OfflineMessageURL'))
-            ->toBe('o')
-            ->and($config->find('Search', 'Nothing'))
-            ->toBeNull()
-            ->and($config->section('Search'))
-            ->toBe(['SearchURL' => 'a']);
-    });
+            expect($config->find('Search', 'SearchURL'))
+                ->toBe('a')
+                ->and($config->find('Messaging', 'OfflineMessageURL'))
+                ->toBe('o')
+                ->and($config->find('Search', 'Nothing'))
+                ->toBeNull()
+                ->and($config->section('Search'))
+                ->toBe(['SearchURL' => 'a']);
+        },
+    );
 
     test('gives the settings of a section that match, with their keys', function () use ($folder) {
-        $config = $folder(['OpenSim.ini' => "[DataSnapshot]\nDATA_SRV_Alpha = \"https://a/register.php\"\nOther = \"x\"\n", 'sims/one.ini' => "[DataSnapshot]\nDATA_SRV_2do = \"https://b/register.php\"\n"]);
+        $config = $folder([
+            'OpenSim.ini' => "[DataSnapshot]\nDATA_SRV_Alpha = \"https://a/register.php\"\nOther = \"x\"\n",
+            'sims/one.ini' => "[DataSnapshot]\nDATA_SRV_2do = \"https://b/register.php\"\n",
+        ]);
 
-        expect($config->keys('DataSnapshot', '/^DATA_SRV_/'))->toBe(['DATA_SRV_Alpha' => 'https://a/register.php', 'DATA_SRV_2do' => 'https://b/register.php']);
+        expect($config->keys('DataSnapshot', '/^DATA_SRV_/'))->toBe([
+            'DATA_SRV_Alpha' => 'https://a/register.php',
+            'DATA_SRV_2do' => 'https://b/register.php',
+        ]);
     });
 
     test('expands the constants of Robust in the files of the simulators', function () use ($folder) {
-        $config = $folder(['sims/one.ini' => "[Messaging]\nOfflineMessageURL = \"\${Const|WebURL}/helpers/offline.php\"\n"]);
+        $config = $folder([
+            'sims/one.ini' => "[Messaging]\nOfflineMessageURL = \"\${Const|WebURL}/helpers/offline.php\"\n",
+        ]);
 
         expect($config->find('Messaging', 'OfflineMessageURL'))->toBe('https://play.example.org/helpers/offline.php');
     });

@@ -25,9 +25,7 @@ final class Collection implements \Countable, \IteratorAggregate, \JsonSerializa
      *     filters?:array<string,list<string>>, applied?:array<string,string>
      * } $meta
      */
-    public function __construct(private array $items = [], private array $meta = [])
-    {
-    }
+    public function __construct(private array $items = [], private array $meta = []) {}
 
     /** The first item, null for an empty collection. */
     public function first(): mixed
@@ -151,7 +149,10 @@ final class Collection implements \Countable, \IteratorAggregate, \JsonSerializa
 
     public function json(int $flags = 0): string
     {
-        return json_encode($this->array(), $flags | JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        return json_encode(
+            $this->array(),
+            $flags | JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+        );
     }
 
     /** The items as CSV, the names of the columns first (the keys of the first item when the collection has no column). */
@@ -162,7 +163,13 @@ final class Collection implements \Countable, \IteratorAggregate, \JsonSerializa
         $stream = fopen('php://temp', 'r+');
         fputcsv($stream, $names, ',', '"', '');
         foreach ($rows as $row) {
-            fputcsv($stream, array_map(static fn(string $name): string => self::cell($row[$name] ?? null), $names), ',', '"', '');
+            fputcsv(
+                $stream,
+                array_map(static fn(string $name): string => self::cell($row[$name] ?? null), $names),
+                ',',
+                '"',
+                '',
+            );
         }
         rewind($stream);
         $csv = (string) stream_get_contents($stream);

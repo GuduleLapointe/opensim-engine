@@ -20,9 +20,7 @@ final class ReporterFake implements ReporterInterface
     /** @var list<string> */
     public array $steps = [];
 
-    public function __construct(public bool $terminal = false)
-    {
-    }
+    public function __construct(public bool $terminal = false) {}
 
     public function info(string $message): void
     {
@@ -44,9 +42,7 @@ final class ReporterFake implements ReporterInterface
         $this->steps[] = $text;
     }
 
-    public function stepEnd(): void
-    {
-    }
+    public function stepEnd(): void {}
 
     public function isTerminal(): bool
     {

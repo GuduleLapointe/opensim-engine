@@ -37,7 +37,12 @@ final class Estate extends Model
     private const NO_ONE = '00000000-0000-0000-0000-000000000000';
 
     /** The columns a list can be sorted on. */
-    private const SORTS = ['name' => 'EstateName', 'id' => 'EstateID', 'owner' => 'ownerName', 'regions' => 'regionCount'];
+    private const SORTS = [
+        'name' => 'EstateName',
+        'id' => 'EstateID',
+        'owner' => 'ownerName',
+        'regions' => 'regionCount',
+    ];
 
     public function id(): string
     {
@@ -201,7 +206,12 @@ final class Estate extends Model
         if ($this->isBanned($uuid)) {
             return;
         }
-        $pdo->insert('estateban', ['EstateID' => $this->number(), 'bannedUUID' => $uuid, 'bannedIp' => '', 'bannedIpHostMask' => '']);
+        $pdo->insert('estateban', [
+            'EstateID' => $this->number(),
+            'bannedUUID' => $uuid,
+            'bannedIp' => '',
+            'bannedIpHostMask' => '',
+        ]);
     }
 
     /**
@@ -214,7 +224,10 @@ final class Estate extends Model
     {
         $uuid = self::uuidOf($uuid);
         $pdo = self::connect($this->config, Database::Estate, $this->simulator(), 'unban in ' . $this->name());
-        $pdo->prepareAndExecute('DELETE FROM estateban WHERE EstateID = :id AND LOWER(bannedUUID) = :uuid', ['id' => $this->number(), 'uuid' => $uuid]);
+        $pdo->prepareAndExecute('DELETE FROM estateban WHERE EstateID = :id AND LOWER(bannedUUID) = :uuid', [
+            'id' => $this->number(),
+            'uuid' => $uuid,
+        ]);
     }
 
     public function channels(): array
@@ -272,7 +285,11 @@ final class Estate extends Model
      */
     public static function all(GridConfig $config, array $options = []): Collection
     {
-        [$sortName, $direction] = array_pad(preg_split('/\s+/', trim((string) ($options['sort'] ?? 'name'))) ?: [], 2, 'asc');
+        [$sortName, $direction] = array_pad(
+            preg_split('/\s+/', trim((string) ($options['sort'] ?? 'name'))) ?: [],
+            2,
+            'asc',
+        );
         if (!isset(self::SORTS[$sortName])) {
             [$sortName, $direction] = ['name', 'asc'];
         }
@@ -293,16 +310,25 @@ final class Estate extends Model
             throw ChannelUnavailable::for('read the estates', 'no database of estates can be reached');
         }
 
-        foreach (preg_split('/\s+/', trim((string) ($options['search'] ?? '')), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $word) {
-            $rows = array_filter($rows, static fn(array $row): bool => stripos((string) $row['EstateName'], $word) !== false);
+        foreach (
+            preg_split('/\s+/', trim((string) ($options['search'] ?? '')), -1, PREG_SPLIT_NO_EMPTY) ?: []
+            as $word
+        ) {
+            $rows = array_filter(
+                $rows,
+                static fn(array $row): bool => stripos((string) $row['EstateName'], $word) !== false,
+            );
         }
         foreach (['owner', 'region'] as $name) {
             if (isset($filters[$name]) && self::isUuid((string) $filters[$name])) {
                 $value = strtolower((string) $filters[$name]);
                 $applied[$name] = $value;
-                $rows = array_filter($rows, static fn(array $row): bool => $name === 'owner'
-                    ? strtolower((string) $row['EstateOwner']) === $value
-                    : in_array($value, $row['regions'], true));
+                $rows = array_filter(
+                    $rows,
+                    static fn(array $row): bool => $name === 'owner'
+                        ? strtolower((string) $row['EstateOwner']) === $value
+                        : in_array($value, $row['regions'], true),
+                );
             }
         }
         if (isset($filters['simulator']) && $filters['simulator'] !== '') {
@@ -317,9 +343,17 @@ final class Estate extends Model
         $key = self::SORTS[$sortName];
         $numeric = in_array($sortName, ['id', 'regions'], true);
         usort($rows, static function (array $a, array $b) use ($key, $numeric, $direction): int {
-            $order = $numeric ? (int) ($a[$key] ?? 0) <=> (int) ($b[$key] ?? 0) : strcasecmp((string) ($a[$key] ?? ''), (string) ($b[$key] ?? ''));
+            $order = $numeric
+                ? (int) ($a[$key] ?? 0) <=> (int) ($b[$key] ?? 0)
+                : strcasecmp((string) ($a[$key] ?? ''), (string) ($b[$key] ?? ''));
 
-            return ($direction === 'desc' ? -$order : $order) ?: strcmp((string) $a['simulator'] . ':' . $a['EstateID'], (string) $b['simulator'] . ':' . $b['EstateID']);
+            $order = $direction === 'desc' ? -$order : $order;
+
+            return $order ?:
+                strcmp(
+                    (string) $a['simulator'] . ':' . $a['EstateID'],
+                    (string) $b['simulator'] . ':' . $b['EstateID'],
+                );
         });
         $total = count($rows);
         $perPage = max(0, (int) ($options['perPage'] ?? 0));
@@ -328,19 +362,16 @@ final class Estate extends Model
             $rows = array_slice($rows, ($page - 1) * $perPage, $perPage);
         }
 
-        return new Collection(
-            array_map(static fn(array $row): self => new self($config, $row), $rows),
-            [
-                'total' => $total,
-                'page' => $page,
-                'perPage' => $perPage,
-                'sort' => "$sortName $direction",
-                'search' => trim((string) ($options['search'] ?? '')),
-                'columns' => self::columns(),
-                'filters' => ['simulator' => [], 'owner' => [], 'region' => []],
-                'applied' => $applied,
-            ],
-        );
+        return new Collection(array_map(static fn(array $row): self => new self($config, $row), $rows), [
+            'total' => $total,
+            'page' => $page,
+            'perPage' => $perPage,
+            'sort' => "$sortName $direction",
+            'search' => trim((string) ($options['search'] ?? '')),
+            'columns' => self::columns(),
+            'filters' => ['simulator' => [], 'owner' => [], 'region' => []],
+            'applied' => $applied,
+        ]);
     }
 
     /**
@@ -430,13 +461,25 @@ final class Estate extends Model
         $marks = implode(',', array_fill(0, count($ids), '?'));
         $lists = [];
         foreach (self::LISTS as $name => [$table, $column]) {
-            foreach (self::select($pdo, "SELECT EstateID, $column FROM $table WHERE EstateID IN ($marks)", $ids) as $row) {
+            foreach (
+                self::select($pdo, "SELECT EstateID, $column FROM $table WHERE EstateID IN ($marks)", $ids)
+                as $row
+            ) {
                 $lists[(int) $row['EstateID']][$name][] = strtolower((string) $row[$column]);
             }
         }
         $bans = [];
-        $banned = self::select($pdo, "SELECT EstateID, bannedUUID, bannedIp, bannedIpHostMask, bannedNameMask FROM estateban WHERE EstateID IN ($marks)", $ids)
-            ?: self::select($pdo, "SELECT EstateID, bannedUUID, bannedIp, bannedIpHostMask, '' AS bannedNameMask FROM estateban WHERE EstateID IN ($marks)", $ids);
+        $banned =
+            self::select(
+                $pdo,
+                "SELECT EstateID, bannedUUID, bannedIp, bannedIpHostMask, bannedNameMask FROM estateban WHERE EstateID IN ($marks)",
+                $ids,
+            ) ?:
+            self::select(
+                $pdo,
+                "SELECT EstateID, bannedUUID, bannedIp, bannedIpHostMask, '' AS bannedNameMask FROM estateban WHERE EstateID IN ($marks)",
+                $ids,
+            );
         foreach ($banned as $row) {
             $uuid = strtolower((string) $row['bannedUUID']);
             $bans[(int) $row['EstateID']][] = [
@@ -483,11 +526,25 @@ final class Estate extends Model
      */
     private static function withOwners(GridConfig $config, array $rows): array
     {
-        $ids = array_values(array_unique(array_filter(array_map(static fn(array $row): string => strtolower((string) $row['EstateOwner']), $rows), static fn(string $id): bool => $id !== '' && $id !== self::NO_ONE)));
+        $ids = array_values(
+            array_unique(
+                array_filter(
+                    array_map(static fn(array $row): string => strtolower((string) $row['EstateOwner']), $rows),
+                    static fn(string $id): bool => $id !== '' && $id !== self::NO_ONE,
+                ),
+            ),
+        );
         $names = [];
         if ($ids !== [] && ($pdo = Connections::pdo($config, 'UserAccountService'))) {
             $marks = implode(',', array_fill(0, count($ids), '?'));
-            foreach ($pdo->get_results("SELECT PrincipalID, FirstName, LastName FROM UserAccounts WHERE PrincipalID IN ($marks)", $ids, \PDO::FETCH_ASSOC) as $row) {
+            foreach (
+                $pdo->get_results(
+                    "SELECT PrincipalID, FirstName, LastName FROM UserAccounts WHERE PrincipalID IN ($marks)",
+                    $ids,
+                    \PDO::FETCH_ASSOC,
+                )
+                as $row
+            ) {
                 $names[strtolower((string) $row['PrincipalID'])] = trim($row['FirstName'] . ' ' . $row['LastName']);
             }
         }

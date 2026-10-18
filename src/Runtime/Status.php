@@ -14,11 +14,7 @@ final class Status
      * @param list<InstanceStatus> $instances
      * @param list<Process> $processes every OpenSimulator process of the machine, enabled instances or not
      */
-    public function __construct(
-        public readonly array $instances,
-        public readonly array $processes,
-    ) {
-    }
+    public function __construct(public readonly array $instances, public readonly array $processes) {}
 
     public function up(): int
     {

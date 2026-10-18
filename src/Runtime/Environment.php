@@ -29,8 +29,7 @@ final class Environment
         public readonly RuntimeProbe $probe = new RuntimeProbe(),
         /** @var ?\Closure(string):?string reads an address, the body of the answer, null when it does not answer */
         public readonly ?\Closure $http = null,
-    ) {
-    }
+    ) {}
 
     /** The environment of this machine. */
     public static function system(Layout $layout, ?ReporterInterface $reporter = null): self
@@ -46,7 +45,9 @@ final class Environment
             $reporter,
             new PortMappingService(
                 $layout->stateRoot() . '/portmap',
-                static fn(string $message, bool $problem) => $problem ? $reporter->error($message) : $reporter->info($message),
+                static fn(string $message, bool $problem) => $problem
+                    ? $reporter->error($message)
+                    : $reporter->info($message),
             ),
         );
     }

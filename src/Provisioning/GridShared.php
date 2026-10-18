@@ -139,7 +139,10 @@ final class GridShared
             'config-include/GridCommon.ini' => [
                 // The estates are the grid's when its Robust serves them (the simulators ask it, instead of keeping their own)
                 ...self::robustServes($dir, 'EstateDataService')
-                    ? ['/^(\s*);(\s*LocalServiceModule\s*=\s*"OpenSim\.Services\.Connectors\.dll:EstateDataRemoteConnector")/m' => '$1$2']
+                    ? [
+                        '/^(\s*);(\s*LocalServiceModule\s*=\s*"OpenSim\.Services\.Connectors\.dll:EstateDataRemoteConnector")/m' =>
+                            '$1$2',
+                    ]
                     : [],
                 '/^(\s*Include-Storage\s*=.*)$/m' => ';$1',
                 '/^(\s*Include-FlotsamCache\s*=\s*)"?config-include\/FlotsamCache\.ini"?/m' =>

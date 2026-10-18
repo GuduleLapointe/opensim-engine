@@ -18,17 +18,19 @@ final class UpnpcMapper implements PortMapperInterface
     /** @param ?\Closure(list<string>):array{0:int,1:string} $run runs a command, gives its status and its output */
     public function __construct(?\Closure $run = null)
     {
-        $this->run = $run ?? static function (array $command): array {
-            $process = @proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
-            if (!is_resource($process)) {
-                return [127, ''];
-            }
-            $output = (string) stream_get_contents($pipes[1]);
-            fclose($pipes[1]);
-            fclose($pipes[2]);
+        $this->run =
+            $run ??
+            static function (array $command): array {
+                $process = @proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+                if (!is_resource($process)) {
+                    return [127, ''];
+                }
+                $output = (string) stream_get_contents($pipes[1]);
+                fclose($pipes[1]);
+                fclose($pipes[2]);
 
-            return [proc_close($process), $output];
-        };
+                return [proc_close($process), $output];
+            };
     }
 
     public function prepare(): bool

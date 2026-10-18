@@ -49,7 +49,9 @@ final class OpenIdAuthenticator implements RedirectAuthenticator
             return SignInResult::refused();
         }
         if (preg_match('/<link\s+rel="openid2\.provider[^"]*"\s+href="([^"]+)"/i', $page, $link) !== 1) {
-            return SignInResult::unavailable(sprintf(_('The grid answers on %s, but has no OpenID provider'), $this->url));
+            return SignInResult::unavailable(
+                sprintf(_('The grid answers on %s, but has no OpenID provider'), $this->url),
+            );
         }
         $endpoint = html_entity_decode($link[1]);
         $parts = parse_url($returnTo);
@@ -58,14 +60,17 @@ final class OpenIdAuthenticator implements RedirectAuthenticator
         }
         $realm = $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '') . '/';
 
-        $url = $endpoint . (str_contains($endpoint, '?') ? '&' : '?') . http_build_query([
-            'openid.ns' => self::NS,
-            'openid.mode' => 'checkid_setup',
-            'openid.claimed_id' => $identity,
-            'openid.identity' => $identity,
-            'openid.return_to' => $returnTo,
-            'openid.realm' => $realm,
-        ]);
+        $url =
+            $endpoint .
+            (str_contains($endpoint, '?') ? '&' : '?') .
+            http_build_query([
+                'openid.ns' => self::NS,
+                'openid.mode' => 'checkid_setup',
+                'openid.claimed_id' => $identity,
+                'openid.identity' => $identity,
+                'openid.return_to' => $returnTo,
+                'openid.realm' => $realm,
+            ]);
 
         return new SignInRedirect($url, [
             'identity' => $identity,
@@ -84,13 +89,15 @@ final class OpenIdAuthenticator implements RedirectAuthenticator
             return SignInResult::refused();
         }
         $signed = explode(',', $response['openid.signed'] ?? '');
-        if (($response['openid.ns'] ?? '') !== self::NS
-            || ($response['openid.return_to'] ?? '') !== ($state['return_to'] ?? null)
-            || ($response['openid.claimed_id'] ?? '') !== ($state['identity'] ?? null)
-            || ($response['openid.identity'] ?? '') !== ($state['identity'] ?? null)
-            || (isset($response['openid.op_endpoint']) && $response['openid.op_endpoint'] !== ($state['endpoint'] ?? null))
-            || ($response['openid.response_nonce'] ?? '') === ''
-            || array_diff(['return_to', 'response_nonce', 'claimed_id', 'identity'], $signed) !== []
+        if (
+            ($response['openid.ns'] ?? '') !== self::NS ||
+            ($response['openid.return_to'] ?? '') !== ($state['return_to'] ?? null) ||
+            ($response['openid.claimed_id'] ?? '') !== ($state['identity'] ?? null) ||
+            ($response['openid.identity'] ?? '') !== ($state['identity'] ?? null) ||
+            (isset($response['openid.op_endpoint']) &&
+                $response['openid.op_endpoint'] !== ($state['endpoint'] ?? null)) ||
+            ($response['openid.response_nonce'] ?? '') === '' ||
+            array_diff(['return_to', 'response_nonce', 'claimed_id', 'identity'], $signed) !== []
         ) {
             return SignInResult::refused();
         }
@@ -105,11 +112,10 @@ final class OpenIdAuthenticator implements RedirectAuthenticator
             return SignInResult::refused();
         }
 
-        return SignInResult::granted(new Avatar(
-            id: '',
-            firstName: $state['first_name'] ?? '',
-            lastName: $state['last_name'] ?? '',
-        ), ['response_nonce' => $response['openid.response_nonce']]);
+        return SignInResult::granted(
+            new Avatar(id: '', firstName: $state['first_name'] ?? '', lastName: $state['last_name'] ?? ''),
+            ['response_nonce' => $response['openid.response_nonce']],
+        );
     }
 
     /**

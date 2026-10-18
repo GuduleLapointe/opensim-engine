@@ -39,38 +39,192 @@ final class Service extends InstalledModel
      * simulator is given its address in (section, key), when it has one.
      */
     private const CATALOG = [
-        'asset' => ['connectors' => ['AssetServiceConnector'], 'port' => self::PRIVATE, 'setting' => ['AssetService', 'AssetServerURI'], 'database' => Database::Assets],
-        'inventory' => ['connectors' => ['InventoryInConnector'], 'port' => self::PRIVATE, 'setting' => ['InventoryService', 'InventoryServerURI'], 'database' => Database::Robust],
-        'grid' => ['connectors' => ['GridServiceConnector'], 'port' => self::PRIVATE, 'setting' => ['GridService', 'GridServerURI'], 'database' => Database::Robust],
-        'estate' => ['connectors' => ['EstateDataService'], 'port' => self::PRIVATE, 'setting' => ['EstateService', 'EstateServerURI'], 'database' => Database::Estate],
-        'authentication' => ['connectors' => ['AuthenticationServiceConnector'], 'port' => self::PRIVATE, 'setting' => ['AuthenticationService', 'AuthenticationServerURI'], 'database' => Database::Robust],
-        'avatar' => ['connectors' => ['AvatarServiceConnector'], 'port' => self::PRIVATE, 'setting' => ['AvatarService', 'AvatarServerURI'], 'database' => Database::Robust],
-        'agent-preferences' => ['connectors' => ['AgentPreferencesServiceConnector'], 'port' => self::PRIVATE, 'setting' => ['AgentPreferencesService', 'AgentPreferencesServerURI'], 'database' => Database::Robust],
-        'presence' => ['connectors' => ['PresenceServiceConnector'], 'port' => self::PRIVATE, 'setting' => ['PresenceService', 'PresenceServerURI'], 'database' => Database::Robust],
-        'user-account' => ['connectors' => ['UserAccountServiceConnector'], 'port' => self::PRIVATE, 'setting' => ['UserAccountService', 'UserAccountServerURI'], 'database' => Database::Robust],
-        'grid-user' => ['connectors' => ['GridUserServiceConnector'], 'port' => self::PRIVATE, 'setting' => ['GridUserService', 'GridUserServerURI'], 'database' => Database::Robust],
-        'friends' => ['connectors' => ['FriendsServiceConnector'], 'port' => self::PRIVATE, 'setting' => ['FriendsService', 'FriendsServerURI'], 'database' => Database::Robust],
-        'map-image' => ['connectors' => ['MapAddServiceConnector', 'MapGetServiceConnector'], 'port' => self::PRIVATE, 'setting' => ['MapImageService', 'MapImageServerURI'], 'database' => null],
-        'mute-list' => ['connectors' => ['MuteListConnector'], 'port' => self::PRIVATE, 'setting' => ['MuteListService', 'MuteListServerURI'], 'database' => Database::Robust],
-        'bakes' => ['connectors' => ['BakedTextureService'], 'port' => self::PRIVATE, 'setting' => ['XBakes', 'URL'], 'database' => Database::Robust],
-        'groups' => ['connectors' => ['GroupsServiceConnector'], 'port' => self::PRIVATE, 'setting' => ['Groups', 'GroupsServerURI'], 'database' => Database::Robust],
-        'offline' => ['connectors' => ['OfflineIMServiceConnector'], 'port' => self::PRIVATE, 'setting' => ['Messaging', 'OfflineMessageURL'], 'database' => Database::Offline],
-        'profile' => ['connectors' => ['UserProfilesServiceConnector'], 'port' => self::PUBLIC, 'setting' => ['UserProfiles', 'ProfileServiceURL'], 'database' => Database::Profiles],
-        'login' => ['connectors' => ['LLLoginServiceInConnector'], 'port' => self::PUBLIC, 'setting' => null, 'database' => null],
-        'grid-info' => ['connectors' => ['GridInfoServerInConnector'], 'port' => self::PUBLIC, 'setting' => null, 'database' => null],
-        'gatekeeper' => ['connectors' => ['GatekeeperServiceInConnector'], 'port' => self::PUBLIC, 'setting' => null, 'database' => null],
-        'user-agent' => ['connectors' => ['UserAgentServerConnector'], 'port' => self::PUBLIC, 'setting' => null, 'database' => null],
-        'hg-friends' => ['connectors' => ['HGFriendsServerConnector'], 'port' => self::PUBLIC, 'setting' => null, 'database' => null],
-        'hg-asset' => ['connectors' => ['HGAssetServiceConnector'], 'port' => self::PUBLIC, 'setting' => null, 'database' => null],
-        'hg-inventory' => ['connectors' => ['HGInventoryServiceConnector'], 'port' => self::PUBLIC, 'setting' => null, 'database' => null],
-        'hg-groups' => ['connectors' => ['HGGroupsServiceConnector'], 'port' => self::PUBLIC, 'setting' => null, 'database' => null],
-        'instant-message' => ['connectors' => ['InstantMessageServerConnector'], 'port' => self::PUBLIC, 'setting' => null, 'database' => null],
+        'asset' => [
+            'connectors' => ['AssetServiceConnector'],
+            'port' => self::PRIVATE,
+            'setting' => ['AssetService', 'AssetServerURI'],
+            'database' => Database::Assets,
+        ],
+        'inventory' => [
+            'connectors' => ['InventoryInConnector'],
+            'port' => self::PRIVATE,
+            'setting' => ['InventoryService', 'InventoryServerURI'],
+            'database' => Database::Robust,
+        ],
+        'grid' => [
+            'connectors' => ['GridServiceConnector'],
+            'port' => self::PRIVATE,
+            'setting' => ['GridService', 'GridServerURI'],
+            'database' => Database::Robust,
+        ],
+        'estate' => [
+            'connectors' => ['EstateDataService'],
+            'port' => self::PRIVATE,
+            'setting' => ['EstateService', 'EstateServerURI'],
+            'database' => Database::Estate,
+        ],
+        'authentication' => [
+            'connectors' => ['AuthenticationServiceConnector'],
+            'port' => self::PRIVATE,
+            'setting' => ['AuthenticationService', 'AuthenticationServerURI'],
+            'database' => Database::Robust,
+        ],
+        'avatar' => [
+            'connectors' => ['AvatarServiceConnector'],
+            'port' => self::PRIVATE,
+            'setting' => ['AvatarService', 'AvatarServerURI'],
+            'database' => Database::Robust,
+        ],
+        'agent-preferences' => [
+            'connectors' => ['AgentPreferencesServiceConnector'],
+            'port' => self::PRIVATE,
+            'setting' => ['AgentPreferencesService', 'AgentPreferencesServerURI'],
+            'database' => Database::Robust,
+        ],
+        'presence' => [
+            'connectors' => ['PresenceServiceConnector'],
+            'port' => self::PRIVATE,
+            'setting' => ['PresenceService', 'PresenceServerURI'],
+            'database' => Database::Robust,
+        ],
+        'user-account' => [
+            'connectors' => ['UserAccountServiceConnector'],
+            'port' => self::PRIVATE,
+            'setting' => ['UserAccountService', 'UserAccountServerURI'],
+            'database' => Database::Robust,
+        ],
+        'grid-user' => [
+            'connectors' => ['GridUserServiceConnector'],
+            'port' => self::PRIVATE,
+            'setting' => ['GridUserService', 'GridUserServerURI'],
+            'database' => Database::Robust,
+        ],
+        'friends' => [
+            'connectors' => ['FriendsServiceConnector'],
+            'port' => self::PRIVATE,
+            'setting' => ['FriendsService', 'FriendsServerURI'],
+            'database' => Database::Robust,
+        ],
+        'map-image' => [
+            'connectors' => ['MapAddServiceConnector', 'MapGetServiceConnector'],
+            'port' => self::PRIVATE,
+            'setting' => ['MapImageService', 'MapImageServerURI'],
+            'database' => null,
+        ],
+        'mute-list' => [
+            'connectors' => ['MuteListConnector'],
+            'port' => self::PRIVATE,
+            'setting' => ['MuteListService', 'MuteListServerURI'],
+            'database' => Database::Robust,
+        ],
+        'bakes' => [
+            'connectors' => ['BakedTextureService'],
+            'port' => self::PRIVATE,
+            'setting' => ['XBakes', 'URL'],
+            'database' => Database::Robust,
+        ],
+        'groups' => [
+            'connectors' => ['GroupsServiceConnector'],
+            'port' => self::PRIVATE,
+            'setting' => ['Groups', 'GroupsServerURI'],
+            'database' => Database::Robust,
+        ],
+        'offline' => [
+            'connectors' => ['OfflineIMServiceConnector'],
+            'port' => self::PRIVATE,
+            'setting' => ['Messaging', 'OfflineMessageURL'],
+            'database' => Database::Offline,
+        ],
+        'profile' => [
+            'connectors' => ['UserProfilesServiceConnector'],
+            'port' => self::PUBLIC,
+            'setting' => ['UserProfiles', 'ProfileServiceURL'],
+            'database' => Database::Profiles,
+        ],
+        'login' => [
+            'connectors' => ['LLLoginServiceInConnector'],
+            'port' => self::PUBLIC,
+            'setting' => null,
+            'database' => null,
+        ],
+        'grid-info' => [
+            'connectors' => ['GridInfoServerInConnector'],
+            'port' => self::PUBLIC,
+            'setting' => null,
+            'database' => null,
+        ],
+        'gatekeeper' => [
+            'connectors' => ['GatekeeperServiceInConnector'],
+            'port' => self::PUBLIC,
+            'setting' => null,
+            'database' => null,
+        ],
+        'user-agent' => [
+            'connectors' => ['UserAgentServerConnector'],
+            'port' => self::PUBLIC,
+            'setting' => null,
+            'database' => null,
+        ],
+        'hg-friends' => [
+            'connectors' => ['HGFriendsServerConnector'],
+            'port' => self::PUBLIC,
+            'setting' => null,
+            'database' => null,
+        ],
+        'hg-asset' => [
+            'connectors' => ['HGAssetServiceConnector'],
+            'port' => self::PUBLIC,
+            'setting' => null,
+            'database' => null,
+        ],
+        'hg-inventory' => [
+            'connectors' => ['HGInventoryServiceConnector'],
+            'port' => self::PUBLIC,
+            'setting' => null,
+            'database' => null,
+        ],
+        'hg-groups' => [
+            'connectors' => ['HGGroupsServiceConnector'],
+            'port' => self::PUBLIC,
+            'setting' => null,
+            'database' => null,
+        ],
+        'instant-message' => [
+            'connectors' => ['InstantMessageServerConnector'],
+            'port' => self::PUBLIC,
+            'setting' => null,
+            'database' => null,
+        ],
     ];
 
     /** What a standalone serves by itself: the services of the grid, the ones of the hypergrid when it is one. */
-    private const STANDALONE = ['asset', 'inventory', 'grid', 'estate', 'authentication', 'avatar', 'agent-preferences', 'presence', 'user-account', 'grid-user', 'friends', 'map-image', 'mute-list', 'profile', 'login', 'grid-info'];
+    private const STANDALONE = [
+        'asset',
+        'inventory',
+        'grid',
+        'estate',
+        'authentication',
+        'avatar',
+        'agent-preferences',
+        'presence',
+        'user-account',
+        'grid-user',
+        'friends',
+        'map-image',
+        'mute-list',
+        'profile',
+        'login',
+        'grid-info',
+    ];
 
-    private const STANDALONE_HYPERGRID = ['gatekeeper', 'user-agent', 'hg-friends', 'hg-asset', 'hg-inventory', 'instant-message'];
+    private const STANDALONE_HYPERGRID = [
+        'gatekeeper',
+        'user-agent',
+        'hg-friends',
+        'hg-asset',
+        'hg-inventory',
+        'instant-message',
+    ];
 
     /** @var array{0:?string}|null the address declared for the simulators of the grid, read once */
     private ?array $declaration = null;
@@ -79,8 +233,12 @@ final class Service extends InstalledModel
      * @param string $key one of keys()
      * @param ?Simulator $viewer the simulator that asks, null for the grid itself
      */
-    public function __construct(Environment $environment, private readonly Grid $grid, private readonly string $key, private readonly ?Simulator $viewer = null)
-    {
+    public function __construct(
+        Environment $environment,
+        private readonly Grid $grid,
+        private readonly string $key,
+        private readonly ?Simulator $viewer = null,
+    ) {
         parent::__construct($environment);
         isset(self::CATALOG[$key]) || throw new \InvalidArgumentException("unknown service '$key'");
     }
@@ -141,7 +299,7 @@ final class Service extends InstalledModel
         $services = [];
         foreach ($grid === null ? [] : self::keys() as $key) {
             $service = new self($grid->environment(), $grid, $key, $viewer);
-            $service->exists() && $services[] = $service;
+            $service->exists() && ($services[] = $service);
         }
 
         return self::collect($services, $options);
@@ -175,12 +333,17 @@ final class Service extends InstalledModel
     /** @param list<self> $services */
     private static function collect(array $services, array $options): Collection
     {
-        $yesNo = [static fn(self $service, string $value): bool => $service->isServed() === ($value === 'yes'), ['yes', 'no']];
+        $yesNo = [
+            static fn(self $service, string $value): bool => $service->isServed() === ($value === 'yes'),
+            ['yes', 'no'],
+        ];
 
         return self::listing(
             $services,
             $options,
-            static fn(self $service): string => "{$service->key} {$service->name()} {$service->uri()} {$service->grid->nick()}",
+            static fn(
+                self $service,
+            ): string => "{$service->key} {$service->name()} {$service->uri()} {$service->grid->nick()}",
             [
                 'name' => static fn(self $service): string => $service->name(),
                 'key' => static fn(self $service): string => $service->key,
@@ -188,7 +351,10 @@ final class Service extends InstalledModel
             ],
             [
                 'served' => $yesNo,
-                'port' => [static fn(self $service, string $value): bool => $service->port() === $value, [self::PRIVATE, self::PUBLIC]],
+                'port' => [
+                    static fn(self $service, string $value): bool => $service->port() === $value,
+                    [self::PRIVATE, self::PUBLIC],
+                ],
             ],
             [
                 ['name' => 'name', 'label' => _('Service'), 'sortable' => true],
@@ -271,7 +437,9 @@ final class Service extends InstalledModel
     public function provider(): ?Controller
     {
         if ($this->grid->isStandalone()) {
-            $serves = in_array($this->key, self::STANDALONE, true) || ($this->grid->isHypergrid() && in_array($this->key, self::STANDALONE_HYPERGRID, true));
+            $serves =
+                in_array($this->key, self::STANDALONE, true) ||
+                ($this->grid->isHypergrid() && in_array($this->key, self::STANDALONE_HYPERGRID, true));
 
             return $serves ? ($this->grid->simulators()[0] ?? null)?->controller() : null;
         }
@@ -322,7 +490,9 @@ final class Service extends InstalledModel
         }
         if ($provider !== null) {
             // The simulator of a standalone answers for everything on its own port
-            return ($provider->setting('Const', 'BaseURL') ?: 'http://' . $this->grid->baseHostname()) . ':' . $this->grid->publicPort();
+            return ($provider->setting('Const', 'BaseURL') ?: 'http://' . $this->grid->baseHostname()) .
+                ':' .
+                $this->grid->publicPort();
         }
 
         return $this->declared();
@@ -336,12 +506,18 @@ final class Service extends InstalledModel
 
     public function enable(): bool
     {
-        throw ChannelUnavailable::for('enable the ' . $this->key . ' service', "it is served by the Robust of the grid: enable the grid, or the feature that brings it ($this->key)");
+        throw ChannelUnavailable::for(
+            'enable the ' . $this->key . ' service',
+            "it is served by the Robust of the grid: enable the grid, or the feature that brings it ($this->key)",
+        );
     }
 
     public function disable(): void
     {
-        throw ChannelUnavailable::for('disable the ' . $this->key . ' service', "it is served by the Robust of the grid: disable the grid, or the feature that brings it ($this->key)");
+        throw ChannelUnavailable::for(
+            'disable the ' . $this->key . ' service',
+            "it is served by the Robust of the grid: disable the grid, or the feature that brings it ($this->key)",
+        );
     }
 
     public function detail(): array
@@ -385,9 +561,10 @@ final class Service extends InstalledModel
         }
         if ($this->declaration === null) {
             // What the grid says for all its simulators: the OpenSim.ini of its folder
-            $value = $this->grid->directory() !== '' && is_dir($this->grid->directory())
-                ? GridConfig::fromFolder($this->grid->directory())->get("OpenSim.$setting[0].$setting[1]")
-                : null;
+            $value =
+                $this->grid->directory() !== '' && is_dir($this->grid->directory())
+                    ? GridConfig::fromFolder($this->grid->directory())->get("OpenSim.$setting[0].$setting[1]")
+                    : null;
             $this->declaration = [is_string($value) && $value !== '' ? $value : null];
         }
 

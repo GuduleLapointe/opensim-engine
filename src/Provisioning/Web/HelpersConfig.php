@@ -33,10 +33,12 @@ final class HelpersConfig
     public static function unifyCase(string $gridDir): array
     {
         $gridDir = rtrim($gridDir, '/');
-        $variants = array_values(array_filter(
-            scandir($gridDir) ?: [],
-            static fn(string $name): bool => $name !== self::FILE && strcasecmp($name, self::FILE) === 0,
-        ));
+        $variants = array_values(
+            array_filter(
+                scandir($gridDir) ?: [],
+                static fn(string $name): bool => $name !== self::FILE && strcasecmp($name, self::FILE) === 0,
+            ),
+        );
         $moved = [];
         foreach ($variants as $name) {
             $to = in_array(self::FILE, scandir($gridDir) ?: [], true) ? "$name~" : self::FILE;

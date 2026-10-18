@@ -62,7 +62,14 @@ final class Simulator extends InstalledModel
                 'callback' => [self::class, 'validateName'],
                 'enable' => !($options['modify'] ?? false),
             ]),
-            ['name' => 'core', 'group' => 'simulator', 'type' => 'select', 'label' => _('OpenSim core to run this simulator'), 'options' => $cores, 'enable' => count($cores) > 1],
+            [
+                'name' => 'core',
+                'group' => 'simulator',
+                'type' => 'select',
+                'label' => _('OpenSim core to run this simulator'),
+                'options' => $cores,
+                'enable' => count($cores) > 1,
+            ],
             $fresh([
                 'name' => 'http_port',
                 'group' => 'simulator',
@@ -81,7 +88,10 @@ final class Simulator extends InstalledModel
                 'group' => 'simulator',
                 'type' => 'select',
                 'label' => _('Console of the simulator'),
-                'options' => ['rest' => _('Remote REST console (recommended)'), 'screen' => _('Screen session (on this machine)')],
+                'options' => [
+                    'rest' => _('Remote REST console (recommended)'),
+                    'screen' => _('Screen session (on this machine)'),
+                ],
             ],
             $fresh([
                 'name' => 'console_port',
@@ -117,29 +127,39 @@ final class Simulator extends InstalledModel
                 'options' => array_combine($accounts, $accounts) + ['+' => _('Create a new account in the grid')],
             ];
         }
-        $new = $accounts === null ? ['enable' => false] : ($accounts === [] ? [] : ['condition' => ['estate_owner' => '+']]);
-        $fields[] = $fresh([
-            'name' => 'new_name',
-            'group' => 'estate',
-            'label' => _('Name of the new account (First Last)'),
-            'callback' => [self::class, 'validateOwner'],
-        ] + $new);
-        $fields[] = $fresh([
-            'name' => 'new_password',
-            'group' => 'estate',
-            'type' => 'secret',
-            'label' => _('Password of the new account'),
-            'callback' => [self::class, 'validatePassword'],
-        ] + $new);
-        $fields[] = [
-            // OpenSimulator does not need one, no more than the setup
-            'name' => 'new_email',
-            'group' => 'estate',
-            'type' => 'string',
-            'required' => false,
-            'label' => _('Email of the new account (optional)'),
-            'callback' => [self::class, 'validateEmail'],
-        ] + $new;
+        $new =
+            $accounts === null
+                ? ['enable' => false]
+                : ($accounts === []
+                    ? []
+                    : ['condition' => ['estate_owner' => '+']]);
+        $fields[] = $fresh(
+            [
+                'name' => 'new_name',
+                'group' => 'estate',
+                'label' => _('Name of the new account (First Last)'),
+                'callback' => [self::class, 'validateOwner'],
+            ] + $new,
+        );
+        $fields[] = $fresh(
+            [
+                'name' => 'new_password',
+                'group' => 'estate',
+                'type' => 'secret',
+                'label' => _('Password of the new account'),
+                'callback' => [self::class, 'validatePassword'],
+            ] + $new,
+        );
+        $fields[] =
+            [
+                // OpenSimulator does not need one, no more than the setup
+                'name' => 'new_email',
+                'group' => 'estate',
+                'type' => 'string',
+                'required' => false,
+                'label' => _('Email of the new account (optional)'),
+                'callback' => [self::class, 'validateEmail'],
+            ] + $new;
 
         return $fields;
     }
@@ -161,13 +181,16 @@ final class Simulator extends InstalledModel
     /** The password of an account to make. */
     public static function validatePassword(mixed $value): ?string
     {
-        return preg_match('/^[^"\r\n]{6,}$/', (string) $value) === 1 ? null : _('At least 6 characters, without double quote.');
+        return preg_match('/^[^"\r\n]{6,}$/', (string) $value) === 1
+            ? null
+            : _('At least 6 characters, without double quote.');
     }
 
     /** The email of an account to make, or nothing. */
     public static function validateEmail(mixed $value): ?string
     {
-        return trim((string) $value) === '' || preg_match('/^[^\s"\'\\\\]+@[^\s"\'\\\\]+$/', trim((string) $value)) === 1
+        return trim((string) $value) === '' ||
+            preg_match('/^[^\s"\'\\\\]+@[^\s"\'\\\\]+$/', trim((string) $value)) === 1
             ? null
             : _('An email address, or nothing.');
     }
@@ -208,12 +231,17 @@ final class Simulator extends InstalledModel
         foreach (Grid::all($environment)->items() as $grid) {
             array_push($simulators, ...$grid->simulators());
         }
-        $yesNo = static fn(\Closure $is): array => [static fn(self $simulator, string $value): bool => $is($simulator) === ($value === 'yes'), ['yes', 'no']];
+        $yesNo = static fn(\Closure $is): array => [
+            static fn(self $simulator, string $value): bool => $is($simulator) === ($value === 'yes'),
+            ['yes', 'no'],
+        ];
 
         return self::listing(
             $simulators,
             $options,
-            static fn(self $simulator): string => "{$simulator->slug()} {$simulator->uri()} {$simulator->grid()?->name()}",
+            static fn(
+                self $simulator,
+            ): string => "{$simulator->slug()} {$simulator->uri()} {$simulator->grid()?->name()}",
             [
                 'name' => static fn(self $simulator): string => $simulator->slug(),
                 'port' => static fn(self $simulator): int => (int) $simulator->httpPort(),
@@ -283,7 +311,6 @@ final class Simulator extends InstalledModel
             'core' => $this->core()?->directory(),
         ];
     }
-
 
     public function name(): string
     {

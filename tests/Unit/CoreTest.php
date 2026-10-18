@@ -22,14 +22,27 @@ function cores_root(array $cores): string
 
 describe('cores of a folder', function () {
     test('are the releases by version, then the builds', function () {
-        $root = cores_root(['0.9.3.0' => 'OpenSim.dll', '0.9.2.2' => 'OpenSim.exe', 'unstable' => 'OpenSim.dll', '0.9.10.0' => 'OpenSim.dll']);
+        $root = cores_root([
+            '0.9.3.0' => 'OpenSim.dll',
+            '0.9.2.2' => 'OpenSim.exe',
+            'unstable' => 'OpenSim.dll',
+            '0.9.10.0' => 'OpenSim.dll',
+        ]);
 
-        expect(array_map(static fn(Core $c): string => $c->name(), Core::all($root)))
-            ->toBe(['0.9.2.2', '0.9.3.0', '0.9.10.0', 'unstable']);
+        expect(array_map(static fn(Core $c): string => $c->name(), Core::all($root)))->toBe([
+            '0.9.2.2',
+            '0.9.3.0',
+            '0.9.10.0',
+            'unstable',
+        ]);
     });
 
     test('have the newest release as the latest, the last build when there is no release', function () {
-        expect(Core::latest(cores_root(['0.9.2.2' => 'OpenSim.exe', '0.9.3.0' => 'OpenSim.dll', 'unstable' => 'OpenSim.dll']))?->name())
+        expect(
+            Core::latest(
+                cores_root(['0.9.2.2' => 'OpenSim.exe', '0.9.3.0' => 'OpenSim.dll', 'unstable' => 'OpenSim.dll']),
+            )?->name(),
+        )
             ->toBe('0.9.3.0')
             ->and(Core::latest(cores_root(['dev' => 'OpenSim.dll']))?->name())
             ->toBe('dev')
@@ -60,7 +73,10 @@ describe('runtime of a core', function () {
 
     test('asks for the .NET version of its runtimeconfig.json, 8.0.0 when it does not say', function () {
         $root = cores_root(['0.9.3.0' => 'Robust.dll']);
-        file_put_contents("$root/0.9.3.0/bin/Robust.runtimeconfig.json", '{"runtimeOptions":{"framework":{"name":"Microsoft.NETCore.App","version":"9.0.1"}}}');
+        file_put_contents(
+            "$root/0.9.3.0/bin/Robust.runtimeconfig.json",
+            '{"runtimeOptions":{"framework":{"name":"Microsoft.NETCore.App","version":"9.0.1"}}}',
+        );
 
         expect(Core::at("$root/0.9.3.0")->dotnetRequired('Robust.dll'))
             ->toBe('9.0.1')

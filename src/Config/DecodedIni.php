@@ -33,7 +33,10 @@ final class DecodedIni
                         $ini_array[$section][$key] = json_decode($value, true);
                     }
                     // Decode dotnet ConnectionString format
-                    if (is_string($value) && preg_match('/^(Data Source=.*;|Initial Catalog=.*;User ID=.*;)/', $value)) {
+                    if (
+                        is_string($value) &&
+                        preg_match('/^(Data Source=.*;|Initial Catalog=.*;User ID=.*;)/', $value)
+                    ) {
                         $ini_array[$section][$key] = OSPDO::connectionstring_to_array($value);
                     }
                 }

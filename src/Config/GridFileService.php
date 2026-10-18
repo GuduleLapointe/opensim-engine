@@ -31,7 +31,9 @@ final class GridFileService
         $gid = self::webGroup();
         $files = [];
         if (is_dir($dir)) {
-            $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS));
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
+            );
             foreach ($iterator as $file) {
                 if ($file->isFile() && !$file->isLink() && str_ends_with(strtolower($file->getFilename()), '.ini')) {
                     $files[] = $file->getPathname();
@@ -86,13 +88,22 @@ final class GridFileService
     /** The content of a file read as the user who owns it, null when that is the caller or root, or when it cannot (no sudo). */
     private static function sudoRead(string $path): ?string
     {
-        $owner = function_exists('posix_getpwuid') ? (posix_getpwuid((int) @fileowner($path))['name'] ?? '') : '';
-        $me = function_exists('posix_geteuid') ? (posix_getpwuid(posix_geteuid())['name'] ?? '') : '';
+        $owner = function_exists('posix_getpwuid') ? posix_getpwuid((int) @fileowner($path))['name'] ?? '' : '';
+        $me = function_exists('posix_geteuid') ? posix_getpwuid(posix_geteuid())['name'] ?? '' : '';
         if ($owner === '' || $me === $owner || $me === 'root') {
             return null;
         }
         // A password is asked on the terminal when there is one, else sudo must not need it
-        $command = ['sudo', ...(function_exists('posix_isatty') && posix_isatty(STDIN) ? [] : ['-n']), '-H', '-u', $owner, 'cat', '--', $path];
+        $command = [
+            'sudo',
+            ...function_exists('posix_isatty') && posix_isatty(STDIN) ? [] : ['-n'],
+            '-H',
+            '-u',
+            $owner,
+            'cat',
+            '--',
+            $path,
+        ];
         $process = @proc_open($command, [0 => STDIN, 1 => ['pipe', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes);
         if (!is_resource($process)) {
             return null;

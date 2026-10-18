@@ -14,8 +14,13 @@ describe('output of the commands', function () {
         $code = ShellService::run("sh -c 'printf one; printf two >&2; exit 3'");
         [$shownCode, $shown] = ShellService::runShown('printf three');
 
-        expect($code)->toBe(3)
-            ->and($said)->toContain('one')->toContain('two')->toContain('three')
-            ->and([$shownCode, $shown])->toBe([0, 'three']);
+        expect($code)
+            ->toBe(3)
+            ->and($said)
+            ->toContain('one')
+            ->toContain('two')
+            ->toContain('three')
+            ->and([$shownCode, $shown])
+            ->toBe([0, 'three']);
     });
 });

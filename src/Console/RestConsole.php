@@ -18,8 +18,7 @@ final class RestConsole implements ConsoleInterface
         private readonly string $user,
         private readonly string $password,
         private readonly string $host = '127.0.0.1',
-    ) {
-    }
+    ) {}
 
     /** A session of the console, null when the instance does not answer. */
     public function session(): ?\OpenSim_Rest

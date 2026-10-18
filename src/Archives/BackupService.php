@@ -238,7 +238,12 @@ final class BackupService
         $model = Grid::at($this->environment, $grid->directory());
 
         return array_map(
-            static fn(ConnectionString $db): array => ['host' => $db->source, 'name' => $db->database, 'user' => $db->user, 'pass' => $db->password],
+            static fn(ConnectionString $db): array => [
+                'host' => $db->source,
+                'name' => $db->database,
+                'user' => $db->user,
+                'pass' => $db->password,
+            ],
             $model->connections($slug),
         );
     }

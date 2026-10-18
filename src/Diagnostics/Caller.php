@@ -55,7 +55,13 @@ final class Caller
             $function = $class . $type . $function;
         }
         $file = $file . ':' . $line;
-        $message = sprintf('%s%s: %s in %s', $function, empty($error_code) ? '' : " Error $error_code", $message, $file);
+        $message = sprintf(
+            '%s%s: %s in %s',
+            $function,
+            empty($error_code) ? '' : " Error $error_code",
+            $message,
+            $file,
+        );
         error_log($message);
         if ($die == true) {
             die($error_code);

@@ -137,8 +137,14 @@ final class AccountWriter
      * @param ?string $uuid the id of the account, a new one when none is given
      * @return array{id:string,tables:array<string,list<string>>} table => statements
      */
-    public function tables(string $first, string $last, string $email, string $password, ?array $hash = null, ?string $uuid = null): array
-    {
+    public function tables(
+        string $first,
+        string $last,
+        string $email,
+        string $password,
+        ?array $hash = null,
+        ?string $uuid = null,
+    ): array {
         $made = $this->rows($first, $last, $email, $password, null, $hash, $uuid);
         $tables = [];
         foreach ($made['rows'] as [$table, $sql]) {
@@ -153,8 +159,15 @@ final class AccountWriter
     /**
      * @return array{id:string,rows:list<array{0:string,1:string}>} the table and the statement, in the order they are written
      */
-    private function rows(string $first, string $last, string $email, string $password, ?string $homeRegionId, ?array $hash, ?string $uuid = null): array
-    {
+    private function rows(
+        string $first,
+        string $last,
+        string $email,
+        string $password,
+        ?string $homeRegionId,
+        ?array $hash,
+        ?string $uuid = null,
+    ): array {
         $q = [self::class, 'quote'];
         $id = $uuid ?? ($this->uuid)();
         $now = ($this->now)();
@@ -201,18 +214,24 @@ final class AccountWriter
 
         foreach (self::OUTFIT as [$name, $asset, $folder, $assetType, $wearable]) {
             $item = ($this->uuid)();
-            $rows[] = ['inventoryitems', $this->item($id, $item, $asset, $assetType, $name, self::ALL, $wearable, $folders[$folder], $now)];
-            $rows[] = ['inventoryitems', $this->item(
-                $id,
-                ($this->uuid)(),
-                $item,
-                self::ASSET_LINK,
-                $name,
-                self::COPY,
-                $wearable,
-                $folders['Current Outfit'],
-                $now,
-            )];
+            $rows[] = [
+                'inventoryitems',
+                $this->item($id, $item, $asset, $assetType, $name, self::ALL, $wearable, $folders[$folder], $now),
+            ];
+            $rows[] = [
+                'inventoryitems',
+                $this->item(
+                    $id,
+                    ($this->uuid)(),
+                    $item,
+                    self::ASSET_LINK,
+                    $name,
+                    self::COPY,
+                    $wearable,
+                    $folders['Current Outfit'],
+                    $now,
+                ),
+            ];
         }
 
         return ['id' => $id, 'rows' => $rows];

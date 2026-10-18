@@ -26,8 +26,13 @@ final class ProcessTableFake implements ProcessTableInterface
 
     private int $next = 4000;
 
-    public function add(string $arguments, string $user = 'opensim', float $cpu = 1.5, float $memory = 2.5, int $rss = 100000): Process
-    {
+    public function add(
+        string $arguments,
+        string $user = 'opensim',
+        float $cpu = 1.5,
+        float $memory = 2.5,
+        int $rss = 100000,
+    ): Process {
         $process = new Process($this->next++, $user, $cpu, $memory, $rss, $arguments);
         $this->processes[$process->pid] = $process;
 

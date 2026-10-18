@@ -27,9 +27,7 @@ final class Api
     /** The resources, by the name they have in an address. */
     public const RESOURCES = ['grids' => Grid::class, 'simulators' => Simulator::class, 'services' => Service::class];
 
-    public function __construct(private readonly Environment $environment)
-    {
-    }
+    public function __construct(private readonly Environment $environment) {}
 
     /**
      * A page of the resources of a type.
@@ -50,7 +48,10 @@ final class Api
         }
 
         return Response::document([
-            'data' => array_map(fn(InstalledModelInterface $model): array => self::resource($type, $model), $collection->items()),
+            'data' => array_map(
+                fn(InstalledModelInterface $model): array => self::resource($type, $model),
+                $collection->items(),
+            ),
             'meta' => [
                 'total' => $collection->total(),
                 'page' => $collection->page(),
@@ -91,14 +92,16 @@ final class Api
     public static function options(array $query): array
     {
         $options = [];
-        isset($query['search']) && $options['search'] = (string) $query['search'];
+        isset($query['search']) && ($options['search'] = (string) $query['search']);
         if (isset($query['sort']) && $query['sort'] !== '') {
             $sort = (string) $query['sort'];
             $options['sort'] = str_starts_with($sort, '-') ? substr($sort, 1) . ' desc' : $sort;
         }
-        isset($query['filter']) && is_array($query['filter']) && $options['filters'] = array_map('strval', $query['filter']);
-        isset($query['page']['number']) && $options['page'] = (int) $query['page']['number'];
-        isset($query['page']['size']) && $options['perPage'] = (int) $query['page']['size'];
+        isset($query['filter']) &&
+            is_array($query['filter']) &&
+            ($options['filters'] = array_map('strval', $query['filter']));
+        isset($query['page']['number']) && ($options['page'] = (int) $query['page']['number']);
+        isset($query['page']['size']) && ($options['perPage'] = (int) $query['page']['size']);
 
         return $options;
     }
@@ -110,6 +113,11 @@ final class Api
         $attributes = $model->detail();
         unset($attributes['id']);
 
-        return ['type' => $type, 'id' => $id, 'attributes' => $attributes, 'links' => ['self' => "/$type/" . rawurlencode($id)]];
+        return [
+            'type' => $type,
+            'id' => $id,
+            'attributes' => $attributes,
+            'links' => ['self' => "/$type/" . rawurlencode($id)],
+        ];
     }
 }

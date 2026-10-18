@@ -33,7 +33,20 @@ class Health
      * `search`, the web page of the search the viewers read in get_grid_info), even when the grid gives none. It is not what the
      * simulators call for the search ([Search] SearchURL of OpenSim.ini).
      */
-    const GRID_INFO = ['login', 'gatekeeper', 'welcome', 'economy', 'about', 'register', 'help', 'password', 'GridStatus', 'GridStatusRSS', 'web_profile_url', 'search'];
+    const GRID_INFO = [
+        'login',
+        'gatekeeper',
+        'welcome',
+        'economy',
+        'about',
+        'register',
+        'help',
+        'password',
+        'GridStatus',
+        'GridStatusRSS',
+        'web_profile_url',
+        'search',
+    ];
 
     /**
      * The addresses of the grid itself, which answer at /get_grid_info: the home of a grid (host:publicport) has no page of its own,
@@ -94,7 +107,11 @@ class Health
     {
         $robust = $config ? $config->file('Robust') : null;
 
-        return ['robust' => $robust ? basename($robust) : 'Robust.ini', 'opensim' => 'OpenSim.ini', 'money' => 'MoneyServer.ini'];
+        return [
+            'robust' => $robust ? basename($robust) : 'Robust.ini',
+            'opensim' => 'OpenSim.ini',
+            'money' => 'MoneyServer.ini',
+        ];
     }
 
     /**
@@ -123,7 +140,9 @@ class Health
             $live['login'] = $login;
         }
         $home = self::origin($login);
-        $keys = array_values(array_unique(array_merge(array_intersect(self::GRID_INFO, array_keys($live)), array_keys($live))));
+        $keys = array_values(
+            array_unique(array_merge(array_intersect(self::GRID_INFO, array_keys($live)), array_keys($live))),
+        );
         $rows = [];
         foreach ($keys as $key) {
             // The profile is asked here without a name only: asked with the name of an avatar, it is in the config below
@@ -156,20 +175,30 @@ class Health
                     $rows[] = self::profile_row($key, $value, $owner);
                     continue;
                 }
-                $rows[] = [
-                    'label' => $key,
-                    (self::is_url($value) ? 'url' : 'text') => $profile ? str_replace('[AGENT_NAME]', $owner, $value) : $value,
-                    'level' => $same ? 'ok' : 'error',
-                    'status' => $same ? _('OK') : _('differs'),
-                    'ms' => null,
-                ] + ($profile ? ['display' => $value] : []) + ($key === 'search' ? ['tag' => _('Web search')] : []) + ($same ? [] : ['detail' => 'get_grid_info: ' . ($live[$key] ?? '')]);
+                $rows[] =
+                    [
+                        'label' => $key,
+                        self::is_url($value) ? 'url' : 'text' => $profile
+                            ? str_replace('[AGENT_NAME]', $owner, $value)
+                            : $value,
+                        'level' => $same ? 'ok' : 'error',
+                        'status' => $same ? _('OK') : _('differs'),
+                        'ms' => null,
+                    ] +
+                    ($profile ? ['display' => $value] : []) +
+                    ($key === 'search' ? ['tag' => _('Web search')] : []) +
+                    ($same ? [] : ['detail' => 'get_grid_info: ' . ($live[$key] ?? '')]);
             }
             $groups[] = ['file' => $file['robust'], 'title' => '[GridInfoService]', 'rows' => $rows];
             $groups[] = [
                 'file' => $file['robust'],
                 'title' => '[LoginService]',
                 'rows' => [
-                    ...self::address('DestinationGuide', (string) $config->find('LoginService', 'DestinationGuide'), $owner),
+                    ...self::address(
+                        'DestinationGuide',
+                        (string) $config->find('LoginService', 'DestinationGuide'),
+                        $owner,
+                    ),
                     ...self::address('MessageUrl', (string) $config->find('LoginService', 'MessageUrl'), $owner),
                     self::login_search((string) $config->find('LoginService', 'SearchURL'), $given['search'] ?? ''),
                 ],
@@ -181,18 +210,32 @@ class Health
         $groups[] = [
             'file' => $file['opensim'],
             'title' => '[Search]',
-            'rows' => $search === '' ? [self::empty_row('SearchURL')] : self::xmlrpc('SearchURL', $search, 'dir_places_query', ['flags' => 0, 'text' => 'health', 'query_start' => '0']),
+            'rows' =>
+                $search === ''
+                    ? [self::empty_row('SearchURL')]
+                    : self::xmlrpc('SearchURL', $search, 'dir_places_query', [
+                        'flags' => 0,
+                        'text' => 'health',
+                        'query_start' => '0',
+                    ]),
         ];
         $rows = [];
         foreach ($config->keys('DataSnapshot', '/^DATA_SRV_/') as $key => $url) {
             array_push($rows, ...self::query($key, $url, 'service=offline&host=health.invalid&port=1'));
         }
-        $groups[] = ['file' => $file['opensim'], 'title' => '[DataSnapshot]', 'rows' => $rows ?: [self::empty_row('DATA_SRV_*')]];
+        $groups[] = [
+            'file' => $file['opensim'],
+            'title' => '[DataSnapshot]',
+            'rows' => $rows ?: [self::empty_row('DATA_SRV_*')],
+        ];
         $offline = (string) $config->find('Messaging', 'OfflineMessageURL');
         $groups[] = [
             'file' => $file['opensim'],
             'title' => '[Messaging]',
-            'rows' => $offline === '' ? [self::empty_row('OfflineMessageURL')] : self::post('OfflineMessageURL', $offline, self::retrieve_messages(), 'RetrieveMessages/'),
+            'rows' =>
+                $offline === ''
+                    ? [self::empty_row('OfflineMessageURL')]
+                    : self::post('OfflineMessageURL', $offline, self::retrieve_messages(), 'RetrieveMessages/'),
         ];
 
         // The key of the currency, where the MoneyServer has it: never shown, only whether the grid has one. Without it the
@@ -203,7 +246,15 @@ class Health
         $groups[] = [
             'file' => $file['money'],
             'title' => '[MoneyServer]',
-            'rows' => [['label' => 'MoneyScriptAccessKey', 'url' => '', 'level' => $has ? 'ok' : ($needed ? 'error' : 'none'), 'status' => $has ? _('OK') : ($needed ? _('missing') : ''), 'ms' => null]],
+            'rows' => [
+                [
+                    'label' => 'MoneyScriptAccessKey',
+                    'url' => '',
+                    'level' => $has ? 'ok' : ($needed ? 'error' : 'none'),
+                    'status' => $has ? _('OK') : ($needed ? _('missing') : ''),
+                    'ms' => null,
+                ],
+            ],
         ];
 
         return $groups;
@@ -230,7 +281,12 @@ class Health
             return [['label' => $key, 'url' => '', 'text' => $value, 'level' => 'none', 'status' => '', 'ms' => null]];
         }
         $row = self::page($key, $value);
-        if (in_array($key, self::GRID_ADDRESSES, true) || ($home !== '' && self::origin($value) === $home && trim((string) parse_url($value, PHP_URL_PATH), '/') === '')) {
+        if (
+            in_array($key, self::GRID_ADDRESSES, true) ||
+            ($home !== '' &&
+                self::origin($value) === $home &&
+                trim((string) parse_url($value, PHP_URL_PATH), '/') === '')
+        ) {
             // What answers at these addresses is the grid info, the first thing the viewers ask
             $row['probe'] = rtrim($value, '/') . '/get_grid_info';
         } elseif ($key === 'economy') {
@@ -243,7 +299,18 @@ class Health
             // What the grid says is the address without the name, which is not a page (a teapot); the one with the name of an avatar
             // is the one of the config
             if ($variants) {
-                return [$owner === null ? ['label' => $key, 'url' => '', 'text' => $value, 'level' => 'none', 'status' => '', 'ms' => null] : self::profile_row($key, $value, $owner)];
+                return [
+                    $owner === null
+                        ? [
+                            'label' => $key,
+                            'url' => '',
+                            'text' => $value,
+                            'level' => 'none',
+                            'status' => '',
+                            'ms' => null,
+                        ]
+                        : self::profile_row($key, $value, $owner),
+                ];
             }
             $row['url'] = rtrim((string) preg_replace('#\[AGENT_NAME\].*$#', '', $value), '/');
             $row['expect'] = self::TEAPOT;
@@ -276,7 +343,11 @@ class Health
         }
         $scheme = strtolower($parts['scheme']);
 
-        return $scheme . '://' . strtolower($parts['host']) . ':' . ($parts['port'] ?? ($scheme === 'https' ? 443 : 80));
+        return $scheme .
+            '://' .
+            strtolower($parts['host']) .
+            ':' .
+            ($parts['port'] ?? ($scheme === 'https' ? 443 : 80));
     }
 
     /**
@@ -293,7 +364,14 @@ class Health
             return self::empty_row('SearchURL') + ['tag' => _('Web search')];
         }
         if ($search !== '' && rtrim($value, '/') === rtrim($search, '/')) {
-            return ['label' => 'SearchURL', 'url' => $value, 'tag' => _('Web search'), 'level' => 'ok', 'status' => _('OK'), 'ms' => null];
+            return [
+                'label' => 'SearchURL',
+                'url' => $value,
+                'tag' => _('Web search'),
+                'level' => 'ok',
+                'status' => _('OK'),
+                'ms' => null,
+            ];
         }
 
         return self::page('SearchURL', $value, _('Web search'));
@@ -323,7 +401,13 @@ class Health
      */
     public static function xmlrpc($label, $url, $call, array $params)
     {
-        return self::twice($label, $url, 'post', ['method' => 'xmlrpc', 'body' => self::xmlrpc_body($call, $params)], _('with valid XMLRPC request'));
+        return self::twice(
+            $label,
+            $url,
+            'post',
+            ['method' => 'xmlrpc', 'body' => self::xmlrpc_body($call, $params)],
+            _('with valid XMLRPC request'),
+        );
     }
 
     /**
@@ -335,7 +419,14 @@ class Health
      */
     public static function post($label, $url, $body, $suffix = '')
     {
-        return self::twice($label, $url, 'post', ['method' => 'post', 'body' => $body] + ($suffix === '' ? [] : ['probe' => rtrim($url, '/') . '/' . $suffix]), _('with valid post data'));
+        return self::twice(
+            $label,
+            $url,
+            'post',
+            ['method' => 'post', 'body' => $body] +
+                ($suffix === '' ? [] : ['probe' => rtrim($url, '/') . '/' . $suffix]),
+            _('with valid post data'),
+        );
     }
 
     /**
@@ -346,7 +437,13 @@ class Health
      */
     public static function query($label, $url, $query)
     {
-        return self::twice($label, $url, 'get', ['method' => 'get', 'probe' => $url . (str_contains($url, '?') ? '&' : '?') . $query], _('with valid query'));
+        return self::twice(
+            $label,
+            $url,
+            'get',
+            ['method' => 'get', 'probe' => $url . (str_contains($url, '?') ? '&' : '?') . $query],
+            _('with valid query'),
+        );
     }
 
     /**
@@ -359,7 +456,15 @@ class Health
     private static function twice($label, $url, $how, array $good, $tag)
     {
         return [
-            ['label' => $label, 'url' => $url, 'method' => $how, 'body' => '', 'expect' => self::BARE, 'refuse' => true, 'tag' => _('without data')],
+            [
+                'label' => $label,
+                'url' => $url,
+                'method' => $how,
+                'body' => '',
+                'expect' => self::BARE,
+                'refuse' => true,
+                'tag' => _('without data'),
+            ],
             ['label' => $label, 'url' => $url, 'tag' => $tag] + $good,
         ];
     }
@@ -367,7 +472,9 @@ class Health
     /** The request of the offline messages of an avatar, which has none. */
     public static function retrieve_messages()
     {
-        return '<?xml version="1.0"?><UUID xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><Guid>' . self::UNKNOWN_AVATAR . '</Guid></UUID>';
+        return '<?xml version="1.0"?><UUID xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><Guid>' .
+            self::UNKNOWN_AVATAR .
+            '</Guid></UUID>';
     }
 
     /** The body of a call of XML-RPC, with one struct of ints and strings as parameter. */
@@ -376,10 +483,19 @@ class Health
         $members = '';
         foreach ($params as $name => $value) {
             $type = is_int($value) ? 'int' : 'string';
-            $members .= '<member><name>' . htmlspecialchars((string) $name, ENT_XML1) . "</name><value><$type>" . htmlspecialchars((string) $value, ENT_XML1) . "</$type></value></member>";
+            $members .=
+                '<member><name>' .
+                htmlspecialchars((string) $name, ENT_XML1) .
+                "</name><value><$type>" .
+                htmlspecialchars((string) $value, ENT_XML1) .
+                "</$type></value></member>";
         }
 
-        return '<?xml version="1.0"?><methodCall><methodName>' . htmlspecialchars($method, ENT_XML1) . '</methodName><params><param><value><struct>' . $members . '</struct></value></param></params></methodCall>';
+        return '<?xml version="1.0"?><methodCall><methodName>' .
+            htmlspecialchars($method, ENT_XML1) .
+            '</methodName><params><param><value><struct>' .
+            $members .
+            '</struct></value></param></params></methodCall>';
     }
 
     /**
@@ -413,13 +529,28 @@ class Health
                 } elseif ($result === null) {
                     $verdict = self::verdict(null, '', 0);
                 } else {
-                    $verdict = self::verdict($result['code'], $result['error'], $result['ms'], $result['errno'], $row['expect'] ?? [], !empty($row['refuse']));
+                    $verdict = self::verdict(
+                        $result['code'],
+                        $result['error'],
+                        $result['ms'],
+                        $result['errno'],
+                        $row['expect'] ?? [],
+                        !empty($row['refuse']),
+                    );
                     // A certificate this server does not trust is told, it does not change what the address answers
                     if ($result['certificate'] !== 0) {
                         $verdict['cert'] = true;
                     }
                 }
-                $groups[$g]['rows'][$r] = array_diff_key($row, ['method' => 0, 'probe' => 0, 'skip' => 0, 'expect' => 0, 'refuse' => 0, 'body' => 0]) + $verdict + ['ms' => null];
+                $groups[$g]['rows'][$r] = array_diff_key($row, [
+                    'method' => 0,
+                    'probe' => 0,
+                    'skip' => 0,
+                    'expect' => 0,
+                    'refuse' => 0,
+                    'body' => 0,
+                ]) +
+                    $verdict + ['ms' => null];
             }
         }
 
@@ -513,7 +644,12 @@ class Health
             return ['level' => 'none', 'status' => '', 'ms' => null];
         }
         if ($code === 0) {
-            return ['level' => 'error', 'status' => 'cURL ' . _('error') . ' ' . $errno, 'ms' => null, 'detail' => $error];
+            return [
+                'level' => 'error',
+                'status' => 'cURL ' . _('error') . ' ' . $errno,
+                'ms' => null,
+                'detail' => $error,
+            ];
         }
         $level = ($code >= 200 && $code < 300 && !$refuse) || in_array($code, $expect, true) ? 'ok' : 'error';
 
@@ -523,7 +659,14 @@ class Health
     /** A row for what is there or not, and the file or the thing it is about. */
     public static function row($label, $good, $detail = '')
     {
-        return ['label' => $label, 'url' => '', 'level' => $good ? 'ok' : 'error', 'status' => $good ? _('OK') : _('missing'), 'detail' => $detail, 'ms' => null];
+        return [
+            'label' => $label,
+            'url' => '',
+            'level' => $good ? 'ok' : 'error',
+            'status' => $good ? _('OK') : _('missing'),
+            'detail' => $detail,
+            'ms' => null,
+        ];
     }
 
     /** A row for something that may not be defined: a file or a folder, read where it says. */

@@ -15,23 +15,72 @@ final class Contract
      */
     public const ATTRIBUTES = [
         'grids' => [
-            'nick' => 'string', 'name' => 'string', 'slug' => 'string', 'sources' => 'array', 'directory' => 'string?', 'remote' => 'boolean',
-            'standalone' => 'boolean', 'planned' => 'boolean', 'enabled' => 'boolean?', 'hypergrid' => 'boolean', 'baseHostname' => 'string',
-            'publicPort' => 'integer', 'privatePort' => 'integer', 'center' => 'string?', 'regionSpacing' => 'integer', 'preset' => 'string?',
-            'coreDirectory' => 'string?', 'robustIni' => 'string?', 'connectors' => 'array', 'regionFlags' => 'array', 'roles' => 'array',
-            'missingRoles' => 'array', 'databaseHost' => 'string', 'databaseName' => 'string', 'databaseUser' => 'string', 'webUrl' => 'string?',
-            'helpers' => 'boolean', 'simulators' => 'array?', 'announcement' => 'object?',
+            'nick' => 'string',
+            'name' => 'string',
+            'slug' => 'string',
+            'sources' => 'array',
+            'directory' => 'string?',
+            'remote' => 'boolean',
+            'standalone' => 'boolean',
+            'planned' => 'boolean',
+            'enabled' => 'boolean?',
+            'hypergrid' => 'boolean',
+            'baseHostname' => 'string',
+            'publicPort' => 'integer',
+            'privatePort' => 'integer',
+            'center' => 'string?',
+            'regionSpacing' => 'integer',
+            'preset' => 'string?',
+            'coreDirectory' => 'string?',
+            'robustIni' => 'string?',
+            'connectors' => 'array',
+            'regionFlags' => 'array',
+            'roles' => 'array',
+            'missingRoles' => 'array',
+            'databaseHost' => 'string',
+            'databaseName' => 'string',
+            'databaseUser' => 'string',
+            'webUrl' => 'string?',
+            'helpers' => 'boolean',
+            'simulators' => 'array?',
+            'announcement' => 'object?',
         ],
         'simulators' => [
-            'uri' => 'string', 'name' => 'string', 'slug' => 'string', 'grid' => 'string?', 'ini' => 'string', 'link' => 'string', 'enabled' => 'boolean',
-            'running' => 'boolean', 'httpPort' => 'integer', 'consolePort' => 'integer', 'console' => 'string', 'databaseHost' => 'string?',
-            'databaseName' => 'string?', 'databaseUser' => 'string?', 'estateDatabaseName' => 'string?', 'estateName' => 'string?',
-            'estateOwner' => 'string?', 'regionsDirectory' => 'string?', 'core' => 'string?',
+            'uri' => 'string',
+            'name' => 'string',
+            'slug' => 'string',
+            'grid' => 'string?',
+            'ini' => 'string',
+            'link' => 'string',
+            'enabled' => 'boolean',
+            'running' => 'boolean',
+            'httpPort' => 'integer',
+            'consolePort' => 'integer',
+            'console' => 'string',
+            'databaseHost' => 'string?',
+            'databaseName' => 'string?',
+            'databaseUser' => 'string?',
+            'estateDatabaseName' => 'string?',
+            'estateName' => 'string?',
+            'estateOwner' => 'string?',
+            'regionsDirectory' => 'string?',
+            'core' => 'string?',
         ],
         'services' => [
-            'key' => 'string', 'name' => 'string', 'slug' => 'string', 'grid' => 'string', 'simulator' => 'string?', 'uri' => 'string?',
-            'port' => 'string', 'provider' => 'string?', 'served' => 'boolean', 'external' => 'boolean', 'connectors' => 'array',
-            'section' => 'string?', 'setting' => 'string?', 'database' => 'string?',
+            'key' => 'string',
+            'name' => 'string',
+            'slug' => 'string',
+            'grid' => 'string',
+            'simulator' => 'string?',
+            'uri' => 'string?',
+            'port' => 'string',
+            'provider' => 'string?',
+            'served' => 'boolean',
+            'external' => 'boolean',
+            'connectors' => 'array',
+            'section' => 'string?',
+            'setting' => 'string?',
+            'database' => 'string?',
         ],
     ];
 
@@ -51,32 +100,76 @@ final class Contract
                 'type' => 'object',
                 'description' => 'RFC 9457 problem details',
                 'required' => ['title', 'status'],
-                'properties' => ['type' => ['type' => 'string'], 'title' => ['type' => 'string'], 'status' => ['type' => 'integer'], 'detail' => ['type' => 'string'], 'instance' => ['type' => 'string']],
+                'properties' => [
+                    'type' => ['type' => 'string'],
+                    'title' => ['type' => 'string'],
+                    'status' => ['type' => 'integer'],
+                    'detail' => ['type' => 'string'],
+                    'instance' => ['type' => 'string'],
+                ],
             ],
         ];
         foreach (array_keys(Api::RESOURCES) as $type) {
             $schemas[ucfirst($type)] = self::schema($type);
-            $paths["/$type"] = ['get' => [
-                'summary' => "The $type, searched, filtered, sorted and paged",
-                'parameters' => self::parameters($type),
-                'responses' => [
-                    '200' => ['description' => "A page of the $type", 'content' => [Response::JSON_API => ['schema' => ['type' => 'object', 'properties' => ['data' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/' . ucfirst($type)]], 'meta' => ['type' => 'object']]]]]],
-                    '503' => self::problem('What the list is read from is not available'),
+            $paths["/$type"] = [
+                'get' => [
+                    'summary' => "The $type, searched, filtered, sorted and paged",
+                    'parameters' => self::parameters($type),
+                    'responses' => [
+                        '200' => [
+                            'description' => "A page of the $type",
+                            'content' => [
+                                Response::JSON_API => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'data' => [
+                                                'type' => 'array',
+                                                'items' => ['$ref' => '#/components/schemas/' . ucfirst($type)],
+                                            ],
+                                            'meta' => ['type' => 'object'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        '503' => self::problem('What the list is read from is not available'),
+                    ],
                 ],
-            ]];
-            $paths["/$type/{id}"] = ['get' => [
-                'summary' => 'One of the ' . $type . ' by its id',
-                'parameters' => [['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']]],
-                'responses' => [
-                    '200' => ['description' => 'The resource', 'content' => [Response::JSON_API => ['schema' => ['type' => 'object', 'properties' => ['data' => ['$ref' => '#/components/schemas/' . ucfirst($type)]]]]]],
-                    '404' => self::problem('There is none with this id'),
+            ];
+            $paths["/$type/{id}"] = [
+                'get' => [
+                    'summary' => 'One of the ' . $type . ' by its id',
+                    'parameters' => [
+                        ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'The resource',
+                            'content' => [
+                                Response::JSON_API => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'data' => ['$ref' => '#/components/schemas/' . ucfirst($type)],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        '404' => self::problem('There is none with this id'),
+                    ],
                 ],
-            ]];
+            ];
         }
 
         return [
             'openapi' => '3.1.0',
-            'info' => ['title' => 'OpenSim engine', 'version' => $version, 'description' => 'The grids, the simulators and the services of an install'],
+            'info' => [
+                'title' => 'OpenSim engine',
+                'version' => $version,
+                'description' => 'The grids, the simulators and the services of an install',
+            ],
             'paths' => $paths,
             'components' => ['schemas' => $schemas],
         ];
@@ -109,12 +202,21 @@ final class Contract
     {
         $parameters = [
             ['name' => 'search', 'in' => 'query', 'schema' => ['type' => 'string']],
-            ['name' => 'sort', 'in' => 'query', 'description' => 'A column, `-` before it for the descending order', 'schema' => ['type' => 'string']],
+            [
+                'name' => 'sort',
+                'in' => 'query',
+                'description' => 'A column, `-` before it for the descending order',
+                'schema' => ['type' => 'string'],
+            ],
             ['name' => 'page[number]', 'in' => 'query', 'schema' => ['type' => 'integer', 'minimum' => 1]],
             ['name' => 'page[size]', 'in' => 'query', 'schema' => ['type' => 'integer', 'minimum' => 0]],
         ];
         foreach (self::FILTERS[$type] as $name => $values) {
-            $parameters[] = ['name' => "filter[$name]", 'in' => 'query', 'schema' => ['type' => 'string', 'enum' => $values]];
+            $parameters[] = [
+                'name' => "filter[$name]",
+                'in' => 'query',
+                'schema' => ['type' => 'string', 'enum' => $values],
+            ];
         }
 
         return $parameters;
@@ -123,6 +225,9 @@ final class Contract
     /** @return array<string,mixed> */
     private static function problem(string $description): array
     {
-        return ['description' => $description, 'content' => [Problem::CONTENT_TYPE => ['schema' => ['$ref' => '#/components/schemas/Problem']]]];
+        return [
+            'description' => $description,
+            'content' => [Problem::CONTENT_TYPE => ['schema' => ['$ref' => '#/components/schemas/Problem']]],
+        ];
     }
 }

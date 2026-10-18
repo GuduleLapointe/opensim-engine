@@ -23,7 +23,14 @@ final class Locale
         // }
 
         // $currentLocale = setlocale(LC_ALL, 0);
-        $user_locales = array_unique([$locale, $locale . ".$encoding", $locale . '.UTF-8', $locale . '.utf8', $locale, 0]);
+        $user_locales = array_unique([
+            $locale,
+            $locale . ".$encoding",
+            $locale . '.UTF-8',
+            $locale . '.utf8',
+            $locale,
+            0,
+        ]);
 
         $user_locales = array_map(function ($code) {
             return preg_replace(['/;.*/', '/-/'], ['', '_'], $code);

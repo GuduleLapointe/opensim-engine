@@ -46,15 +46,17 @@ final class PrivateServiceAuthenticator implements AvatarAuthenticator
         }
         $this->release($account['PrincipalID'], $token);
 
-        return SignInResult::granted(new Avatar(
-            id: $account['PrincipalID'],
-            firstName: $account['FirstName'],
-            lastName: $account['LastName'],
-            email: $account['Email'] ?? '',
-            level: (int) ($account['UserLevel'] ?? 0),
-            flags: (int) ($account['UserFlags'] ?? 0),
-            title: $account['UserTitle'] ?? '',
-        ));
+        return SignInResult::granted(
+            new Avatar(
+                id: $account['PrincipalID'],
+                firstName: $account['FirstName'],
+                lastName: $account['LastName'],
+                email: $account['Email'] ?? '',
+                level: (int) ($account['UserLevel'] ?? 0),
+                flags: (int) ($account['UserFlags'] ?? 0),
+                title: $account['UserTitle'] ?? '',
+            ),
+        );
     }
 
     public function opensSession(): bool

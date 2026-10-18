@@ -26,6 +26,5 @@ final class LaunchSpec
         public readonly string $output = '',
         public readonly bool $screen = false,
         public readonly bool $bigStack = false,
-    ) {
-    }
+    ) {}
 }

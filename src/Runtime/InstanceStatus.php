@@ -11,11 +11,7 @@ use OpenSim\Controllers\Controller;
  */
 final class InstanceStatus
 {
-    public function __construct(
-        public readonly Controller $instance,
-        public readonly ?Process $process,
-    ) {
-    }
+    public function __construct(public readonly Controller $instance, public readonly ?Process $process) {}
 
     public function name(): string
     {

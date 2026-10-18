@@ -96,7 +96,13 @@ final class Instances
         }
         foreach (glob(GridConfig::simulatorsDirectory("$etc/grids/$nick") . '/*.ini') ?: [] as $ini) {
             $simulator = basename($ini, '.ini');
-            foreach (array_map(static fn(Region $region): string => $region->name(), Region::inDirectory(GridConfig::simulatorsDirectory("$etc/grids/$nick") . "/$simulator/regions")) as $region) {
+            foreach (
+                array_map(
+                    static fn(Region $region): string => $region->name(),
+                    Region::inDirectory(GridConfig::simulatorsDirectory("$etc/grids/$nick") . "/$simulator/regions"),
+                )
+                as $region
+            ) {
                 if (strcasecmp($region, $ref) === 0) {
                     return [$simulator, $region];
                 }
@@ -122,7 +128,10 @@ final class Instances
     /** The instance of a simulator named in full (grid_simulator), or by its own name with or without a leading underscore */
     public static function simulator(string $etc, string $nick, string $ref): ?string
     {
-        foreach ([$ref, Slug::simulator($nick, ltrim($ref, '_')), Slug::snake($nick . '_' . ltrim($ref, '_'))] as $candidate) {
+        foreach (
+            [$ref, Slug::simulator($nick, ltrim($ref, '_')), Slug::snake($nick . '_' . ltrim($ref, '_'))]
+            as $candidate
+        ) {
             if (is_file(GridConfig::simulatorsDirectory("$etc/grids/$nick") . "/$candidate.ini")) {
                 return $candidate;
             }

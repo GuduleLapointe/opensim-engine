@@ -40,7 +40,10 @@ final class InstanceControl
         }
         $reporter = new UiReporter($ui);
         $environment = OpenSim::environment($reporter);
-        $results = $action === 'restart' ? OpenSim::restart($target, $now, $environment) : OpenSim::start($target, $environment);
+        $results =
+            $action === 'restart'
+                ? OpenSim::restart($target, $now, $environment)
+                : OpenSim::start($target, $environment);
         foreach ($results as $result) {
             if (!$result->ok()) {
                 return [1, $reporter->said()];

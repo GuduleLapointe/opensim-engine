@@ -4,7 +4,6 @@
  * point, so that regions added one after the other fill a disc around it.
  */
 
-
 use OpenSim\Provisioning\LocationFinder;
 
 /**

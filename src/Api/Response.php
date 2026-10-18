@@ -16,9 +16,11 @@ final class Response
      * @param array<string,string> $headers
      * @param array<string,mixed> $document the body, a JSON:API document or a problem
      */
-    public function __construct(public readonly int $status, public readonly array $headers, public readonly array $document)
-    {
-    }
+    public function __construct(
+        public readonly int $status,
+        public readonly array $headers,
+        public readonly array $document,
+    ) {}
 
     public static function document(array $document, int $status = 200): self
     {

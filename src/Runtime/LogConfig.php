@@ -29,8 +29,17 @@ final class LogConfig
     public static function render(string $model, string $base, string $logsDirectory, string $instance): string
     {
         $text = (string) file_get_contents($model);
-        $text = preg_replace('#[a-zA-Z0-9./_-]*/*' . preg_quote($base, '#') . '\.log#', $logsDirectory . "/$instance.log", $text) ?? $text;
+        $text =
+            preg_replace(
+                '#[a-zA-Z0-9./_-]*/*' . preg_quote($base, '#') . '\.log#',
+                $logsDirectory . "/$instance.log",
+                $text,
+            ) ?? $text;
 
-        return preg_replace('#[a-zA-Z0-9./_-]*/*' . preg_quote($base, '#') . 'Stats\.log#', $logsDirectory . "/$instance.Stats.log", $text) ?? $text;
+        return preg_replace(
+            '#[a-zA-Z0-9./_-]*/*' . preg_quote($base, '#') . 'Stats\.log#',
+            $logsDirectory . "/$instance.Stats.log",
+            $text,
+        ) ?? $text;
     }
 }

@@ -38,23 +38,23 @@ final class RegionPlanner
     public static function context(): array
     {
         return [
-            'grid' => null,          // the Grid of the grid the region is in
-            'optional' => false,     // the first region of a simulator, which may be left out
-            'fixed' => false,        // a region that exists, which only moves
-            'pool' => [],            // instance => title of the simulators that can take it
-            'portOfSimulator' => null,     // Closure(string $instance): int, the HTTP port of a simulator of the pool
-            'defaultName' => '',     // the name proposed first, if it fits
-            'simulatorName' => '',         // the simulator, which gives its name to its first region
-            'first' => true,         // no region is described for the simulator yet
-            'httpPort' => 9000,      // the HTTP port of the simulator that takes it
-            'taken' => [],           // lower case names of the regions of the grid
-            'known' => [],           // places taken, "x,y" => true
-            'ports' => [],           // ports used by the regions the grid knows
-            'remoteHas' => null,     // Closure(string $name): ?bool, whether the Robust of a remote grid has the name (default: asks it)
-            'freePlace' => null,     // Closure(int $x, int $y, ?string $ignored): array{0:int,1:int,2:bool}, the nearest free place and whether the grid answered
-            'randomName' => null,    // Closure(Closure $problem): string
-            'uuid' => null,          // Closure(): string
-            'nextPort' => null,      // Closure(int $httpPort, array $taken): int, the next port for a region (default: Ports)
+            'grid' => null, // the Grid of the grid the region is in
+            'optional' => false, // the first region of a simulator, which may be left out
+            'fixed' => false, // a region that exists, which only moves
+            'pool' => [], // instance => title of the simulators that can take it
+            'portOfSimulator' => null, // Closure(string $instance): int, the HTTP port of a simulator of the pool
+            'defaultName' => '', // the name proposed first, if it fits
+            'simulatorName' => '', // the simulator, which gives its name to its first region
+            'first' => true, // no region is described for the simulator yet
+            'httpPort' => 9000, // the HTTP port of the simulator that takes it
+            'taken' => [], // lower case names of the regions of the grid
+            'known' => [], // places taken, "x,y" => true
+            'ports' => [], // ports used by the regions the grid knows
+            'remoteHas' => null, // Closure(string $name): ?bool, whether the Robust of a remote grid has the name (default: asks it)
+            'freePlace' => null, // Closure(int $x, int $y, ?string $ignored): array{0:int,1:int,2:bool}, the nearest free place and whether the grid answered
+            'randomName' => null, // Closure(Closure $problem): string
+            'uuid' => null, // Closure(): string
+            'nextPort' => null, // Closure(int $httpPort, array $taken): int, the next port for a region (default: Ports)
         ];
     }
 
@@ -64,8 +64,15 @@ final class RegionPlanner
      * @param array<string,string> $pool the simulators that can take it (instance => title)
      * @param ?\Closure(string):int $portOfSimulator the HTTP port of a simulator of the pool
      */
-    public static function forSimulator(SimulatorPlan $plan, Grid $grid, DatabaseService $database, bool $optional = false, array $pool = [], string $defaultName = '', ?\Closure $portOfSimulator = null): self
-    {
+    public static function forSimulator(
+        SimulatorPlan $plan,
+        Grid $grid,
+        DatabaseService $database,
+        bool $optional = false,
+        array $pool = [],
+        string $defaultName = '',
+        ?\Closure $portOfSimulator = null,
+    ): self {
         $registry = new GridRegistry($database);
 
         return new self([
@@ -116,7 +123,9 @@ final class RegionPlanner
     /** The roles the grid still has no region for: the ones checked at first. @return list<string> */
     public function missingRoles(): array
     {
-        return array_values(array_diff($this->context['grid']?->missingRoles() ?? [], [Region::flagName(Region::FALLBACK_REGION)]));
+        return array_values(
+            array_diff($this->context['grid']?->missingRoles() ?? [], [Region::flagName(Region::FALLBACK_REGION)]),
+        );
     }
 
     /** The fields of the region, with the checks that need to know the grid. */
@@ -147,7 +156,8 @@ final class RegionPlanner
     {
         $c = $this->context;
         $simulator = (string) ($answers['simulator'] ?? '+');
-        $httpPort = $simulator !== '+' && $c['portOfSimulator'] !== null ? ($c['portOfSimulator'])($simulator) : $c['httpPort'];
+        $httpPort =
+            $simulator !== '+' && $c['portOfSimulator'] !== null ? $c['portOfSimulator']($simulator) : $c['httpPort'];
         $problem = fn(string $name): ?string => $this->nameProblem($name);
         // What is not answered is worked out, and only then (the place of a region of a grid on another machine is asked to it)
         $place = fn(): string => implode(',', array_slice($this->freePlace(...$this->center()), 0, 2));
@@ -198,11 +208,19 @@ final class RegionPlanner
      */
     public function settle(string $asked, ?string $current = null): array
     {
-        $ignored = $current !== null && ($place = LocationFinder::parse($current)) !== null ? LocationFinder::key($place[0], $place[1]) : null;
+        $ignored =
+            $current !== null && ($place = LocationFinder::parse($current)) !== null
+                ? LocationFinder::key($place[0], $place[1])
+                : null;
         [$x, $y] = LocationFinder::parse($asked) ?? $this->center();
         [$freeX, $freeY, $unreachable] = $this->freePlace($x, $y, $ignored);
 
-        return ['asked' => "$x,$y", 'free' => "$freeX,$freeY", 'moved' => $freeX !== $x || $freeY !== $y, 'unreachable' => $unreachable];
+        return [
+            'asked' => "$x,$y",
+            'free' => "$freeX,$freeY",
+            'moved' => $freeX !== $x || $freeY !== $y,
+            'unreachable' => $unreachable,
+        ];
     }
 
     /** What the simulator plan says of the region these answers describe: the place is the free one nearest to the place asked. */
@@ -217,7 +235,7 @@ final class RegionPlanner
         $plan->createRegion = true;
         $plan->regionName = Slug::ascii($v['name']);
         $plan->regionRoles = $v['roles'];
-        $plan->regionUuid = $this->context['uuid'] !== null ? ($this->context['uuid'])() : self::uuid();
+        $plan->regionUuid = $this->context['uuid'] !== null ? $this->context['uuid']() : self::uuid();
         $plan->regionLocation = $this->settle($v['location'], $current)['free'];
         $plan->regionPort = $v['port'];
     }
@@ -234,9 +252,10 @@ final class RegionPlanner
             return 'The grid has a region of this name already.';
         }
         if ($grid?->isRemote() === true) {
-            $has = $this->context['remoteHas'] !== null
-                ? ($this->context['remoteHas'])(trim($name))
-                : RobustGrid::hasRegion($grid->baseHostname(), $grid->privatePort(), trim($name));
+            $has =
+                $this->context['remoteHas'] !== null
+                    ? $this->context['remoteHas'](trim($name))
+                    : RobustGrid::hasRegion($grid->baseHostname(), $grid->privatePort(), trim($name));
             if ($has === true) {
                 return 'The grid has a region of this name already.';
             }
@@ -255,7 +274,7 @@ final class RegionPlanner
     private function freePlace(int $x, int $y, ?string $ignored = null): array
     {
         if ($this->context['freePlace'] !== null) {
-            return ($this->context['freePlace'])($x, $y, $ignored);
+            return $this->context['freePlace']($x, $y, $ignored);
         }
         // A region that moves frees the place it holds
         $known = $this->context['known'];
@@ -273,7 +292,7 @@ final class RegionPlanner
     {
         $taken = array_merge($this->context['ports'], [$httpPort]);
         if ($this->context['nextPort'] !== null) {
-            return ($this->context['nextPort'])($httpPort, $taken);
+            return $this->context['nextPort']($httpPort, $taken);
         }
 
         $ports = new Ports($this->context['grid']->environment());

@@ -42,17 +42,17 @@ final class SimulatorPlanner
     public static function context(): array
     {
         return [
-            'grid' => null,       // the Grid of the grid it joins (one that is only planned is fine)
-            'cores' => [],        // folder => name
-            'modify' => false,    // the simulator is named by the caller: it exists and its name stays
-            'simulatorName' => '',      // that name
+            'grid' => null, // the Grid of the grid it joins (one that is only planned is fine)
+            'cores' => [], // folder => name
+            'modify' => false, // the simulator is named by the caller: it exists and its name stays
+            'simulatorName' => '', // that name
             'defaultName' => 'Simulator1',
-            'block' => 9000,      // the first block of ten ports free for the simulators of the grid
-            'current' => null,    // the simulator, when it exists: its settings are the ones proposed
-            'sibling' => null,    // another simulator of the grid, whose database account is proposed
-            'accounts' => null,   // the accounts of the grid, null when they are not known here
-            'nextPort' => null,   // Closure(int $min): int, the first free port from there (default: Ports::next)
-            'random' => null,     // Closure(int $length, bool $letters): string (default: random_int)
+            'block' => 9000, // the first block of ten ports free for the simulators of the grid
+            'current' => null, // the simulator, when it exists: its settings are the ones proposed
+            'sibling' => null, // another simulator of the grid, whose database account is proposed
+            'accounts' => null, // the accounts of the grid, null when they are not known here
+            'nextPort' => null, // Closure(int $min): int, the first free port from there (default: Ports::next)
+            'random' => null, // Closure(int $length, bool $letters): string (default: random_int)
         ];
     }
 
@@ -62,8 +62,13 @@ final class SimulatorPlanner
      * @param ?string $simulatorName the simulator to change, null for a new one
      * @param ?string $regionName the region the simulator is made for, which gives it its name
      */
-    public static function forGrid(Grid $grid, DatabaseService $database, UiInterface $ui, ?string $simulatorName = null, ?string $regionName = null): self
-    {
+    public static function forGrid(
+        Grid $grid,
+        DatabaseService $database,
+        UiInterface $ui,
+        ?string $simulatorName = null,
+        ?string $regionName = null,
+    ): self {
         $planner = new self([
             'grid' => $grid,
             'cores' => Core::choices($grid->environment()->layout->coreRoot()),
@@ -72,16 +77,24 @@ final class SimulatorPlanner
         ]);
         // The first simulator of a grid has the name of its landing region, that is its first region; an accent is
         // transliterated (Noël becomes Noel)
-        $firstSimulator = !$grid->isRemote() && Grid::at($grid->environment(), $grid->directory())->simulatorNames() === [];
-        $taken = static fn(string $v): ?string => Simulator::validateName($v) ?? (is_file(GridConfig::simulatorsDirectory($grid->directory()) . '/' . $grid->instanceOf($v) . '.ini') ? 'taken' : null);
+        $firstSimulator =
+            !$grid->isRemote() && Grid::at($grid->environment(), $grid->directory())->simulatorNames() === [];
+        $taken = static fn(string $v): ?string => Simulator::validateName($v) ??
+            (is_file(GridConfig::simulatorsDirectory($grid->directory()) . '/' . $grid->instanceOf($v) . '.ini')
+                ? 'taken'
+                : null);
 
         // The ports of a simulator are a block of ten, the first free one from where the simulators of the grid start (9000 for
         // Robust on 8002), on this machine and among the regions the grids of this machine know on the others
         $foreign = (new GridRegistry($database))->knownPorts($grid->environment(), $grid);
 
         $context = [
-            'defaultName' => $simulatorName ?? SimulatorName::suggest($regionName, $firstSimulator ? 'Welcome' : null, $taken),
-            'block' => (new Ports($grid->environment()))->nextBlock(Ports::simulatorsFrom($grid->publicPort()), $foreign),
+            'defaultName' =>
+                $simulatorName ?? SimulatorName::suggest($regionName, $firstSimulator ? 'Welcome' : null, $taken),
+            'block' => (new Ports($grid->environment()))->nextBlock(
+                Ports::simulatorsFrom($grid->publicPort()),
+                $foreign,
+            ),
             'accounts' => $grid->isRemote() ? null : (new GridAccounts($database, $ui))->names($grid),
         ];
 
@@ -119,7 +132,10 @@ final class SimulatorPlanner
             }
         }
 
-        return $this->with(['current' => is_file($ini) ? new Simulator($environment, $ini) : null, 'sibling' => $sibling]);
+        return $this->with([
+            'current' => is_file($ini) ? new Simulator($environment, $ini) : null,
+            'sibling' => $sibling,
+        ]);
     }
 
     /** The cores that can run the simulator (folder => name). */
@@ -137,11 +153,13 @@ final class SimulatorPlanner
     /** The fields of the simulator, for this grid and this machine. */
     public function fields(): FieldSet
     {
-        return new FieldSet(Simulator::fields([
-            'cores' => $this->context['cores'],
-            'modify' => $this->context['modify'],
-            'accounts' => $this->context['accounts'],
-        ]));
+        return new FieldSet(
+            Simulator::fields([
+                'cores' => $this->context['cores'],
+                'modify' => $this->context['modify'],
+                'accounts' => $this->context['accounts'],
+            ]),
+        );
     }
 
     /**
@@ -163,16 +181,27 @@ final class SimulatorPlanner
         $slug = $grid->instanceOf($name);
         $cores = $c['cores'];
         $core = $text('core', count($cores) > 1 ? $grid->coreDirectory() : '');
-        $core = $core !== ''
-            ? $core
-            : (string) ($grid->coreDirectory() !== '' && isset($cores[$grid->coreDirectory()]) ? $grid->coreDirectory() : array_key_first($cores));
+        $core =
+            $core !== ''
+                ? $core
+                : (string) ($grid->coreDirectory() !== '' && isset($cores[$grid->coreDirectory()])
+                    ? $grid->coreDirectory()
+                    : array_key_first($cores));
 
         $http0 = (int) ($current?->httpPort() ?? $c['block']);
         $http = (int) ($answers['http_port'] ?? $http0);
         $console0 = (int) ($current?->consolePort() ?? $this->consoleFor($http0));
-        $owner = $c['accounts'] === null
-            ? $text('estate_owner', $current?->estateOwner() ?? '')
-            : ($c['accounts'] === [] ? '+' : $text('estate_owner', $current?->estateOwner() !== null && in_array($current->estateOwner(), $c['accounts'], true) ? $current->estateOwner() : $c['accounts'][0]));
+        $owner =
+            $c['accounts'] === null
+                ? $text('estate_owner', $current?->estateOwner() ?? '')
+                : ($c['accounts'] === []
+                    ? '+'
+                    : $text(
+                        'estate_owner',
+                        $current?->estateOwner() !== null && in_array($current->estateOwner(), $c['accounts'], true)
+                            ? $current->estateOwner()
+                            : $c['accounts'][0],
+                    ));
 
         return [
             'name' => $name,
@@ -181,13 +210,24 @@ final class SimulatorPlanner
             'http_port' => $http,
             'external_host' => $text('external_host', 'SYSTEMIP'),
             'console' => $text('console', $current === null || $current->consoleUser() !== null ? 'rest' : 'screen'),
-            'console_port' => (int) ($answers['console_port'] ?? ($http === $http0 ? $console0 : $this->consoleFor($http))),
-            'database_host' => $text('database_host', $current?->databaseHost() ?? ($sibling?->databaseHost() ?? $grid->databaseHost())),
+            'console_port' =>
+                (int) ($answers['console_port'] ?? ($http === $http0 ? $console0 : $this->consoleFor($http))),
+            'database_host' => $text(
+                'database_host',
+                $current?->databaseHost() ?? ($sibling?->databaseHost() ?? $grid->databaseHost()),
+            ),
             'database_name' => $text('database_name', $current?->databaseName() ?? Slug::snake($slug)),
-            'database_user' => $text('database_user', $current?->databaseUser() ?? ($sibling?->databaseUser() ?? $grid->databaseUser())),
+            'database_user' => $text(
+                'database_user',
+                $current?->databaseUser() ?? ($sibling?->databaseUser() ?? $grid->databaseUser()),
+            ),
             'database_password' => $text(
                 'database_password',
-                $current?->databasePassword() ?? ($sibling?->databasePassword() ?? ($grid->databasePassword() !== '' ? $grid->databasePassword() : $this->secret('database_password', 20, false))),
+                $current?->databasePassword() ??
+                    ($sibling?->databasePassword() ??
+                        ($grid->databasePassword() !== ''
+                            ? $grid->databasePassword()
+                            : $this->secret('database_password', 20, false))),
             ),
             'estate_name' => $text('estate_name', $current?->estateName() ?? "{$grid->name()} Estate"),
             'estate_owner' => $owner,
@@ -253,10 +293,14 @@ final class SimulatorPlanner
         $plan->logsDirectory = $grid->logsDirectory();
         $plan->gridHere = !$grid->isRemote();
         // A remote grid not kept yet is written with the simulator
-        $plan->remoteGrid = $grid->isRemote() && !is_file("{$grid->directory()}/{$grid->nick()}.conf") ? $grid->describe() : null;
+        $plan->remoteGrid =
+            $grid->isRemote() && !is_file("{$grid->directory()}/{$grid->nick()}.conf") ? $grid->describe() : null;
         // A grid joined by a preset: the simulators read the files of the preset, where they are
         $plan->preset = $grid->preset();
-        $plan->configDir = $grid->preset() !== '' ? (new Presets([], $grid->environment()->layout->etcRoot()))->dir($grid->preset()) : '';
+        $plan->configDir =
+            $grid->preset() !== ''
+                ? (new Presets([], $grid->environment()->layout->etcRoot()))->dir($grid->preset())
+                : '';
 
         $plan->simulatorName = $v['name'];
         $plan->slug = $v['slug'];
@@ -272,9 +316,11 @@ final class SimulatorPlanner
             $plan->consolePort = $v['console_port'];
             // As the helpers make theirs: 12 lower case letters, 32 letters and digits; the host clients reach it by is the public
             // address of the machine, when it is known
-            $plan->consoleHost = (string) ($current?->consoleHost() ?? ($plan->externalHost !== 'SYSTEMIP' ? $plan->externalHost : ''));
+            $plan->consoleHost =
+                (string) ($current?->consoleHost() ?? ($plan->externalHost !== 'SYSTEMIP' ? $plan->externalHost : ''));
             $plan->consoleUser = (string) ($current?->consoleUser() ?? $this->secret('console_user', 12, true));
-            $plan->consolePass = (string) ($current?->consolePassword() ?? $this->secret('console_password', 32, false));
+            $plan->consolePass =
+                (string) ($current?->consolePassword() ?? $this->secret('console_password', 32, false));
         }
 
         $plan->dbHost = $v['database_host'];
@@ -311,16 +357,24 @@ final class SimulatorPlanner
 
     private function nextPort(int $min): int
     {
-        return $this->context['nextPort'] !== null ? ($this->context['nextPort'])($min) : (new Ports($this->context['grid']->environment()))->next($min);
+        return $this->context['nextPort'] !== null
+            ? $this->context['nextPort']($min)
+            : (new Ports($this->context['grid']->environment()))->next($min);
     }
 
     /** Something made at random, once. */
     private function secret(string $key, int $length, bool $letters): string
     {
         if (!isset($this->secrets[$key])) {
-            $this->secrets[$key] = $this->context['random'] !== null
-                ? ($this->context['random'])($length, $letters)
-                : self::randomString($length, $letters ? 'abcdefghijklmnopqrstuvwxyz' : 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789');
+            $this->secrets[$key] =
+                $this->context['random'] !== null
+                    ? $this->context['random']($length, $letters)
+                    : self::randomString(
+                        $length,
+                        $letters
+                            ? 'abcdefghijklmnopqrstuvwxyz'
+                            : 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+                    );
         }
 
         return $this->secrets[$key];

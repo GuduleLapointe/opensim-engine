@@ -22,8 +22,7 @@ final class ConnectionString
         public readonly string $password,
         public readonly string $host = '',
         public readonly ?int $port = null,
-    ) {
-    }
+    ) {}
 
     /** A connection string for a host that may carry its port; the source is the host as given. */
     public static function for(string $source, string $database, string $user, string $password): self
@@ -83,7 +82,13 @@ final class ConnectionString
      */
     public function credentials(): array
     {
-        return ['host' => $this->host, 'port' => $this->port, 'name' => $this->database, 'user' => $this->user, 'pass' => $this->password];
+        return [
+            'host' => $this->host,
+            'port' => $this->port,
+            'name' => $this->database,
+            'user' => $this->user,
+            'pass' => $this->password,
+        ];
     }
 
     /** What tells one database from another. */

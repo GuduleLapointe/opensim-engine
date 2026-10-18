@@ -13,10 +13,7 @@ final class SignInRedirect
      * @param string $url where to send the person
      * @param array<string,string> $state what complete() needs
      */
-    public function __construct(
-        public readonly string $url,
-        public readonly array $state,
-    ) {}
+    public function __construct(public readonly string $url, public readonly array $state) {}
 
     /** The redirect that goes with a state that was kept. */
     public static function resume(array $state): self

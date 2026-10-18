@@ -3,7 +3,6 @@
  * The answers of the grid service of a Robust to the requests about regions.
  */
 
-
 use OpenSim\Provisioning\RobustGrid;
 
 describe('RobustGrid answers', function () {

@@ -50,10 +50,22 @@ final class Avatar extends Model
     ];
 
     /** What of an account can be changed, by name: the column of UserAccounts. */
-    private const ACCOUNT_SETTINGS = ['email' => 'Email', 'title' => 'UserTitle', 'level' => 'UserLevel', 'active' => 'active'];
+    private const ACCOUNT_SETTINGS = [
+        'email' => 'Email',
+        'title' => 'UserTitle',
+        'level' => 'UserLevel',
+        'active' => 'active',
+    ];
 
     /** What of a profile can be changed, by name: the column of userprofile. */
-    private const PROFILE_SETTINGS = ['about' => 'profileAboutText', 'profileUrl' => 'profileURL', 'wants' => 'profileWantToText', 'skills' => 'profileSkillsText', 'languages' => 'profileLanguages', 'firstLife' => 'profileFirstText'];
+    private const PROFILE_SETTINGS = [
+        'about' => 'profileAboutText',
+        'profileUrl' => 'profileURL',
+        'wants' => 'profileWantToText',
+        'skills' => 'profileSkillsText',
+        'languages' => 'profileLanguages',
+        'firstLife' => 'profileFirstText',
+    ];
 
     /** The moment of the last visit as the database computes it: the later of Login and Logout, stored as texts. */
     private const LAST_SEEN = 'CASE WHEN COALESCE(g.Login + 0, 0) > COALESCE(g.Logout + 0, 0) THEN COALESCE(g.Login + 0, 0) ELSE COALESCE(g.Logout + 0, 0) END';
@@ -129,7 +141,9 @@ final class Avatar extends Model
     {
         $grid = $this->isLocal() ? $this->config->gridUri() : $this->grid();
 
-        return $grid === null || $grid === '' ? null : strtolower($this->firstName() . '.' . $this->lastName()) . '@' . $grid;
+        return $grid === null || $grid === ''
+            ? null
+            : strtolower($this->firstName() . '.' . $this->lastName()) . '@' . $grid;
     }
 
     /** The user flags of the account. */
@@ -174,11 +188,13 @@ final class Avatar extends Model
     {
         $pdo = Connections::pdo($this->config, Database::Profiles);
 
-        return $pdo === null ? [] : $pdo->get_results(
-            "SELECT name, description, simname, posglobal, gatekeeper FROM userpicks WHERE creatoruuid = :id AND enabled = 'true' ORDER BY sortorder, name",
-            ['id' => $this->id()],
-            \PDO::FETCH_ASSOC,
-        );
+        return $pdo === null
+            ? []
+            : $pdo->get_results(
+                "SELECT name, description, simname, posglobal, gatekeeper FROM userpicks WHERE creatoruuid = :id AND enabled = 'true' ORDER BY sortorder, name",
+                ['id' => $this->id()],
+                \PDO::FETCH_ASSOC,
+            );
     }
 
     /**
@@ -192,11 +208,13 @@ final class Avatar extends Model
         // An integer in the statement: a bound value would be text, which a number is not compared with in every database
         $now = (int) ($now ?? time());
 
-        return $pdo === null ? [] : $pdo->get_results(
-            "SELECT name, description, simname, parcelname, creationdate, expirationdate FROM classifieds WHERE creatoruuid = :id AND expirationdate + 0 > $now ORDER BY creationdate DESC",
-            ['id' => $this->id()],
-            \PDO::FETCH_ASSOC,
-        );
+        return $pdo === null
+            ? []
+            : $pdo->get_results(
+                "SELECT name, description, simname, parcelname, creationdate, expirationdate FROM classifieds WHERE creatoruuid = :id AND expirationdate + 0 > $now ORDER BY creationdate DESC",
+                ['id' => $this->id()],
+                \PDO::FETCH_ASSOC,
+            );
     }
 
     public function lastSeen(): ?\DateTimeImmutable
@@ -259,9 +277,13 @@ final class Avatar extends Model
      */
     public static function create(GridConfig $config, array $values): static
     {
-        [$first, $last] = isset($values['name']) ? array_pad(explode(' ', trim((string) $values['name']), 2), 2, '') : [(string) ($values['firstName'] ?? ''), (string) ($values['lastName'] ?? '')];
+        [$first, $last] = isset($values['name'])
+            ? array_pad(explode(' ', trim((string) $values['name']), 2), 2, '')
+            : [(string) ($values['firstName'] ?? ''), (string) ($values['lastName'] ?? '')];
         if (!GridAccounts::validName("$first $last")) {
-            throw new \InvalidArgumentException("'$first $last' is not the name of an avatar: a first and a last name, letters, digits and . _ -");
+            throw new \InvalidArgumentException(
+                "'$first $last' is not the name of an avatar: a first and a last name, letters, digits and . _ -",
+            );
         }
         $hash = isset($values['passwordHash']) ? (array) $values['passwordHash'] : null;
         $password = (string) ($values['password'] ?? '');
@@ -274,18 +296,30 @@ final class Avatar extends Model
         }
 
         $accounts = self::connect($config, 'UserAccountService', null, "create the avatar $first $last");
-        if ((int) $accounts->get_var('SELECT COUNT(*) FROM UserAccounts WHERE FirstName = :f AND LastName = :l', ['f' => $first, 'l' => $last]) > 0) {
+        if (
+            (int) $accounts->get_var('SELECT COUNT(*) FROM UserAccounts WHERE FirstName = :f AND LastName = :l', [
+                'f' => $first,
+                'l' => $last,
+            ]) > 0
+        ) {
             throw new \InvalidArgumentException("an avatar called '$first $last' exists already");
         }
 
-        $made = AccountWriter::standard()->tables($first, $last, trim((string) ($values['email'] ?? '')), $password, $hash, $uuid);
+        $made = AccountWriter::standard()->tables(
+            $first,
+            $last,
+            trim((string) ($values['email'] ?? '')),
+            $password,
+            $hash,
+            $uuid,
+        );
         // Each database gets its rows in one transaction: the tables of the same database go together (the usual case: one)
         $groups = [];
         foreach ($made['tables'] as $table => $statements) {
             $what = Database::forTable($table) ?? 'UserAccountService';
             $key = Connections::key($config, $what) ?? $table;
             $groups[$key]['what'] ??= $what;
-            $groups[$key]['statements'] = [...($groups[$key]['statements'] ?? []), ...$statements];
+            $groups[$key]['statements'] = [...$groups[$key]['statements'] ?? [], ...$statements];
             $groups[$key]['tables'][] = $table;
         }
         $written = [];
@@ -307,10 +341,17 @@ final class Avatar extends Model
             }
             isset($values['home']) && self::setHome($config, $made['id'], (string) $values['home']);
         } catch (\PDOException $e) {
-            throw ChannelUnavailable::for("create the avatar $first $last", $e->getMessage() . ($written === [] ? '' : ' (written before: ' . implode(', ', $written) . ')'));
+            throw ChannelUnavailable::for(
+                "create the avatar $first $last",
+                $e->getMessage() . ($written === [] ? '' : ' (written before: ' . implode(', ', $written) . ')'),
+            );
         }
 
-        return static::find($config, $made['id']) ?? throw ChannelUnavailable::for("create the avatar $first $last", 'the account was written but cannot be read back');
+        return static::find($config, $made['id']) ??
+            throw ChannelUnavailable::for(
+                "create the avatar $first $last",
+                'the account was written but cannot be read back',
+            );
     }
 
     /**
@@ -323,7 +364,11 @@ final class Avatar extends Model
     public function update(array $values): void
     {
         foreach ($values as $name => $value) {
-            if (!isset(self::ACCOUNT_SETTINGS[$name]) && !isset(self::PROFILE_SETTINGS[$name]) && !in_array($name, ['password', 'home'], true)) {
+            if (
+                !isset(self::ACCOUNT_SETTINGS[$name]) &&
+                !isset(self::PROFILE_SETTINGS[$name]) &&
+                !in_array($name, ['password', 'home'], true)
+            ) {
                 throw new \InvalidArgumentException("an avatar has no changeable '$name'");
             }
         }
@@ -340,7 +385,10 @@ final class Avatar extends Model
                 $set[] = self::ACCOUNT_SETTINGS[$name] . " = :$name";
                 $params[$name] = $name === 'active' ? (int) (bool) $value : $value;
             }
-            self::connect($this->config, 'UserAccountService', null, $action)->prepareAndExecute('UPDATE UserAccounts SET ' . implode(', ', $set) . ' WHERE PrincipalID = :id', $params);
+            self::connect($this->config, 'UserAccountService', null, $action)->prepareAndExecute(
+                'UPDATE UserAccounts SET ' . implode(', ', $set) . ' WHERE PrincipalID = :id',
+                $params,
+            );
         }
 
         if (isset($values['password'])) {
@@ -353,8 +401,14 @@ final class Avatar extends Model
         $profile = array_intersect_key($values, self::PROFILE_SETTINGS);
         if ($profile !== []) {
             $pdo = self::connect($this->config, Database::Profiles, null, $action);
-            if ((int) $pdo->get_var('SELECT COUNT(*) FROM userprofile WHERE useruuid = :id', ['id' => $this->id()]) === 0) {
-                throw ChannelUnavailable::for($action, 'the avatar has no profile yet: the grid makes it when the avatar opens it');
+            if (
+                (int) $pdo->get_var('SELECT COUNT(*) FROM userprofile WHERE useruuid = :id', ['id' => $this->id()]) ===
+                0
+            ) {
+                throw ChannelUnavailable::for(
+                    $action,
+                    'the avatar has no profile yet: the grid makes it when the avatar opens it',
+                );
             }
             $set = [];
             $params = ['id' => $this->id()];
@@ -372,13 +426,23 @@ final class Avatar extends Model
         $pdo = self::connect($this->config, 'AuthenticationService', null, $action);
         $salt = bin2hex(random_bytes(16));
         $hash = AccountWriter::passwordHash($password, $salt);
-        $changed = $pdo->prepareAndExecute('UPDATE auth SET passwordHash = :h, passwordSalt = :s WHERE UUID = :id', ['h' => $hash, 's' => $salt, 'id' => $this->id()]);
+        $changed = $pdo->prepareAndExecute('UPDATE auth SET passwordHash = :h, passwordSalt = :s WHERE UUID = :id', [
+            'h' => $hash,
+            's' => $salt,
+            'id' => $this->id(),
+        ]);
         if ($changed !== false && $changed->rowCount() > 0) {
             return;
         }
         $pdo->prepareAndExecute(
             'INSERT INTO auth (UUID, passwordHash, passwordSalt, webLoginKey, accountType) VALUES (:id, :h, :s, :k, :t)',
-            ['id' => $this->id(), 'h' => $hash, 's' => $salt, 'k' => '00000000-0000-0000-0000-000000000000', 't' => 'UserAccount'],
+            [
+                'id' => $this->id(),
+                'h' => $hash,
+                's' => $salt,
+                'k' => '00000000-0000-0000-0000-000000000000',
+                't' => 'UserAccount',
+            ],
         );
     }
 
@@ -387,11 +451,17 @@ final class Avatar extends Model
     {
         $pdo = self::connect($config, 'GridUserService', null, 'set the home of ' . $id);
         $params = ['id' => $id, 'r' => $regionId, 'p' => GridAccounts::HOME_POSITION, 'l' => '<0,1,0>'];
-        $changed = $pdo->prepareAndExecute('UPDATE GridUser SET HomeRegionID = :r, HomePosition = :p, HomeLookAt = :l WHERE UserID = :id', $params);
+        $changed = $pdo->prepareAndExecute(
+            'UPDATE GridUser SET HomeRegionID = :r, HomePosition = :p, HomeLookAt = :l WHERE UserID = :id',
+            $params,
+        );
         if ($changed !== false && $changed->rowCount() > 0) {
             return;
         }
-        $pdo->prepareAndExecute('INSERT INTO GridUser (UserID, HomeRegionID, HomePosition, HomeLookAt) VALUES (:id, :r, :p, :l)', $params);
+        $pdo->prepareAndExecute(
+            'INSERT INTO GridUser (UserID, HomeRegionID, HomePosition, HomeLookAt) VALUES (:id, :r, :p, :l)',
+            $params,
+        );
     }
 
     public function enable(): bool
@@ -413,7 +483,12 @@ final class Avatar extends Model
         $name = preg_split('/\s+/', trim($parts[2] ?? ''), 2) ?: [];
         $grid = preg_replace('#^[a-z]+://|/+$#i', '', trim($parts[1] ?? '')) ?? '';
 
-        return new static($config, ['PrincipalID' => strtolower($parts[0]), 'FirstName' => $name[0] ?? '', 'LastName' => $name[1] ?? '', 'grid' => $grid]);
+        return new static($config, [
+            'PrincipalID' => strtolower($parts[0]),
+            'FirstName' => $name[0] ?? '',
+            'LastName' => $name[1] ?? '',
+            'grid' => $grid,
+        ]);
     }
 
     /** Someone known by their UUID alone: who never came here can be banned all the same. */
@@ -436,7 +511,7 @@ final class Avatar extends Model
         if (self::isUuid($target)) {
             $uuid = strtolower($target);
             $local = self::find($config, $uuid);
-            $local !== null && $people[] = $local;
+            $local !== null && ($people[] = $local);
             foreach (self::visits($config, "$uuid;%") as $userId) {
                 $people[] = static::visitor($config, $userId);
             }
@@ -445,16 +520,24 @@ final class Avatar extends Model
             return $people !== [] ? $people : [static::unknown($config, $uuid)];
         }
         if (preg_match('/^([A-Za-z0-9_-]+)[. ]([A-Za-z0-9_-]+)(?:@(\S+))?$/', $target, $m) !== 1) {
-            throw new \InvalidArgumentException(sprintf("'%s' is neither a name (First Last, First.Last@grid) nor a UUID", $target));
+            throw new \InvalidArgumentException(
+                sprintf("'%s' is neither a name (First Last, First.Last@grid) nor a UUID", $target),
+            );
         }
         [, $first, $last] = $m;
         $grid = $m[3] ?? '';
         if ($grid === '') {
             $local = self::find($config, "$first $last");
-            $local !== null && $people[] = $local;
+            $local !== null && ($people[] = $local);
         }
         // The visitors of other grids: GridUser keeps them as <uuid>;<home of the grid>;<First Last>
-        foreach (self::visits($config, '%;' . ($grid !== '' ? '%' . self::like($grid) . '%;' : '') . self::like("$first $last")) as $userId) {
+        foreach (
+            self::visits(
+                $config,
+                '%;' . ($grid !== '' ? '%' . self::like($grid) . '%;' : '') . self::like("$first $last"),
+            )
+            as $userId
+        ) {
             $people[] = static::visitor($config, $userId);
         }
 
@@ -504,8 +587,19 @@ final class Avatar extends Model
             if ($left['database'] === null || $left['rows'] === 0) {
                 continue;
             }
-            $lines[] = sprintf('-- Delete %d row%s from %s.%s', $left['rows'], $left['rows'] > 1 ? 's' : '', $left['database']->database, $left['table']);
-            $lines[] = sprintf('DELETE FROM %s.%s WHERE %s;', self::quoteName($left['database']->database), self::quoteName($left['table']), $left['condition']);
+            $lines[] = sprintf(
+                '-- Delete %d row%s from %s.%s',
+                $left['rows'],
+                $left['rows'] > 1 ? 's' : '',
+                $left['database']->database,
+                $left['table'],
+            );
+            $lines[] = sprintf(
+                'DELETE FROM %s.%s WHERE %s;',
+                self::quoteName($left['database']->database),
+                self::quoteName($left['table']),
+                $left['condition'],
+            );
         }
 
         return $lines;
@@ -523,7 +617,11 @@ final class Avatar extends Model
             return [];
         }
         try {
-            return $pdo->get_results('SELECT * FROM hg_traveling_data WHERE UserID = :id', ['id' => $this->id()], \PDO::FETCH_ASSOC);
+            return $pdo->get_results(
+                'SELECT * FROM hg_traveling_data WHERE UserID = :id',
+                ['id' => $this->id()],
+                \PDO::FETCH_ASSOC,
+            );
         } catch (\Throwable) {
             return [];
         }
@@ -535,7 +633,12 @@ final class Avatar extends Model
      */
     private function leftover(string $table, Database|string|null $which, ?string $simulator, string $condition): array
     {
-        $database = $which === null ? null : ($which instanceof Database ? $which->connection($this->config, $simulator) : Database::service($this->config, $which));
+        $database =
+            $which === null
+                ? null
+                : ($which instanceof Database
+                    ? $which->connection($this->config, $simulator)
+                    : Database::service($this->config, $which));
         $pdo = $which === null ? null : Connections::pdo($this->config, $which, $simulator);
         $rows = 0;
         if ($pdo !== null) {
@@ -561,7 +664,10 @@ final class Avatar extends Model
             return [];
         }
         try {
-            return array_map('strval', $pdo->get_col("SELECT UserID FROM GridUser WHERE UserID LIKE :p ESCAPE '!'", ['p' => $pattern]));
+            return array_map(
+                'strval',
+                $pdo->get_col("SELECT UserID FROM GridUser WHERE UserID LIKE :p ESCAPE '!'", ['p' => $pattern]),
+            );
         } catch (\Throwable) {
             return [];
         }
@@ -605,26 +711,23 @@ final class Avatar extends Model
         $perPage = max(0, (int) ($options['perPage'] ?? 0));
         $page = max(1, (int) ($options['page'] ?? 1));
         if ($perPage > 0) {
-            $sql .= ' LIMIT ' . $perPage . ' OFFSET ' . (($page - 1) * $perPage);
+            $sql .= ' LIMIT ' . $perPage . ' OFFSET ' . ($page - 1) * $perPage;
         }
         $rows = $accounts->get_results($sql, $params, \PDO::FETCH_ASSOC);
         if (!$joined) {
             $rows = self::withVisits($config, $rows);
         }
 
-        return new Collection(
-            array_map(static fn(array $row): self => new self($config, $row), $rows),
-            [
-                'total' => $total,
-                'page' => $page,
-                'perPage' => $perPage,
-                'sort' => "$sortName $direction",
-                'search' => trim((string) ($options['search'] ?? '')),
-                'columns' => self::columns($joined),
-                'filters' => self::filters($joined),
-                'applied' => $applied,
-            ],
-        );
+        return new Collection(array_map(static fn(array $row): self => new self($config, $row), $rows), [
+            'total' => $total,
+            'page' => $page,
+            'perPage' => $perPage,
+            'sort' => "$sortName $direction",
+            'search' => trim((string) ($options['search'] ?? '')),
+            'columns' => self::columns($joined),
+            'filters' => self::filters($joined),
+            'applied' => $applied,
+        ]);
     }
 
     /**
@@ -646,7 +749,11 @@ final class Avatar extends Model
             return null;
         }
         $joined = self::joined($config);
-        $rows = $accounts->get_results('SELECT ' . self::select($joined) . ' FROM ' . self::from($joined) . $where, $params, \PDO::FETCH_ASSOC);
+        $rows = $accounts->get_results(
+            'SELECT ' . self::select($joined) . ' FROM ' . self::from($joined) . $where,
+            $params,
+            \PDO::FETCH_ASSOC,
+        );
         $rows = $joined ? $rows : self::withVisits($config, $rows);
 
         return isset($rows[0]) ? new self($config, $rows[0]) : null;
@@ -663,7 +770,10 @@ final class Avatar extends Model
         $joined = self::joined($config);
 
         return [
-            'sortable' => array_column(array_filter(self::columns($joined), static fn(array $column): bool => $column['sortable']), 'name'),
+            'sortable' => array_column(
+                array_filter(self::columns($joined), static fn(array $column): bool => $column['sortable']),
+                'name',
+            ),
             'filters' => array_keys(self::filters($joined)),
         ];
     }
@@ -687,7 +797,9 @@ final class Avatar extends Model
 
         return array_map(
             static fn(array $column): array => $column + [
-                'sortable' => isset(self::SORTS[$column['name']]) && ($joined || !in_array($column['name'], self::NEEDS_VISITS, true)),
+                'sortable' =>
+                    isset(self::SORTS[$column['name']]) &&
+                    ($joined || !in_array($column['name'], self::NEEDS_VISITS, true)),
             ],
             $columns,
         );
@@ -719,9 +831,10 @@ final class Avatar extends Model
 
     private static function from(bool $joined): string
     {
-        return 'UserAccounts u' . ($joined
-            ? ' LEFT JOIN GridUser g ON g.UserID = u.PrincipalID LEFT JOIN userprofile p ON p.useruuid = u.PrincipalID'
-            : '');
+        return 'UserAccounts u' .
+            ($joined
+                ? ' LEFT JOIN GridUser g ON g.UserID = u.PrincipalID LEFT JOIN userprofile p ON p.useruuid = u.PrincipalID'
+                : '');
     }
 
     private static function select(bool $joined): string
@@ -742,7 +855,10 @@ final class Avatar extends Model
 
     private static function order(string $name, string $direction): string
     {
-        $parts = array_map(static fn(string $expression): string => $expression . ' ' . strtoupper($direction), self::SORTS[$name]);
+        $parts = array_map(
+            static fn(string $expression): string => $expression . ' ' . strtoupper($direction),
+            self::SORTS[$name],
+        );
 
         return implode(', ', $parts) . ', u.PrincipalID';
     }
@@ -758,17 +874,21 @@ final class Avatar extends Model
         $applied = [];
         $words = preg_split('/\s+/', trim((string) ($options['search'] ?? '')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
         foreach ($words as $i => $word) {
-            $where[] = "(u.FirstName LIKE :w$i ESCAPE '!' OR u.LastName LIKE :w$i ESCAPE '!'" . (($options['searchEmail'] ?? false) ? " OR u.Email LIKE :w$i ESCAPE '!'" : '') . ')';
+            $where[] =
+                "(u.FirstName LIKE :w$i ESCAPE '!' OR u.LastName LIKE :w$i ESCAPE '!'" .
+                ($options['searchEmail'] ?? false ? " OR u.Email LIKE :w$i ESCAPE '!'" : '') .
+                ')';
             $params["w$i"] = self::contains($word);
         }
-        $filters = [
-            'active' => ['u.active = 1', 'u.active = 0'],
-            'god' => ['u.UserLevel >= ' . self::GOD_LEVEL, 'u.UserLevel < ' . self::GOD_LEVEL],
-            'technical' => [
-                "(u.FirstName = '" . self::TECHNICAL[0] . "' AND u.LastName = '" . self::TECHNICAL[1] . "')",
-                "NOT (u.FirstName = '" . self::TECHNICAL[0] . "' AND u.LastName = '" . self::TECHNICAL[1] . "')",
-            ],
-        ] + ($joined ? ['online' => ["g.Online = 'true'", "(g.Online IS NULL OR g.Online <> 'true')"]] : []);
+        $filters =
+            [
+                'active' => ['u.active = 1', 'u.active = 0'],
+                'god' => ['u.UserLevel >= ' . self::GOD_LEVEL, 'u.UserLevel < ' . self::GOD_LEVEL],
+                'technical' => [
+                    "(u.FirstName = '" . self::TECHNICAL[0] . "' AND u.LastName = '" . self::TECHNICAL[1] . "')",
+                    "NOT (u.FirstName = '" . self::TECHNICAL[0] . "' AND u.LastName = '" . self::TECHNICAL[1] . "')",
+                ],
+            ] + ($joined ? ['online' => ["g.Online = 'true'", "(g.Online IS NULL OR g.Online <> 'true')"]] : []);
         foreach ((array) ($options['filters'] ?? []) as $name => $value) {
             if (isset($filters[$name]) && in_array($value, ['yes', 'no'], true)) {
                 $where[] = $filters[$name][$value === 'yes' ? 0 : 1];
@@ -795,17 +915,33 @@ final class Avatar extends Model
         $visits = [];
         $profiles = [];
         if ($pdo = Connections::pdo($config, 'GridUserService')) {
-            foreach ($pdo->get_results("SELECT UserID, HomeRegionID, LastRegionID, Online, Login, Logout FROM GridUser WHERE UserID IN ($marks)", $ids, \PDO::FETCH_ASSOC) as $row) {
+            foreach (
+                $pdo->get_results(
+                    "SELECT UserID, HomeRegionID, LastRegionID, Online, Login, Logout FROM GridUser WHERE UserID IN ($marks)",
+                    $ids,
+                    \PDO::FETCH_ASSOC,
+                )
+                as $row
+            ) {
                 $visits[$row['UserID']] = $row;
             }
         }
         if ($pdo = Connections::pdo($config, Database::Profiles)) {
-            foreach ($pdo->get_results("SELECT useruuid, profileImage, profileAboutText, profileURL, profilePartner, profileWantToText, profileSkillsText, profileLanguages, profileFirstImage, profileFirstText FROM userprofile WHERE useruuid IN ($marks)", $ids, \PDO::FETCH_ASSOC) as $row) {
+            foreach (
+                $pdo->get_results(
+                    "SELECT useruuid, profileImage, profileAboutText, profileURL, profilePartner, profileWantToText, profileSkillsText, profileLanguages, profileFirstImage, profileFirstText FROM userprofile WHERE useruuid IN ($marks)",
+                    $ids,
+                    \PDO::FETCH_ASSOC,
+                )
+                as $row
+            ) {
                 $profiles[$row['useruuid']] = $row;
             }
         }
         foreach ($rows as &$row) {
-            $row += array_diff_key($visits[$row['PrincipalID']] ?? [], ['UserID' => 1]) + array_diff_key($profiles[$row['PrincipalID']] ?? [], ['useruuid' => 1]);
+            $row +=
+                array_diff_key($visits[$row['PrincipalID']] ?? [], ['UserID' => 1]) +
+                array_diff_key($profiles[$row['PrincipalID']] ?? [], ['useruuid' => 1]);
         }
 
         return $rows;

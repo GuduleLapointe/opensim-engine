@@ -15,9 +15,7 @@ final class UiReporter implements ReporterInterface
     /** @var list<string> */
     private array $said = [];
 
-    public function __construct(private readonly UiInterface $ui)
-    {
-    }
+    public function __construct(private readonly UiInterface $ui) {}
 
     public function info(string $message): void
     {
@@ -31,17 +29,11 @@ final class UiReporter implements ReporterInterface
         $this->ui->error($message);
     }
 
-    public function debug(string $message): void
-    {
-    }
+    public function debug(string $message): void {}
 
-    public function step(string $text): void
-    {
-    }
+    public function step(string $text): void {}
 
-    public function stepEnd(): void
-    {
-    }
+    public function stepEnd(): void {}
 
     public function isTerminal(): bool
     {

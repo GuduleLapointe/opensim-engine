@@ -25,13 +25,15 @@ final class RobustConfig
      */
     public static function connectors(bool $helpers, bool $hypergrid): array
     {
-        return array_values(array_filter([
-            'BakedTextureService',
-            'EstateDataService',
-            'UserProfilesServiceConnector',
-            $helpers || $hypergrid ? 'GroupsServiceConnector' : null,
-            $hypergrid ? 'HGGroupsServiceConnector' : null,
-        ]));
+        return array_values(
+            array_filter([
+                'BakedTextureService',
+                'EstateDataService',
+                'UserProfilesServiceConnector',
+                $helpers || $hypergrid ? 'GroupsServiceConnector' : null,
+                $hypergrid ? 'HGGroupsServiceConnector' : null,
+            ]),
+        );
     }
 
     public function example(GridPlan $plan): string
@@ -107,12 +109,20 @@ final class RobustConfig
             // The destination guide of the viewers is the one of the helpers
             $ini->set('LoginService', 'DestinationGuide', $this->q('${Const|WebURL}' . $services->path('guide')));
             // The profile page: the viewers replace [AGENT_NAME] by Firstname.Lastname (the helpers also take Firstname-Lastname)
-            $ini->set('GridInfoService', 'web_profile_url', $this->q('${Const|WebURL}' . $services->path('profile') . '/[AGENT_NAME]'));
+            $ini->set(
+                'GridInfoService',
+                'web_profile_url',
+                $this->q('${Const|WebURL}' . $services->path('profile') . '/[AGENT_NAME]'),
+            );
             // The message of the day: the text of motd.php (WelcomeMessage), read when Robust starts
             $ini->set('LoginService', 'MessageUrl', $this->q('${Const|WebURL}' . $services->path('motd')));
             // The search of the web, when the grid has none of the two settings that say it (alignSearch() gives one to the other); not a
             // grid that has no search
-            if ($plan->search !== 'disabled' && ($ini->get('GridInfoService', 'search') ?? '') === '' && ($ini->get('LoginService', 'SearchURL') ?? '') === '') {
+            if (
+                $plan->search !== 'disabled' &&
+                ($ini->get('GridInfoService', 'search') ?? '') === '' &&
+                ($ini->get('LoginService', 'SearchURL') ?? '') === ''
+            ) {
                 $ini->set('GridInfoService', 'search', $this->q('${Const|WebURL}' . $services->path('search')));
             }
         }

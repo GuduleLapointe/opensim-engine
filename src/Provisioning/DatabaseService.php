@@ -141,10 +141,7 @@ final class DatabaseService
      */
     public function select(GridPlan $plan, string $sql): ?array
     {
-        return $this->query(
-            ConnectionString::for($plan->dbHost, $plan->dbName, $plan->dbUser, $plan->dbPass),
-            $sql,
-        );
+        return $this->query(ConnectionString::for($plan->dbHost, $plan->dbName, $plan->dbUser, $plan->dbPass), $sql);
     }
 
     /**
@@ -504,7 +501,11 @@ final class DatabaseService
                 'root',
                 fn(string $value) => trim($value) === '' ? 'Required.' : null,
             );
-            $access = $this->explicitAccess($plan->dbHost, $user, $this->ui->secret(sprintf(_('Password of %s'), $user)));
+            $access = $this->explicitAccess(
+                $plan->dbHost,
+                $user,
+                $this->ui->secret(sprintf(_('Password of %s'), $user)),
+            );
             [$code, , $err] = SqlRunner::run($access, 'SELECT 1');
             if ($code === 0) {
                 self::$admins[$plan->dbHost] = [$user, $access['pass']];

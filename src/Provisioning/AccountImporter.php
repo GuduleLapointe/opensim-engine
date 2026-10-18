@@ -35,7 +35,10 @@ final class AccountImporter
         return new self(
             static function (Grid $grid) use ($config): ?array {
                 try {
-                    return array_map(static fn(Avatar $avatar): string => $avatar->name(), Avatar::all($config($grid))->items());
+                    return array_map(
+                        static fn(Avatar $avatar): string => $avatar->name(),
+                        Avatar::all($config($grid))->items(),
+                    );
                 } catch (ChannelUnavailable) {
                     return null;
                 }
@@ -106,14 +109,20 @@ final class AccountImporter
             }
 
             try {
-                ($this->create)($grid, array_filter([
-                    'firstName' => $row['first'],
-                    'lastName' => $row['last'],
-                    'email' => $row['email'],
-                    'password' => $hash === null ? $row['password'] : null,
-                    'passwordHash' => $hash,
-                    'home' => $homeId,
-                ], static fn($value): bool => $value !== null));
+                ($this->create)(
+                    $grid,
+                    array_filter(
+                        [
+                            'firstName' => $row['first'],
+                            'lastName' => $row['last'],
+                            'email' => $row['email'],
+                            'password' => $hash === null ? $row['password'] : null,
+                            'passwordHash' => $hash,
+                            'home' => $homeId,
+                        ],
+                        static fn($value): bool => $value !== null,
+                    ),
+                );
                 $row['status'] = self::CREATED;
                 $exists[strtolower("{$account['first']} {$account['last']}")] = true;
             } catch (\InvalidArgumentException | ChannelUnavailable $e) {

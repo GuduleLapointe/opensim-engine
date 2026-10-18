@@ -15,11 +15,18 @@ final class SystemLauncher implements LauncherInterface
     {
         $command = implode(' ', array_map('escapeshellarg', $spec->command));
         if ($spec->environment !== []) {
-            $command = 'env ' . implode(' ', array_map(
-                static fn(string $name, string $value): string => escapeshellarg("$name=$value"),
-                array_keys($spec->environment),
-                $spec->environment,
-            )) . ' ' . $command;
+            $command =
+                'env ' .
+                implode(
+                    ' ',
+                    array_map(
+                        static fn(string $name, string $value): string => escapeshellarg("$name=$value"),
+                        array_keys($spec->environment),
+                        $spec->environment,
+                    ),
+                ) .
+                ' ' .
+                $command;
         }
         $output = $spec->output !== '' ? escapeshellarg($spec->output) : '/dev/null';
         $script = 'cd ' . escapeshellarg($spec->directory) . ' || exit 1; ';

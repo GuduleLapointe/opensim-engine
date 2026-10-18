@@ -32,9 +32,19 @@ final class ResourceRegistry
     /** @return list<string> the roots, the last added first, the one of the application (composer's root package) and the engine's last */
     public static function roots(): array
     {
-        $application = class_exists(\Composer\InstalledVersions::class) ? (\Composer\InstalledVersions::getRootPackage()['install_path'] ?? '') : '';
+        $application = class_exists(\Composer\InstalledVersions::class)
+            ? \Composer\InstalledVersions::getRootPackage()['install_path'] ?? ''
+            : '';
 
-        return array_values(array_unique(array_filter([...self::$roots, $application !== '' ? (realpath($application) ?: rtrim($application, '/')) : '', dirname(__DIR__, 2)])));
+        return array_values(
+            array_unique(
+                array_filter([
+                    ...self::$roots,
+                    $application !== '' ? (realpath($application) ?: rtrim($application, '/')) : '',
+                    dirname(__DIR__, 2),
+                ]),
+            ),
+        );
     }
 
     /**

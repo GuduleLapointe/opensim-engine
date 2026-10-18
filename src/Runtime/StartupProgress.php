@@ -65,7 +65,10 @@ final class StartupProgress
             } elseif (preg_match('/\[REGION LOADER FILE SYSTEM\]: Loaded config for region (.*)$/', $line, $m)) {
                 $configured++;
                 $steps[] = sprintf('  %s: configured (%d/%d)', rtrim($m[1]), $configured, $regions);
-            } elseif (preg_match('/\[GRID SERVICE\]: Region (.*?) \([0-9a-fA-F-]+, /', $line, $m) && str_contains($line, 'registered at')) {
+            } elseif (
+                preg_match('/\[GRID SERVICE\]: Region (.*?) \([0-9a-fA-F-]+, /', $line, $m) &&
+                str_contains($line, 'registered at')
+            ) {
                 $registered++;
                 $steps[] = sprintf('  %s: registered in the grid (%d/%d)', $m[1], $registered, $regions);
             } elseif (preg_match('/\[RegionReady\]: Region "(.*?)".* is ready/', $line, $m)) {

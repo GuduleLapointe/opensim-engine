@@ -30,9 +30,11 @@ final class Scheduler
      * @param string $directory where the state and the locks of the tasks are kept
      * @param int $tickEvery seconds between two looks at the tasks by tick()
      */
-    public function __construct(private readonly string $directory, private readonly ClockInterface $clock, private readonly int $tickEvery = 60)
-    {
-    }
+    public function __construct(
+        private readonly string $directory,
+        private readonly ClockInterface $clock,
+        private readonly int $tickEvery = 60,
+    ) {}
 
     /** The scheduler of an install: the state of its tasks is in its state folder. */
     public static function for(Environment $environment): self
@@ -86,7 +88,7 @@ final class Scheduler
         $results = [];
         foreach ($this->tasks as $task) {
             $result = $this->run($task->name);
-            $result->status === TaskResult::NOT_DUE || $results[] = $result;
+            $result->status === TaskResult::NOT_DUE || ($results[] = $result);
         }
 
         return $results;
@@ -127,7 +129,11 @@ final class Scheduler
             return new TaskResult($name, TaskResult::NOT_DUE);
         }
         if (!$this->ensureDirectory()) {
-            return new TaskResult($name, TaskResult::FAILED, "cannot write in {$this->directory}: the task is not run, nothing would keep it from running again at once");
+            return new TaskResult(
+                $name,
+                TaskResult::FAILED,
+                "cannot write in {$this->directory}: the task is not run, nothing would keep it from running again at once",
+            );
         }
 
         $lock = @fopen("{$this->directory}/$name.lock", 'c');
@@ -153,7 +159,12 @@ final class Scheduler
                 $status = TaskResult::FAILED;
             }
             $duration = round(microtime(true) - $started, 3);
-            $this->write($name, ['started' => $now, 'status' => $status, 'message' => $message, 'duration' => $duration]);
+            $this->write($name, [
+                'started' => $now,
+                'status' => $status,
+                'message' => $message,
+                'duration' => $duration,
+            ]);
 
             return new TaskResult($name, $status, $message, $duration);
         } finally {
@@ -210,6 +221,8 @@ final class Scheduler
             $parent = dirname($parent);
         }
 
-        return is_dir($parent) && is_writable($parent) && (@mkdir($this->directory, 0o775, true) || is_dir($this->directory));
+        return is_dir($parent) &&
+            is_writable($parent) &&
+            (@mkdir($this->directory, 0o775, true) || is_dir($this->directory));
     }
 }

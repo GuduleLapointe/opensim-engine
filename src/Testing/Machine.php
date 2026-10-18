@@ -40,7 +40,10 @@ final class Machine
             touch($this->core . "/bin/$file");
         }
         foreach (['OpenSim', 'Robust'] as $base) {
-            file_put_contents($this->core . "/bin/$base.exe.config", "<configuration><appender name=\"LogFileAppender\" type=\"x\"><file value=\"$base.log\" /></appender></configuration>");
+            file_put_contents(
+                $this->core . "/bin/$base.exe.config",
+                "<configuration><appender name=\"LogFileAppender\" type=\"x\"><file value=\"$base.log\" /></appender></configuration>",
+            );
         }
         mkdir($this->root . '/logs');
         mkdir($this->root . '/var');
@@ -49,7 +52,9 @@ final class Machine
         mkdir($this->etc . '/opensim.d');
 
         $this->write($this->grid . '/demo.conf', "[Grid]\nGridName = Demo\nCoreDirectory = {$this->core}\n");
-        $this->write($this->grid . '/Robust.HG.ini', <<<INI
+        $this->write(
+            $this->grid . '/Robust.HG.ini',
+            <<<INI
             [Const]
                 BinDirectory = "{$this->core}/bin"
                 PublicPort = 8002
@@ -63,10 +68,14 @@ final class Machine
                 ConsolePort = 8404
                 ConsoleUser = u
                 ConsolePass = p
-            INI);
+            INI
+            ,
+        );
         $simulators = GridConfig::simulatorsDirectory($this->grid);
         foreach (['alpha' => 9000, 'beta' => 9010] as $slug => $port) {
-            $this->write("$simulators/$slug.ini", <<<INI
+            $this->write(
+                "$simulators/$slug.ini",
+                <<<INI
                 [Const]
                     LogsDirectory = "{$this->root}/logs"
                     RegistryLocation = "{$this->root}/data/$slug"
@@ -77,8 +86,17 @@ final class Machine
                     ConsoleUser = u
                     ConsolePass = p
                     console_port = {$this->consolePort($port)}
-                INI);
-            $this->write("$simulators/$slug/regions/Plaza.ini", "[Plaza]\nRegionUUID = 11111111-1111-4111-8111-11111111111" . ($slug === 'alpha' ? '1' : '2') . "\nInternalPort = " . ($port + 1) . "\n");
+                INI
+                ,
+            );
+            $this->write(
+                "$simulators/$slug/regions/Plaza.ini",
+                "[Plaza]\nRegionUUID = 11111111-1111-4111-8111-11111111111" .
+                    ($slug === 'alpha' ? '1' : '2') .
+                    "\nInternalPort = " .
+                    ($port + 1) .
+                    "\n",
+            );
         }
         symlink($this->grid . '/Robust.HG.ini', $this->etc . '/robust.d/demo.ini');
         symlink("$simulators/alpha.ini", $this->etc . '/opensim.d/alpha.ini');
@@ -103,12 +121,14 @@ final class Machine
             $this->clock,
             $this->reporter,
             null,
-            new RuntimeProbe(static fn(string $command): string => match (true) {
-                str_contains($command, 'command -v') => '/usr/bin/dotnet',
-                str_contains($command, '--list-runtimes') => "Microsoft.NETCore.App 8.0.4 [/usr/share/dotnet]\n",
-                str_contains($command, 'ldconfig') => "libgdiplus.so (libc6,x86-64) => /usr/lib/libgdiplus.so\n",
-                default => '',
-            }),
+            new RuntimeProbe(
+                static fn(string $command): string => match (true) {
+                    str_contains($command, 'command -v') => '/usr/bin/dotnet',
+                    str_contains($command, '--list-runtimes') => "Microsoft.NETCore.App 8.0.4 [/usr/share/dotnet]\n",
+                    str_contains($command, 'ldconfig') => "libgdiplus.so (libc6,x86-64) => /usr/lib/libgdiplus.so\n",
+                    default => '',
+                },
+            ),
             fn(string $url): ?string => $this->http[$url] ?? null,
         );
     }

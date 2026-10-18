@@ -22,7 +22,8 @@ final class Task
         public readonly \Closure $run,
         public readonly string $label = '',
     ) {
-        preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $name) === 1 || throw new \InvalidArgumentException("'$name' is not a name of a task (letters, digits, hyphens)");
+        preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $name) === 1 ||
+            throw new \InvalidArgumentException("'$name' is not a name of a task (letters, digits, hyphens)");
         $every >= 1 || throw new \InvalidArgumentException("the task '$name' must run every second at least");
     }
 }

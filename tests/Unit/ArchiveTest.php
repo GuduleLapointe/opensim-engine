@@ -409,7 +409,13 @@ describe('opensim save and load', function () {
             ->and($sent)
             ->toBe([]);
 
-        $down = new ArchiveRunner(EnvironmentFake::with($profile), fn() => true, fn() => false, static function (string $m): void {}, 1);
+        $down = new ArchiveRunner(
+            EnvironmentFake::with($profile),
+            fn() => true,
+            fn() => false,
+            static function (string $m): void {},
+            1,
+        );
         expect($down->run('save', ['iar', 'Jane', 'Doe', '/', 'pw'])[0])->toBe(1);
 
         putenv('OPENSIM_IAR_PASSWORD');

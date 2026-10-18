@@ -281,7 +281,10 @@ final class SetupFile
      */
     public static function regionPrompts(array $data, int $i): array
     {
-        return ['Add region' => true, 'Load it now' => self::flag($data, "simulators.$i.enable") && self::flag($data, "simulators.$i.start")];
+        return [
+            'Add region' => true,
+            'Load it now' => self::flag($data, "simulators.$i.enable") && self::flag($data, "simulators.$i.start"),
+        ];
     }
 
     /** @return array<string,string> the administrator of the database server: the one of the simulator, else the one of the grid */
@@ -303,7 +306,9 @@ final class SetupFile
     {
         $value = self::get($data, $path);
 
-        return $value === null || $value === '' || filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) !== false;
+        return $value === null ||
+            $value === '' ||
+            filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) !== false;
     }
 
     /**
@@ -318,7 +323,11 @@ final class SetupFile
         foreach ($fields as $field => $path) {
             $value = self::get($data, strtr($path, $places));
             if ($value !== null && $value !== '') {
-                $values[$field] = is_array($value) ? array_values($value) : (is_bool($value) ? $value : (string) $value);
+                $values[$field] = is_array($value)
+                    ? array_values($value)
+                    : (is_bool($value)
+                        ? $value
+                        : (string) $value);
             }
         }
 

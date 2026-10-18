@@ -24,8 +24,7 @@ final class Problem
         public readonly string $type = 'about:blank',
         public readonly ?string $instance = null,
         public readonly array $extensions = [],
-    ) {
-    }
+    ) {}
 
     /** What is asked is not there. */
     public static function notFound(string $what, ?string $instance = null): self
@@ -37,8 +36,20 @@ final class Problem
     public static function from(\Throwable $error, ?string $instance = null): self
     {
         return match (true) {
-            $error instanceof \InvalidArgumentException => new self(400, 'Invalid request', $error->getMessage(), 'urn:opensim:problem:invalid-request', $instance),
-            $error instanceof ChannelUnavailable => new self(503, 'Not available', $error->getMessage(), 'urn:opensim:problem:channel-unavailable', $instance),
+            $error instanceof \InvalidArgumentException => new self(
+                400,
+                'Invalid request',
+                $error->getMessage(),
+                'urn:opensim:problem:invalid-request',
+                $instance,
+            ),
+            $error instanceof ChannelUnavailable => new self(
+                503,
+                'Not available',
+                $error->getMessage(),
+                'urn:opensim:problem:channel-unavailable',
+                $instance,
+            ),
             default => new self(500, 'Internal error', '', 'about:blank', $instance),
         };
     }
@@ -47,7 +58,13 @@ final class Problem
     public function toArray(): array
     {
         return array_filter(
-            ['type' => $this->type, 'title' => $this->title, 'status' => $this->status, 'detail' => $this->detail, 'instance' => $this->instance] + $this->extensions,
+            [
+                'type' => $this->type,
+                'title' => $this->title,
+                'status' => $this->status,
+                'detail' => $this->detail,
+                'instance' => $this->instance,
+            ] + $this->extensions,
             static fn($value): bool => $value !== null && $value !== '',
         );
     }

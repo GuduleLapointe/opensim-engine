@@ -24,12 +24,16 @@ function stats_database(array $tables = ['accounts', 'visits', 'presence', 'regi
         $old = STATS_NOW - 40 * 86400;
         $pdo->exec('CREATE TABLE GridUser (UserID VARCHAR(255), Login CHAR(16))');
         // u1 and u2 came this month, u3 long ago, and two visitors of other grids came this month
-        $pdo->exec("INSERT INTO GridUser VALUES ('u1', '$recent'), ('u2', '$recent'), ('u3', '$old'), ('v1;http://other.example.org;Vis One', '$recent'), ('v2;http://other.example.org;Vis Two', '$recent')");
+        $pdo->exec(
+            "INSERT INTO GridUser VALUES ('u1', '$recent'), ('u2', '$recent'), ('u3', '$old'), ('v1;http://other.example.org;Vis One', '$recent'), ('v2;http://other.example.org;Vis Two', '$recent')",
+        );
     }
     if (in_array('presence', $tables, true)) {
         $pdo->exec('CREATE TABLE Presence (UserID VARCHAR(255), RegionID CHAR(36))');
         // u1 is in world, a visitor too, u2 is logged out (a null region)
-        $pdo->exec("INSERT INTO Presence VALUES ('u1', 'r1'), ('v1;http://other.example.org;Vis One', 'r1'), ('u2', '00000000-0000-0000-0000-000000000000')");
+        $pdo->exec(
+            "INSERT INTO Presence VALUES ('u1', 'r1'), ('v1;http://other.example.org;Vis One', 'r1'), ('u2', '00000000-0000-0000-0000-000000000000')",
+        );
     }
     if (in_array('regions', $tables, true)) {
         $pdo->exec('CREATE TABLE regions (uuid VARCHAR(36), sizeX INT, sizeY INT)');
@@ -54,24 +58,27 @@ describe('numbers of a grid', function () {
         ]);
     })->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
 
-    test('are counted in the database of each service, asking the identifiers to one and who they are to the other', function () {
-        $dbs = [
-            'UserAccountService' => stats_database(['accounts']),
-            'GridUserService' => stats_database(['visits']),
-            'PresenceService' => stats_database(['presence']),
-            'GridService' => stats_database(['regions']),
-        ];
+    test(
+        'are counted in the database of each service, asking the identifiers to one and who they are to the other',
+        function () {
+            $dbs = [
+                'UserAccountService' => stats_database(['accounts']),
+                'GridUserService' => stats_database(['visits']),
+                'PresenceService' => stats_database(['presence']),
+                'GridService' => stats_database(['regions']),
+            ];
 
-        expect(Stats::counts(static fn(string $service) => $dbs[$service], STATS_NOW))->toBe([
-            'members' => 3,
-            'active_members' => 2,
-            'members_in_world' => 1,
-            'active_users' => 4,
-            'total_users' => 2,
-            'regions' => 3,
-            'area' => 0.39,
-        ]);
-    })->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
+            expect(Stats::counts(static fn(string $service) => $dbs[$service], STATS_NOW))->toBe([
+                'members' => 3,
+                'active_members' => 2,
+                'members_in_world' => 1,
+                'active_users' => 4,
+                'total_users' => 2,
+                'regions' => 3,
+                'area' => 0.39,
+            ]);
+        },
+    )->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
 
     test('are none when a database cannot be reached', function () {
         expect(Stats::counts(static fn() => null, STATS_NOW))->toBeNull();

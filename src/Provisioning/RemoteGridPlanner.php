@@ -35,9 +35,9 @@ final class RemoteGridPlanner
     {
         return [
             'environment' => null, // the Environment of the machine
-            'presets' => [],     // name => name of the grid
-            'describe' => null,  // Closure(string $preset): ?array, what a preset says of its grid (see Presets::describe())
-            'says' => null,      // Closure(string $host, int $port): array<string,string>, what the grid says of itself (default: asks it)
+            'presets' => [], // name => name of the grid
+            'describe' => null, // Closure(string $preset): ?array, what a preset says of its grid (see Presets::describe())
+            'says' => null, // Closure(string $host, int $port): array<string,string>, what the grid says of itself (default: asks it)
         ];
     }
 
@@ -72,15 +72,17 @@ final class RemoteGridPlanner
      */
     public function presetAnswers(string $preset): ?array
     {
-        $described = $this->context['describe'] !== null ? ($this->context['describe'])($preset) : null;
+        $described = $this->context['describe'] !== null ? $this->context['describe']($preset) : null;
 
-        return $described === null ? null : [
-            'address' => "{$described['host']}:{$described['publicPort']}",
-            'name' => $described['name'],
-            'nick' => $described['nick'],
-            'private_port' => $described['privatePort'],
-            'hypergrid' => $described['hypergrid'],
-        ];
+        return $described === null
+            ? null
+            : [
+                'address' => "{$described['host']}:{$described['publicPort']}",
+                'name' => $described['name'],
+                'nick' => $described['nick'],
+                'private_port' => $described['privatePort'],
+                'hypergrid' => $described['hypergrid'],
+            ];
     }
 
     /** The fields to join a grid. */
@@ -132,21 +134,33 @@ final class RemoteGridPlanner
         $said = $preset !== '' ? [] : $this->says($environment, $host, $public);
         if ($said === [] && $preset === '') {
             $result['warnings'][] = sprintf(
-                _('The grid did not answer at http://%s:%s/get_grid_info: check its address and its public port, or go on with what you know of it.'),
+                _(
+                    'The grid did not answer at http://%s:%s/get_grid_info: check its address and its public port, or go on with what you know of it.',
+                ),
                 $host,
                 $public,
             );
         }
-        $name = trim((string) $v['name']) !== '' ? trim((string) $v['name']) : $said['gridname'] ?? ucfirst(explode('.', $host)[0]);
+        $name =
+            trim((string) $v['name']) !== ''
+                ? trim((string) $v['name'])
+                : $said['gridname'] ?? ucfirst(explode('.', $host)[0]);
         // Letters and digits only, as typed (nick() would lower what is already a nick)
-        $nick = (string) preg_replace('/[^A-Za-z0-9]/', '', trim((string) $v['nick']) !== '' ? (string) $v['nick'] : $said['gridnick'] ?? Slug::nick($name));
+        $nick = (string) preg_replace(
+            '/[^A-Za-z0-9]/',
+            '',
+            trim((string) $v['nick']) !== '' ? (string) $v['nick'] : $said['gridnick'] ?? Slug::nick($name),
+        );
         if ($nick === '') {
             $nick = Slug::nick($name);
         }
 
         $known = Grid::find($environment, $nick);
         if ($known?->robustIni() !== null) {
-            $result['error'] = sprintf(_("A grid of this machine already has the nick '%s': it is its own Robust, not another one."), $nick);
+            $result['error'] = sprintf(
+                _("A grid of this machine already has the nick '%s': it is its own Robust, not another one."),
+                $nick,
+            );
 
             return $result;
         }
@@ -185,7 +199,7 @@ final class RemoteGridPlanner
     private function says(Environment $environment, string $host, int $port): array
     {
         if ($this->context['says'] !== null) {
-            return ($this->context['says'])($host, $port);
+            return $this->context['says']($host, $port);
         }
 
         return Grid::announcement($environment, $host, $port);

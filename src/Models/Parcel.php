@@ -51,7 +51,13 @@ final class Parcel extends Model
     private const COLUMNS = 'UUID, RegionUUID, LocalLandID, Name, Description, OwnerUUID, IsGroupOwned, GroupUUID, Area, Category, ClaimDate, SalePrice, LandFlags, LandingType, SnapshotUUID, UserLocationX, UserLocationY, UserLocationZ, Dwell, MusicURL, MediaURL';
 
     /** The columns a list can be sorted on, by their name in the collection: the rows' keys. */
-    private const SORTS = ['name' => 'Name', 'area' => 'Area', 'dwell' => 'Dwell', 'claimed' => 'ClaimDate', 'price' => 'SalePrice'];
+    private const SORTS = [
+        'name' => 'Name',
+        'area' => 'Area',
+        'dwell' => 'Dwell',
+        'claimed' => 'ClaimDate',
+        'price' => 'SalePrice',
+    ];
 
     public function id(): string
     {
@@ -81,7 +87,11 @@ final class Parcel extends Model
         if ($grid === null || $region === '') {
             return null;
         }
-        $at = array_map(fn(string $key): int => (int) round((float) ($this->row[$key] ?? 0)), ['UserLocationX', 'UserLocationY', 'UserLocationZ']);
+        $at = array_map(fn(string $key): int => (int) round((float) ($this->row[$key] ?? 0)), [
+            'UserLocationX',
+            'UserLocationY',
+            'UserLocationZ',
+        ]);
 
         return "$grid:$region/" . implode('/', $at);
     }
@@ -95,7 +105,9 @@ final class Parcel extends Model
     /** The group that owns it. */
     public function group(): ?string
     {
-        return $this->isGroupOwned() ? $this->uuidOrNull($this->row['GroupUUID'] ?? null) ?? $this->uuidOrNull($this->row['OwnerUUID'] ?? null) : null;
+        return $this->isGroupOwned()
+            ? $this->uuidOrNull($this->row['GroupUUID'] ?? null) ?? $this->uuidOrNull($this->row['OwnerUUID'] ?? null)
+            : null;
     }
 
     public function isGroupOwned(): bool
@@ -155,7 +167,9 @@ final class Parcel extends Model
     {
         $bitmap = $this->row['Bitmap'] ?? null;
         if (!is_string($bitmap)) {
-            throw new \LogicException('the bitmap of this parcel is not loaded: get it with Parcel::find() or Parcel::at()');
+            throw new \LogicException(
+                'the bitmap of this parcel is not loaded: get it with Parcel::find() or Parcel::at()',
+            );
         }
         $length = strlen($bitmap);
         $width = match (true) {
@@ -170,7 +184,7 @@ final class Parcel extends Model
         }
         $square = $row * $width + $column;
 
-        return ($square >> 3) < $length && (ord($bitmap[$square >> 3]) & (1 << ($square & 7))) !== 0;
+        return $square >> 3 < $length && (ord($bitmap[$square >> 3]) & (1 << ($square & 7))) !== 0;
     }
 
     /** How many squares of 4 x 4 meters the bitmap holds, null when it is not loaded. */
@@ -178,7 +192,11 @@ final class Parcel extends Model
     {
         $bitmap = $this->row['Bitmap'] ?? null;
 
-        return is_string($bitmap) ? array_sum(array_map(static fn(string $byte): int => substr_count(decbin(ord($byte)), '1'), str_split($bitmap))) : null;
+        return is_string($bitmap)
+            ? array_sum(
+                array_map(static fn(string $byte): int => substr_count(decbin(ord($byte)), '1'), str_split($bitmap)),
+            )
+            : null;
     }
 
     public function detail(): array
@@ -207,7 +225,11 @@ final class Parcel extends Model
             'flags' => $this->flags(),
             'shownInSearch' => $this->isShownInSearch(),
             'dwell' => $this->dwell(),
-            'landing' => [(float) ($row['UserLocationX'] ?? 0), (float) ($row['UserLocationY'] ?? 0), (float) ($row['UserLocationZ'] ?? 0)],
+            'landing' => [
+                (float) ($row['UserLocationX'] ?? 0),
+                (float) ($row['UserLocationY'] ?? 0),
+                (float) ($row['UserLocationZ'] ?? 0),
+            ],
             'snapshot' => $row['SnapshotUUID'] ?? null,
             'music' => $row['MusicURL'] ?? null,
             'media' => $row['MediaURL'] ?? null,
@@ -224,7 +246,11 @@ final class Parcel extends Model
      */
     public static function all(GridConfig $config, array $options = []): Collection
     {
-        [$sortName, $direction] = array_pad(preg_split('/\s+/', trim((string) ($options['sort'] ?? 'name'))) ?: [], 2, 'asc');
+        [$sortName, $direction] = array_pad(
+            preg_split('/\s+/', trim((string) ($options['sort'] ?? 'name'))) ?: [],
+            2,
+            'asc',
+        );
         if (!isset(self::SORTS[$sortName])) {
             [$sortName, $direction] = ['name', 'asc'];
         }
@@ -235,7 +261,10 @@ final class Parcel extends Model
         $reached = 0;
         foreach (self::databases($config) as $pdo) {
             $reached++;
-            foreach ($pdo->get_results('SELECT ' . self::COLUMNS . " FROM land$where", $params, \PDO::FETCH_ASSOC) as $row) {
+            foreach (
+                $pdo->get_results('SELECT ' . self::COLUMNS . " FROM land$where", $params, \PDO::FETCH_ASSOC)
+                as $row
+            ) {
                 $rows[(string) $row['UUID']] = $row;
             }
         }
@@ -246,9 +275,13 @@ final class Parcel extends Model
         $key = self::SORTS[$sortName];
         $numeric = $sortName !== 'name';
         usort($rows, static function (array $a, array $b) use ($key, $numeric, $direction): int {
-            $order = $numeric ? (float) ($a[$key] ?? 0) <=> (float) ($b[$key] ?? 0) : strcasecmp((string) ($a[$key] ?? ''), (string) ($b[$key] ?? ''));
+            $order = $numeric
+                ? (float) ($a[$key] ?? 0) <=> (float) ($b[$key] ?? 0)
+                : strcasecmp((string) ($a[$key] ?? ''), (string) ($b[$key] ?? ''));
 
-            return ($direction === 'desc' ? -$order : $order) ?: strcmp((string) $a['UUID'], (string) $b['UUID']);
+            $order = $direction === 'desc' ? -$order : $order;
+
+            return $order ?: strcmp((string) $a['UUID'], (string) $b['UUID']);
         });
         $total = count($rows);
         $perPage = max(0, (int) ($options['perPage'] ?? 0));
@@ -258,26 +291,27 @@ final class Parcel extends Model
         }
         $rows = self::withNames($config, array_values($rows));
 
-        return new Collection(
-            array_map(static fn(array $row): self => new self($config, $row), $rows),
-            [
-                'total' => $total,
-                'page' => $page,
-                'perPage' => $perPage,
-                'sort' => "$sortName $direction",
-                'search' => trim((string) ($options['search'] ?? '')),
-                'columns' => self::columns(),
-                'filters' => ['shown' => ['yes', 'no'], 'forSale' => ['yes', 'no'], 'region' => [], 'owner' => []],
-                'applied' => $applied,
-            ],
-        );
+        return new Collection(array_map(static fn(array $row): self => new self($config, $row), $rows), [
+            'total' => $total,
+            'page' => $page,
+            'perPage' => $perPage,
+            'sort' => "$sortName $direction",
+            'search' => trim((string) ($options['search'] ?? '')),
+            'columns' => self::columns(),
+            'filters' => ['shown' => ['yes', 'no'], 'forSale' => ['yes', 'no'], 'region' => [], 'owner' => []],
+            'applied' => $applied,
+        ]);
     }
 
     /** A parcel by its UUID, with its bitmap. */
     public static function find(GridConfig $config, string $id): ?static
     {
         foreach (self::databases($config) as $pdo) {
-            $rows = $pdo->get_results('SELECT ' . self::COLUMNS . ', Bitmap FROM land WHERE UUID = :id', ['id' => strtolower($id)], \PDO::FETCH_ASSOC);
+            $rows = $pdo->get_results(
+                'SELECT ' . self::COLUMNS . ', Bitmap FROM land WHERE UUID = :id',
+                ['id' => strtolower($id)],
+                \PDO::FETCH_ASSOC,
+            );
             if ($rows !== []) {
                 return new self($config, self::withNames($config, $rows)[0]);
             }
@@ -296,7 +330,11 @@ final class Parcel extends Model
     {
         $width = null;
         foreach (self::databases($config) as $pdo) {
-            $rows = $pdo->get_results('SELECT ' . self::COLUMNS . ', Bitmap FROM land WHERE RegionUUID = :region', ['region' => strtolower($region)], \PDO::FETCH_ASSOC);
+            $rows = $pdo->get_results(
+                'SELECT ' . self::COLUMNS . ', Bitmap FROM land WHERE RegionUUID = :region',
+                ['region' => strtolower($region)],
+                \PDO::FETCH_ASSOC,
+            );
             if ($rows === []) {
                 continue;
             }
@@ -329,7 +367,10 @@ final class Parcel extends Model
             ['name' => 'shownInSearch', 'label' => _('In search')],
         ];
 
-        return array_map(static fn(array $column): array => $column + ['sortable' => isset(self::SORTS[$column['name']])], $columns);
+        return array_map(
+            static fn(array $column): array => $column + ['sortable' => isset(self::SORTS[$column['name']])],
+            $columns,
+        );
     }
 
     /** The flags of a value, with a label to show. @return array<int,string> */
@@ -395,7 +436,10 @@ final class Parcel extends Model
             if (isset($flags[$name]) && in_array($value, ['yes', 'no'], true)) {
                 $where[] = '(LandFlags & ' . $flags[$name] . ($value === 'yes' ? ') <> 0' : ') = 0');
                 $applied[$name] = $value;
-            } elseif (in_array($name, ['region', 'owner'], true) && preg_match('/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i', (string) $value)) {
+            } elseif (
+                in_array($name, ['region', 'owner'], true) &&
+                preg_match('/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i', (string) $value)
+            ) {
                 $where[] = ($name === 'region' ? 'RegionUUID' : 'OwnerUUID') . " = :$name";
                 $params[$name] = strtolower((string) $value);
                 $applied[$name] = strtolower((string) $value);
@@ -415,15 +459,35 @@ final class Parcel extends Model
     {
         $regions = [];
         $owners = [];
-        $ids = static fn(string $column): array => array_values(array_unique(array_filter(array_column($rows, $column), static fn($id): bool => is_string($id) && $id !== '')));
+        $ids = static fn(string $column): array => array_values(
+            array_unique(
+                array_filter(array_column($rows, $column), static fn($id): bool => is_string($id) && $id !== ''),
+            ),
+        );
         $marks = static fn(array $list): string => implode(',', array_fill(0, count($list), '?'));
         if (($uuids = $ids('RegionUUID')) !== [] && ($pdo = Connections::pdo($config, 'GridService'))) {
-            foreach ($pdo->get_results('SELECT uuid, regionName FROM regions WHERE uuid IN (' . $marks($uuids) . ')', $uuids, \PDO::FETCH_ASSOC) as $row) {
+            foreach (
+                $pdo->get_results(
+                    'SELECT uuid, regionName FROM regions WHERE uuid IN (' . $marks($uuids) . ')',
+                    $uuids,
+                    \PDO::FETCH_ASSOC,
+                )
+                as $row
+            ) {
                 $regions[strtolower((string) $row['uuid'])] = $row['regionName'];
             }
         }
         if (($uuids = $ids('OwnerUUID')) !== [] && ($pdo = Connections::pdo($config, 'UserAccountService'))) {
-            foreach ($pdo->get_results('SELECT PrincipalID, FirstName, LastName FROM UserAccounts WHERE PrincipalID IN (' . $marks($uuids) . ')', $uuids, \PDO::FETCH_ASSOC) as $row) {
+            foreach (
+                $pdo->get_results(
+                    'SELECT PrincipalID, FirstName, LastName FROM UserAccounts WHERE PrincipalID IN (' .
+                        $marks($uuids) .
+                        ')',
+                    $uuids,
+                    \PDO::FETCH_ASSOC,
+                )
+                as $row
+            ) {
                 $owners[strtolower((string) $row['PrincipalID'])] = trim($row['FirstName'] . ' ' . $row['LastName']);
             }
         }

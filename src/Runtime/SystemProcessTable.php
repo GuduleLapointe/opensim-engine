@@ -42,7 +42,11 @@ final class SystemProcessTable implements ProcessTableInterface
                 continue;
             }
             // The program (dotnet, mono) started with a config file: the compiler of mono (mcs.exe) is not an instance
-            if (!in_array(basename($m[6]), self::RUNTIMES, true) || !str_contains($m[7], ' -inifile=') || str_contains($m[7], 'mcs.exe')) {
+            if (
+                !in_array(basename($m[6]), self::RUNTIMES, true) ||
+                !str_contains($m[7], ' -inifile=') ||
+                str_contains($m[7], 'mcs.exe')
+            ) {
                 continue;
             }
             $found[] = new Process(

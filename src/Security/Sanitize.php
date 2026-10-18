@@ -54,7 +54,11 @@ final class Sanitize
         // One attribute per pass: a tag with several is cleaned until there is none left
         do {
             $before = $clean_html;
-            $clean_html = preg_replace('/(<[^>]*)\s(on\w+|style|class)\s*=\s*["\'][^"\']*["\']([^>]*>)/i', '$1$3', $clean_html);
+            $clean_html = preg_replace(
+                '/(<[^>]*)\s(on\w+|style|class)\s*=\s*["\'][^"\']*["\']([^>]*>)/i',
+                '$1$3',
+                $clean_html,
+            );
         } while ($clean_html !== $before);
 
         return trim($clean_html);

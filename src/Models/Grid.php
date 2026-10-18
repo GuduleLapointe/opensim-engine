@@ -135,7 +135,13 @@ final class Grid extends InstalledModel
                 'options' => $cores,
                 'enable' => count($cores) > 1,
             ],
-            ['name' => 'hostname', 'group' => 'network', 'type' => 'string', 'required' => true, 'label' => _('Base hostname')],
+            [
+                'name' => 'hostname',
+                'group' => 'network',
+                'type' => 'string',
+                'required' => true,
+                'label' => _('Base hostname'),
+            ],
             [
                 'name' => 'public_port',
                 'group' => 'network',
@@ -168,7 +174,10 @@ final class Grid extends InstalledModel
                 'group' => 'network',
                 'type' => 'select',
                 'label' => _('Console of the grid'),
-                'options' => ['rest' => _('Remote REST console (recommended)'), 'screen' => _('Screen session (on this machine)')],
+                'options' => [
+                    'rest' => _('Remote REST console (recommended)'),
+                    'screen' => _('Screen session (on this machine)'),
+                ],
             ],
             [
                 'name' => 'console_port',
@@ -180,7 +189,14 @@ final class Grid extends InstalledModel
                 'callback' => [self::class, 'validatePort'],
                 'condition' => ['console' => 'rest'],
             ],
-            ['name' => 'web_url', 'follows' => ['hostname'], 'group' => 'network', 'type' => 'string', 'required' => true, 'label' => _('Web URL')],
+            [
+                'name' => 'web_url',
+                'follows' => ['hostname'],
+                'group' => 'network',
+                'type' => 'string',
+                'required' => true,
+                'label' => _('Web URL'),
+            ],
             [
                 'name' => 'helpers',
                 'group' => 'network',
@@ -198,10 +214,35 @@ final class Grid extends InstalledModel
                 'condition' => ['helpers' => true],
             ],
             ...self::optionFields($options),
-            ['name' => 'database_host', 'group' => 'database', 'type' => 'string', 'required' => true, 'label' => _('Database host')],
-            ['name' => 'database_name', 'follows' => ['nick'], 'group' => 'database', 'type' => 'string', 'required' => true, 'label' => _('Database name')],
-            ['name' => 'database_user', 'group' => 'database', 'type' => 'string', 'required' => true, 'label' => _('Database user')],
-            ['name' => 'database_password', 'group' => 'database', 'type' => 'string', 'required' => true, 'label' => _('Database password')],
+            [
+                'name' => 'database_host',
+                'group' => 'database',
+                'type' => 'string',
+                'required' => true,
+                'label' => _('Database host'),
+            ],
+            [
+                'name' => 'database_name',
+                'follows' => ['nick'],
+                'group' => 'database',
+                'type' => 'string',
+                'required' => true,
+                'label' => _('Database name'),
+            ],
+            [
+                'name' => 'database_user',
+                'group' => 'database',
+                'type' => 'string',
+                'required' => true,
+                'label' => _('Database user'),
+            ],
+            [
+                'name' => 'database_password',
+                'group' => 'database',
+                'type' => 'string',
+                'required' => true,
+                'label' => _('Database password'),
+            ],
         ];
     }
 
@@ -230,7 +271,8 @@ final class Grid extends InstalledModel
                     'shared' => _('Shared provider (2do.directory)'),
                     'disabled' => _('No search'),
                 ],
-                'callback' => static fn(mixed $value, array $answers): ?string => $value === 'internal' && !($answers['helpers'] ?? true)
+                'callback' => static fn(mixed $value, array $answers): ?string => $value === 'internal' &&
+                !($answers['helpers'] ?? true)
                     ? _('The search of this grid is served by opensim-helpers.')
                     : null,
                 'enable' => $new,
@@ -264,7 +306,10 @@ final class Grid extends InstalledModel
                 'group' => 'options',
                 'type' => 'select',
                 'label' => _('Web site'),
-                'options' => ['helpers' => _('The helpers only'), 'website' => _('The helpers and the mini website (opensim-web)')],
+                'options' => [
+                    'helpers' => _('The helpers only'),
+                    'website' => _('The helpers and the mini website (opensim-web)'),
+                ],
                 'condition' => ['helpers' => true],
                 'enable' => $new,
             ],
@@ -280,7 +325,13 @@ final class Grid extends InstalledModel
     public static function remoteFields(): array
     {
         return [
-            ['name' => 'address', 'group' => 'remote', 'type' => 'string', 'required' => true, 'label' => _('Address of the grid (host:port)')],
+            [
+                'name' => 'address',
+                'group' => 'remote',
+                'type' => 'string',
+                'required' => true,
+                'label' => _('Address of the grid (host:port)'),
+            ],
             [
                 'name' => 'name',
                 'group' => 'remote',
@@ -306,7 +357,12 @@ final class Grid extends InstalledModel
                 'description' => _('Empty: the public port plus one'),
                 'callback' => [self::class, 'validatePort'],
             ],
-            ['name' => 'hypergrid', 'group' => 'remote', 'type' => 'boolean', 'label' => _('Does the grid use Hypergrid?')],
+            [
+                'name' => 'hypergrid',
+                'group' => 'remote',
+                'type' => 'boolean',
+                'label' => _('Does the grid use Hypergrid?'),
+            ],
         ];
     }
 
@@ -363,9 +419,12 @@ final class Grid extends InstalledModel
         $grids = [];
         foreach (glob(rtrim($environment->layout->etcRoot(), '/') . '/grids/*', GLOB_ONLYDIR) ?: [] as $directory) {
             $grid = new self($environment, $directory);
-            $grid->isKnown() && $grids[] = $grid;
+            $grid->isKnown() && ($grids[] = $grid);
         }
-        $yesNo = static fn(\Closure $is): array => [static fn(self $grid, string $value): bool => $is($grid) === ($value === 'yes'), ['yes', 'no']];
+        $yesNo = static fn(\Closure $is): array => [
+            static fn(self $grid, string $value): bool => $is($grid) === ($value === 'yes'),
+            ['yes', 'no'],
+        ];
 
         return self::listing(
             $grids,
@@ -415,34 +474,41 @@ final class Grid extends InstalledModel
     {
         $robustIni = $plan->robustIni();
 
-        return new self($environment, $plan->gridDir, [
-            'planned' => true,
-            'nick' => $plan->gridNick,
-            'name' => $plan->gridName,
-            'slug' => $plan->gridSlug,
-            'directory' => $plan->gridDir,
-            'robustIni' => $robustIni,
-            'hypergrid' => $plan->enableHypergrid,
-            'regionSpacing' => $plan->regionSpacing,
-            'center' => $plan->center,
-            'coreDirectory' => $plan->coreDirectory,
-            'baseHostname' => $plan->baseHostname,
-            'publicPort' => $plan->publicPort,
-            'privatePort' => $plan->privatePort,
-            'databaseHost' => $plan->dbHost,
-            'databaseName' => $plan->dbName,
-            'databaseUser' => $plan->dbUser,
-            'databasePassword' => $plan->dbPass,
-            'dataDirectory' => $plan->dataDirectory,
-            'cacheDirectory' => $plan->cacheDirectory,
-            'logsDirectory' => $plan->logsDirectory,
-            // What its Robust serves: as written when it is, else as the setup will write it
-            'connectors' => is_file($robustIni) ? RobustController::connectorsIn($robustIni) : \OpenSim\Provisioning\RobustConfig::connectors($plan->helpers, $plan->enableHypergrid),
-            'search' => $plan->search,
-            'helpers' => $plan->helpers,
-            'webUrl' => $plan->webUrl,
-            'helpersPath' => $plan->helpersPath,
-        ], [self::PLAN]);
+        return new self(
+            $environment,
+            $plan->gridDir,
+            [
+                'planned' => true,
+                'nick' => $plan->gridNick,
+                'name' => $plan->gridName,
+                'slug' => $plan->gridSlug,
+                'directory' => $plan->gridDir,
+                'robustIni' => $robustIni,
+                'hypergrid' => $plan->enableHypergrid,
+                'regionSpacing' => $plan->regionSpacing,
+                'center' => $plan->center,
+                'coreDirectory' => $plan->coreDirectory,
+                'baseHostname' => $plan->baseHostname,
+                'publicPort' => $plan->publicPort,
+                'privatePort' => $plan->privatePort,
+                'databaseHost' => $plan->dbHost,
+                'databaseName' => $plan->dbName,
+                'databaseUser' => $plan->dbUser,
+                'databasePassword' => $plan->dbPass,
+                'dataDirectory' => $plan->dataDirectory,
+                'cacheDirectory' => $plan->cacheDirectory,
+                'logsDirectory' => $plan->logsDirectory,
+                // What its Robust serves: as written when it is, else as the setup will write it
+                'connectors' => is_file($robustIni)
+                    ? RobustController::connectorsIn($robustIni)
+                    : \OpenSim\Provisioning\RobustConfig::connectors($plan->helpers, $plan->enableHypergrid),
+                'search' => $plan->search,
+                'helpers' => $plan->helpers,
+                'webUrl' => $plan->webUrl,
+                'helpersPath' => $plan->helpersPath,
+            ],
+            [self::PLAN],
+        );
     }
 
     /**
@@ -466,13 +532,18 @@ final class Grid extends InstalledModel
             return null;
         }
 
-        return new self($environment, '', [
-            'nick' => $said['gridnick'] ?? '',
-            'name' => $said['gridname'] ?? '',
-            'baseHostname' => $host,
-            'publicPort' => $port,
-            'announcement' => $said,
-        ], [self::ANNOUNCED]);
+        return new self(
+            $environment,
+            '',
+            [
+                'nick' => $said['gridnick'] ?? '',
+                'name' => $said['gridname'] ?? '',
+                'baseHostname' => $host,
+                'publicPort' => $port,
+                'announcement' => $said,
+            ],
+            [self::ANNOUNCED],
+        );
     }
 
     /**
@@ -483,11 +554,15 @@ final class Grid extends InstalledModel
     public static function announcement(Environment $environment, string $host, int $port): array
     {
         $url = "http://$host:$port/get_grid_info";
-        $body = $environment->http !== null
-            ? ($environment->http)($url)
-            : @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => 5]]));
+        $body =
+            $environment->http !== null
+                ? ($environment->http)($url)
+                : @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => 5]]));
         $said = [];
-        if (is_string($body) && preg_match_all('#<([A-Za-z_][\w.-]*)>([^<]+)</\1>#', $body, $found, PREG_SET_ORDER) > 0) {
+        if (
+            is_string($body) &&
+            preg_match_all('#<([A-Za-z_][\w.-]*)>([^<]+)</\1>#', $body, $found, PREG_SET_ORDER) > 0
+        ) {
             foreach ($found as [, $key, $value]) {
                 $said[$key] = trim(html_entity_decode($value, ENT_QUOTES | ENT_XML1));
             }
@@ -786,7 +861,9 @@ final class Grid extends InstalledModel
                 return $this->search() === 'shared' ? self::SHARED_SEARCH . "/$service.php" : '';
             }
 
-            return $this->hasHelpers() ? (new \OpenSim\Provisioning\Web\Services($this->helpersPath()))->url($this->webUrl(), $service) : '';
+            return $this->hasHelpers()
+                ? (new \OpenSim\Provisioning\Web\Services($this->helpersPath()))->url($this->webUrl(), $service)
+                : '';
         }
         $webUrl = \OpenSim\Provisioning\Web\HelpersConfig::webUrl($this->directory);
         if ($webUrl === '') {
@@ -806,7 +883,11 @@ final class Grid extends InstalledModel
         if ($this->isRemote()) {
             return [];
         }
-        $flags = [Region::DEFAULT_REGION, ...($this->isHypergrid() ? [Region::DEFAULT_HGREGION] : []), Region::FALLBACK_REGION];
+        $flags = [
+            Region::DEFAULT_REGION,
+            ...$this->isHypergrid() ? [Region::DEFAULT_HGREGION] : [],
+            Region::FALLBACK_REGION,
+        ];
 
         return array_map(Region::flagName(...), $flags);
     }
@@ -827,7 +908,10 @@ final class Grid extends InstalledModel
      */
     public function needsLandingRegion(): bool
     {
-        return array_intersect($this->missingRoles(), [Region::flagName(Region::DEFAULT_REGION), Region::flagName(Region::DEFAULT_HGREGION)]) !== [];
+        return array_intersect($this->missingRoles(), [
+            Region::flagName(Region::DEFAULT_REGION),
+            Region::flagName(Region::DEFAULT_HGREGION),
+        ]) !== [];
     }
 
     /** The description of a remote grid, to keep it: what a simulator needs to join it. */
@@ -909,11 +993,18 @@ final class Grid extends InstalledModel
         if ($this->in(self::FOLDER) && $this->directory !== '') {
             $config = GridConfig::fromFolder($this->directory);
 
-            return $which instanceof Database ? $which->connection($config, $simulator) : Database::service($config, $which);
+            return $which instanceof Database
+                ? $which->connection($config, $simulator)
+                : Database::service($config, $which);
         }
 
         return $this->databaseName() !== ''
-            ? ConnectionString::for($this->databaseHost(), $this->databaseName(), $this->databaseUser(), $this->databasePassword())
+            ? ConnectionString::for(
+                $this->databaseHost(),
+                $this->databaseName(),
+                $this->databaseUser(),
+                $this->databasePassword(),
+            )
             : null;
     }
 
@@ -933,11 +1024,16 @@ final class Grid extends InstalledModel
         };
         $config = GridConfig::fromFolder($this->directory);
         if ($simulator === null && !$this->isRemote()) {
-            foreach ([Database::Robust, Database::Assets, Database::Profiles, Database::Offline, Database::Economy] as $database) {
+            foreach (
+                [Database::Robust, Database::Assets, Database::Profiles, Database::Offline, Database::Economy]
+                as $database
+            ) {
                 $add($database->connection($config));
             }
             foreach ($config->tree()['Robust'] ?? [] as $section => $settings) {
-                is_array($settings) && isset($settings['ConnectionString']) && $add(Database::service($config, (string) $section));
+                is_array($settings) &&
+                    isset($settings['ConnectionString']) &&
+                    $add(Database::service($config, (string) $section));
             }
             Database::centralEstates($config) && $add(Database::Estate->connection($config));
         }
@@ -990,7 +1086,9 @@ final class Grid extends InstalledModel
     /** Whether its Robust is on another machine: the grid is only described here. */
     public function isRemote(): bool
     {
-        return $this->in(self::FOLDER) ? $this->robustFile() === null && $this->hasRemoteDescription() : (bool) $this->get('remote');
+        return $this->in(self::FOLDER)
+            ? $this->robustFile() === null && $this->hasRemoteDescription()
+            : (bool) $this->get('remote');
     }
 
     /**
@@ -998,7 +1096,9 @@ final class Grid extends InstalledModel
      */
     public function isStandalone(): bool
     {
-        return $this->in(self::FOLDER) ? $this->robustFile() === null && $this->hasStandaloneDescription() : (bool) $this->get('standalone');
+        return $this->in(self::FOLDER)
+            ? $this->robustFile() === null && $this->hasStandaloneDescription()
+            : (bool) $this->get('standalone');
     }
 
     /** Whether the description of its folder says it is a standalone. */
@@ -1047,7 +1147,9 @@ final class Grid extends InstalledModel
         }
         $robust = new RobustController($this->environment, $file, $this->nick());
 
-        return $robust->isEnabled() ? new RobustController($this->environment, $robust->link(), $this->nick()) : $robust;
+        return $robust->isEnabled()
+            ? new RobustController($this->environment, $robust->link(), $this->nick())
+            : $robust;
     }
 
     /**
@@ -1093,7 +1195,9 @@ final class Grid extends InstalledModel
         $simulators = [];
         foreach ($files as $file) {
             $simulator = new Simulator($this->environment, $file);
-            $simulators[] = $simulator->isEnabled() ? new Simulator($this->environment, $simulator->link()) : $simulator;
+            $simulators[] = $simulator->isEnabled()
+                ? new Simulator($this->environment, $simulator->link())
+                : $simulator;
         }
 
         return $simulators;
@@ -1106,7 +1210,10 @@ final class Grid extends InstalledModel
      */
     public function simulatorNames(): array
     {
-        $names = array_map(static fn(string $file): string => basename($file, '.ini'), glob(GridConfig::simulatorsDirectory($this->directory) . '/*.ini') ?: []);
+        $names = array_map(
+            static fn(string $file): string => basename($file, '.ini'),
+            glob(GridConfig::simulatorsDirectory($this->directory) . '/*.ini') ?: [],
+        );
         sort($names);
 
         return $names;
@@ -1115,7 +1222,10 @@ final class Grid extends InstalledModel
     /** The link that enables a simulator, by the name of its config file: where the launcher finds it. */
     public function simulatorLink(string $name): string
     {
-        return (new Simulator($this->environment, GridConfig::simulatorsDirectory($this->directory) . "/$name.ini"))->link();
+        return (new Simulator(
+            $this->environment,
+            GridConfig::simulatorsDirectory($this->directory) . "/$name.ini",
+        ))->link();
     }
 
     /** @return list<Simulator> the simulators that start with the others */
@@ -1206,8 +1316,10 @@ final class Grid extends InstalledModel
         $robust = $this->robust();
 
         return [
-            ...($robust !== null && $robust->isEnabled() ? [$robust] : []),
-            ...($simulators ? array_map(static fn(Simulator $s): Controller => $s->controller(), $this->enabledSimulators()) : []),
+            ...$robust !== null && $robust->isEnabled() ? [$robust] : [],
+            ...$simulators
+                ? array_map(static fn(Simulator $s): Controller => $s->controller(), $this->enabledSimulators())
+                : [],
         ];
     }
 
@@ -1237,7 +1349,10 @@ final class Grid extends InstalledModel
      */
     public function stop(bool $now = false, bool $simulators = false): array
     {
-        return array_map(static fn(Controller $i): Result => $i->stop($now), array_reverse($this->instances($simulators)));
+        return array_map(
+            static fn(Controller $i): Result => $i->stop($now),
+            array_reverse($this->instances($simulators)),
+        );
     }
 
     /**

@@ -51,7 +51,7 @@ final class Connections
     {
         $key = self::key($config, $what, $simulator);
 
-        return $key === null ? null : (self::$failures[$key] ?? null);
+        return $key === null ? null : self::$failures[$key] ?? null;
     }
 
     /** What tells one database from another, null when the grid does not say it. */
@@ -68,8 +68,11 @@ final class Connections
         self::$failures = [];
     }
 
-    private static function connection(GridConfig $config, Database|string $what, ?string $simulator): ?\OpenSim\Config\ConnectionString
-    {
+    private static function connection(
+        GridConfig $config,
+        Database|string $what,
+        ?string $simulator,
+    ): ?\OpenSim\Config\ConnectionString {
         return $what instanceof Database ? $what->connection($config, $simulator) : Database::service($config, $what);
     }
 }

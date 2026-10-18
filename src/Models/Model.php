@@ -20,9 +20,7 @@ abstract class Model implements OpenSimModelInterface
     /**
      * @param array<string,mixed> $row the record as its table gives it
      */
-    final public function __construct(protected readonly GridConfig $config, protected readonly array $row)
-    {
-    }
+    final public function __construct(protected readonly GridConfig $config, protected readonly array $row) {}
 
     public function uuid(): ?string
     {
@@ -96,14 +94,21 @@ abstract class Model implements OpenSimModelInterface
      * @param string $action what was being done ("read the avatars"), for the message
      * @throws ChannelUnavailable
      */
-    protected static function connect(GridConfig $config, Database|string $what, ?string $simulator, string $action): OSPDO
-    {
+    protected static function connect(
+        GridConfig $config,
+        Database|string $what,
+        ?string $simulator,
+        string $action,
+    ): OSPDO {
         $pdo = Connections::pdo($config, $what, $simulator);
         if ($pdo !== null) {
             return $pdo;
         }
-        $reason = Connections::reason($config, $what, $simulator)
-            ?? (Connections::key($config, $what, $simulator) === null ? 'the config of the grid does not say where this database is' : 'the database cannot be reached');
+        $reason =
+            Connections::reason($config, $what, $simulator) ??
+            (Connections::key($config, $what, $simulator) === null
+                ? 'the config of the grid does not say where this database is'
+                : 'the database cannot be reached');
 
         throw ChannelUnavailable::for($action, $reason);
     }

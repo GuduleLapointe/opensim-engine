@@ -13,8 +13,7 @@ final class Result
         public readonly string $instance,
         public readonly Outcome $outcome,
         public readonly string $message = '',
-    ) {
-    }
+    ) {}
 
     /** Whether nothing went wrong (an instance that is still loading did not fail). */
     public function ok(): bool
