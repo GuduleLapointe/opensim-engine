@@ -347,7 +347,7 @@ final class Avatar extends Model
             $found[] = $this->leftover($table, $which, null, $condition);
         }
         $seen = [];
-        foreach (array_keys($this->config->tree()['sims'] ?? []) as $simulator) {
+        foreach (array_keys($this->config->tree()['simulators'] ?? []) as $simulator) {
             $key = Connections::key($this->config, Database::Simulator, (string) $simulator);
             if ($key === null || isset($seen[$key])) {
                 continue;

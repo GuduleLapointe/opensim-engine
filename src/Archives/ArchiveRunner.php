@@ -7,6 +7,7 @@ use OpenSim\Models\Grid;
 use OpenSim\Models\Region;
 use OpenSim\Provisioning\Slug;
 use OpenSim\Runtime\Environment;
+use OpenSim\Config\GridConfig;
 
 /**
  * `opensim save|load iar|oar`: find the simulator, the region and the file, give the console of the simulator its command,
@@ -240,7 +241,7 @@ final class ArchiveRunner
     {
         $names = array_values(array_map(
             static fn(Region $region): string => $region->name(),
-            array_filter(Region::inDirectory("{$grid->directory()}/sims/$slug/regions"), static fn(Region $region): bool => $region->isEnabled()),
+            array_filter(Region::inDirectory(GridConfig::simulatorsDirectory($grid->directory()) . "/$slug/regions"), static fn(Region $region): bool => $region->isEnabled()),
         ));
         if (isset($options['region'])) {
             if ($names !== [] && !in_array($options['region'], $names, true)) {

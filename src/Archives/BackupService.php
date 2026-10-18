@@ -7,10 +7,11 @@ use OpenSim\Models\Grid;
 use OpenSim\Models\Simulator;
 use OpenSim\Provisioning\Slug;
 use OpenSim\Runtime\Environment;
+use OpenSim\Config\GridConfig;
 
 /**
  * The backup of the administrator: what it takes to install a grid again as it is, on another machine or after a crash.
- * One archive (gridnick[-sim]-stamp[-logs][-archives].tar.gz) per grid, or for one of its simulators, holds
+ * One archive (gridnick[-simulator]-stamp[-logs][-archives].tar.gz) per grid, or for one of its simulators, holds
  *
  *   manifest.json     what it is, when, of which host and install
  *   etc/              the configuration: the folder of the grid (its simulators, their regions, the web examples), the
@@ -144,8 +145,8 @@ final class BackupService
                 // The simulator, with what it shares with the others (the files of the grid, not their simulators)
                 foreach ($model->simulatorNames() as $other) {
                     if ($other !== $slug) {
-                        $excludes[] = "grids/$nick/sims/$other";
-                        $excludes[] = "grids/$nick/sims/$other.ini";
+                        $excludes[] = "grids/$nick/" . GridConfig::SIMULATORS . "/$other";
+                        $excludes[] = "grids/$nick/" . GridConfig::SIMULATORS . "/$other.ini";
                     }
                 }
                 $paths = ["grids/$nick"];

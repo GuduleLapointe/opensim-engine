@@ -7,6 +7,7 @@ namespace OpenSim\Testing;
 use OpenSim\Config\Layout;
 use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\RuntimeProbe;
+use OpenSim\Config\GridConfig;
 
 /**
  * A machine that is a folder: an install with a core, a grid `demo` (its Robust, two simulators `alpha` and `beta`), the
@@ -63,24 +64,25 @@ final class Machine
                 ConsoleUser = u
                 ConsolePass = p
             INI);
+        $simulators = GridConfig::simulatorsDirectory($this->grid);
         foreach (['alpha' => 9000, 'beta' => 9010] as $slug => $port) {
-            $this->write("{$this->grid}/sims/$slug.ini", <<<INI
+            $this->write("$simulators/$slug.ini", <<<INI
                 [Const]
                     LogsDirectory = "{$this->root}/logs"
                     RegistryLocation = "{$this->root}/data/$slug"
                 [Startup]
-                    regionload_regionsdir = "{$this->grid}/sims/$slug/regions"
+                    regionload_regionsdir = "{$simulators}/$slug/regions"
                 [Network]
                     http_listener_port = $port
                     ConsoleUser = u
                     ConsolePass = p
                     console_port = {$this->consolePort($port)}
                 INI);
-            $this->write("{$this->grid}/sims/$slug/regions/Plaza.ini", "[Plaza]\nRegionUUID = 11111111-1111-4111-8111-11111111111" . ($slug === 'alpha' ? '1' : '2') . "\nInternalPort = " . ($port + 1) . "\n");
+            $this->write("$simulators/$slug/regions/Plaza.ini", "[Plaza]\nRegionUUID = 11111111-1111-4111-8111-11111111111" . ($slug === 'alpha' ? '1' : '2') . "\nInternalPort = " . ($port + 1) . "\n");
         }
         symlink($this->grid . '/Robust.HG.ini', $this->etc . '/robust.d/demo.ini');
-        symlink($this->grid . '/sims/alpha.ini', $this->etc . '/opensim.d/alpha.ini');
-        symlink($this->grid . '/sims/beta.ini', $this->etc . '/opensim.d/beta.ini');
+        symlink("$simulators/alpha.ini", $this->etc . '/opensim.d/alpha.ini');
+        symlink("$simulators/beta.ini", $this->etc . '/opensim.d/beta.ini');
 
         $this->processes = new ProcessTableFake();
         $this->launcher = new LauncherFake($this->processes);

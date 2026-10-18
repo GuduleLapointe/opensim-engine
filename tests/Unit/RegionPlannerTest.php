@@ -55,7 +55,7 @@ describe('A region', function () {
             // The default region and the one of the visitors, not the fallback
             'roles' => [Region::flagName(Region::DEFAULT_REGION), Region::flagName(Region::DEFAULT_HGREGION)],
             'location' => '100,100',
-            'sim' => '+',
+            'simulator' => '+',
             'port' => 9001,
         ]);
     });
@@ -126,12 +126,12 @@ describe('A region', function () {
     test('can go in a simulator of the pool, whose port is the one that counts', function () {
         $planner = region_planner(['pool' => ['demo_sim2' => 'Sim2 (Garden)'], 'portOfSimulator' => static fn(string $simulator): int => 9010]);
 
-        expect($planner->resolve()['sim'])->toBe('+')
+        expect($planner->resolve()['simulator'])->toBe('+')
             ->and($planner->resolve()['port'])->toBe(9001)
-            ->and($planner->resolve(['sim' => 'demo_sim2'])['port'])->toBe(9011)
-            ->and($planner->fields()->get('sim')['options'])->toBe(['+' => 'Auto (add new)', 'demo_sim2' => 'Sim2 (Garden)'])
-            ->and($planner->fields()->visible('port', ['sim' => '+']))->toBeFalse()
-            ->and($planner->fields()->visible('port', ['sim' => 'demo_sim2']))->toBeTrue();
+            ->and($planner->resolve(['simulator' => 'demo_sim2'])['port'])->toBe(9011)
+            ->and($planner->fields()->get('simulator')['options'])->toBe(['+' => 'Auto (add new)', 'demo_sim2' => 'Sim2 (Garden)'])
+            ->and($planner->fields()->visible('port', ['simulator' => '+']))->toBeFalse()
+            ->and($planner->fields()->visible('port', ['simulator' => 'demo_sim2']))->toBeTrue();
     });
 
     test('says what is wrong: a name that is not valid, taken by a region of the grid or by one of a grid on another machine, a place, a port', function () {
@@ -180,10 +180,10 @@ describe('A region', function () {
     test('that exists only moves: its name, its roles and its simulator stay', function () {
         $fields = region_planner()->fixed()->fields();
 
-        expect($fields->names())->toBe(['create', 'name', 'roles', 'location', 'sim', 'port'])
+        expect($fields->names())->toBe(['create', 'name', 'roles', 'location', 'simulator', 'port'])
             ->and($fields->visible('name', []))->toBeFalse()
             ->and($fields->visible('roles', []))->toBeFalse()
-            ->and($fields->visible('sim', []))->toBeFalse()
+            ->and($fields->visible('simulator', []))->toBeFalse()
             ->and($fields->visible('location', []))->toBeTrue()
             ->and($fields->visible('port', []))->toBeTrue();
     });

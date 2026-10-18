@@ -15,7 +15,7 @@ use OpenSim\Config\GridConfig;
  *     Database::Search->pdo($config)                      // an OSPDO on the search database
  *
  * A setting is written `Role.Section.Key`: the role is a file of the grid folder (Robust, OpenSim, MoneyServer, Helpers), and
- * `Simulator` stands for the file of the simulator (sims/<name>.ini), then the OpenSim.ini of the grid. `Robust` is the Robust
+ * `Simulator` stands for the file of the simulator, then the OpenSim.ini of the grid. `Robust` is the Robust
  * config, else the reduced copy of it in Helpers.ini (a web host), else the OpenSim.ini of a standalone grid. The settings are listed in
  * the order OpenSimulator reads them, the first that has a value is the database; the last of the list is the database the
  * others fall back to.
@@ -316,7 +316,7 @@ enum Database: string
      */
     public static function known(GridConfig $config): array
     {
-        $simulators = array_keys($config->tree()['sims'] ?? []);
+        $simulators = array_keys($config->tree()['simulators'] ?? []);
         $known = [];
         foreach (self::cases() as $database) {
             foreach ($database->scopeIn($config) === self::GRID ? [null] : $simulators as $simulator) {
@@ -337,7 +337,7 @@ enum Database: string
         [$role, $section, $key] = explode('.', $path, 3);
         $tree = $config->tree();
         if ($role === 'Simulator') {
-            $own = $tree['sims'][$simulator] ?? [];
+            $own = $tree['simulators'][$simulator] ?? [];
             $value = $own[$section][$key] ?? ($tree['OpenSim'][$section][$key] ?? null);
         } elseif ($role === 'Robust') {
             // The services are in the Robust config; a web host has a reduced copy of it in Helpers.ini, a standalone simulator has

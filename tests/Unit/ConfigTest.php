@@ -145,12 +145,12 @@ describe('config of a grid folder', function () {
         $config = $folder(['OpenSim.ini' => "[Search]\nSearchURL = \"a\"\n", 'sims/one.ini' => "[Search]\nSearchURL = \"b\"\n", 'Helpers.ini' => "[Helpers]\nGuideSource = \"g\"\n"]);
 
         expect(array_keys($config->tree()))
-            ->toBe(['Robust', 'OpenSim', 'sims', 'MoneyServer', 'Helpers'])
+            ->toBe(['Robust', 'OpenSim', 'simulators', 'MoneyServer', 'Helpers'])
             ->and($config->has('Robust'))
             ->toBeTrue()
-            ->and($config->has('sims/one'))
+            ->and($config->has('simulators/one'))
             ->toBeTrue()
-            ->and($config->has('sims/two'))
+            ->and($config->has('simulators/two'))
             ->toBeFalse()
             ->and(basename((string) $config->file('Robust')))
             ->toBe('Robust.HG.ini')

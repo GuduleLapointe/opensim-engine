@@ -21,7 +21,7 @@ function databases_config(): GridConfig
             'UserProfilesService' => ['ConnectionString' => DB_OTHER],
             'LoginService' => ['WelcomeMessage' => 'Welcome'],
         ],
-        'sims' => [
+        'simulators' => [
             'one' => ['DatabaseService' => ['ConnectionString' => DB_OTHER]],
             'two' => ['DatabaseService' => ['ConnectionString' => DB_DEFAULT, 'EstateConnectionString' => DB_OTHER, 'StorageProvider' => 'OpenSim.Data.MySQL.dll']],
             'three' => ['Startup' => ['x' => 'y']],
@@ -55,16 +55,16 @@ describe('database settings of a config', function () {
     test('are for a simulator the connection of the regions and of the estates, the estates taking EstateConnectionString first', function () {
         $config = databases_config();
 
-        expect($config->get('sims.one.DatabaseService.EstateConnectionString'))->toBe(DB_OTHER)
-            ->and($config->get('sims.one.SimulationDataStore.ConnectionString'))->toBe(DB_OTHER)
-            ->and($config->get('sims.one.EstateDataStore.ConnectionString'))->toBe(DB_OTHER)
-            ->and($config->get('sims.two.SimulationDataStore.ConnectionString'))->toBe(DB_DEFAULT)
-            ->and($config->get('sims.two.EstateDataStore.ConnectionString'))->toBe(DB_OTHER)
-            ->and($config->get('sims.two.EstateDataStore.StorageProvider'))->toBe('OpenSim.Data.MySQL.dll');
+        expect($config->get('simulators.one.DatabaseService.EstateConnectionString'))->toBe(DB_OTHER)
+            ->and($config->get('simulators.one.SimulationDataStore.ConnectionString'))->toBe(DB_OTHER)
+            ->and($config->get('simulators.one.EstateDataStore.ConnectionString'))->toBe(DB_OTHER)
+            ->and($config->get('simulators.two.SimulationDataStore.ConnectionString'))->toBe(DB_DEFAULT)
+            ->and($config->get('simulators.two.EstateDataStore.ConnectionString'))->toBe(DB_OTHER)
+            ->and($config->get('simulators.two.EstateDataStore.StorageProvider'))->toBe('OpenSim.Data.MySQL.dll');
     });
 
     test('are not invented for a simulator that has no database', function () {
-        expect(databases_config()->get('sims.three'))->toBe(['Startup' => ['x' => 'y']]);
+        expect(databases_config()->get('simulators.three'))->toBe(['Startup' => ['x' => 'y']]);
     });
 
     test('leave the config they are made from as it is', function () {

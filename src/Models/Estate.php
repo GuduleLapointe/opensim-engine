@@ -401,7 +401,7 @@ final class Estate extends Model
             return;
         }
         $seen = [];
-        foreach (array_keys($config->tree()['sims'] ?? []) as $simulator) {
+        foreach (array_keys($config->tree()['simulators'] ?? []) as $simulator) {
             $key = Connections::key($config, Database::Estate, (string) $simulator);
             if ($key === null || isset($seen[$key])) {
                 continue;

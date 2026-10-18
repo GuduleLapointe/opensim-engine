@@ -17,7 +17,7 @@ use OpenSim\Runtime\Process;
 use OpenSim\Runtime\Result;
 
 /**
- * A simulator: what runs one or several regions of a grid, with the config it is made of (`sims/<name>.ini`). Its identity, its
+ * A simulator: what runs one or several regions of a grid, with the config it is made of (its `<name>.ini`). Its identity, its
  * regions, its estate and its database are here; the program that runs it, started, stopped and talked to, is its controller
  * (OpenSimController), which it starts and stops for whoever asks.
  *

@@ -10,6 +10,7 @@ use OpenSim\Models\Grid;
 use OpenSim\Models\Simulator;
 use OpenSim\Network\Ports;
 use OpenSim\Runtime\Environment;
+use OpenSim\Config\GridConfig;
 
 /**
  * From the answers about a simulator to its plan. The answers are the fields of Simulator::fields(), by name (its screens: the
@@ -45,7 +46,7 @@ final class SimulatorPlanner
             'cores' => [],        // folder => name
             'modify' => false,    // the simulator is named by the caller: it exists and its name stays
             'simulatorName' => '',      // that name
-            'defaultName' => 'Sim1',
+            'defaultName' => 'Simulator1',
             'block' => 9000,      // the first block of ten ports free for the simulators of the grid
             'current' => null,    // the simulator, when it exists: its settings are the ones proposed
             'sibling' => null,    // another simulator of the grid, whose database account is proposed
@@ -72,7 +73,7 @@ final class SimulatorPlanner
         // The first simulator of a grid has the name of its landing region, that is its first region; an accent is
         // transliterated (Noël becomes Noel)
         $firstSimulator = !$grid->isRemote() && Grid::at($grid->environment(), $grid->directory())->simulatorNames() === [];
-        $taken = static fn(string $v): ?string => Simulator::validateName($v) ?? (is_file("{$grid->directory()}/sims/" . $grid->instanceOf($v) . '.ini') ? 'taken' : null);
+        $taken = static fn(string $v): ?string => Simulator::validateName($v) ?? (is_file(GridConfig::simulatorsDirectory($grid->directory()) . '/' . $grid->instanceOf($v) . '.ini') ? 'taken' : null);
 
         // The ports of a simulator are a block of ten, the first free one from where the simulators of the grid start (9000 for
         // Robust on 8002), on this machine and among the regions the grids of this machine know on the others
@@ -104,10 +105,10 @@ final class SimulatorPlanner
     {
         $grid = $this->context['grid'];
         $slug = $grid->instanceOf($name);
-        $ini = "{$grid->directory()}/sims/$slug.ini";
+        $ini = GridConfig::simulatorsDirectory($grid->directory()) . "/$slug.ini";
         $environment = $grid->environment();
         $sibling = null;
-        foreach (glob("{$grid->directory()}/sims/*.ini") ?: [] as $other) {
+        foreach (glob(GridConfig::simulatorsDirectory($grid->directory()) . '/*.ini') ?: [] as $other) {
             if (basename($other, '.ini') === $slug || $sibling !== null) {
                 continue;
             }

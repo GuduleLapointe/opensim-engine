@@ -19,7 +19,7 @@ use OpenSim\Runtime\Result;
 
 /**
  * A grid: the folder `<etc>/grids/<nick>` that holds its Robust config, its description (`<nick>.conf`) and the configs of
- * its simulators (`sims/<name>.ini`). A grid is run from this machine (its Robust, its simulators) or only described here, its
+ * its simulators (`<name>.ini` in the folder of the simulators). A grid is run from this machine (its Robust, its simulators) or only described here, its
  * Robust being elsewhere.
  *
  * The services of a grid (its Robust) start, stop and restart on their own: its simulators do not need to restart with them.
@@ -923,7 +923,7 @@ final class Grid extends InstalledModel
             }
             Database::centralEstates($config) && $add(Database::Estate->connection($config));
         }
-        foreach ($simulator !== null ? [$simulator] : array_keys($config->tree()['sims'] ?? []) as $name) {
+        foreach ($simulator !== null ? [$simulator] : array_keys($config->tree()['simulators'] ?? []) as $name) {
             foreach ([Database::Simulator, Database::Estate] as $database) {
                 $add($database->connection($config, (string) $name));
             }
@@ -1025,7 +1025,7 @@ final class Grid extends InstalledModel
      */
     public function simulators(): array
     {
-        $files = glob($this->directory . '/sims/*.ini') ?: [];
+        $files = glob(GridConfig::simulatorsDirectory($this->directory) . '/*.ini') ?: [];
         sort($files);
         $simulators = [];
         foreach ($files as $file) {
@@ -1043,7 +1043,7 @@ final class Grid extends InstalledModel
      */
     public function simulatorNames(): array
     {
-        $names = array_map(static fn(string $file): string => basename($file, '.ini'), glob($this->directory . '/sims/*.ini') ?: []);
+        $names = array_map(static fn(string $file): string => basename($file, '.ini'), glob(GridConfig::simulatorsDirectory($this->directory) . '/*.ini') ?: []);
         sort($names);
 
         return $names;
@@ -1052,7 +1052,7 @@ final class Grid extends InstalledModel
     /** The link that enables a simulator, by the name of its config file: where the launcher finds it. */
     public function simulatorLink(string $name): string
     {
-        return (new Simulator($this->environment, "{$this->directory}/sims/$name.ini"))->link();
+        return (new Simulator($this->environment, GridConfig::simulatorsDirectory($this->directory) . "/$name.ini"))->link();
     }
 
     /** @return list<Simulator> the simulators that start with the others */
@@ -1089,7 +1089,7 @@ final class Grid extends InstalledModel
     {
         $new = Slug::simulator($this->nick(), $name);
         foreach ([$new, Slug::snake($this->nick() . '_' . $name)] as $candidate) {
-            if (is_file("{$this->directory}/sims/$candidate.ini")) {
+            if (is_file(GridConfig::simulatorsDirectory($this->directory) . "/$candidate.ini")) {
                 return $candidate;
             }
         }

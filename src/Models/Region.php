@@ -396,7 +396,7 @@ final class Region extends Model
     public static function configured(GridConfig $config, ?string $simulator = null): array
     {
         $regions = [];
-        foreach ($config->tree()['sims'] ?? [] as $name => $sections) {
+        foreach ($config->tree()['simulators'] ?? [] as $name => $sections) {
             $dir = rtrim((string) ($sections['Startup']['regionload_regionsdir'] ?? ''), '/');
             if ($dir === '' || ($simulator !== null && $simulator !== '' && (string) $name !== $simulator)) {
                 continue;
@@ -887,7 +887,7 @@ final class Region extends Model
                 'condition' => $made,
             ],
             [
-                'name' => 'sim',
+                'name' => 'simulator',
                 'group' => 'region',
                 'type' => 'select',
                 'label' => _('Simulator'),
@@ -900,11 +900,11 @@ final class Region extends Model
                 'group' => 'region',
                 'type' => 'integer',
                 'required' => true,
-                'follows' => ['sim'],
+                'follows' => ['simulator'],
                 'label' => _('Region port'),
                 'callback' => [Grid::class, 'validatePort'],
                 // The port of a region of a new simulator is in its block, known when the simulator is
-                'condition' => $made + ($pool !== [] ? ['sim' => array_keys($pool)] : []),
+                'condition' => $made + ($pool !== [] ? ['simulator' => array_keys($pool)] : []),
             ],
         ];
     }

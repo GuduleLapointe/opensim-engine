@@ -12,6 +12,7 @@ use OpenSim\Provisioning\Web\HelpersConfig;
 use OpenSim\Provisioning\Web\Snippets;
 use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\ShellService;
+use OpenSim\Config\GridConfig;
 
 /**
  * The writing of the part of a setup that makes things: the files, the accounts, the instances. Run as the system user of the
@@ -272,7 +273,7 @@ final class GridProvisioner
             $plan->etcDirectory,
             "{$plan->etcDirectory}/assets",
             "{$plan->etcDirectory}/config-include",
-            "{$plan->etcDirectory}/sims",
+            GridConfig::simulatorsDirectory($plan->etcDirectory),
             "{$plan->etcDirectory}/inventory",
             "{$plan->etcDirectory}/robust-include",
             $plan->logsDirectory,

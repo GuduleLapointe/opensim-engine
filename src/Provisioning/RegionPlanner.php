@@ -141,12 +141,12 @@ final class RegionPlanner
      * What the region is for these answers.
      *
      * @param array<string,mixed> $answers by the names of the fields
-     * @return array<string,mixed> create, name, roles (list), location, sim, port (a number)
+     * @return array<string,mixed> create, name, roles (list), location, simulator, port (a number)
      */
     public function resolve(array $answers = []): array
     {
         $c = $this->context;
-        $simulator = (string) ($answers['sim'] ?? '+');
+        $simulator = (string) ($answers['simulator'] ?? '+');
         $httpPort = $simulator !== '+' && $c['portOfSimulator'] !== null ? ($c['portOfSimulator'])($simulator) : $c['httpPort'];
         $problem = fn(string $name): ?string => $this->nameProblem($name);
         // What is not answered is worked out, and only then (the place of a region of a grid on another machine is asked to it)
@@ -158,7 +158,7 @@ final class RegionPlanner
             // Checked at first: the default region and the one of the visitors, when the grid has none yet (and not the fallback)
             'roles' => array_values((array) ($answers['roles'] ?? $this->missingRoles())),
             'location' => trim((string) ($answers['location'] ?? $place())),
-            'sim' => $simulator,
+            'simulator' => $simulator,
             'port' => (int) ($answers['port'] ?? $this->nextPort($httpPort)),
         ];
     }

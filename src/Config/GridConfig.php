@@ -17,11 +17,14 @@ namespace OpenSim\Config;
  * variables, defaults of an application are made by the application, at the last moment), nothing is created, nothing is written.
  *
  * The files of a grid folder (`/etc/opensim/grids/<grid>/` with the kit) are the roles of the tree, in the order of their
- * authority: Robust (Robust.HG.ini or Robust.ini), OpenSim (OpenSim.ini), sims (sims/<name>.ini, one entry each),
+ * authority: Robust (Robust.HG.ini or Robust.ini), OpenSim (OpenSim.ini), simulators (one entry each),
  * MoneyServer (MoneyServer.ini), then the extra files an application names (the helpers have Helpers.ini).
  */
 class GridConfig
 {
+    /** The folder of a grid that holds its simulators: the config of each (`<slug>.ini`) and its regions (`<slug>/regions`). */
+    public const SIMULATORS = 'sims';
+
     /** The files that hold the Robust config, the first that exists is the one. */
     public const ROBUST_FILES = ['Robust.HG.ini', 'Robust.ini'];
 
@@ -31,6 +34,12 @@ class GridConfig
         'GridService', 'GridUserService', 'InventoryService', 'MuteListService', 'PresenceService', 'UserAccountService',
         'UserAgentService', 'UserProfilesService',
     ];
+
+    /** The folder of the simulators of the grid in this folder. */
+    public static function simulatorsDirectory(string $gridDirectory): string
+    {
+        return "$gridDirectory/" . self::SIMULATORS;
+    }
 
     /**
      * @param array<string,mixed> $tree role => section => key => value, in the order of authority
@@ -59,8 +68,8 @@ class GridConfig
                 $constants = $ini['Const'] ?? [];
             }
             $files[$role] = $path;
-            if (str_starts_with($role, 'sims/')) {
-                $tree['sims'][substr($role, 5)] = $ini;
+            if (str_starts_with($role, 'simulators/')) {
+                $tree['simulators'][substr($role, 11)] = $ini;
             } else {
                 $tree[$role] = $ini;
             }
@@ -76,10 +85,10 @@ class GridConfig
             $add('OpenSim', "$dir/OpenSim.ini");
         }
         // The simulators: each reads its own file, and the files it includes
-        $simulators = glob("$dir/sims/*.ini") ?: [];
+        $simulators = glob(self::simulatorsDirectory($dir) . '/*.ini') ?: [];
         sort($simulators);
         foreach ($simulators as $path) {
-            $add('sims/' . basename($path, '.ini'), $path);
+            $add('simulators/' . basename($path, '.ini'), $path);
         }
         // The MoneyServer reads only its own file, beside Robust.ini and OpenSim.ini
         if (is_file("$dir/MoneyServer.ini")) {
@@ -98,7 +107,7 @@ class GridConfig
      * The same config with the database settings OpenSimulator takes from [DatabaseService] when a section does not give its own.
      *
      * Robust: StorageProvider and ConnectionString of the services (AssetService, UserAccountService, UserProfilesService...) that
-     * have a section. Simulators (OpenSim and sims/*): DatabaseService.EstateConnectionString, and StorageProvider and
+     * have a section. Simulators (OpenSim and the simulators): DatabaseService.EstateConnectionString, and StorageProvider and
      * ConnectionString of SimulationDataStore and EstateDataStore.
      */
     public function withDatabaseDefaults(): static
@@ -110,8 +119,8 @@ class GridConfig
         if (isset($tree['OpenSim'])) {
             $tree['OpenSim'] = self::simulatorDatabases($tree['OpenSim']);
         }
-        foreach ($tree['sims'] ?? [] as $name => $ini) {
-            $tree['sims'][$name] = self::simulatorDatabases($ini);
+        foreach ($tree['simulators'] ?? [] as $name => $ini) {
+            $tree['simulators'][$name] = self::simulatorDatabases($ini);
         }
 
         return new static($tree, $this->files);
@@ -173,7 +182,7 @@ class GridConfig
     /**
      * The whole config, as an array that follows the structure of the ini files.
      *
-     * @return array<string,mixed> role => section => key => value (sims => name => section => key => value)
+     * @return array<string,mixed> role => section => key => value (simulators => name => section => key => value)
      */
     public function tree(): array
     {
@@ -202,11 +211,11 @@ class GridConfig
     /**
      * Whether a role (a file of the environment) is part of the config.
      *
-     * @param string $role Robust, OpenSim, MoneyServer, sims/<name>, an extra file
+     * @param string $role Robust, OpenSim, MoneyServer, simulators/<name>, an extra file
      */
     public function has(string $role): bool
     {
-        return str_starts_with($role, 'sims/') ? isset($this->tree['sims'][substr($role, 5)]) : isset($this->tree[$role]);
+        return str_starts_with($role, 'simulators/') ? isset($this->tree['simulators'][substr($role, 11)]) : isset($this->tree[$role]);
     }
 
     /** The file a role was read from, null for a role that is not made of a file. */
@@ -316,7 +325,7 @@ class GridConfig
     {
         $layers = [];
         foreach ($this->tree as $role => $ini) {
-            if ($role === 'sims') {
+            if ($role === 'simulators') {
                 array_push($layers, ...array_values($ini));
             } else {
                 $layers[] = $ini;

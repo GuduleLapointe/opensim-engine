@@ -4,10 +4,11 @@ namespace OpenSim\Provisioning;
 
 use OpenSim\Config\IniEditor;
 use OpenSim\Models\Grid;
+use OpenSim\Config\GridConfig;
 
 /**
  * What `opensim enable|disable <grid> <feature>` writes: the settings a feature of a grid needs, in the files of its
- * simulators (sims/*.ini, which each simulator reads), in the OpenSim.ini of the grid for the ones it already has (the helpers
+ * simulators (the config each one reads), in the OpenSim.ini of the grid for the ones it already has (the helpers
  * read it first, a setting there that is wrong hides the right one) and, for what Robust says, in its Robust config. Nothing
  * else is touched: the operator customizes the rest in the files. A setting that is there is changed in place, and `disable`
  * comments it out, with its value, so that it can be seen and replaced.
@@ -70,14 +71,14 @@ final class Features
     }
 
     /**
-     * The simulators of the grid made on this machine: the name of the instance (grid_sim) and its ini file.
+     * The simulators of the grid made on this machine: the name of the instance (grid_simulator) and its ini file.
      *
      * @return array<string,string> instance => path
      */
     public function simulators(): array
     {
         $simulators = [];
-        $files = glob("{$this->grid->directory()}/sims/*.ini") ?: [];
+        $files = glob(GridConfig::simulatorsDirectory($this->grid->directory()) . '/*.ini') ?: [];
         sort($files);
         foreach ($files as $file) {
             $simulators[basename($file, '.ini')] = $file;

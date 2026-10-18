@@ -9,7 +9,7 @@ use OpenSim\Data\Database;
 use OpenSim\Provisioning\SimulatorMaster;
 
 /**
- * What runs a simulator: OpenSim, launched with dotnet from the config of the simulator (`sims/<name>.ini`), which runs one or
+ * What runs a simulator: OpenSim, launched with dotnet from the config of the simulator (`<name>.ini`), which runs one or
  * several regions of a grid. It starts, stops and is talked to; what the config says of it (its port, its database, its estate) is
  * asked of it, and the simulator, the model, composes it (see Simulator).
  */

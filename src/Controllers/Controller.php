@@ -19,6 +19,7 @@ use OpenSim\Runtime\Process;
 use OpenSim\Runtime\Result;
 use OpenSim\Runtime\StartService;
 use OpenSim\Runtime\StopService;
+use OpenSim\Config\GridConfig;
 
 /**
  * What runs an OpenSimulator program, launched with dotnet from a config file: a Robust (RobustController), an OpenSim that runs a
@@ -223,7 +224,7 @@ abstract class Controller implements Enablable
             return null;
         }
         $dir = dirname($real);
-        $dir = basename($dir) === 'sims' ? dirname($dir) : $dir;
+        $dir = basename($dir) === GridConfig::SIMULATORS ? dirname($dir) : $dir;
 
         return basename(dirname($dir)) === 'grids' ? $dir : null;
     }

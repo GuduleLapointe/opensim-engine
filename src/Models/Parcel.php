@@ -363,7 +363,7 @@ final class Parcel extends Model
     private static function databases(GridConfig $config): \Generator
     {
         $seen = [];
-        foreach (array_keys($config->tree()['sims'] ?? []) as $simulator) {
+        foreach (array_keys($config->tree()['simulators'] ?? []) as $simulator) {
             $key = Connections::key($config, Database::Simulator, (string) $simulator);
             if ($key === null || isset($seen[$key])) {
                 continue;

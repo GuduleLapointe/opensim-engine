@@ -6,6 +6,7 @@ use OpenSim\Config\GridFileService;
 use OpenSim\Models\Grid;
 use OpenSim\Models\Region;
 use OpenSim\Runtime\Environment;
+use OpenSim\Config\GridConfig;
 
 /**
  * What the grid knows of its regions, from the database of its Robust: their
@@ -115,7 +116,7 @@ final class GridRegistry
     public static function fileNames(string $gridDir): array
     {
         $names = [];
-        foreach (glob("$gridDir/sims/*/regions", GLOB_ONLYDIR) ?: [] as $dir) {
+        foreach (glob(GridConfig::simulatorsDirectory($gridDir) . '/*/regions', GLOB_ONLYDIR) ?: [] as $dir) {
             foreach (array_map(static fn(Region $region): string => $region->name(), Region::inDirectory($dir)) as $name) {
                 $names[strtolower($name)] = true;
             }
@@ -146,7 +147,7 @@ final class GridRegistry
                 LocationFinder::take($used, $n[0], $n[1], $n[2], $n[3]);
             }
         }
-        foreach (glob("{$grid->directory()}/sims/*/regions/*.ini") ?: [] as $file) {
+        foreach (glob(GridConfig::simulatorsDirectory($grid->directory()) . '/*/regions/*.ini') ?: [] as $file) {
             foreach (preg_split('/^\s*\[/m', GridFileService::read($file)) ?: [] as $section) {
                 if (preg_match('/^\s*Location\s*=\s*(\d+)\s*,\s*(\d+)/m', $section, $m)) {
                     $width = preg_match('/^\s*SizeX\s*=\s*(\d+)/m', $section, $w) ? intdiv((int) $w[1], 256) : 1;

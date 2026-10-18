@@ -6,10 +6,11 @@ use OpenSim\Models\Grid;
 use OpenSim\Models\Region;
 use OpenSim\Provisioning\Slug;
 use OpenSim\Runtime\Environment;
+use OpenSim\Config\GridConfig;
 
 /**
  * Which grid, and which simulator or region of it, the words of a command name: `GRID`, `GRID SIM`, `GRID _SIM`,
- * `GRID REGION`, the instance `grid_sim`, a region or a simulator alone, or nothing when the install has one grid.
+ * `GRID REGION`, the instance `grid_simulator`, a region or a simulator alone, or nothing when the install has one grid.
  */
 final class Instances
 {
@@ -93,9 +94,9 @@ final class Instances
         if ($slug !== null) {
             return [$slug, null];
         }
-        foreach (glob("$etc/grids/$nick/sims/*.ini") ?: [] as $ini) {
+        foreach (glob(GridConfig::simulatorsDirectory("$etc/grids/$nick") . '/*.ini') ?: [] as $ini) {
             $simulator = basename($ini, '.ini');
-            foreach (array_map(static fn(Region $region): string => $region->name(), Region::inDirectory("$etc/grids/$nick/sims/$simulator/regions")) as $region) {
+            foreach (array_map(static fn(Region $region): string => $region->name(), Region::inDirectory(GridConfig::simulatorsDirectory("$etc/grids/$nick") . "/$simulator/regions")) as $region) {
                 if (strcasecmp($region, $ref) === 0) {
                     return [$simulator, $region];
                 }
@@ -118,11 +119,11 @@ final class Instances
         return $nicks;
     }
 
-    /** The instance of a simulator named in full (grid_sim), or by its own name with or without a leading underscore */
+    /** The instance of a simulator named in full (grid_simulator), or by its own name with or without a leading underscore */
     public static function simulator(string $etc, string $nick, string $ref): ?string
     {
         foreach ([$ref, Slug::simulator($nick, ltrim($ref, '_')), Slug::snake($nick . '_' . ltrim($ref, '_'))] as $candidate) {
-            if (is_file("$etc/grids/$nick/sims/$candidate.ini")) {
+            if (is_file(GridConfig::simulatorsDirectory("$etc/grids/$nick") . "/$candidate.ini")) {
                 return $candidate;
             }
         }

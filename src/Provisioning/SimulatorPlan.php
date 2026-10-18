@@ -3,6 +3,7 @@
 namespace OpenSim\Provisioning;
 
 use OpenSim\Config\ConnectionString;
+use OpenSim\Config\GridConfig;
 
 /**
  * Everything gathered to create (or reconfigure) one simulator of a grid,
@@ -110,13 +111,13 @@ final class SimulatorPlan
     /** The config of the simulator. */
     public function iniPath(): string
     {
-        return "{$this->gridDir}/sims/{$this->slug}.ini";
+        return GridConfig::simulatorsDirectory($this->gridDir) . "/{$this->slug}.ini";
     }
 
     /** Where its regions are described, one file each. */
     public function regionsDir(): string
     {
-        return "{$this->gridDir}/sims/{$this->slug}/regions";
+        return GridConfig::simulatorsDirectory($this->gridDir) . "/{$this->slug}/regions";
     }
 
     public function regionIni(): string

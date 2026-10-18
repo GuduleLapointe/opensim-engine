@@ -7,6 +7,7 @@ namespace OpenSim\Network\PortMapping;
 use OpenSim\Config\ConfigReader;
 use OpenSim\Network\InstancePorts;
 use OpenSim\Provisioning\Slug;
+use OpenSim\Config\GridConfig;
 
 /**
  * The port mapping of the instances (Robust, simulators): their ports made reachable from outside before they start, closed
@@ -117,7 +118,7 @@ final class PortMappingService
     private function grid(string $ini): array
     {
         $dir = dirname($ini);
-        $simulator = basename($dir) === 'sims';
+        $simulator = basename($dir) === GridConfig::SIMULATORS;
         $dir = $simulator ? dirname($dir) : $dir;
         $nick = basename($dir);
         $settings = array_change_key_case(ConfigReader::load("$dir/$nick.conf")['Grid'] ?? [], CASE_LOWER);
