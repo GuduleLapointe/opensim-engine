@@ -24,7 +24,7 @@ use OpenSim\Runtime\StopService;
  * The config file is the one the instance runs with (`-inifile=`): the link in `opensim.d` or `robust.d` of an enabled
  * instance, which is where the launcher found it, else the file itself.
  */
-abstract class Instance implements \OpenSim\Interfaces\Enablable
+abstract class Instance extends InstalledModel
 {
     /** The sections the launcher reads its settings in, the last that says one wins. */
     private const LAUNCH_SECTIONS = ['Const', 'Launch', 'Startup', 'Network'];
@@ -38,10 +38,11 @@ abstract class Instance implements \OpenSim\Interfaces\Enablable
     private readonly string $name;
 
     public function __construct(
-        protected readonly Environment $environment,
+        Environment $environment,
         private readonly string $ini,
         ?string $name = null,
     ) {
+        parent::__construct($environment);
         $this->name = self::cleanName($name ?? basename($ini, '.ini'));
     }
 
@@ -70,15 +71,30 @@ abstract class Instance implements \OpenSim\Interfaces\Enablable
         return $this->name;
     }
 
+    /** What identifies it: its name (a simulator is known by its address). */
+    public function id(): string
+    {
+        return $this->name;
+    }
+
+    /** The name for a path or a command: its own, which has its grid in it for a simulator. */
+    public function slug(): string
+    {
+        return $this->name;
+    }
+
+    /** The channels a write can go through: its config, where it is linked to be enabled. */
+    public function channels(): array
+    {
+        $folder = dirname($this->link());
+
+        return is_writable(is_dir($folder) ? $folder : dirname($folder)) ? ['ini'] : [];
+    }
+
     /** The config file the instance runs with. */
     public function ini(): string
     {
         return $this->ini;
-    }
-
-    public function environment(): Environment
-    {
-        return $this->environment;
     }
 
     /**

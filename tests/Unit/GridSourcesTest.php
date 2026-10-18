@@ -56,7 +56,7 @@ describe('grid of this machine', function () {
 
         expect(Grid::find($machine->environment, 'empty'))->toBeNull()
             ->and(Grid::find($machine->environment, 'nowhere'))->toBeNull()
-            ->and(array_map(static fn(Grid $g): string => $g->nick(), Grid::all($machine->environment)))->toContain('demo', 'far')->not->toContain('empty')
+            ->and(array_map(static fn(Grid $g): string => $g->nick(), Grid::all($machine->environment)->items()))->toContain('demo', 'far')->not->toContain('empty')
             ->and($far->isRemote())->toBeTrue()
             ->and($far->robustIni())->toBeNull()
             ->and([$far->name(), $far->baseHostname(), $far->publicPort(), $far->privatePort(), $far->isHypergrid(), $far->preset()])

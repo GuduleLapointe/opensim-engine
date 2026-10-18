@@ -7,6 +7,7 @@ namespace OpenSim\Models;
 use OpenSim\Config\ConfigReader;
 use OpenSim\Config\ConnectionString;
 use OpenSim\Config\GridConfig;
+use OpenSim\Data\Collection;
 use OpenSim\Data\Database;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\LocationFinder;
@@ -32,7 +33,7 @@ use OpenSim\Runtime\Result;
  * What a source does not tell has the value of a grid by the book (DEFAULTS). The xmlrpc calls of the hypergrid, the tables of
  * OpenSimSearch, the console and the database give the same properties when they are read.
  */
-final class Grid implements \OpenSim\Interfaces\Enablable
+final class Grid extends InstalledModel
 {
     /** The files that hold the Robust config, the first that exists is the one. */
     private const ROBUST_FILES = ['Robust.HG.ini', 'Robust.ini'];
@@ -81,11 +82,12 @@ final class Grid implements \OpenSim\Interfaces\Enablable
      * @param list<string> $sources
      */
     private function __construct(
-        private readonly Environment $environment,
+        Environment $environment,
         private readonly string $directory,
         private ?array $values = null,
         private readonly array $sources = [self::FOLDER],
     ) {
+        parent::__construct($environment);
     }
 
     /**
@@ -336,7 +338,7 @@ final class Grid implements \OpenSim\Interfaces\Enablable
     }
 
     /** The grid of this nick on this machine, null when there is none: a Robust config or the description of a remote grid. */
-    public static function find(Environment $environment, string $nick): ?self
+    public static function find(Environment $environment, string $nick): ?static
     {
         $directory = rtrim($environment->layout->etcRoot(), '/') . "/grids/$nick";
         if ($nick === '' || preg_match('/^[A-Za-z0-9._-]+$/', $nick) !== 1 || !is_dir($directory)) {
@@ -350,17 +352,57 @@ final class Grid implements \OpenSim\Interfaces\Enablable
     /**
      * The grids of this machine.
      *
-     * @return list<self>
+     * Options: `search` (words of the nick, the name or the address), `sort` ("name", "nick", "port desc"), `filters` (`remote`,
+     * `enabled`, `hypergrid`: yes or no), `page` and `perPage`.
      */
-    public static function all(Environment $environment): array
+    public static function all(Environment $environment, array $options = []): Collection
     {
         $grids = [];
         foreach (glob(rtrim($environment->layout->etcRoot(), '/') . '/grids/*', GLOB_ONLYDIR) ?: [] as $directory) {
             $grid = new self($environment, $directory);
             $grid->isKnown() && $grids[] = $grid;
         }
+        $yesNo = static fn(\Closure $is): array => [static fn(self $grid, string $value): bool => $is($grid) === ($value === 'yes'), ['yes', 'no']];
 
-        return $grids;
+        return self::listing(
+            $grids,
+            $options,
+            static fn(self $grid): string => "{$grid->nick()} {$grid->name()} {$grid->uri()}",
+            [
+                'name' => static fn(self $grid): string => $grid->name(),
+                'nick' => static fn(self $grid): string => $grid->nick(),
+                'port' => static fn(self $grid): int => $grid->publicPort(),
+            ],
+            [
+                'remote' => $yesNo(static fn(self $grid): bool => $grid->isRemote()),
+                'enabled' => $yesNo(static fn(self $grid): bool => $grid->isEnabled()),
+                'hypergrid' => $yesNo(static fn(self $grid): bool => $grid->isHypergrid()),
+            ],
+            [
+                ['name' => 'name', 'label' => _('Name'), 'sortable' => true],
+                ['name' => 'nick', 'label' => _('Nick'), 'sortable' => true],
+                ['name' => 'uri', 'label' => _('Address')],
+                ['name' => 'enabled', 'label' => _('Enabled')],
+            ],
+        );
+    }
+
+    /** What identifies it on a machine: its nick. */
+    public function id(): string
+    {
+        return $this->nick();
+    }
+
+    /** Where it is reached from other grids: `host:port` of its login. */
+    public function uri(): ?string
+    {
+        return $this->baseHostname() !== '' ? $this->baseHostname() . ':' . $this->publicPort() : null;
+    }
+
+    /** The channels a write can go through: the config of its Robust. */
+    public function channels(): array
+    {
+        return $this->robust()?->channels() ?? [];
     }
 
     /**

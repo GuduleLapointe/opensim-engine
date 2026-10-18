@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace OpenSim\Models;
 
 use OpenSim\Config\ConnectionString;
+use OpenSim\Data\Collection;
 use OpenSim\Data\Database;
 use OpenSim\Provisioning\GridAccounts;
 use OpenSim\Provisioning\SimulatorMaster;
 use OpenSim\Provisioning\Slug;
+use OpenSim\Runtime\Environment;
 
 /**
  * A simulator: one process that runs one or several regions of a grid. It is its config (`sims/<name>.ini`) and the process
@@ -228,16 +230,61 @@ final class Simulator extends Instance
         return $host !== '' ? "$host:$port" : null;
     }
 
+    /**
+     * The simulators of the machine, those of every grid.
+     *
+     * Options: `search` (words of the slug, the address or the grid), `sort` ("name", "port", "grid"), `filters` (`grid`: a nick;
+     * `enabled`, `running`: yes or no), `page` and `perPage`.
+     */
+    public static function all(Environment $environment, array $options = []): Collection
+    {
+        $simulators = [];
+        foreach (Grid::all($environment)->items() as $grid) {
+            array_push($simulators, ...$grid->simulators());
+        }
+        $yesNo = static fn(\Closure $is): array => [static fn(self $simulator, string $value): bool => $is($simulator) === ($value === 'yes'), ['yes', 'no']];
+
+        return self::listing(
+            $simulators,
+            $options,
+            static fn(self $simulator): string => "{$simulator->slug()} {$simulator->uri()} {$simulator->grid()?->name()}",
+            [
+                'name' => static fn(self $simulator): string => $simulator->slug(),
+                'port' => static fn(self $simulator): int => (int) $simulator->httpPort(),
+                'grid' => static fn(self $simulator): string => (string) $simulator->grid()?->nick(),
+            ],
+            [
+                'grid' => [static fn(self $simulator, string $nick): bool => $simulator->grid()?->nick() === $nick, []],
+                'enabled' => $yesNo(static fn(self $simulator): bool => $simulator->isEnabled()),
+                'running' => $yesNo(static fn(self $simulator): bool => $simulator->isRunning()),
+            ],
+            [
+                ['name' => 'name', 'label' => _('Name'), 'sortable' => true],
+                ['name' => 'grid', 'label' => _('Grid'), 'sortable' => true],
+                ['name' => 'uri', 'label' => _('Address')],
+                ['name' => 'port', 'label' => _('Port'), 'sortable' => true],
+                ['name' => 'enabled', 'label' => _('Enabled')],
+                ['name' => 'running', 'label' => _('Running')],
+            ],
+        );
+    }
+
+    /** A simulator by its address (`host:port`) or its slug (`vonda_welcome`). */
+    public static function find(Environment $environment, string $id): ?static
+    {
+        foreach (self::all($environment)->items() as $simulator) {
+            if (strcasecmp((string) $simulator->uri(), $id) === 0 || strcasecmp($simulator->slug(), $id) === 0) {
+                return $simulator;
+            }
+        }
+
+        return null;
+    }
+
     /** What identifies it: its address, else its name. */
     public function id(): string
     {
         return $this->uri() ?? $this->name();
-    }
-
-    /** The name for a path or a command: its own and the grid's (`vonda_welcome`, not `welcome`: every grid has one). */
-    public function slug(): string
-    {
-        return $this->name();
     }
 
     /** The port it listens on, null when its config does not say it. */
