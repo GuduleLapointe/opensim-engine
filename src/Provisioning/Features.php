@@ -60,6 +60,17 @@ final class Features
     }
 
     /**
+     * The OpenSim.ini that holds what the grid decides for its simulators: the one of its folder, or the one of its preset for a grid
+     * joined by a preset (what applies to all its simulators is set there).
+     */
+    public function general(): string
+    {
+        $dir = $this->grid->preset !== '' ? SimulatorMaster::presetDir($this->grid->dir) : null;
+
+        return ($dir ?? $this->grid->dir) . '/OpenSim.ini';
+    }
+
+    /**
      * The simulators of the grid made on this machine: the name of the instance (grid_sim) and its ini file.
      *
      * @return array<string,string> instance => path
@@ -244,7 +255,7 @@ final class Features
             array_push($result['notes'], ...$this->moduleNotes('gloebit'));
             $missing = [];
             // What a simulator says, else what its grid says when it has a master
-            $general = $this->layered() ? IniEditor::load("{$this->grid->dir}/OpenSim.ini") : null;
+            $general = $this->layered() ? IniEditor::load($this->general()) : null;
             foreach ([null, ...array_values($this->simulators())] as $file) {
                 $ini = $file === null ? $general : IniEditor::load($file);
                 if ($ini === null) {
@@ -303,7 +314,7 @@ final class Features
      */
     private function eachFile(array &$result, callable $edit): void
     {
-        $general = "{$this->grid->dir}/OpenSim.ini";
+        $general = $this->general();
         if (is_file($general) && $this->edit($general, fn(IniEditor $ini) => $edit($ini, true))) {
             $result['grid'] = true;
         }

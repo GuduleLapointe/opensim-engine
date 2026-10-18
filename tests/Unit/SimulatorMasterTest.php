@@ -109,6 +109,72 @@ describe('A simulator with a master', function () {
     });
 });
 
+/** A machine with a grid joined by a preset: its folder describes it, the folder of its preset holds what applies to its simulators. */
+function preset_machine(): array
+{
+    $machine = master_machine();
+    $grid = $machine->etc . '/grids/osg';
+    $preset = $machine->etc . '/presets/osg';
+    $machine->write($grid . '/osg.conf', "[Grid]\nRemote = true\nGridName = \"OS Grid\"\nPreset = osg\nBaseHostname = login.osgrid.org\nPublicPort = 80\nPrivatePort = 80\nHypergrid = true\nCoreDirectory = {$machine->core}\n");
+    $machine->write($preset . '/OpenSim.ini', "[Search]\n    Module = OpenSimSearch\n    SearchURL = \"https://osgrid.example.org/query.php\"\n[Startup]\n;Other = example\n");
+    $machine->write($preset . '/config-include/GridHypergrid.ini', "[Modules]\n    Test = true\n");
+
+    return [$machine, $grid, $preset];
+}
+
+describe('A grid joined by a preset', function () {
+    test('has a master like a grid, made from its preset: the architecture, the OSSL and what the preset decided', function () {
+        [$machine, $grid, $preset] = preset_machine();
+
+        $master = (new SimulatorMaster())->ensure($grid, $machine->core . '/bin');
+
+        expect($master)->toBe($grid . '/' . SimulatorMaster::FILE);
+        $ini = ConfigReader::load($master, expand: false);
+        expect($ini['Const']['BaseHostname'])->toBe('login.osgrid.org')
+            ->and($ini['Const']['PublicPort'])->toBe('80')
+            ->and($ini['Architecture']['Include-Architecture'])->toBe($preset . '/config-include/GridHypergrid.ini')
+            ->and($ini['OSSL']['Include-osslDefaultEnable'])->toBe($preset . '/config-include/osslDefaultEnable.ini')
+            ->and($ini['Search']['SearchURL'])->toBe('https://osgrid.example.org/query.php');
+    });
+
+    test('follows the preset: a change there is taken the next time the master is made', function () {
+        [$machine, $grid, $preset] = preset_machine();
+        $bin = $machine->core . '/bin';
+        (new SimulatorMaster())->ensure($grid, $bin);
+
+        $machine->write($preset . '/OpenSim.ini', "[Search]\n;Module = OpenSimSearch\n[Economy]\n    economymodule = Gloebit\n");
+
+        expect((new SimulatorMaster())->ensure($grid, $bin))->not->toBeNull();
+        $ini = ConfigReader::load($grid . '/' . SimulatorMaster::FILE);
+        expect($ini['Economy']['economymodule'])->toBe('Gloebit')->and($ini['Search'] ?? [])->not->toHaveKey('Module');
+    });
+
+    test('is a grid without a preset when its description names none', function () {
+        $machine = master_machine();
+
+        expect(SimulatorMaster::presetDir($machine->grid))->toBeNull();
+        [, $grid, $preset] = preset_machine();
+        expect(SimulatorMaster::presetDir($grid))->toBe($preset);
+    });
+
+    test('has the features enabled in its preset, for all its simulators', function () {
+        [$machine, $grid, $preset] = preset_machine();
+        $bin = $machine->core . '/bin';
+        (new SimulatorMaster())->ensure($grid, $bin);
+        $info = GridInfo::load(['EtcRoot' => $machine->etc, 'CoreDirectory' => $machine->core], 'osg');
+        $features = new Features($info, ['EtcRoot' => $machine->etc, 'CoreDirectory' => $machine->core]);
+
+        $result = $features->enable(Features::ECONOMY, ['money' => 'gloebit']);
+
+        expect($info->preset)->toBe('osg')
+            ->and($features->general())->toBe($preset . '/OpenSim.ini')
+            ->and($result['error'])->toBeNull()
+            ->and(ConfigReader::load($preset . '/OpenSim.ini')['Economy']['economymodule'])->toBe('Gloebit')
+            // The master follows
+            ->and(ConfigReader::load($grid . '/' . SimulatorMaster::FILE)['Economy']['economymodule'])->toBe('Gloebit');
+    });
+});
+
 /** The plan of a simulator of a grid with helpers. */
 function master_plan(string $gridDir, string $core): SimPlan
 {

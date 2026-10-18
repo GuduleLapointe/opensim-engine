@@ -80,6 +80,10 @@ final class SimulatorProvisioner
                 $this->ui->note(sprintf(_('Wrote %s'), $file));
             }
             $plan->presetSettings = $presets->settings($plan->preset, $plan->binDir());
+            // What applies to all its simulators is in the preset: the master of the simulators is made from it, as a grid's is made
+            // from its own OpenSim.ini. The simulators say only what makes them their own
+            $master = (new SimulatorMaster())->ensure($plan->gridDir, $plan->binDir());
+            $master !== null && $this->ui->note(sprintf(_('Wrote %s'), $master));
         } else {
             foreach ((new GridShared())->prepare($plan->gridDir, $plan->binDir(), $plan->hypergrid) as $file) {
                 $this->ui->note(sprintf(_('Wrote %s'), $file));

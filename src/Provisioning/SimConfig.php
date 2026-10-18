@@ -114,8 +114,8 @@ final class SimConfig
         ];
 
         $text = implode("\n", $lines);
-        if ($plan->presetSettings !== '') {
-            // The grid is joined by a preset: what it says for the simulators wins over what is above
+        if ($plan->presetSettings !== '' && !$master) {
+            // The grid is joined by a preset and has no master: what the preset says for the simulators wins over what is above
             $ini = new IniEditor($text);
             $ini->overlay($plan->presetSettings);
             $text = $ini->toString();
