@@ -65,7 +65,7 @@ final class Estate extends Model
 
     public function slug(): string
     {
-        return str_replace('_', '-', Slug::slug($this->name()));
+        return Slug::slug($this->name());
     }
 
     /** The user who owns it. */

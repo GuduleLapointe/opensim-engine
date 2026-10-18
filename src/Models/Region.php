@@ -149,7 +149,7 @@ final class Region extends Model
 
     public function slug(): string
     {
-        return str_replace('_', '-', Slug::slug($this->name()));
+        return Slug::slug($this->name());
     }
 
     /** Where it is reached from other grids: host:port:Region Name. */

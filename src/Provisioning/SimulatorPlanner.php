@@ -74,7 +74,7 @@ final class SimulatorPlanner
         // The first simulator of a grid has the name of its landing region, that is its first region; an accent is
         // transliterated (Noël becomes Noel)
         $firstSimulator = !$grid->isRemote() && Grid::at(Environment::forProfile($profile), $grid->directory())->simulatorNames() === [];
-        $taken = static fn(string $v): ?string => Simulator::validateName($v) ?? (is_file("{$grid->directory()}/sims/" . Slug::slug("{$grid->nick()}_$v") . '.ini') ? 'taken' : null);
+        $taken = static fn(string $v): ?string => Simulator::validateName($v) ?? (is_file("{$grid->directory()}/sims/" . $grid->instanceOf($v) . '.ini') ? 'taken' : null);
 
         // The ports of a simulator are a block of ten, the first free one from where the simulators of the grid start (9000 for
         // Robust on 8002), on this machine and among the regions the grids of this machine know on the others
@@ -105,7 +105,7 @@ final class SimulatorPlanner
     public function forSimulator(string $name): self
     {
         $grid = $this->context['grid'];
-        $slug = Slug::slug($grid->nick() . '_' . $name);
+        $slug = $grid->instanceOf($name);
         $ini = "{$grid->directory()}/sims/$slug.ini";
         $environment = Environment::forProfile($this->context['profile']);
         $sibling = null;
@@ -161,7 +161,7 @@ final class SimulatorPlanner
         $text = static fn(string $name, mixed $default): string => trim((string) ($answers[$name] ?? $default));
 
         $name = $c['modify'] ? $c['simulatorName'] : Slug::ascii($text('name', $c['defaultName']));
-        $slug = Slug::slug($grid->nick() . '_' . $name);
+        $slug = $grid->instanceOf($name);
         $cores = $c['cores'];
         $core = $text('core', count($cores) > 1 ? $grid->coreDirectory() : '');
         $core = $core !== ''
@@ -184,7 +184,7 @@ final class SimulatorPlanner
             'console' => $text('console', $current === null || $current->consoleUser() !== null ? 'rest' : 'screen'),
             'console_port' => (int) ($answers['console_port'] ?? ($http === $http0 ? $console0 : $this->consoleFor($http))),
             'database_host' => $text('database_host', $current?->databaseHost() ?? ($sibling?->databaseHost() ?? $grid->databaseHost())),
-            'database_name' => $text('database_name', $current?->databaseName() ?? $slug),
+            'database_name' => $text('database_name', $current?->databaseName() ?? Slug::snake($slug)),
             'database_user' => $text('database_user', $current?->databaseUser() ?? ($sibling?->databaseUser() ?? $grid->databaseUser())),
             'database_password' => $text(
                 'database_password',

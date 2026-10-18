@@ -36,7 +36,7 @@ describe('A grid on another machine', function () {
             ->and($calls->getArrayCopy())->toBe(['play.example.org:8102']);
         $grid = $result['grid'];
         expect($grid->isRemote())->toBeTrue()
-            ->and([$grid->nick(), $grid->name(), $grid->slug()])->toBe(['far', 'Far World', 'far_world'])
+            ->and([$grid->nick(), $grid->name(), $grid->slug()])->toBe(['far', 'Far World', 'far-world'])
             ->and([$grid->baseHostname(), $grid->publicPort(), $grid->privatePort()])->toBe(['play.example.org', 8102, 8103])
             ->and($grid->isHypergrid())->toBeTrue()
             ->and($grid->directory())->toBe("$etc/grids/far")

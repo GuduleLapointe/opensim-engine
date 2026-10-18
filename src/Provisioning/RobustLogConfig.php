@@ -20,7 +20,7 @@ final class RobustLogConfig
         }
 
         $xml = TextFileService::read($model);
-        $logBase = $plan->logsDirectory . '/' . $plan->gridSlug . '_robust';
+        $logBase = $plan->logsDirectory . '/' . Slug::snake($plan->gridSlug) . '_robust';
 
         // Point the file appenders at this grid's log files.
         $xml = (string) preg_replace('/(<file value=")[^"]*Robust\.log(")/i', '${1}' . $logBase . '.log${2}', $xml);

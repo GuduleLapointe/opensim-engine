@@ -115,7 +115,7 @@ final class GridProvisioner
                 )
                 : sprintf(_("Grid '%s' is configured but did not start. Try: %s -v start %s"), $nick, 'opensim', $nick),
         );
-        $log = $plan->logsDirectory . '/' . $plan->gridSlug . '_robust.log';
+        $log = $plan->logsDirectory . '/' . Slug::snake($plan->gridSlug) . '_robust.log';
         if (is_file($log)) {
             $this->ui->note(_('Recent log:'));
             ShellService::run('tail -n 30 ' . ShellService::arg($log));

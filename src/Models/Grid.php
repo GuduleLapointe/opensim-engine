@@ -834,7 +834,7 @@ final class Grid implements \OpenSim\Interfaces\Enablable
     /** The name of the instance running its Robust: what the launcher makes of the config file name. */
     public function robustInstance(): string
     {
-        return Slug::slug($this->nick());
+        return Slug::snake($this->nick());
     }
 
     /**
@@ -1008,7 +1008,10 @@ final class Grid implements \OpenSim\Interfaces\Enablable
         return array_values(array_filter($this->simulators(), static fn(Simulator $s): bool => $s->isEnabled()));
     }
 
-    /** One of its simulators by name. */
+    /**
+     * One of its simulators by name: its own, else the one it would be made as snake_case before (wonderful_green_field for
+     * wonderful_green-field).
+     */
     public function simulator(string $name): ?Simulator
     {
         foreach ($this->simulators() as $simulator) {
@@ -1016,8 +1019,29 @@ final class Grid implements \OpenSim\Interfaces\Enablable
                 return $simulator;
             }
         }
+        foreach ($this->simulators() as $simulator) {
+            if (Slug::snake($simulator->name()) === Slug::snake($name)) {
+                return $simulator;
+            }
+        }
 
         return null;
+    }
+
+    /**
+     * The name of the instance of a simulator of this grid called so: the one it has when it is made, else the one it will have
+     * (`wonderful-green_field`, see Slug::simulator()). A simulator made as snake_case before keeps its name.
+     */
+    public function instanceOf(string $name): string
+    {
+        $new = Slug::simulator($this->nick(), $name);
+        foreach ([$new, Slug::snake($this->nick() . '_' . $name)] as $candidate) {
+            if (is_file("{$this->directory}/sims/$candidate.ini")) {
+                return $candidate;
+            }
+        }
+
+        return $new;
     }
 
     /** Whether the grid is run from this machine: its Robust is enabled. */

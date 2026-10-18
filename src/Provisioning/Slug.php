@@ -5,28 +5,62 @@ declare(strict_types=1);
 namespace OpenSim\Provisioning;
 
 /**
- * Derives the nick and the slug of a grid, or the name of an instance, from a display name: snake_case, lowercase letters,
- * digits and underscores, the words kept apart so that "The Rapist" (the_rapist) is not "Therapist" (therapist).
+ * The names derived from a display name. Lower case letters and digits, the words kept apart so that "The Rapist" (the-rapist) is
+ * not "Therapist" (therapist):
+ *
+ *  - a slug is kebab-case (`green-field`), for a path, an address, an instance;
+ *  - a name for a table or a database is snake_case (`green_field`), where a hyphen cannot be; so is the nick of a grid, which names
+ *    its databases.
+ *
+ * The underscore does not separate the words of a slug: it separates the grid from the simulator in the slug of a simulator
+ * (`vonda_welcome`). Every grid has a welcome, and several can be on a server: "Green Field" on "Wonderful" is
+ * `wonderful_green-field`, "Field" on "Wonderful Green" is `wonderful-green_field`.
  */
 final class Slug
 {
-    /** The nick of a grid: its slug ("Olivier's grid" -> "oliviers_grid"). */
+    /** The nick of a grid: snake_case, as it names its folder and its databases ("Olivier's grid" -> "oliviers_grid"). */
     public static function nick(string $name): string
     {
-        return self::slug($name);
+        return self::snake($name);
     }
 
     /**
-     * The slug: snake_case. A name written in camel case keeps its words apart (OliviersGrid), an apostrophe is dropped, not
-     * a separator ("Olivier's" is "oliviers"), any other run of characters is one underscore.
+     * The slug: kebab-case. A name written in camel case keeps its words apart (OliviersGrid), an apostrophe is dropped, not a
+     * separator ("Olivier's" is "oliviers"), any other run of characters is one hyphen.
      */
     public static function slug(string $name): string
     {
-        $ascii = strtolower((string) preg_replace('/([a-z0-9])([A-Z])/', '$1_$2', self::ascii($name)));
-        $ascii = str_replace(["'", "\u{2019}"], '', $ascii);
-        $slug = preg_replace('/[^a-z0-9]+/', '_', $ascii) ?? '';
+        return self::words($name, '-');
+    }
 
-        return trim($slug, '_');
+    /** A name for a table or a database: snake_case ("Green Field" -> "green_field"). */
+    public static function snake(string $name): string
+    {
+        return self::words($name, '_');
+    }
+
+    /**
+     * The slug of a simulator: its grid, an underscore, its own slug ("Wonderful Green", "Field" -> "wonderful-green_field").
+     * Without the grid, the welcome of a grid would be the welcome of another.
+     */
+    public static function simulator(string $grid, string $name): string
+    {
+        return self::slug($grid) . '_' . self::slug($name);
+    }
+
+    /**
+     * What is left of the slug of a simulator without its grid (the name the person gave it, as a slug). Slugs made as snake_case
+     * before ("wonderful_green_field") are understood.
+     */
+    public static function simulatorOf(string $slug, string $nick): string
+    {
+        foreach ([self::slug($nick) . '_', self::snake($nick) . '_'] as $prefix) {
+            if (str_starts_with($slug, $prefix)) {
+                return substr($slug, strlen($prefix));
+            }
+        }
+
+        return $slug;
     }
 
     /** The name a nick suggests, when nothing says better ("watta_world" is "Watta World"). */
@@ -35,12 +69,6 @@ final class Slug
         $words = preg_split('/[^A-Za-z0-9]+/', $nick, -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
         return $words === [] ? ucfirst($nick) : implode(' ', array_map('ucfirst', $words));
-    }
-
-    /** The name of an instance, as the launcher names it: the slug ("Speculoos Welcome" -> "speculoos_welcome"). */
-    public static function instance(string $name): string
-    {
-        return self::slug($name);
     }
 
     /** Transliterate to ASCII (intl when available, iconv as a fallback): "Joyeux Noël" -> "Joyeux Noel". */
@@ -59,5 +87,13 @@ final class Slug
         $out = @iconv('UTF-8', 'ASCII//TRANSLIT', $value);
 
         return $out !== false ? $out : $value;
+    }
+
+    private static function words(string $name, string $glue): string
+    {
+        $ascii = strtolower((string) preg_replace('/([a-z0-9])([A-Z])/', '$1 $2', self::ascii($name)));
+        $ascii = str_replace(["'", "\u{2019}"], '', $ascii);
+
+        return trim(preg_replace('/[^a-z0-9]+/', $glue, $ascii) ?? '', $glue);
     }
 }

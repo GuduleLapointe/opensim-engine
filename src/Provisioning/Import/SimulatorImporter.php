@@ -64,7 +64,7 @@ final class SimulatorImporter
         $plan->connectors = $grid->connectors();
         $plan->coreDirectory = $core;
         $plan->simulatorName = $name;
-        $plan->slug = Slug::slug($grid->nick() . '_' . $name);
+        $plan->slug = $grid->instanceOf($name);
         $plan->httpPort = $port;
         $plan->dataDirectory = "{$grid->dataDirectory()}/{$plan->slug}";
         $plan->cacheDirectory = "{$grid->cacheDirectory()}/{$plan->slug}";

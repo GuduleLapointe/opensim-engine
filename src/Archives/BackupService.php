@@ -224,9 +224,7 @@ final class BackupService
     /** The name of a simulator without the grid's: the part of its instance after the nick */
     private function simulatorName(string $nick, string $slug): string
     {
-        $prefix = Slug::slug($nick) . '_';
-
-        return Archives::part(str_starts_with($slug, $prefix) ? substr($slug, strlen($prefix)) : $slug);
+        return Archives::part(Slug::simulatorOf($slug, $nick));
     }
 
     /**

@@ -62,7 +62,7 @@ final class Avatar extends Model
 
     public function slug(): string
     {
-        return str_replace('_', '-', Slug::slug($this->name()));
+        return Slug::slug($this->name());
     }
 
     /** The name of the avatar for the other grids: first.last@host:port. */

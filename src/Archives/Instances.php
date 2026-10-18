@@ -121,7 +121,7 @@ final class Instances
     /** The instance of a simulator named in full (grid_sim), or by its own name with or without a leading underscore */
     public static function simulator(string $etc, string $nick, string $ref): ?string
     {
-        foreach ([$ref, Slug::slug($nick . '_' . ltrim($ref, '_'))] as $candidate) {
+        foreach ([$ref, Slug::simulator($nick, ltrim($ref, '_')), Slug::snake($nick . '_' . ltrim($ref, '_'))] as $candidate) {
             if (is_file("$etc/grids/$nick/sims/$candidate.ini")) {
                 return $candidate;
             }

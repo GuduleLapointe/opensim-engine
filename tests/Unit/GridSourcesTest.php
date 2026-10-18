@@ -117,3 +117,25 @@ describe('grid described or announced', function () {
             ->and(Grid::announced($machine->environment, 'silent.example.org', 8002))->toBeNull();
     });
 });
+
+describe('instance of a simulator', function () {
+    test('is the one it has, else the one it will have, with the grid in it', function () {
+        $machine = new Machine();
+        $grid = Grid::find($machine->environment, 'demo');
+        // Made as snake_case before
+        $machine->write($machine->grid . '/sims/demo_green_field.ini', "[Network]\n    http_listener_port = 9020\n");
+
+        expect($grid->instanceOf('Green Field'))->toBe('demo_green_field')
+            ->and($grid->simulator('demo_green_field')?->name())->toBe('demo_green_field')
+            // Asked as it would be made today, it is the same simulator
+            ->and($grid->simulator('demo_green-field')?->name())->toBe('demo_green_field')
+            ->and($grid->instanceOf('Lake House'))->toBe('demo_lake-house')
+            ->and($grid->simulator('demo_lake-house'))->toBeNull();
+
+        $machine->write($machine->grid . '/sims/demo_lake-house.ini', "[Network]\n    http_listener_port = 9030\n");
+        expect($grid->instanceOf('Lake House'))->toBe('demo_lake-house')
+            ->and($grid->simulator('demo_lake-house')?->name())->toBe('demo_lake-house')
+            ->and($grid->simulator('demo_lake-house')?->slug())->toBe('demo_lake-house')
+            ->and($grid->simulator('demo_lake-house')?->httpPort())->toBe(9030);
+    });
+});

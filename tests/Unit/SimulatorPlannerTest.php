@@ -67,7 +67,7 @@ describe('A new simulator', function () {
     test('follows what was answered: the slug the name, the database its slug, the console its port', function () {
         $v = simulator_planner()->resolve(['name' => 'Garden Sim', 'http_port' => '9010']);
 
-        expect($v)->toMatchArray(['name' => 'Garden Sim', 'slug' => 'demo_garden_sim', 'database_name' => 'demo_garden_sim', 'http_port' => 9010, 'console_port' => 9014])
+        expect($v)->toMatchArray(['name' => 'Garden Sim', 'slug' => 'demo_garden-sim', 'database_name' => 'demo_garden_sim', 'http_port' => 9010, 'console_port' => 9014])
             ->and(simulator_planner()->resolve(['http_port' => 9010, 'console_port' => 9020])['console_port'])->toBe(9020);
     });
 

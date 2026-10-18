@@ -228,9 +228,7 @@ final class ArchiveRunner
 
     private function simulatorName(Grid $grid, string $slug): string
     {
-        $prefix = Slug::slug($grid->nick()) . '_';
-
-        return str_starts_with($slug, $prefix) ? substr($slug, strlen($prefix)) : $slug;
+        return Slug::simulatorOf($slug, $grid->nick());
     }
 
     /**

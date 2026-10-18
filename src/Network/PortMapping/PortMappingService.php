@@ -146,7 +146,7 @@ final class PortMappingService
     /** A simulator is mapped when the Robust of its grid is, unless the grid is on another machine. */
     private function ready(string $instance, array $grid): bool
     {
-        return !$grid['simulator'] || $grid['remote'] || is_file($this->state(Slug::instance($grid['nick'])));
+        return !$grid['simulator'] || $grid['remote'] || is_file($this->state(Slug::snake($grid['nick'])));
     }
 
     /** Map the ports of an instance, unless they are mapped already. False when one cannot be, nothing is left mapped then. */
