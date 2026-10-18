@@ -30,7 +30,7 @@ final class SimulatorProvisioner
      *
      * @param array<string,mixed> $profile
      */
-    public function apply(SimPlan $plan, array $profile): void
+    public function apply(SimulatorPlan $plan, array $profile): void
     {
         $etcRoot = $profile['EtcRoot'];
         if ($plan->remoteGrid !== null) {
@@ -45,7 +45,7 @@ final class SimulatorProvisioner
 
         if ($plan->regionOnly) {
             $this->applyRegion($plan, $profile, $grid);
-            SetupFile::record($plan->gridDir, static fn(array $data): array => SetupFile::withSim($data, $plan));
+            SetupFile::record($plan->gridDir, static fn(array $data): array => SetupFile::withSimulator($data, $plan));
 
             return;
         }
@@ -92,9 +92,9 @@ final class SimulatorProvisioner
                 $this->ui->note(sprintf(_('Wrote %s'), $file));
             }
         }
-        $this->ui->note(sprintf(_('Wrote %s'), (new SimConfig())->write($plan)));
+        $this->ui->note(sprintf(_('Wrote %s'), (new SimulatorConfig())->write($plan)));
         if ($plan->createRegion) {
-            $region = (new SimConfig())->writeRegion($plan);
+            $region = (new SimulatorConfig())->writeRegion($plan);
             $this->ui->note(
                 $region !== null
                     ? sprintf(_('Wrote %s'), $region)
@@ -106,7 +106,7 @@ final class SimulatorProvisioner
             $this->giveRoles($plan, $grid);
         }
 
-        SetupFile::record($plan->gridDir, static fn(array $data): array => SetupFile::withSim($data, $plan));
+        SetupFile::record($plan->gridDir, static fn(array $data): array => SetupFile::withSimulator($data, $plan));
 
         $systemUser = $profile['SystemUser'] ?? '';
         $this->giveToSystemUser(
@@ -123,20 +123,20 @@ final class SimulatorProvisioner
                 $this->giveToSystemUser($systemUser, [$simulator->link()], false);
                 $this->ui->note(sprintf(_('Enabled: %s'), $simulator->link()));
                 if ($plan->start) {
-                    $this->startSim($plan, $grid, $profile);
+                    $this->startSimulator($plan, $grid, $profile);
                 }
             } else {
                 $this->ui->warn(_('Could not enable the simulator (config missing).'));
             }
         }
 
-        $this->ui->note(sprintf(_("Simulator '%s' configured."), $plan->simName));
+        $this->ui->note(sprintf(_("Simulator '%s' configured."), $plan->simulatorName));
     }
     /**
      * Start the simulator and report whether it came up: the launcher's
      * answer, then, for a new region, its registration in the grid.
      */
-    private function startSim(SimPlan $plan, GridInfo $grid, array $profile): void
+    private function startSimulator(SimulatorPlan $plan, GridInfo $grid, array $profile): void
     {
 
         // A region registers with the grid when it starts: the grid has to run (when
@@ -169,7 +169,7 @@ final class SimulatorProvisioner
                     $plan,
                     sprintf(
                         _("Simulator '%s' runs, but the region %s did not register in the grid '%s'."),
-                        $plan->simName,
+                        $plan->simulatorName,
                         $plan->regionName,
                         $grid->nick,
                     ),
@@ -181,18 +181,18 @@ final class SimulatorProvisioner
             }
             $this->ui->note(
                 !$plan->createRegion
-                    ? sprintf(_("Simulator '%s' is running."), $plan->simName)
+                    ? sprintf(_("Simulator '%s' is running."), $plan->simulatorName)
                     : ($grid->remote
                         ? sprintf(
                             _(
                                 "Simulator '%s' is running, region %s started: see the grid, on its map, for its registration.",
                             ),
-                            $plan->simName,
+                            $plan->simulatorName,
                             $plan->regionName,
                         )
                         : sprintf(
                             _("Simulator '%s' is running, region %s is online."),
-                            $plan->simName,
+                            $plan->simulatorName,
                             $plan->regionName,
                         )),
             );
@@ -203,11 +203,11 @@ final class SimulatorProvisioner
         $this->failed(
             $plan,
             $pending
-                ? "Simulator '{$plan->simName}' is configured but was not ready after two minutes. Try: opensim -v start {$plan->slug}"
-                : "Simulator '{$plan->simName}' is configured but did not start. Try: opensim -v start {$plan->slug}",
+                ? "Simulator '{$plan->simulatorName}' is configured but was not ready after two minutes. Try: opensim -v start {$plan->slug}"
+                : "Simulator '{$plan->simulatorName}' is configured but did not start. Try: opensim -v start {$plan->slug}",
         );
     }
-    private function failed(SimPlan $plan, string $message): never
+    private function failed(SimulatorPlan $plan, string $message): never
     {
         $this->ui->error($message);
         $log = $plan->logsDirectory . '/' . $plan->slug . '.log';
@@ -226,7 +226,7 @@ final class SimulatorProvisioner
      *
      * Not fatal: a region without it is a region whose parcel is named "Your Parcel".
      */
-    private function initRegion(SimPlan $plan): void
+    private function initRegion(SimulatorPlan $plan): void
     {
         $archive = $this->initArchive();
         if ($archive === null || RegionName::problem($plan->regionName) !== null) {
@@ -308,7 +308,7 @@ final class SimulatorProvisioner
      * The owner of the estate gets the default region as home: Robust sets the home of an account
      * when it is made, and the default region did not exist yet for this one.
      */
-    private function giveHome(SimPlan $plan, GridInfo $grid): void
+    private function giveHome(SimulatorPlan $plan, GridInfo $grid): void
     {
         if ($grid->remote || !in_array(Region::flagName(Region::DEFAULT_REGION), $plan->regionRoles, true)) {
             return;
@@ -331,7 +331,7 @@ final class SimulatorProvisioner
         }
     }
     /** Whether the grid knows the region, waiting a little for it to tell. */
-    private function registered(SimPlan $plan, GridInfo $grid): bool
+    private function registered(SimulatorPlan $plan, GridInfo $grid): bool
     {
         if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9 ._-]*$/', $plan->regionName)) {
             return true; // cannot be looked for
@@ -378,7 +378,7 @@ final class SimulatorProvisioner
         }
     }
     /** Give the roles asked to the region in the Robust config of the grid. */
-    private function giveRoles(SimPlan $plan, GridInfo $grid): void
+    private function giveRoles(SimulatorPlan $plan, GridInfo $grid): void
     {
         if ($plan->regionRoles === [] || $grid->remote || $grid->robustIni === '') {
             return;
@@ -392,10 +392,10 @@ final class SimulatorProvisioner
      * Write the region, and load it in the simulator through its console, which does not restart
      * it. The simulator is started when it is not running.
      */
-    private function applyRegion(SimPlan $plan, array $profile, GridInfo $grid): void
+    private function applyRegion(SimulatorPlan $plan, array $profile, GridInfo $grid): void
     {
         @mkdir($plan->regionsDir(), 0o755, true);
-        $region = (new SimConfig())->writeRegion($plan);
+        $region = (new SimulatorConfig())->writeRegion($plan);
         $this->ui->note(
             $region !== null
                 ? sprintf(_('Wrote %s'), $region)
@@ -412,7 +412,7 @@ final class SimulatorProvisioner
         }
 
         if (!InstanceConsoleService::running(Grid::at(Environment::forProfile($profile), $plan->gridDir)->simulatorLink($plan->slug))) {
-            $this->startSim($plan, $grid, $profile);
+            $this->startSimulator($plan, $grid, $profile);
 
             return;
         }
@@ -430,7 +430,7 @@ final class SimulatorProvisioner
                     _(
                         "The simulator '%s' did not take the region %s through its console. It is described, and loaded the next time the simulator starts: opensim restart %s",
                     ),
-                    $plan->simName,
+                    $plan->simulatorName,
                     $plan->regionName,
                     $plan->slug,
                 ),
@@ -462,7 +462,7 @@ final class SimulatorProvisioner
         }
     }
     /** The simulator has to restart to take the region into account (its parcel is named then, see Actions). */
-    private function needRestart(array $profile, SimPlan $plan, string $why): void
+    private function needRestart(array $profile, SimulatorPlan $plan, string $why): void
     {
         PendingRestarts::add($profile, $plan->slug, "region {$plan->regionName} $why");
     }

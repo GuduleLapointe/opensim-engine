@@ -27,12 +27,12 @@ function archive_install(): array
         "[DatabaseService]\nConnectionString = \"Data Source=localhost;Database=alpha_robust;User ID=opensim;Password=secret;Old Guids=true;\"\n",
     );
     file_put_contents("$grid/alpha.conf", "[Grid]\nGridNick = alpha\n");
-    foreach (['alpha_sim1', 'alpha_sim2'] as $sim) {
+    foreach (['alpha_sim1', 'alpha_sim2'] as $simulator) {
         file_put_contents(
-            "$grid/sims/$sim.ini",
-            "[DatabaseService]\nConnectionString = \"Data Source=localhost;Database=$sim;User ID=opensim;Password=secret;Old Guids=true;\"\n",
+            "$grid/sims/$simulator.ini",
+            "[DatabaseService]\nConnectionString = \"Data Source=localhost;Database=$simulator;User ID=opensim;Password=secret;Old Guids=true;\"\n",
         );
-        symlink("$grid/sims/$sim.ini", "$etc/opensim.d/$sim.ini");
+        symlink("$grid/sims/$simulator.ini", "$etc/opensim.d/$simulator.ini");
     }
     symlink("$grid/Robust.HG.ini", "$etc/robust.d/alpha.ini");
     file_put_contents("$grid/sims/alpha_sim1/regions/Welcome.ini", "[Welcome]\nLocation = 1000,1000\n");

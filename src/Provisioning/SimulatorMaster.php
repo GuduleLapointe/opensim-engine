@@ -25,7 +25,7 @@ use OpenSim\Models\GridInfo;
  * holds what the grid is and decides: its architecture, its OSSL and its OpenSim.ini, which the administrator edits there for all
  * its simulators.
  *
- * The config of a simulator then holds what makes it its own (see SimConfig). The master is generated, never edited: it is made
+ * The config of a simulator then holds what makes it its own (see SimulatorConfig). The master is generated, never edited: it is made
  * again, when it differs, each time a simulator starts. A grid with no master keeps the config of its simulators whole.
  */
 final class SimulatorMaster

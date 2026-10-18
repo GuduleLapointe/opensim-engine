@@ -19,9 +19,9 @@ use OpenSim\Runtime\Environment;
  * database, the estate named after the grid, or the simulator as it is when it is changed.
  *
  * Nothing is asked and nothing is written here: resolve() says what the simulator would be, problems() what is wrong with it, plan()
- * gives the SimPlan that SimulatorProvisioner makes.
+ * gives the SimulatorPlan that SimulatorProvisioner makes.
  */
-final class SimPlanner
+final class SimulatorPlanner
 {
     /** @var array<string,mixed> */
     private array $context;
@@ -46,7 +46,7 @@ final class SimPlanner
             'profile' => [],
             'cores' => [],        // folder => name
             'modify' => false,    // the simulator is named by the caller: it exists and its name stays
-            'simName' => '',      // that name
+            'simulatorName' => '',      // that name
             'defaultName' => 'Sim1',
             'block' => 9000,      // the first block of ten ports free for the simulators of the grid
             'current' => [],      // the settings of the simulator that exists (GridInfo::parse of its config)
@@ -60,21 +60,21 @@ final class SimPlanner
     /**
      * The planner for a simulator of this grid.
      *
-     * @param ?string $simName the simulator to change, null for a new one
+     * @param ?string $simulatorName the simulator to change, null for a new one
      * @param ?string $regionName the region the simulator is made for, which gives it its name
      */
-    public static function forGrid(GridInfo $grid, array $profile, DatabaseService $database, UiInterface $ui, ?string $simName = null, ?string $regionName = null): self
+    public static function forGrid(GridInfo $grid, array $profile, DatabaseService $database, UiInterface $ui, ?string $simulatorName = null, ?string $regionName = null): self
     {
         $planner = new self([
             'grid' => $grid,
             'profile' => $profile,
             'cores' => Core::choices((string) ($profile['CoreRoot'] ?? '')),
-            'modify' => $simName !== null,
-            'simName' => (string) $simName,
+            'modify' => $simulatorName !== null,
+            'simulatorName' => (string) $simulatorName,
         ]);
         // The first simulator of a grid has the name of its landing region, that is its first region; an accent is
         // transliterated (Noël becomes Noel)
-        $firstSim = !$grid->remote && Grid::at(Environment::forProfile($profile), $grid->dir)->simulatorNames() === [];
+        $firstSimulator = !$grid->remote && Grid::at(Environment::forProfile($profile), $grid->dir)->simulatorNames() === [];
         $taken = static fn(string $v): ?string => Simulator::validateName($v) ?? (is_file("{$grid->dir}/sims/" . GridInfo::instanceName("{$grid->nick}_$v") . '.ini') ? 'taken' : null);
 
         // The ports of a simulator are a block of ten, the first free one from where the simulators of the grid start (9000 for
@@ -82,12 +82,12 @@ final class SimPlanner
         $foreign = (new GridRegistry($database))->knownPorts($profile, $grid);
 
         $context = [
-            'defaultName' => $simName ?? SimName::suggest($regionName, $firstSim ? 'Welcome' : null, $taken),
+            'defaultName' => $simulatorName ?? SimulatorName::suggest($regionName, $firstSimulator ? 'Welcome' : null, $taken),
             'block' => Ports::nextBlock(Ports::simulatorsFrom($grid->publicPort), $foreign),
             'accounts' => $grid->remote ? null : (new GridAccounts($database, $ui))->names($grid),
         ];
 
-        return $planner->with($context)->forSim($simName ?? $context['defaultName']);
+        return $planner->with($context)->forSimulator($simulatorName ?? $context['defaultName']);
     }
 
     /** A planner with this context, for the tests and for the callers that know it. */
@@ -103,7 +103,7 @@ final class SimPlanner
     }
 
     /** The same planner, starting from the simulator of this name: its settings are the ones proposed, as is the account of the others. */
-    public function forSim(string $name): self
+    public function forSimulator(string $name): self
     {
         $grid = $this->context['grid'];
         $slug = GridInfo::instanceName($grid->nick . '_' . $name);
@@ -160,7 +160,7 @@ final class SimPlanner
         $sibling = $c['sibling'];
         $text = static fn(string $name, mixed $default): string => trim((string) ($answers[$name] ?? $default));
 
-        $name = $c['modify'] ? $c['simName'] : Slug::ascii($text('name', $c['defaultName']));
+        $name = $c['modify'] ? $c['simulatorName'] : Slug::ascii($text('name', $c['defaultName']));
         $slug = GridInfo::instanceName($grid->nick . '_' . $name);
         $cores = $c['cores'];
         $core = $text('core', count($cores) > 1 ? $grid->coreDirectory : '');
@@ -237,13 +237,13 @@ final class SimPlanner
     }
 
     /** The plan of the simulator these answers describe. The region is added by RegionPlanner::apply(). */
-    public function plan(array $answers = []): SimPlan
+    public function plan(array $answers = []): SimulatorPlan
     {
         $v = $this->resolve($answers);
         $grid = $this->context['grid'];
         $current = $this->context['current'];
 
-        $plan = new SimPlan();
+        $plan = new SimulatorPlan();
         $plan->gridNick = $grid->nick;
         $plan->gridName = $grid->name;
         $plan->gridDir = $grid->dir;
@@ -259,7 +259,7 @@ final class SimPlanner
         $plan->preset = $grid->preset;
         $plan->configDir = $grid->preset !== '' ? (new Presets([], (string) ($this->context['profile']['EtcRoot'] ?? '')))->dir($grid->preset) : '';
 
-        $plan->simName = $v['name'];
+        $plan->simulatorName = $v['name'];
         $plan->slug = $v['slug'];
         $plan->dataDirectory = "{$grid->dataDirectory}/{$plan->slug}";
         $plan->cacheDirectory = "{$grid->cacheDirectory}/{$plan->slug}";

@@ -124,10 +124,10 @@ final class ArchiveRunner
             $region = $this->region($grid, $slug, $options);
             // No region is all of them: the root of the console
             $lines[] = 'change region ' . ($region ?? 'root');
-            $sim = $this->simName($grid, $slug);
-            $prefix = Archives::oarPrefix($grid->nick, $sim, isset($options['all']) ? null : $region);
+            $simulator = $this->simulatorName($grid, $slug);
+            $prefix = Archives::oarPrefix($grid->nick, $simulator, isset($options['all']) ? null : $region);
             $name =
-                $verb === 'save' ? Archives::oarName($grid->nick, $sim, $region, $options, Archives::stamp()) : null;
+                $verb === 'save' ? Archives::oarName($grid->nick, $simulator, $region, $options, Archives::stamp()) : null;
         } else {
             $prefix = Archives::iarPrefix($grid->nick, $given['first'], $given['last']);
             $name =
@@ -226,7 +226,7 @@ final class ArchiveRunner
         return $up[0];
     }
 
-    private function simName(GridInfo $grid, string $slug): string
+    private function simulatorName(GridInfo $grid, string $slug): string
     {
         $prefix = GridInfo::instanceName($grid->nick) . '_';
 

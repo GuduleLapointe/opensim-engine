@@ -24,7 +24,7 @@ use Symfony\Component\Yaml\Yaml;
  * Only the grid name, and the database user and password, are required to make a grid: the rest has the default
  * of the setup. Without a grid name, the simulators join the grid of the `nick` (or the only one there is), and
  * need the user and password of their database. The file gives the answers about the grid, its simulators and their regions by the
- * names of the fields of the models (gridValues(), simValues(), regionValues()): the planners work the plans out from them, as they
+ * names of the fields of the models (gridValues(), simulatorValues(), regionValues()): the planners work the plans out from them, as they
  * do from a form, and what the application asks once they are made is answered from the file too (gridPrompts()...).
  *
  * The file is also written by the setup, from what it did (the plans), in `setup.json` of the grid.
@@ -137,9 +137,9 @@ final class SetupFile
                 }
             }
         }
-        foreach ($data['simulators'] ?? [] as $i => $sim) {
+        foreach ($data['simulators'] ?? [] as $i => $simulator) {
             foreach (['user', 'password'] as $key) {
-                if (!$creates && trim((string) ($sim['database'][$key] ?? '')) === '') {
+                if (!$creates && trim((string) ($simulator['database'][$key] ?? '')) === '') {
                     $problems[] = "simulators.$i.database.$key is required (the simulators of a grid that is not in the file)";
                 }
             }
@@ -192,7 +192,7 @@ final class SetupFile
      * @param array<string,mixed> $data
      * @return array<string,mixed>
      */
-    public static function simValues(array $data, int $i): array
+    public static function simulatorValues(array $data, int $i): array
     {
         $values = self::values(self::SIM, $data, ['$i' => (string) $i]);
         foreach (['host', 'user', 'password'] as $key) {
@@ -206,7 +206,7 @@ final class SetupFile
 
     /**
      * Who owns the estate of a simulator: an account of the grid the file names (`estate.owner`), else the owner of the file, to make
-     * if the grid does not have it (SimPlanner::ownerAnswers()).
+     * if the grid does not have it (SimulatorPlanner::ownerAnswers()).
      *
      * @param array<string,mixed> $data
      * @return array{name:string,password:string,email:string}
@@ -261,7 +261,7 @@ final class SetupFile
      * @param array<string,mixed> $data
      * @return array<string,mixed>
      */
-    public static function simPrompts(array $data, int $i): array
+    public static function simulatorPrompts(array $data, int $i): array
     {
         $answers = self::credentials($data['simulators'][$i]['database'] ?? [], $data['grid']['database'] ?? []);
         $answers += [
@@ -394,10 +394,10 @@ final class SetupFile
      * @param array<string,mixed> $data
      * @return array<string,mixed>
      */
-    public static function withSim(array $data, SimPlan $plan): array
+    public static function withSimulator(array $data, SimulatorPlan $plan): array
     {
-        $sim = [
-            'name' => $plan->simName,
+        $simulator = [
+            'name' => $plan->simulatorName,
             'http_port' => $plan->httpPort,
             'console' => $plan->consoleMode,
             'database' => [
@@ -410,7 +410,7 @@ final class SetupFile
             'regions' => [],
         ];
         if ($plan->regionName !== '') {
-            $sim['regions'][] = array_filter(
+            $simulator['regions'][] = array_filter(
                 [
                     'name' => $plan->regionName,
                     'location' => $plan->regionLocation,
@@ -422,27 +422,27 @@ final class SetupFile
         }
 
         // What the plan does not say (a region added later knows nothing of the database) is not erased
-        $sim = self::compact($sim);
-        $sims = $data['simulators'] ?? [];
+        $simulator = self::compact($simulator);
+        $simulators = $data['simulators'] ?? [];
         $found = false;
-        foreach ($sims as $k => $existing) {
-            if (($existing['name'] ?? '') === $plan->simName) {
+        foreach ($simulators as $k => $existing) {
+            if (($existing['name'] ?? '') === $plan->simulatorName) {
                 // A region added later is kept with the ones this simulator already had
                 $regions = $existing['regions'] ?? [];
-                foreach ($sim['regions'] ?? [] as $region) {
+                foreach ($simulator['regions'] ?? [] as $region) {
                     $regions = array_values(
                         array_filter($regions, static fn(array $r): bool => ($r['name'] ?? '') !== $region['name']),
                     );
                     $regions[] = $region;
                 }
-                $sims[$k] = ['regions' => $regions] + array_replace_recursive($existing, $sim);
+                $simulators[$k] = ['regions' => $regions] + array_replace_recursive($existing, $simulator);
                 $found = true;
             }
         }
         if (!$found) {
-            $sims[] = $sim;
+            $simulators[] = $simulator;
         }
-        $data['simulators'] = array_values($sims);
+        $data['simulators'] = array_values($simulators);
         if ($plan->createOwner && $plan->estateOwner !== '') {
             // The password is kept hashed, as Robust keeps it: the hash and its salt are what makes the account
             $salt = md5(random_bytes(16));

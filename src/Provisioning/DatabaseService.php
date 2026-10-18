@@ -66,7 +66,7 @@ final class DatabaseService
      * The account of a plan takes the password it was given earlier in this session: a plan made before it was entered (the quick
      * setup plans the simulator before it makes the database of the grid) holds another one, made at random.
      */
-    public static function applyRemembered(GridPlan|SimPlan $plan): void
+    public static function applyRemembered(GridPlan|SimulatorPlan $plan): void
     {
         $plan->dbPass = self::recall($plan->dbHost, $plan->dbUser) ?? $plan->dbPass;
     }

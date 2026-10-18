@@ -42,7 +42,7 @@ final class Features
      *
      * @param  array{prefix?:string,money?:string} $options the address of the services (a prefix: `<prefix>/query.php`), the
      *                                                      money module (beta or gloebit)
-     * @return array{error:?string,sims:list<string>,grid:bool,robust:bool,notes:list<string>}
+     * @return array{error:?string,simulators:list<string>,grid:bool,robust:bool,notes:list<string>}
      */
     public function enable(string $feature, array $options = []): array
     {
@@ -52,7 +52,7 @@ final class Features
     /**
      * Disable a feature of the grid.
      *
-     * @return array{error:?string,sims:list<string>,grid:bool,robust:bool,notes:list<string>}
+     * @return array{error:?string,simulators:list<string>,grid:bool,robust:bool,notes:list<string>}
      */
     public function disable(string $feature): array
     {
@@ -77,23 +77,23 @@ final class Features
      */
     public function simulators(): array
     {
-        $sims = [];
+        $simulators = [];
         $files = glob("{$this->grid->dir}/sims/*.ini") ?: [];
         sort($files);
         foreach ($files as $file) {
-            $sims[basename($file, '.ini')] = $file;
+            $simulators[basename($file, '.ini')] = $file;
         }
 
-        return $sims;
+        return $simulators;
     }
 
     /**
      * @param  array{prefix?:string,money?:string} $options
-     * @return array{error:?string,sims:list<string>,grid:bool,robust:bool,notes:list<string>}
+     * @return array{error:?string,simulators:list<string>,grid:bool,robust:bool,notes:list<string>}
      */
     private function apply(string $feature, bool $on, array $options): array
     {
-        $result = ['error' => null, 'sims' => [], 'grid' => false, 'robust' => false, 'notes' => []];
+        $result = ['error' => null, 'simulators' => [], 'grid' => false, 'robust' => false, 'notes' => []];
         $prefix = rtrim(trim($options['prefix'] ?? ''), '/');
         if ($prefix !== '' && !preg_match('#^https?://[^\s/]+#i', $prefix)) {
             $result['error'] = "'$prefix' is not an address, give the start of the address of the services (https://www.example.org/helpers)";
@@ -122,12 +122,12 @@ final class Features
     }
 
     /**
-     * @param  array{error:?string,sims:list<string>,grid:bool,robust:bool,notes:list<string>} $result
-     * @return array{error:?string,sims:list<string>,grid:bool,robust:bool,notes:list<string>}
+     * @param  array{error:?string,simulators:list<string>,grid:bool,robust:bool,notes:list<string>} $result
+     * @return array{error:?string,simulators:list<string>,grid:bool,robust:bool,notes:list<string>}
      */
     private function search(bool $on, string $prefix, array $result): array
     {
-        $name = SimConfig::dataServiceNameOf($this->grid->nick, $this->grid->name);
+        $name = SimulatorConfig::dataServiceNameOf($this->grid->nick, $this->grid->name);
         $query = $prefix !== '' ? "$prefix/query.php" : $this->grid->helperUrl('query');
         $register = $prefix !== '' ? "$prefix/register.php" : $this->grid->helperUrl('register');
         if ($on && ($query === '' || $register === '')) {
@@ -190,8 +190,8 @@ final class Features
     /**
      * The master of the simulators follows the OpenSim.ini of the grid, where a grid that has one keeps what it decides.
      *
-     * @param  array{error:?string,sims:list<string>,grid:bool,robust:bool,notes:list<string>} $result
-     * @return array{error:?string,sims:list<string>,grid:bool,robust:bool,notes:list<string>}
+     * @param  array{error:?string,simulators:list<string>,grid:bool,robust:bool,notes:list<string>} $result
+     * @return array{error:?string,simulators:list<string>,grid:bool,robust:bool,notes:list<string>}
      */
     private function finish(array $result): array
     {
@@ -215,8 +215,8 @@ final class Features
     }
 
     /**
-     * @param  array{error:?string,sims:list<string>,grid:bool,robust:bool,notes:list<string>} $result
-     * @return array{error:?string,sims:list<string>,grid:bool,robust:bool,notes:list<string>}
+     * @param  array{error:?string,simulators:list<string>,grid:bool,robust:bool,notes:list<string>} $result
+     * @return array{error:?string,simulators:list<string>,grid:bool,robust:bool,notes:list<string>}
      */
     private function economy(bool $on, string $money, string $prefix, array $result): array
     {
@@ -277,8 +277,8 @@ final class Features
     }
 
     /**
-     * @param  array{error:?string,sims:list<string>,grid:bool,robust:bool,notes:list<string>} $result
-     * @return array{error:?string,sims:list<string>,grid:bool,robust:bool,notes:list<string>}
+     * @param  array{error:?string,simulators:list<string>,grid:bool,robust:bool,notes:list<string>} $result
+     * @return array{error:?string,simulators:list<string>,grid:bool,robust:bool,notes:list<string>}
      */
     private function profiles(bool $on, array $result): array
     {
@@ -309,7 +309,7 @@ final class Features
     /**
      * Edit the ini file of each simulator of the grid and the OpenSim.ini of the grid, and keep which ones changed.
      *
-     * @param array{error:?string,sims:list<string>,grid:bool,robust:bool,notes:list<string>} $result
+     * @param array{error:?string,simulators:list<string>,grid:bool,robust:bool,notes:list<string>} $result
      * @param callable(Ini,bool):void $edit given the file and whether it is the OpenSim.ini of the grid
      */
     private function eachFile(array &$result, callable $edit): void
@@ -320,7 +320,7 @@ final class Features
         }
         foreach ($this->simulators() as $instance => $file) {
             if ($this->edit($file, fn(IniEditor $ini) => $edit($ini, false))) {
-                $result['sims'][] = $instance;
+                $result['simulators'][] = $instance;
             }
         }
     }
@@ -344,7 +344,7 @@ final class Features
     /**
      * Edit the Robust config of the grid, when it is on this machine.
      *
-     * @param array{error:?string,sims:list<string>,grid:bool,robust:bool,notes:list<string>} $result
+     * @param array{error:?string,simulators:list<string>,grid:bool,robust:bool,notes:list<string>} $result
      * @param callable(Ini):void $edit
      */
     private function robust(callable $edit, array &$result): bool

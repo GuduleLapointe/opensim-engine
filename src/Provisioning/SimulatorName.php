@@ -6,7 +6,7 @@ namespace OpenSim\Provisioning;
  * The name proposed for a simulator: the one of the region it is made for, as the first simulator of a grid has the one of its
  * landing region; a name of the grid's own when there is no region to be named after, else a random one.
  */
-final class SimName
+final class SimulatorName
 {
     /**
      * @param ?string $regionName the region the simulator is for, null when there is none

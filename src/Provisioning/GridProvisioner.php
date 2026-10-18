@@ -194,7 +194,7 @@ final class GridProvisioner
         if (!SimulatorMaster::exists($plan->etcDirectory)) {
             $ini = IniEditor::load($general);
             $before = $ini->toString();
-            $ini->overlay(implode("\n", SimConfig::gridLayer(GridInfo::fromPlan($plan))));
+            $ini->overlay(implode("\n", SimulatorConfig::gridLayer(GridInfo::fromPlan($plan))));
             if ($ini->toString() !== $before) {
                 $ini->save($general);
             }

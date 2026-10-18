@@ -42,9 +42,9 @@ final class RegionPlanner
             'optional' => false,     // the first region of a simulator, which may be left out
             'fixed' => false,        // a region that exists, which only moves
             'pool' => [],            // instance => title of the simulators that can take it
-            'portOfSim' => null,     // Closure(string $instance): int, the HTTP port of a simulator of the pool
+            'portOfSimulator' => null,     // Closure(string $instance): int, the HTTP port of a simulator of the pool
             'defaultName' => '',     // the name proposed first, if it fits
-            'simName' => '',         // the simulator, which gives its name to its first region
+            'simulatorName' => '',         // the simulator, which gives its name to its first region
             'first' => true,         // no region is described for the simulator yet
             'httpPort' => 9000,      // the HTTP port of the simulator that takes it
             'taken' => [],           // lower case names of the regions of the grid
@@ -62,9 +62,9 @@ final class RegionPlanner
      * The planner of a region of this simulator plan, in this grid.
      *
      * @param array<string,string> $pool the simulators that can take it (instance => title)
-     * @param ?\Closure(string):int $portOfSim the HTTP port of a simulator of the pool
+     * @param ?\Closure(string):int $portOfSimulator the HTTP port of a simulator of the pool
      */
-    public static function forSim(SimPlan $plan, GridInfo $grid, DatabaseService $database, bool $optional = false, array $pool = [], string $defaultName = '', ?\Closure $portOfSim = null): self
+    public static function forSimulator(SimulatorPlan $plan, GridInfo $grid, DatabaseService $database, bool $optional = false, array $pool = [], string $defaultName = '', ?\Closure $portOfSimulator = null): self
     {
         $registry = new GridRegistry($database);
 
@@ -72,9 +72,9 @@ final class RegionPlanner
             'grid' => $grid,
             'optional' => $optional,
             'pool' => $pool,
-            'portOfSim' => $portOfSim,
+            'portOfSimulator' => $portOfSimulator,
             'defaultName' => $defaultName,
-            'simName' => $plan->simName,
+            'simulatorName' => $plan->simulatorName,
             'first' => (glob("{$plan->regionsDir()}/*.ini*") ?: []) === [],
             'httpPort' => $plan->httpPort,
             'taken' => $registry->names($grid),
@@ -146,8 +146,8 @@ final class RegionPlanner
     public function resolve(array $answers = []): array
     {
         $c = $this->context;
-        $sim = (string) ($answers['sim'] ?? '+');
-        $httpPort = $sim !== '+' && $c['portOfSim'] !== null ? ($c['portOfSim'])($sim) : $c['httpPort'];
+        $simulator = (string) ($answers['sim'] ?? '+');
+        $httpPort = $simulator !== '+' && $c['portOfSimulator'] !== null ? ($c['portOfSimulator'])($simulator) : $c['httpPort'];
         $problem = fn(string $name): ?string => $this->nameProblem($name);
         // What is not answered is worked out, and only then (the place of a region of a grid on another machine is asked to it)
         $place = fn(): string => implode(',', array_slice($this->freePlace(...$this->center()), 0, 2));
@@ -158,7 +158,7 @@ final class RegionPlanner
             // Checked at first: the default region and the one of the visitors, when the grid has none yet (and not the fallback)
             'roles' => array_values((array) ($answers['roles'] ?? $this->missingRoles())),
             'location' => trim((string) ($answers['location'] ?? $place())),
-            'sim' => $sim,
+            'sim' => $simulator,
             'port' => (int) ($answers['port'] ?? $this->nextPort($httpPort)),
         ];
     }
@@ -170,8 +170,8 @@ final class RegionPlanner
         if ($c['defaultName'] !== '' && $problem($c['defaultName']) === null) {
             return $c['defaultName'];
         }
-        if ($c['first'] && $c['simName'] !== '' && $problem($c['simName']) === null) {
-            return $c['simName'];
+        if ($c['first'] && $c['simulatorName'] !== '' && $problem($c['simulatorName']) === null) {
+            return $c['simulatorName'];
         }
 
         // Made once: what is proposed is what is taken
@@ -206,7 +206,7 @@ final class RegionPlanner
     }
 
     /** What the simulator plan says of the region these answers describe: the place is the free one nearest to the place asked. */
-    public function apply(SimPlan $plan, array $answers = [], ?string $current = null): void
+    public function apply(SimulatorPlan $plan, array $answers = [], ?string $current = null): void
     {
         $v = $this->resolve($answers);
         if ($this->context['optional'] && !$v['create']) {

@@ -8,7 +8,7 @@ use OpenSim\Config\ConnectionString;
  * Everything gathered to create (or reconfigure) one simulator of a grid,
  * with its first region, before anything is written.
  */
-final class SimPlan
+final class SimulatorPlan
 {
     // The grid it joins.
     public string $gridNick = '';
@@ -40,7 +40,7 @@ final class SimPlan
     public string $coreDirectory = '';
 
     // The simulator.
-    public string $simName = '';
+    public string $simulatorName = '';
     /** Name of the instance, of its config file and of its database. */
     public string $slug = '';
     public int $httpPort = 9000;

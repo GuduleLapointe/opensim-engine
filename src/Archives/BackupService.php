@@ -89,7 +89,7 @@ final class BackupService
 
         $name =
             $nick .
-            ($slug !== null ? '-' . $this->simName($nick, $slug) : '') .
+            ($slug !== null ? '-' . $this->simulatorName($nick, $slug) : '') .
             "-{$this->stamp}" .
             ($options['logs'] ?? false ? '-logs' : '') .
             ($options['archives'] ?? false ? '-archives' : '');
@@ -220,7 +220,7 @@ final class BackupService
     }
 
     /** The name of a simulator without the grid's: the part of its instance after the nick */
-    private function simName(string $nick, string $slug): string
+    private function simulatorName(string $nick, string $slug): string
     {
         $prefix = GridInfo::instanceName($nick) . '_';
 
@@ -243,8 +243,8 @@ final class BackupService
                 'pass' => $grid->dbPass,
             ];
         }
-        foreach ($slug !== null ? [$slug] : Grid::at(Environment::forProfile($this->profile), $grid->dir)->simulatorNames() as $sim) {
-            $db = GridInfo::parse("{$grid->dir}/sims/$sim.ini");
+        foreach ($slug !== null ? [$slug] : Grid::at(Environment::forProfile($this->profile), $grid->dir)->simulatorNames() as $simulator) {
+            $db = GridInfo::parse("{$grid->dir}/sims/$simulator.ini");
             if (($db['dbName'] ?? '') !== '') {
                 $found[($db['dbHost'] ?? 'localhost') . '/' . $db['dbName']] = [
                     'host' => $db['dbHost'] ?? 'localhost',

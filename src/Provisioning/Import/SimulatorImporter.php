@@ -6,7 +6,7 @@ use OpenSim\Config\GridFileService;
 use OpenSim\Config\ConfigReader;
 use OpenSim\Config\ConnectionString;
 use OpenSim\Models\GridInfo;
-use OpenSim\Provisioning\SimPlan;
+use OpenSim\Provisioning\SimulatorPlan;
 
 /**
  * Ports the configuration of a simulator of a grid (an OpenSim.ini with its includes, its regions folder) the way
@@ -14,11 +14,11 @@ use OpenSim\Provisioning\SimPlan;
  * regions are copied (their identity, their UUID, is what the grid knows them by), the other settings that differ
  * from the defaults of the core are injected. Customizations are found by RobustImporter::customizations().
  */
-final class SimImporter
+final class SimulatorImporter
 {
     /**
      * @param array<string,array<string,string>> $raw the original, as written, includes read
-     * @return SimPlan|string the plan, or what makes it impossible
+     * @return SimulatorPlan|string the plan, or what makes it impossible
      */
     public static function plan(
         array $raw,
@@ -27,7 +27,7 @@ final class SimImporter
         array $profile,
         ?string $name,
         string $core,
-    ): SimPlan|string {
+    ): SimulatorPlan|string {
         $ini = ConfigReader::expand($raw);
         $architecture =
             $ini['Architecture']['Include-Architecture'] ?? ($raw['Architecture']['Include-Architecture'] ?? '');
@@ -50,7 +50,7 @@ final class SimImporter
             return 'the simulator has no name: give one with --name';
         }
 
-        $plan = new SimPlan();
+        $plan = new SimulatorPlan();
         $plan->gridNick = $grid->nick;
         $plan->gridName = $grid->name;
         $plan->gridDir = $grid->dir;
@@ -62,7 +62,7 @@ final class SimImporter
         $plan->gridHere = !$grid->remote;
         $plan->connectors = $grid->connectors;
         $plan->coreDirectory = $core;
-        $plan->simName = $name;
+        $plan->simulatorName = $name;
         $plan->slug = GridInfo::instanceName($grid->nick . '_' . $name);
         $plan->httpPort = $port;
         $plan->dataDirectory = "{$grid->dataDirectory}/{$plan->slug}";

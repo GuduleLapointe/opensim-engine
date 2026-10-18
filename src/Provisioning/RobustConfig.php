@@ -17,7 +17,7 @@ final class RobustConfig
 {
     /**
      * The optional connectors of Robust (commented in the distribution) that the setup serves in a grid it makes, each with its
-     * counterpart in the simulators (see SimConfig::gridLayer() and GridShared): the bakes of the avatars, the estates of the
+     * counterpart in the simulators (see SimulatorConfig::gridLayer() and GridShared): the bakes of the avatars, the estates of the
      * grid, the profiles, the groups (with the helpers or a hypergrid) and the groups of the hypergrid. A grid that exists is not
      * changed: it is the operator's (and `opensim enable`) to decide.
      *

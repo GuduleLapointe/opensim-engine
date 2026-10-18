@@ -93,10 +93,10 @@ final class Instances
             return [$slug, null];
         }
         foreach (glob("$etc/grids/$nick/sims/*.ini") ?: [] as $ini) {
-            $sim = basename($ini, '.ini');
-            foreach (array_map(static fn(Region $region): string => $region->name(), Region::inDirectory("$etc/grids/$nick/sims/$sim/regions")) as $region) {
+            $simulator = basename($ini, '.ini');
+            foreach (array_map(static fn(Region $region): string => $region->name(), Region::inDirectory("$etc/grids/$nick/sims/$simulator/regions")) as $region) {
                 if (strcasecmp($region, $ref) === 0) {
-                    return [$sim, $region];
+                    return [$simulator, $region];
                 }
             }
         }

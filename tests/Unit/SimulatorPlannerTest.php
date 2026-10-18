@@ -8,8 +8,8 @@ declare(strict_types=1);
 
 use OpenSim\Models\GridInfo;
 use OpenSim\Models\Simulator;
-use OpenSim\Provisioning\SimPlan;
-use OpenSim\Provisioning\SimPlanner;
+use OpenSim\Provisioning\SimulatorPlan;
+use OpenSim\Provisioning\SimulatorPlanner;
 
 /** A grid of this machine: demo, Robust at 8002, its database account known. */
 function sim_grid(array $set = []): GridInfo
@@ -34,11 +34,11 @@ function sim_grid(array $set = []): GridInfo
 }
 
 /** A planner with the accounts of the grid and no random: a counter. */
-function sim_planner(array $more = []): SimPlanner
+function simulator_planner(array $more = []): SimulatorPlanner
 {
     $counter = 0;
 
-    return SimPlanner::fromContext($more + [
+    return SimulatorPlanner::fromContext($more + [
         'grid' => sim_grid(),
         'profile' => ['EtcRoot' => '/etc/opensim'],
         'cores' => ['/cores/0.9.3.0' => '0.9.3.0'],
@@ -56,7 +56,7 @@ function sim_planner(array $more = []): SimPlanner
 
 describe('A new simulator', function () {
     test('is proposed in the first free block of ports, with the account of the grid, the estate of the grid, its first account', function () {
-        $v = sim_planner()->resolve();
+        $v = simulator_planner()->resolve();
 
         expect($v)->toMatchArray([
             'name' => 'Welcome', 'slug' => 'demo_welcome', 'core' => '/cores/0.9.3.0', 'http_port' => 9000, 'external_host' => 'SYSTEMIP',
@@ -67,39 +67,39 @@ describe('A new simulator', function () {
     });
 
     test('follows what was answered: the slug the name, the database its slug, the console its port', function () {
-        $v = sim_planner()->resolve(['name' => 'Garden Sim', 'http_port' => '9010']);
+        $v = simulator_planner()->resolve(['name' => 'Garden Sim', 'http_port' => '9010']);
 
         expect($v)->toMatchArray(['name' => 'Garden Sim', 'slug' => 'demo_garden_sim', 'database_name' => 'demo_garden_sim', 'http_port' => 9010, 'console_port' => 9014])
-            ->and(sim_planner()->resolve(['http_port' => 9010, 'console_port' => 9020])['console_port'])->toBe(9020);
+            ->and(simulator_planner()->resolve(['http_port' => 9010, 'console_port' => 9020])['console_port'])->toBe(9020);
     });
 
     test('takes the next free port for a console when the port is not in a block of ten', function () {
-        expect(sim_planner()->resolve(['http_port' => 9005])['console_port'])->toBe(9006 + 100);
+        expect(simulator_planner()->resolve(['http_port' => 9005])['console_port'])->toBe(9006 + 100);
     });
 
     test('uses the database account of another simulator of the grid, its password too', function () {
         $grid = sim_grid();
         file_put_contents("{$grid->dir}/sims/demo_first.ini", "[DatabaseService]\nConnectionString = \"Data Source=sibling.example.org;Database=demo_first;User ID=sibling;Password=siblingpass;\"\n");
 
-        $v = sim_planner(['grid' => $grid])->forSim('Welcome')->resolve();
+        $v = simulator_planner(['grid' => $grid])->forSimulator('Welcome')->resolve();
 
         expect($v)->toMatchArray(['database_host' => 'sibling.example.org', 'database_user' => 'sibling', 'database_password' => 'siblingpass', 'database_name' => 'demo_welcome']);
     });
 
     test('makes a password when the grid has none to give, the same one each time', function () {
-        $planner = sim_planner(['grid' => sim_grid(['dbPass' => ''])]);
+        $planner = simulator_planner(['grid' => sim_grid(['dbPass' => ''])]);
 
         expect($planner->resolve()['database_password'])->toBe('p1' . str_repeat('0', 18))
             ->and($planner->plan()->dbPass)->toBe('p1' . str_repeat('0', 18));
     });
 
     test('is the plan the provisioner makes: folders by slug, the console made at random once, the grid it joins', function () {
-        $plan = sim_planner()->plan(['name' => 'Garden', 'external_host' => 'play.example.org', 'estate_owner' => 'John Roe']);
+        $plan = simulator_planner()->plan(['name' => 'Garden', 'external_host' => 'play.example.org', 'estate_owner' => 'John Roe']);
 
-        expect($plan)->toBeInstanceOf(SimPlan::class)
+        expect($plan)->toBeInstanceOf(SimulatorPlan::class)
             ->and($plan->gridNick)->toBe('demo')
             ->and($plan->gridName)->toBe('Demo World')
-            ->and($plan->simName)->toBe('Garden')
+            ->and($plan->simulatorName)->toBe('Garden')
             ->and($plan->slug)->toBe('demo_garden')
             ->and($plan->dataDirectory)->toBe('/var/lib/demo/demo_garden')
             ->and($plan->cacheDirectory)->toBe('/var/cache/demo/demo_garden')
@@ -118,25 +118,25 @@ describe('A new simulator', function () {
     });
 
     test('has no console host when it is announced by the first interface, and no console with a screen session', function () {
-        expect(sim_planner()->plan()->consoleHost)->toBe('');
+        expect(simulator_planner()->plan()->consoleHost)->toBe('');
 
-        $plan = sim_planner()->plan(['console' => 'screen']);
+        $plan = simulator_planner()->plan(['console' => 'screen']);
         expect($plan->consoleMode)->toBe('screen')->and($plan->consolePort)->toBe(9004)->and($plan->consoleUser)->toBe('');
     });
 
     test('runs on the core of its grid, or on the one chosen among several', function () {
-        $several = sim_planner(['cores' => ['/cores/0.9.2.2' => '0.9.2.2', '/cores/0.9.3.0' => '0.9.3.0']]);
+        $several = simulator_planner(['cores' => ['/cores/0.9.2.2' => '0.9.2.2', '/cores/0.9.3.0' => '0.9.3.0']]);
 
         expect($several->plan()->coreDirectory)->toBe('/cores/0.9.3.0')
             ->and($several->plan(['core' => '/cores/0.9.2.2'])->coreDirectory)->toBe('/cores/0.9.2.2')
             ->and($several->fields()->visible('core', []))->toBeTrue()
-            ->and(sim_planner()->fields()->visible('core', []))->toBeFalse();
+            ->and(simulator_planner()->fields()->visible('core', []))->toBeFalse();
     });
 });
 
 describe('owner of the estate', function () {
     test('is an account of the grid, or a new one when the person says so', function () {
-        $planner = sim_planner();
+        $planner = simulator_planner();
         $plan = $planner->plan(['estate_owner' => '+', 'new_name' => 'Ann Poe', 'new_password' => 'secret1', 'new_email' => 'ann@example.org']);
 
         expect($plan->createOwner)->toBeTrue()
@@ -147,7 +147,7 @@ describe('owner of the estate', function () {
     });
 
     test('is the first account to create when the grid has none', function () {
-        $planner = sim_planner(['accounts' => []]);
+        $planner = simulator_planner(['accounts' => []]);
         $plan = $planner->plan(['new_name' => 'Ann Poe', 'new_password' => 'secret1']);
 
         expect($plan->createOwner)->toBeTrue()
@@ -157,7 +157,7 @@ describe('owner of the estate', function () {
     });
 
     test('is typed, and has to exist, when the accounts of the grid are not known here', function () {
-        $planner = sim_planner(['accounts' => null]);
+        $planner = simulator_planner(['accounts' => null]);
         $plan = $planner->plan(['estate_owner' => 'Far Away']);
 
         expect($plan->createOwner)->toBeFalse()
@@ -171,18 +171,18 @@ describe('owner a setup file names', function () {
     test('is an account of the grid when it has it, a new account to make when it does not, one that has to exist when the accounts are not known', function () {
         $owner = ['name' => 'Jane Doe', 'password' => 'secret1', 'email' => 'jane@example.org'];
 
-        expect(sim_planner()->ownerAnswers($owner))->toBe(['estate_owner' => 'Jane Doe'])
-            ->and(sim_planner()->ownerAnswers(['name' => 'Ann Poe'] + $owner))->toBe(['estate_owner' => '+', 'new_name' => 'Ann Poe', 'new_password' => 'secret1', 'new_email' => 'jane@example.org'])
-            ->and(sim_planner(['accounts' => null])->ownerAnswers(['name' => 'Far Away']))->toBe(['estate_owner' => 'Far Away'])
-            ->and(sim_planner()->ownerAnswers([]))->toBe([]);
+        expect(simulator_planner()->ownerAnswers($owner))->toBe(['estate_owner' => 'Jane Doe'])
+            ->and(simulator_planner()->ownerAnswers(['name' => 'Ann Poe'] + $owner))->toBe(['estate_owner' => '+', 'new_name' => 'Ann Poe', 'new_password' => 'secret1', 'new_email' => 'jane@example.org'])
+            ->and(simulator_planner(['accounts' => null])->ownerAnswers(['name' => 'Far Away']))->toBe(['estate_owner' => 'Far Away'])
+            ->and(simulator_planner()->ownerAnswers([]))->toBe([]);
 
-        $plan = sim_planner(['accounts' => []])->plan(sim_planner(['accounts' => []])->ownerAnswers(['name' => 'Ann Poe', 'password' => 'secret1']));
+        $plan = simulator_planner(['accounts' => []])->plan(simulator_planner(['accounts' => []])->ownerAnswers(['name' => 'Ann Poe', 'password' => 'secret1']));
         expect($plan->createOwner)->toBeTrue()->and($plan->estateOwner)->toBe('Ann Poe');
     });
 });
 
 describe('A simulator that exists', function () {
-    function existing_sim(): SimPlanner
+    function existing_sim(): SimulatorPlanner
     {
         $grid = sim_grid();
         file_put_contents("{$grid->dir}/sims/demo_garden.ini", <<<INI
@@ -198,7 +198,7 @@ describe('A simulator that exists', function () {
             DefaultEstateOwnerName = "John Roe"
             INI);
 
-        return sim_planner(['grid' => $grid, 'modify' => true, 'simName' => 'Garden'])->forSim('Garden');
+        return simulator_planner(['grid' => $grid, 'modify' => true, 'simulatorName' => 'Garden'])->forSimulator('Garden');
     }
 
     test('is proposed as it is, its name stays', function () {
@@ -224,13 +224,13 @@ describe('A simulator that exists', function () {
         $grid = sim_grid();
         file_put_contents("{$grid->dir}/sims/demo_garden.ini", "[Network]\nhttp_listener_port = 9010\n");
 
-        expect(sim_planner(['grid' => $grid, 'modify' => true, 'simName' => 'Garden'])->forSim('Garden')->resolve()['console'])->toBe('screen');
+        expect(simulator_planner(['grid' => $grid, 'modify' => true, 'simulatorName' => 'Garden'])->forSimulator('Garden')->resolve()['console'])->toBe('screen');
     });
 });
 
 describe('answers about a simulator', function () {
     test('are checked as they are given: its name, its ports, the owner and the password of an account to make', function () {
-        $planner = sim_planner();
+        $planner = simulator_planner();
 
         expect($planner->problems())->toBe([])
             ->and($planner->problems(['name' => 'Not valid!', 'http_port' => 'abc']))->toHaveKeys(['name', 'http_port'])

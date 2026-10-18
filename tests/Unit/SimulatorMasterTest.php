@@ -11,8 +11,8 @@ use OpenSim\Config\ConfigReader;
 use OpenSim\Models\Grid;
 use OpenSim\Models\GridInfo;
 use OpenSim\Provisioning\Features;
-use OpenSim\Provisioning\SimConfig;
-use OpenSim\Provisioning\SimPlan;
+use OpenSim\Provisioning\SimulatorConfig;
+use OpenSim\Provisioning\SimulatorPlan;
 use OpenSim\Provisioning\SimulatorMaster;
 use OpenSim\Testing\Machine;
 
@@ -176,15 +176,15 @@ describe('A grid joined by a preset', function () {
 });
 
 /** The plan of a simulator of a grid with helpers. */
-function master_plan(string $gridDir, string $core): SimPlan
+function master_plan(string $gridDir, string $core): SimulatorPlan
 {
-    $plan = new SimPlan();
+    $plan = new SimulatorPlan();
     $plan->gridNick = 'demo';
     $plan->gridName = 'Demo World';
     $plan->gridDir = $gridDir;
     $plan->baseHostname = 'demo.example.org';
     $plan->slug = 'demo_sim1';
-    $plan->simName = 'Sim1';
+    $plan->simulatorName = 'Sim1';
     $plan->coreDirectory = $core;
     $plan->dataDirectory = '/var/lib/demo/sim1';
     $plan->cacheDirectory = '/var/cache/demo/sim1';
@@ -208,7 +208,7 @@ describe('config of a simulator', function () {
     test('says only what makes it its own when its grid has a master', function () {
         $machine = master_machine();
         (new SimulatorMaster())->ensure($machine->grid, $machine->core . '/bin');
-        $text = (new SimConfig())->render(master_plan($machine->grid, $machine->core));
+        $text = (new SimulatorConfig())->render(master_plan($machine->grid, $machine->core));
 
         expect($text)->toContain('http_listener_port = 9100', 'DefaultEstateName = "Demo Estate"', 'ConnectionString = ', 'DataDirectory = "/var/lib/demo/sim1"')
             ->and($text)->not->toContain('[Search]', '[Messaging]', '[UserProfiles]', '[Architecture]', '[OSSL]', 'BaseHostname', 'StorageProvider', 'RegistryLocation');
@@ -216,7 +216,7 @@ describe('config of a simulator', function () {
 
     test('is whole when its grid has none', function () {
         $machine = master_machine();
-        $text = (new SimConfig())->render(master_plan($machine->grid, $machine->core));
+        $text = (new SimulatorConfig())->render(master_plan($machine->grid, $machine->core));
 
         expect($text)->toContain('[Search]', '[Messaging]', '[UserProfiles]', '[Architecture]', 'BaseHostname = "demo.example.org"', 'StorageProvider');
     });
@@ -225,9 +225,9 @@ describe('config of a simulator', function () {
         // The grid has decided what the whole config of the simulator says of it (the helpers, from the same address)
         $machine = master_machine();
         $plan = master_plan($machine->grid, $machine->core);
-        $whole = (new SimConfig())->render($plan);
+        $whole = (new SimulatorConfig())->render($plan);
         $general = new OpenSim\Config\IniEditor(OpenSim\Config\TextFileService::read($machine->grid . '/OpenSim.ini'));
-        $general->overlay(implode("\n", SimConfig::gridLayer($plan)));
+        $general->overlay(implode("\n", SimulatorConfig::gridLayer($plan)));
         $general->save($machine->grid . '/OpenSim.ini');
         // The grid is the one the plan is for: the host and the ports of its Robust
         $machine->write($machine->grid . '/Robust.HG.ini', file_get_contents($machine->grid . '/Robust.HG.ini') . "\n[Constants]\n");
@@ -235,7 +235,7 @@ describe('config of a simulator', function () {
         $robust->set('Const', 'BaseHostname', '"demo.example.org"');
         $robust->save($machine->grid . '/Robust.HG.ini');
         (new SimulatorMaster())->ensure($machine->grid, $machine->core . '/bin');
-        $machine->write($machine->grid . '/sims/lean.ini', (new SimConfig())->render($plan));
+        $machine->write($machine->grid . '/sims/lean.ini', (new SimulatorConfig())->render($plan));
 
         $expected = ConfigReader::load($machine->write($machine->root . '/whole.ini', $whole));
         $actual = ConfigReader::load([$machine->grid . '/' . SimulatorMaster::FILE, $machine->grid . '/sims/lean.ini']);
@@ -267,7 +267,7 @@ describe('features of a grid with a master', function () {
 
         expect($result['error'])->toBeNull()
             ->and($result['grid'])->toBeTrue()
-            ->and($result['sims'])->toBe([])
+            ->and($result['simulators'])->toBe([])
             ->and(file_get_contents($machine->grid . '/sims/alpha.ini'))->toBe($before)
             ->and(ConfigReader::load($machine->grid . '/OpenSim.ini')['Economy']['economymodule'])->toBe('BetaGridLikeMoneyModule')
             ->and(ConfigReader::load($machine->grid . '/' . SimulatorMaster::FILE)['Economy']['economymodule'])->toBe('BetaGridLikeMoneyModule');
@@ -283,7 +283,7 @@ describe('features of a grid with a master', function () {
 
         $result = master_features($machine)->enable('economy', ['money' => 'beta']);
 
-        expect($result['sims'])->toBe(['alpha'])
+        expect($result['simulators'])->toBe(['alpha'])
             ->and(ConfigReader::load($machine->grid . '/sims/alpha.ini')['Economy']['economymodule'])->toBe('BetaGridLikeMoneyModule');
     });
 
@@ -292,7 +292,7 @@ describe('features of a grid with a master', function () {
 
         $result = master_features($machine)->enable('economy', ['money' => 'beta']);
 
-        expect($result['sims'])->toBe(['alpha', 'beta'])
+        expect($result['simulators'])->toBe(['alpha', 'beta'])
             ->and(file_exists($machine->grid . '/' . SimulatorMaster::FILE))->toBeFalse();
     });
 });

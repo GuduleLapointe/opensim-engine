@@ -208,9 +208,9 @@ final class Archives
      *
      * @param array<string,string|true> $options
      */
-    public static function oarName(string $grid, string $sim, ?string $region, array $options, string $stamp): string
+    public static function oarName(string $grid, string $simulator, ?string $region, array $options, string $stamp): string
     {
-        $parts = [self::part($grid), self::part($sim)];
+        $parts = [self::part($grid), self::part($simulator)];
         if ($region !== null && !isset($options['all'])) {
             $parts[] = self::part($region);
         }
@@ -227,11 +227,11 @@ final class Archives
         return self::part($grid) . '-' . self::part($first) . '-' . self::part($last) . '-';
     }
 
-    public static function oarPrefix(string $grid, string $sim, ?string $region): string
+    public static function oarPrefix(string $grid, string $simulator, ?string $region): string
     {
         return implode(
             '-',
-            array_filter([self::part($grid), self::part($sim), $region !== null ? self::part($region) : null]),
+            array_filter([self::part($grid), self::part($simulator), $region !== null ? self::part($region) : null]),
         ) . '-';
     }
 

@@ -76,9 +76,9 @@ class GridConfig
             $add('OpenSim', "$dir/OpenSim.ini");
         }
         // The simulators: each reads its own file, and the files it includes
-        $sims = glob("$dir/sims/*.ini") ?: [];
-        sort($sims);
-        foreach ($sims as $path) {
+        $simulators = glob("$dir/sims/*.ini") ?: [];
+        sort($simulators);
+        foreach ($simulators as $path) {
             $add('sims/' . basename($path, '.ini'), $path);
         }
         // The MoneyServer reads only its own file, beside Robust.ini and OpenSim.ini

@@ -9,7 +9,7 @@ declare(strict_types=1);
 use OpenSim\Models\GridInfo;
 use OpenSim\Models\Region;
 use OpenSim\Provisioning\RegionPlanner;
-use OpenSim\Provisioning\SimPlan;
+use OpenSim\Provisioning\SimulatorPlan;
 
 /** A grid of this machine at 8002 whose center is 100,100, with Hypergrid and no region yet. */
 function region_grid(array $set = []): GridInfo
@@ -33,7 +33,7 @@ function region_planner(array $more = []): RegionPlanner
 
     return RegionPlanner::with($more + [
         'grid' => region_grid(),
-        'simName' => 'Sim1',
+        'simulatorName' => 'Sim1',
         'httpPort' => 9000,
         'randomName' => static function (Closure $problem) use (&$count): string {
             do {
@@ -132,7 +132,7 @@ describe('A region', function () {
     });
 
     test('can go in a simulator of the pool, whose port is the one that counts', function () {
-        $planner = region_planner(['pool' => ['demo_sim2' => 'Sim2 (Garden)'], 'portOfSim' => static fn(string $sim): int => 9010]);
+        $planner = region_planner(['pool' => ['demo_sim2' => 'Sim2 (Garden)'], 'portOfSimulator' => static fn(string $simulator): int => 9010]);
 
         expect($planner->resolve()['sim'])->toBe('+')
             ->and($planner->resolve()['port'])->toBe(9001)
@@ -158,13 +158,13 @@ describe('A region', function () {
         expect(region_planner()->problems(['name' => 'Noël']))->toBe([])
             ->and(Region::validateName('Noël'))->toBeNull();
 
-        $plan = new SimPlan();
+        $plan = new SimulatorPlan();
         region_planner()->apply($plan, ['name' => 'Noël']);
         expect($plan->regionName)->toBe('Noel');
     });
 
     test('is given to the plan of the simulator that takes it', function () {
-        $plan = new SimPlan();
+        $plan = new SimulatorPlan();
         region_planner(['known' => ['100,100' => true]])->apply($plan, ['name' => 'Garden', 'roles' => [Region::flagName(Region::DEFAULT_REGION)], 'location' => '100,100']);
 
         expect($plan->createRegion)->toBeTrue()
@@ -176,7 +176,7 @@ describe('A region', function () {
     });
 
     test('can be left out when it is the optional first region of a simulator', function () {
-        $plan = new SimPlan();
+        $plan = new SimulatorPlan();
         $planner = region_planner(['optional' => true]);
         $planner->apply($plan, ['create' => 'no']);
 
