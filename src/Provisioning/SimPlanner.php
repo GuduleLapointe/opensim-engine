@@ -286,6 +286,7 @@ final class SimPlanner
         $plan->offlineUrl = $grid->helperUrl('offline');
         $plan->registerUrl = $grid->helperUrl('register');
         $plan->searchUrl = $grid->helperUrl('query');
+        $plan->connectors = $grid->connectors;
 
         $plan->estateName = $v['estate_name'];
         if ($v['estate_owner'] === '+') {

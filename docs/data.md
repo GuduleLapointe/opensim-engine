@@ -63,7 +63,7 @@ table of its own can too.
 | `Profiles` | `[UserProfilesService]`, then Robust's | profiles |
 | `Offline` | `[Messaging]` of Robust, then Robust's | offline messages |
 | `Simulator` (each) | `[SimulationDataStore]`, then `[DatabaseService]` of the simulator | `land` (the parcels), terrain, objects |
-| `Estate` (each) | `[EstateDataStore]`, `[DatabaseService] EstateConnectionString`, then the simulator's | estates |
+| `Estate` (each) | `[EstateDataStore]`, `[DatabaseService] EstateConnectionString`, then the simulator's; when Robust serves the estates (`EstateDataService` in `[ServiceList]`): `[EstateService]` of Robust, then Robust's, for the grid | estates |
 | `Economy` | MoneyServer.ini `[MySql]`, or `[Gloebit] GLBSpecificConnectionString`, depending on the module | balances, transactions |
 | `Search` | `[Helpers] SearchConnectionString` of Helpers.ini, then Robust's | the tables of OpenSimSearch |
 

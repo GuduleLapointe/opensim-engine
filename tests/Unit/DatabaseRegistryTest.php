@@ -43,6 +43,26 @@ describe('databases of the grid', function () {
             ->and(Database::Search->connection($config)->database)->toBe('grid_robust');
     });
 
+    test('of the estates are the grid\'s when its Robust serves them, else each simulator\'s', function () {
+        $own = registry_grid();
+        expect(Database::Estate->connection($own))->toBeNull()
+            ->and(Database::Estate->connection($own, 'alpha')->database)->toBe('alpha_estate')
+            ->and(Database::Estate->scopeIn($own))->toBe(Database::PER_SIMULATOR);
+
+        $files = [
+            'Robust.HG.ini' => "[ServiceList]\n EstateDataService = \"x\"\n[DatabaseService]\n ConnectionString = \"Data Source=localhost;Database=grid_robust;User ID=os;Password=p;\"\n",
+        ];
+        $central = registry_grid($files);
+        $entries = array_filter(Database::known($central), static fn(array $row): bool => $row['database'] === Database::Estate);
+        expect(Database::Estate->connection($central)->database)->toBe('grid_robust')
+            ->and(Database::Estate->connection($central, 'alpha')->database)->toBe('grid_robust')
+            ->and(Database::Estate->scopeIn($central))->toBe(Database::GRID)
+            ->and($entries)->toHaveCount(1);
+
+        $apart = registry_grid(['Robust.HG.ini' => $files['Robust.HG.ini'] . "[EstateService]\n ConnectionString = \"Data Source=localhost;Database=grid_estates;User ID=os;Password=p;\"\n"]);
+        expect(Database::Estate->connection($apart)->database)->toBe('grid_estates');
+    });
+
     test('of the services are the ones of their section, else the one of Robust', function () {
         $config = registry_grid();
 

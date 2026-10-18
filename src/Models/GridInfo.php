@@ -44,6 +44,8 @@ final class GridInfo
     public string $preset = '';
     /** A grid that is only planned, not made yet (the quick setup plans its first simulator before making anything). */
     public bool $planned = false;
+    /** @var list<string> The connectors Robust serves besides the usual ones (BakedTextureService, EstateDataService, GroupsServiceConnector...). */
+    public array $connectors = [];
     /** The helpers of the grid, when it has some: where they are on its web site (see helperUrl()). */
     public string $webUrl = '';
     public bool $helpers = false;
@@ -79,6 +81,7 @@ final class GridInfo
         $grid->regionSpacing = ctype_digit($conf['RegionSpacing'] ?? '') ? (int) $conf['RegionSpacing'] : 0;
         $grid->center = $conf['Center'] ?? '';
         $grid->regionFlags = $current['regionFlags'] ?? [];
+        $grid->connectors = $current['connectors'] ?? [];
         $grid->coreDirectory = $conf['CoreDirectory'] ?? ($profile['CoreDirectory'] ?? '');
         $grid->baseHostname = $current['baseHostname'] ?? 'localhost';
         $grid->publicPort = $current['publicPort'] ?? 8002;
@@ -118,6 +121,10 @@ final class GridInfo
         $grid->dataDirectory = $plan->dataDirectory;
         $grid->cacheDirectory = $plan->cacheDirectory;
         $grid->logsDirectory = $plan->logsDirectory;
+        // What its Robust serves: as written when it is, else as the setup will write it
+        $grid->connectors = is_file($grid->robustIni)
+            ? self::connectorsIn($grid->robustIni)
+            : \OpenSim\Provisioning\RobustConfig::connectors($plan->helpers, $plan->enableHypergrid);
         $grid->helpers = $plan->helpers;
         $grid->webUrl = $plan->webUrl;
         $grid->helpersPath = $plan->helpersPath;
@@ -269,6 +276,22 @@ final class GridInfo
         return $plan;
     }
 
+    /** Whether Robust serves a connector of [ServiceList] (the keys the distribution comments: see RobustConfig::connectors()). */
+    public function serves(string $connector): bool
+    {
+        return in_array($connector, $this->connectors, true);
+    }
+
+    /**
+     * The connectors an existing Robust config serves.
+     *
+     * @return list<string>
+     */
+    public static function connectorsIn(string $robustIni): array
+    {
+        return array_keys(ConfigReader::parse(GridFileService::read($robustIni))['ServiceList'] ?? []);
+    }
+
     /**
      * Current settings of an existing Robust or simulator config (tolerant
      * regex, comments and quotes ignored).
@@ -316,6 +339,7 @@ final class GridInfo
         if (($port = $grab('ConsolePort') ?? $grab('console_port')) !== null && ctype_digit($port) && (int) $port > 0) {
             $current['consolePort'] = (int) $port;
         }
+        $current['connectors'] = array_keys($ini['ServiceList'] ?? []);
         // The roles of the regions: Region_<Name> = "DefaultRegion, ..."
         if (($flags = Region::rolesIn($text)) !== []) {
             $current['regionFlags'] = $flags;

@@ -70,7 +70,7 @@ describe('Configuring a grid that exists', function () {
         expect($robust->generate($plan))->not->toMatch('/^\s*gatekeeper\s*=/m');
     });
 
-    test('serves the services of the helpers and the ones of the hypergrid, and only those', function () use ($plan) {
+    test('serves the connectors that have their counterpart in the simulators, in a grid it makes and not in one that exists', function () use ($plan) {
         $connectors = <<<'INI'
             [ServiceList]
                 AssetServiceConnector = "x"
@@ -81,30 +81,37 @@ describe('Configuring a grid that exists', function () {
                 ; EstateDataService = "${Const|PrivatePort}/OpenSim.Server.Handlers.dll:EstateDataRobustConnector"
                 ; HGGroupsServiceConnector = "${Const|PublicPort}/OpenSim.Addons.Groups.dll:HGGroupsServiceRobustConnector"
             INI;
-        $active = static fn(string $text): array => array_map(
-            static fn(string $line): string => trim(explode('=', $line)[0]),
-            preg_grep('/^\s*[A-Za-z]+\s*=/', explode("\n", substr($text, (int) strpos($text, '[ServiceList]'), 1500))) ?: [],
-        );
+        $served = static fn(string $robustIni): array => \OpenSim\Models\GridInfo::connectorsIn($robustIni);
+        $make = function (bool $helpers, bool $hypergrid) use ($plan, $connectors): GridPlan {
+            $grid = $plan();
+            $grid->helpers = $helpers;
+            $grid->enableHypergrid = $hypergrid;
+            file_put_contents($grid->binDir . '/' . ($hypergrid ? 'Robust.HG.ini.example' : 'Robust.ini.example'), $connectors);
 
-        // No helpers, no hypergrid: the proposals of the distribution stay proposals (the profiles are the setup's own)
-        $plain = $plan();
-        $plain->enableHypergrid = false;
-        file_put_contents("{$plain->binDir}/Robust.ini.example", $connectors);
-        expect($active((new RobustConfig())->generate($plain)))->toContain('AssetServiceConnector', 'UserProfilesServiceConnector')
-            ->not->toContain('OfflineIMServiceConnector', 'GroupsServiceConnector', 'HGGroupsServiceConnector');
+            return $grid;
+        };
 
-        $helpers = $plan();
-        $helpers->enableHypergrid = false;
-        $helpers->helpers = true;
-        file_put_contents("{$helpers->binDir}/Robust.ini.example", $connectors);
-        expect($active((new RobustConfig())->generate($helpers)))->toContain('OfflineIMServiceConnector', 'GroupsServiceConnector', 'UserProfilesServiceConnector')
-            ->not->toContain('HGGroupsServiceConnector', 'BakedTextureService', 'EstateDataService');
+        // A grid alone, without helpers: the bakes, the estates, the profiles
+        $alone = $make(false, false);
+        file_put_contents($alone->robustIni(), (new RobustConfig())->generate($alone));
+        expect($served($alone->robustIni()))->toBe(['AssetServiceConnector', 'BakedTextureService', 'UserProfilesServiceConnector', 'EstateDataService']);
 
-        $hypergrid = $plan();
-        $hypergrid->enableHypergrid = true;
-        file_put_contents("{$hypergrid->binDir}/Robust.HG.ini.example", $connectors);
-        expect($active((new RobustConfig())->generate($hypergrid)))->toContain('HGGroupsServiceConnector')
-            ->not->toContain('OfflineIMServiceConnector', 'GroupsServiceConnector');
+        // With helpers: the groups too
+        $helpers = $make(true, false);
+        file_put_contents($helpers->robustIni(), (new RobustConfig())->generate($helpers));
+        expect($served($helpers->robustIni()))->toContain('GroupsServiceConnector')->not->toContain('HGGroupsServiceConnector', 'OfflineIMServiceConnector');
+
+        // A hypergrid: the groups of the hypergrid
+        $hypergrid = $make(false, true);
+        file_put_contents($hypergrid->robustIni(), (new RobustConfig())->generate($hypergrid));
+        expect($served($hypergrid->robustIni()))->toContain('GroupsServiceConnector', 'HGGroupsServiceConnector')->not->toContain('OfflineIMServiceConnector');
+
+        // A grid that exists is not changed: what its operator commented stays so
+        $existing = $make(true, true);
+        file_put_contents($existing->robustIni(), $connectors);
+        $text = (new RobustConfig())->generate($existing);
+        file_put_contents($existing->robustIni(), $text);
+        expect($served($existing->robustIni()))->toBe(['AssetServiceConnector']);
     });
 
     test('gives the search of the web to both settings that say it when only one is given, and keeps two that differ', function () use ($plan) {
@@ -220,5 +227,44 @@ describe('Configuring a simulator that exists', function () {
             ->and($make(false))
             ->not->toContain('[Search]')
             ->toContain('ProfileServiceURL');
+    });
+});
+
+describe('What a grid tells its simulators of the connectors its Robust serves', function () {
+    test('is the counterpart of each: the bakes, the groups, the groups of the hypergrid', function () {
+        $grid = new \OpenSim\Models\GridInfo();
+        $lines = static fn(array $connectors): string => implode("\n", (function () use ($grid, $connectors) {
+            $grid->connectors = $connectors;
+
+            return SimConfig::gridLayer($grid);
+        })());
+
+        $none = $lines([]);
+        expect($none)->not->toContain('[XBakes]')->not->toContain('[Groups]');
+
+        $alone = $lines(['BakedTextureService', 'GroupsServiceConnector']);
+        expect($alone)->toContain("[XBakes]\nURL = \"\${Const|PrivURL}:\${Const|PrivatePort}\"")
+            ->toContain('ServicesConnectorModule = "Groups Remote Service Connector"')
+            ->toContain('GroupsServerURI = "${Const|PrivURL}:${Const|PrivatePort}"')
+            ->not->toContain('LocalService');
+
+        $hypergrid = $lines(['GroupsServiceConnector', 'HGGroupsServiceConnector']);
+        expect($hypergrid)->toContain('ServicesConnectorModule = "Groups HG Service Connector"')->toContain('LocalService = remote')
+            ->not->toContain('[XBakes]');
+    });
+
+    test('is the estates of the grid, in the config of the architecture, when Robust serves them', function () {
+        $dir = test_tmp() . '/estates-' . bin2hex(random_bytes(4));
+        mkdir("$dir/config-include", 0o755, true);
+        $common = "[EstateDataStore]\n    ;LocalServiceModule = \"OpenSim.Services.Connectors.dll:EstateDataRemoteConnector\"\n\n[EstateService]\n    EstateServerURI = \"x\"\n";
+        $patched = static fn(): string => (new ReflectionMethod(\OpenSim\Provisioning\GridShared::class, 'patched'))
+            ->invoke(new \OpenSim\Provisioning\GridShared(), $common, $dir, 'config-include/GridCommon.ini');
+
+        file_put_contents("$dir/Robust.HG.ini", "[ServiceList]\n    ; EstateDataService = \"x\"\n");
+        expect($patched())->toContain(';LocalServiceModule = "OpenSim.Services.Connectors.dll:EstateDataRemoteConnector"');
+
+        file_put_contents("$dir/Robust.HG.ini", "[ServiceList]\n    EstateDataService = \"x\"\n");
+        expect($patched())->toContain('    LocalServiceModule = "OpenSim.Services.Connectors.dll:EstateDataRemoteConnector"')
+            ->not->toContain(';LocalServiceModule');
     });
 });

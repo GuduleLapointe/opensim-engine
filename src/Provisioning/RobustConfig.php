@@ -15,11 +15,24 @@ use OpenSim\Provisioning\Web\Services;
  */
 final class RobustConfig
 {
-    /** The connectors of the services the helpers rely on: offline messages, groups (their search and profiles), profiles. */
-    public const HELPERS_CONNECTORS = ['OfflineIMServiceConnector', 'GroupsServiceConnector', 'UserProfilesServiceConnector'];
-
-    /** The connectors a hypergrid adds to those of the distribution that are commented. */
-    public const HYPERGRID_CONNECTORS = ['HGGroupsServiceConnector'];
+    /**
+     * The optional connectors of Robust (commented in the distribution) that the setup serves in a grid it makes, each with its
+     * counterpart in the simulators (see SimConfig::gridLayer() and GridShared): the bakes of the avatars, the estates of the
+     * grid, the profiles, the groups (with the helpers or a hypergrid) and the groups of the hypergrid. A grid that exists is not
+     * changed: it is the operator's (and `opensim enable`) to decide.
+     *
+     * @return list<string> the keys of [ServiceList]
+     */
+    public static function connectors(bool $helpers, bool $hypergrid): array
+    {
+        return array_values(array_filter([
+            'BakedTextureService',
+            'EstateDataService',
+            'UserProfilesServiceConnector',
+            $helpers || $hypergrid ? 'GroupsServiceConnector' : null,
+            $hypergrid ? 'HGGroupsServiceConnector' : null,
+        ]));
+    }
 
     public function example(GridPlan $plan): string
     {
@@ -142,11 +155,9 @@ final class RobustConfig
             }
         }
         if ($existing === null) {
-            $ini->uncomment('UserProfilesServiceConnector');
-        }
-        // The services of the helpers are served by Robust, and so are the ones of the hypergrid
-        foreach ([...$plan->helpers ? self::HELPERS_CONNECTORS : [], ...$plan->enableHypergrid ? self::HYPERGRID_CONNECTORS : []] as $connector) {
-            $ini->uncomment($connector);
+            foreach (self::connectors($plan->helpers, $plan->enableHypergrid) as $connector) {
+                $ini->uncomment($connector);
+            }
         }
         $this->alignSearch($ini);
 

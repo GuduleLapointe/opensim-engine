@@ -112,6 +112,18 @@ final class GridShared
         return $text;
     }
 
+    /** Whether the Robust config of a grid folder serves a connector of [ServiceList]. */
+    private static function robustServes(string $dir, string $connector): bool
+    {
+        foreach (['Robust.HG.ini', 'Robust.ini'] as $file) {
+            if (is_file("$dir/$file")) {
+                return in_array($connector, \OpenSim\Models\GridInfo::connectorsIn("$dir/$file"), true);
+            }
+        }
+
+        return false;
+    }
+
     /**
      * @return array<string,string> pattern => replacement, for a file of the folder
      */
@@ -124,6 +136,10 @@ final class GridShared
                     '$1"' . $include . '/GridCommon.ini"',
             ],
             'config-include/GridCommon.ini' => [
+                // The estates are the grid's when its Robust serves them (the simulators ask it, instead of keeping their own)
+                ...self::robustServes($dir, 'EstateDataService')
+                    ? ['/^(\s*);(\s*LocalServiceModule\s*=\s*"OpenSim\.Services\.Connectors\.dll:EstateDataRemoteConnector")/m' => '$1$2']
+                    : [],
                 '/^(\s*Include-Storage\s*=.*)$/m' => ';$1',
                 '/^(\s*Include-FlotsamCache\s*=\s*)"?config-include\/FlotsamCache\.ini"?/m' =>
                     '$1"' . $include . '/FlotsamCache.ini"',

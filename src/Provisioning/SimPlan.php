@@ -70,6 +70,8 @@ final class SimPlan
     public string $registerUrl = '';
     /** The search service of the helpers, which the module of search of the simulator asks (empty without helpers) */
     public string $searchUrl = '';
+    /** @var list<string> The connectors the Robust of the grid serves besides the usual ones (see GridInfo::$connectors). */
+    public array $connectors = [];
 
     public string $estateName = '';
     public string $estateOwner = '';

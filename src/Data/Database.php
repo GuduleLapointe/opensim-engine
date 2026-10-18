@@ -34,7 +34,7 @@ enum Database: string
     case Offline = 'offline';
     /** What a simulator keeps about its regions: settings, parcels (`land`), terrain, objects. */
     case Simulator = 'simulator';
-    /** The estates of a simulator. */
+    /** The estates: the grid's when its Robust serves them (EstateDataService), else each simulator's. */
     case Estate = 'estate';
     /** The economy: the MoneyServer, or the storage of the currency module of the simulators. */
     case Economy = 'economy';
@@ -138,6 +138,12 @@ enum Database: string
      */
     public function connection(GridConfig $config, ?string $simulator = null): ?ConnectionString
     {
+        if ($this === self::Estate && self::centralEstates($config)) {
+            // The estate service of Robust has the database of Robust unless it has its own
+            $own = self::read($config, 'Robust.EstateService.ConnectionString', null);
+
+            return $own !== null ? ConnectionString::parse($own) : self::Robust->connection($config);
+        }
         if ($this->scope() === self::PER_SIMULATOR && $simulator === null) {
             return null;
         }
@@ -152,6 +158,18 @@ enum Database: string
         }
 
         return null;
+    }
+
+    /** Whether the estates are the grid's: its Robust serves the estate service. */
+    public static function centralEstates(GridConfig $config): bool
+    {
+        return trim((string) ($config->tree()['Robust']['ServiceList']['EstateDataService'] ?? '')) !== '';
+    }
+
+    /** The scope of the database in a grid: the estates are the grid's when its Robust serves them. */
+    public function scopeIn(GridConfig $config): string
+    {
+        return $this === self::Estate && self::centralEstates($config) ? self::GRID : $this->scope();
     }
 
     /**
@@ -190,7 +208,7 @@ enum Database: string
         $simulators = array_keys($config->tree()['sims'] ?? []);
         $known = [];
         foreach (self::cases() as $database) {
-            foreach ($database->scope() === self::GRID ? [null] : $simulators as $simulator) {
+            foreach ($database->scopeIn($config) === self::GRID ? [null] : $simulators as $simulator) {
                 $known[] = [
                     'database' => $database,
                     'simulator' => $simulator,

@@ -173,6 +173,15 @@ final class SimConfig
             '[UserProfiles]',
             'ProfileServiceURL = "${Const|BaseURL}:${Const|PublicPort}"',
             '',
+            ...in_array('BakedTextureService', $from->connectors, true)
+                ? [
+                    ';; The bakes of the avatars are kept by Robust',
+                    '[XBakes]',
+                    'URL = "${Const|PrivURL}:${Const|PrivatePort}"',
+                    '',
+                ]
+                : [],
+            ...in_array('GroupsServiceConnector', $from->connectors, true) ? self::groupsLayer($from) : [],
         ];
     }
 
@@ -194,6 +203,31 @@ final class SimConfig
         $name = (string) gethostname();
 
         return in_array(strtolower($name), ['', 'localhost', 'localhost.localdomain'], true) ? '' : $name;
+    }
+
+    /**
+     * The groups (V2) the simulators use, kept by Robust: the connector of the hypergrid when Robust serves the groups of the
+     * hypergrid, else the one of a grid alone.
+     *
+     * @return list<string>
+     */
+    private static function groupsLayer(SimPlan|GridInfo $from): array
+    {
+        $hypergrid = in_array('HGGroupsServiceConnector', $from->connectors, true);
+
+        return [
+            ';; The groups are kept by Robust',
+            '[Groups]',
+            'Enabled = true',
+            'Module = "Groups Module V2"',
+            'ServicesConnectorModule = "' . ($hypergrid ? 'Groups HG Service Connector' : 'Groups Remote Service Connector') . '"',
+            ...$hypergrid ? ['LocalService = remote'] : [],
+            'GroupsServerURI = "${Const|PrivURL}:${Const|PrivatePort}"',
+            'MessagingEnabled = true',
+            'MessagingModule = "Groups Messaging Module V2"',
+            'NoticesEnabled = true',
+            '',
+        ];
     }
 
     /**
