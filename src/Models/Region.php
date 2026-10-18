@@ -509,6 +509,20 @@ final class Region extends Model
         return true;
     }
 
+    /** The estate it is in, null when none is known (no estate database can be reached, or none holds it). */
+    public function estate(): ?Estate
+    {
+        $uuid = $this->uuid();
+        if ($uuid === null) {
+            return null;
+        }
+        try {
+            return Estate::all($this->config, ['filters' => ['region' => $uuid]])->first();
+        } catch (ChannelUnavailable) {
+            return null;
+        }
+    }
+
     /** Whether the simulator loads it: its file ends in .ini. A region the config does not know is not one this machine disables. */
     public function isEnabled(): bool
     {
