@@ -36,14 +36,22 @@ final class AccountImporter
      */
     public function run(Grid $grid, array $accounts, bool $apply, bool $keepGoing = false): array
     {
-        $plan = $grid->databasePlan();
+        // An account is written in the tables of four services, in one transaction: that holds in one database only
+        $keys = array_unique(array_map(
+            static fn(string $service): string => (string) $grid->connection($service)?->key(),
+            ['UserAccountService', 'AuthenticationService', 'InventoryService', 'GridUserService'],
+        ));
+        if (count($keys) > 1) {
+            return ['error' => 'the accounts, the authentication, the inventory and the users of the grid are not in one database: make the accounts with the console of Robust', 'results' => []];
+        }
+        $plan = $grid->databasePlan('UserAccountService');
         $names = ($this->query)($plan, "SELECT CONCAT(FirstName, ' ', LastName) FROM UserAccounts");
         if ($names === null) {
             return ['error' => 'the database of the grid cannot be read', 'results' => []];
         }
         $exists = array_fill_keys(array_map('strtolower', array_map('trim', $names)), true);
         // The home of the accounts: the default region, when the grid has one
-        $home = ($this->query)($plan, 'SELECT uuid FROM regions WHERE (flags & 1) = 1 ORDER BY regionName LIMIT 1');
+        $home = ($this->query)($grid->databasePlan('GridService'), 'SELECT uuid FROM regions WHERE (flags & 1) = 1 ORDER BY regionName LIMIT 1');
         $homeId =
             $home !== null && isset($home[0]) && preg_match('/^[0-9a-fA-F-]{36}$/', trim($home[0])) === 1
                 ? trim($home[0])

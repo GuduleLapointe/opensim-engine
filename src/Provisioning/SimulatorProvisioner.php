@@ -338,7 +338,7 @@ final class SimulatorProvisioner
         $database = new DatabaseService($this->ui);
         for ($i = 0; $i < 60; $i++) {
             $rows = $database->select(
-                $grid->databasePlan(),
+                $grid->databasePlan('GridService'),
                 "SELECT 1 FROM regions WHERE regionName = '{$plan->regionName}'",
             );
             if ($rows === null) {

@@ -40,7 +40,7 @@ final class GridAccounts
         }
 
         return $this->database->select(
-            $grid->databasePlan(),
+            $grid->databasePlan('UserAccountService'),
             "SELECT CONCAT(FirstName, ' ', LastName) FROM UserAccounts WHERE NOT (FirstName = 'GRID' AND LastName = 'SERVICES') ORDER BY Created",
         );
     }
@@ -53,7 +53,7 @@ final class GridAccounts
         }
         [$first, $last] = explode(' ', $name);
         $rows = $this->database->select(
-            $grid->databasePlan(),
+            $grid->databasePlan('UserAccountService'),
             "SELECT 1 FROM UserAccounts WHERE FirstName = '$first' AND LastName = '$last'",
         );
 
@@ -83,9 +83,10 @@ final class GridAccounts
             return false;
         }
         [$first, $last] = explode(' ', $name);
-        $plan = $grid->databasePlan();
+        $accounts = $grid->databasePlan('UserAccountService');
+        $users = $grid->databasePlan('GridUserService');
         $id = $this->database->select(
-            $plan,
+            $accounts,
             "SELECT PrincipalID FROM UserAccounts WHERE FirstName = '$first' AND LastName = '$last'",
         );
         if ($id === null) {
@@ -94,7 +95,7 @@ final class GridAccounts
         if ($id === []) {
             return false;
         }
-        $home = $this->database->select($plan, "SELECT HomeRegionID FROM GridUser WHERE UserID = '{$id[0]}'");
+        $home = $this->database->select($users, "SELECT HomeRegionID FROM GridUser WHERE UserID = '{$id[0]}'");
         if ($home === null) {
             return null;
         }
@@ -102,7 +103,7 @@ final class GridAccounts
             return true;
         }
 
-        return $this->database->select($plan, self::homeSql($id[0], $regionId)) !== null;
+        return $this->database->select($users, self::homeSql($id[0], $regionId)) !== null;
     }
 
     /**
@@ -116,13 +117,12 @@ final class GridAccounts
             return false;
         }
         [$first, $last] = explode(' ', $name);
-        $plan = $grid->databasePlan();
-        $id = $this->database->select($plan, "SELECT PrincipalID FROM UserAccounts WHERE FirstName = '$first' AND LastName = '$last'");
+        $id = $this->database->select($grid->databasePlan('UserAccountService'), "SELECT PrincipalID FROM UserAccounts WHERE FirstName = '$first' AND LastName = '$last'");
         if ($id === null || $id === []) {
             return $id === null ? null : false;
         }
 
-        return $this->database->select($plan, self::raiseHomeSql($id[0])) !== null;
+        return $this->database->select($grid->databasePlan('GridUserService'), self::raiseHomeSql($id[0])) !== null;
     }
 
     /** The statement that moves a home from the position Robust gives to HOME_POSITION, and leaves any other home. */

@@ -131,9 +131,9 @@ describe('statements', function () {
     });
 
     test('ban the user in every estate that does not ban them already, once', function () {
-        $plan = ban_with(ban_answers())->plan([BAN_UUID, 'Jane Doe'], ban_db(), [
-            ConnectionString::for('localhost', 'sim1', 'o', 'p'),
+        $plan = ban_with(ban_answers())->plan([BAN_UUID, 'Jane Doe'], ban_db(), [], [
             ConnectionString::for('localhost', 'grid', 'opensim', 'pw'),
+            ConnectionString::for('localhost', 'sim1', 'o', 'p'),
         ]);
 
         // sim1 has no estateban rows (its table answers like the grid's), the second estate of sim1 bans them already
@@ -151,7 +151,7 @@ describe('statements', function () {
 
     test('are in files for the administrator, nothing is run', function () {
         $log = [];
-        $plan = ban_with(ban_answers(), $log)->plan([BAN_UUID], ban_db());
+        $plan = ban_with(ban_answers(), $log)->plan([BAN_UUID], ban_db(), [], [ban_db()]);
         $files = $plan->files('2026-10-12');
 
         expect(array_keys($files))
@@ -169,5 +169,42 @@ describe('statements', function () {
                 ),
             )
             ->toBe([]);
+    });
+});
+
+describe('databases of a grid that has services of its own', function () {
+    test('delete each thing in the database of its service', function () {
+        $of = static fn(string $table): ?ConnectionString => ConnectionString::for('localhost', match ($table) {
+            'UserAccounts', 'GridUser' => 'accounts_db',
+            'inventoryitems', 'inventoryfolders' => 'inventory_db',
+            'assets' => 'assets_db',
+            'userprofile' => 'profiles_db',
+            'im_offline' => 'offline_db',
+            default => 'robust_db',
+        }, 'o', 'p');
+        $answers = [
+            '/UserAccounts WHERE PrincipalID/' => [[BAN_UUID, 'Jane', 'Doe']],
+            '/count\(\*\) FROM `[A-Za-z_]+`/' => [['3']],
+        ];
+
+        $plan = ban_with($answers)->plan([BAN_UUID], $of);
+
+        expect($plan->cleanup)
+            ->toContain("DELETE FROM `accounts_db`.`UserAccounts` WHERE PrincipalID = '" . BAN_UUID . "';")
+            ->toContain("DELETE FROM `inventory_db`.`inventoryitems` WHERE avatarID = '" . BAN_UUID . "';")
+            ->toContain("DELETE FROM `assets_db`.`assets` WHERE CreatorID = '" . BAN_UUID . "';")
+            ->toContain("DELETE FROM `profiles_db`.`userprofile` WHERE useruuid = '" . BAN_UUID . "';")
+            ->toContain("DELETE FROM `offline_db`.`im_offline` WHERE PrincipalID = '" . BAN_UUID . "';")
+            ->toContain("DELETE FROM `robust_db`.`Presence` WHERE UserID = '" . BAN_UUID . "';")
+            ->and(implode("\n", $plan->cleanup))->not->toContain('`accounts_db`.`assets`');
+    });
+
+    test('say a table whose database is not known, and delete nothing there', function () {
+        $of = static fn(string $table): ?ConnectionString => $table === 'assets' ? null : ConnectionString::for('localhost', 'grid', 'o', 'p');
+
+        $plan = ban_with(['/count\(\*\) FROM `[A-Za-z_]+`/' => [['1']]])->plan([BAN_UUID], $of);
+
+        expect($plan->problems)->toBe(['the database of assets is not known: nothing is deleted from it'])
+            ->and(implode("\n", $plan->cleanup))->not->toContain('assets');
     });
 });

@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace OpenSim\Models;
 
 use OpenSim\Config\ConfigReader;
+use OpenSim\Config\ConnectionString;
 use OpenSim\Config\InstanceSettings;
 use OpenSim\Console\ConsoleInterface;
+use OpenSim\Data\Database;
 use OpenSim\Network\InstancePorts;
 use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\LogFile;
@@ -130,25 +132,39 @@ abstract class Instance implements \OpenSim\Interfaces\Enablable
         return $this->own('consolePass');
     }
 
-    /** The database it connects to, null when its config does not say it. */
+    /**
+     * A database it connects to, as OpenSimulator chooses it from its config: a Database, or the section of a service of Robust
+     * (UserAccountService, GridService...). The setting of the service when it has one, else [DatabaseService].
+     */
+    public function connection(Database|string $which): ?ConnectionString
+    {
+        return $which instanceof Database
+            ? $which->connectionOf($this->settings(), $this instanceof Robust)
+            : Database::serviceOf($this->settings(), $which);
+    }
+
+    /** The database of what it keeps: the services of a Robust, the regions of a simulator. */
+    abstract public function database(): ?ConnectionString;
+
+    /** The data source of that database (host and port as written), null when the config does not say it. */
     public function databaseHost(): ?string
     {
-        return $this->own('dbHost');
+        return $this->database()?->source;
     }
 
     public function databaseName(): ?string
     {
-        return $this->own('dbName');
+        return $this->database()?->database;
     }
 
     public function databaseUser(): ?string
     {
-        return $this->own('dbUser');
+        return $this->database()?->user;
     }
 
     public function databasePassword(): ?string
     {
-        return $this->own('dbPass');
+        return $this->database()?->password;
     }
 
     /**

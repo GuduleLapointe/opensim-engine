@@ -60,8 +60,15 @@ describe('databases of the grid', function () {
             ->and(Database::Estate->scopeIn($central))->toBe(Database::GRID)
             ->and($entries)->toHaveCount(1);
 
-        $apart = registry_grid(['Robust.HG.ini' => $files['Robust.HG.ini'] . "[EstateService]\n ConnectionString = \"Data Source=localhost;Database=grid_estates;User ID=os;Password=p;\"\n"]);
-        expect(Database::Estate->connection($apart)->database)->toBe('grid_estates');
+        // As the core reads them (EstateDataService): [EstateDataStore] over EstateConnectionString of [DatabaseService] over its
+        // ConnectionString
+        $string = static fn(string $name) => "ConnectionString = \"Data Source=localhost;Database=$name;User ID=os;Password=p;\"\n";
+        $robust = "[ServiceList]\n EstateDataService = \"x\"\n[DatabaseService]\n " . $string('grid_robust');
+        $named = registry_grid(['Robust.HG.ini' => str_replace('ConnectionString =', 'EstateConnectionString = "Data Source=localhost;Database=grid_estates;User ID=os;Password=p;"' . "\n " . 'ConnectionString =', $robust)]);
+        expect(Database::Estate->connection($named)->database)->toBe('grid_estates');
+
+        $store = registry_grid(['Robust.HG.ini' => str_replace('ConnectionString =', 'EstateConnectionString = "Data Source=localhost;Database=grid_estates;User ID=os;Password=p;"' . "\n " . 'ConnectionString =', $robust) . "[EstateDataStore]\n " . $string('estate_store')]);
+        expect(Database::Estate->connection($store)->database)->toBe('estate_store');
     });
 
     test('of the services are the ones of their section, else the one of Robust', function () {
@@ -207,9 +214,10 @@ describe('ban', function () {
         $machine->write($machine->grid . '/sims/alpha.ini', "[DatabaseService]\n " . $db('alpha') . "[EstateDataStore]\n " . $db('shared_estate'));
         $machine->write($machine->grid . '/sims/beta.ini', "[DatabaseService]\n " . $db('beta') . "[EstateDataStore]\n " . $db('shared_estate'));
 
-        [$robust, $others] = OpenSim\Moderation\UserBan::databases(OpenSim\Models\Grid::find($machine->environment, 'demo'));
+        $databases = OpenSim\Moderation\UserBan::databases(OpenSim\Models\Grid::find($machine->environment, 'demo'));
 
-        expect($robust->database)->toBe('demo_robust')
-            ->and(array_map(static fn($c) => $c->database, $others))->toBe(['alpha', 'shared_estate', 'beta']);
+        expect(($databases['of'])('UserAccounts')->database)->toBe('demo_robust')
+            ->and(array_map(static fn($c) => $c->database, $databases['simulators']))->toBe(['alpha', 'beta'])
+            ->and(array_map(static fn($c) => $c->database, $databases['estates']))->toBe(['shared_estate']);
     });
 });

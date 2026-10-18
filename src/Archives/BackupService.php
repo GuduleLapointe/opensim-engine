@@ -2,6 +2,7 @@
 
 namespace OpenSim\Archives;
 
+use OpenSim\Config\ConnectionString;
 use OpenSim\Models\Grid;
 use OpenSim\Models\Simulator;
 use OpenSim\Provisioning\Slug;
@@ -229,35 +230,19 @@ final class BackupService
     }
 
     /**
-     * The databases to dump: Robust and the simulators of the grid, or the one of a simulator.
+     * The databases to dump: all those of the grid (its Robust, its services that have a database of their own, its simulators and
+     * their estates), or those of one simulator.
      *
      * @return list<array{host:string,name:string,user:string,pass:string}>
      */
     private function databases(Grid $grid, ?string $slug): array
     {
-        $found = [];
-        if ($slug === null && !$grid->isRemote() && $grid->databaseName() !== '') {
-            $found["{$grid->databaseHost()}/{$grid->databaseName()}"] = [
-                'host' => $grid->databaseHost(),
-                'name' => $grid->databaseName(),
-                'user' => $grid->databaseUser(),
-                'pass' => $grid->databasePassword(),
-            ];
-        }
-        $environment = Environment::forProfile($this->profile);
-        foreach ($slug !== null ? [$slug] : Grid::at($environment, $grid->directory())->simulatorNames() as $name) {
-            $simulator = new Simulator($environment, "{$grid->directory()}/sims/$name.ini");
-            if (($simulator->databaseName() ?? '') !== '') {
-                $found[($simulator->databaseHost() ?? 'localhost') . '/' . $simulator->databaseName()] = [
-                    'host' => $simulator->databaseHost() ?? 'localhost',
-                    'name' => $simulator->databaseName(),
-                    'user' => $simulator->databaseUser() ?? '',
-                    'pass' => $simulator->databasePassword() ?? '',
-                ];
-            }
-        }
+        $model = Grid::at(Environment::forProfile($this->profile), $grid->directory());
 
-        return array_values($found);
+        return array_map(
+            static fn(ConnectionString $db): array => ['host' => $db->source, 'name' => $db->database, 'user' => $db->user, 'pass' => $db->password],
+            $model->connections($slug),
+        );
     }
 
     /**

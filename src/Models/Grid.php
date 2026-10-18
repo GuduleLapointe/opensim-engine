@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace OpenSim\Models;
 
 use OpenSim\Config\ConfigReader;
+use OpenSim\Config\ConnectionString;
+use OpenSim\Config\GridConfig;
+use OpenSim\Data\Database;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\LocationFinder;
 use OpenSim\Provisioning\Slug;
@@ -834,14 +837,71 @@ final class Grid implements \OpenSim\Interfaces\Enablable
         return Slug::slug($this->nick());
     }
 
-    /** The grid's own database settings, to ask questions of it. */
-    public function databasePlan(): GridPlan
+    /**
+     * A database of the grid, as OpenSimulator chooses it from the files of the grid: a Database, or the section of a service of
+     * Robust (UserAccountService, GridService...), the setting of the service when it has one, else [DatabaseService]. A grid with no
+     * files (planned, described) has the database it is given for all.
+     *
+     * @param ?string $simulator for the databases of a simulator
+     */
+    public function connection(Database|string $which = Database::Robust, ?string $simulator = null): ?ConnectionString
     {
+        if ($this->in(self::FOLDER) && $this->directory !== '') {
+            $config = GridConfig::fromFolder($this->directory);
+
+            return $which instanceof Database ? $which->connection($config, $simulator) : Database::service($config, $which);
+        }
+
+        return $this->databaseName() !== ''
+            ? ConnectionString::for($this->databaseHost(), $this->databaseName(), $this->databaseUser(), $this->databasePassword())
+            : null;
+    }
+
+    /**
+     * Every database the grid keeps data in, once each: the ones of its Robust (the default one, the services that have their own,
+     * the assets, the profiles, the offline messages, the economy, the estates when Robust serves them) and the ones of its
+     * simulators (their regions and their estates). The search is not the grid's: it is made again from the simulators.
+     *
+     * @param ?string $simulator only the databases of this simulator (the file name of its config), none of Robust's
+     * @return list<ConnectionString>
+     */
+    public function connections(?string $simulator = null): array
+    {
+        $found = [];
+        $add = static function (?ConnectionString $connection) use (&$found): void {
+            $connection !== null && $connection->database !== '' && ($found[$connection->key()] ??= $connection);
+        };
+        $config = GridConfig::fromFolder($this->directory);
+        if ($simulator === null && !$this->isRemote()) {
+            foreach ([Database::Robust, Database::Assets, Database::Profiles, Database::Offline, Database::Economy] as $database) {
+                $add($database->connection($config));
+            }
+            foreach ($config->tree()['Robust'] ?? [] as $section => $settings) {
+                is_array($settings) && isset($settings['ConnectionString']) && $add(Database::service($config, (string) $section));
+            }
+            Database::centralEstates($config) && $add(Database::Estate->connection($config));
+        }
+        foreach ($simulator !== null ? [$simulator] : array_keys($config->tree()['sims'] ?? []) as $name) {
+            foreach ([Database::Simulator, Database::Estate] as $database) {
+                $add($database->connection($config, (string) $name));
+            }
+        }
+
+        return array_values($found);
+    }
+
+    /**
+     * The settings of a database of the grid, to ask questions of it: the database of a service (a Database, or the section of a
+     * service of Robust), else the default one of the grid.
+     */
+    public function databasePlan(Database|string|null $which = null): GridPlan
+    {
+        $connection = $which === null ? null : $this->connection($which);
         $plan = new GridPlan();
-        $plan->dbHost = $this->databaseHost();
-        $plan->dbName = $this->databaseName();
-        $plan->dbUser = $this->databaseUser();
-        $plan->dbPass = $this->databasePassword();
+        $plan->dbHost = $connection?->source ?? $this->databaseHost();
+        $plan->dbName = $connection?->database ?? $this->databaseName();
+        $plan->dbUser = $connection?->user ?? $this->databaseUser();
+        $plan->dbPass = $connection?->password ?? $this->databasePassword();
 
         return $plan;
     }

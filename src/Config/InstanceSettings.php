@@ -6,7 +6,8 @@ namespace OpenSim\Config;
 
 /**
  * What an existing Robust or simulator config says now, in the names the planners use: the setup reads it to propose what is
- * already there.
+ * already there. The databases are not here: the one of a service is the one its section says, else [DatabaseService] (see
+ * Database), which only the instance, with all its files, can tell.
  */
 final class InstanceSettings
 {
@@ -37,12 +38,6 @@ final class InstanceSettings
             if (($port = $grab($key)) !== null && ctype_digit($port)) {
                 $current[$field] = (int) $port;
             }
-        }
-        if (($db = ConnectionString::parse((string) $grab('ConnectionString'))) !== null) {
-            $current['dbHost'] = $db->source;
-            $current['dbName'] = $db->database;
-            $current['dbUser'] = $db->user;
-            $current['dbPass'] = $db->password;
         }
         // The remote console, when the config has one (its port is ConsolePort in Robust, console_port in a simulator)
         foreach (

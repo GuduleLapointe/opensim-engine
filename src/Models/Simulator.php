@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace OpenSim\Models;
 
+use OpenSim\Config\ConnectionString;
+use OpenSim\Data\Database;
 use OpenSim\Provisioning\GridAccounts;
 use OpenSim\Provisioning\SimulatorMaster;
 use OpenSim\Provisioning\Slug;
@@ -190,6 +192,18 @@ final class Simulator extends Instance
         return SimulatorMaster::path($grid);
     }
 
+    /** The database of its regions: [SimulationDataStore], else [DatabaseService]. */
+    public function database(): ?ConnectionString
+    {
+        return $this->connection(Database::Simulator);
+    }
+
+    /** The database of its estates: [EstateDataStore], else EstateConnectionString of [DatabaseService], else the database of its regions. */
+    public function estateDatabase(): ?ConnectionString
+    {
+        return $this->connection(Database::Estate);
+    }
+
     /** The port it listens on, null when its config does not say it. */
     public function httpPort(): ?int
     {
@@ -226,6 +240,7 @@ final class Simulator extends Instance
             'databaseHost' => $this->databaseHost(),
             'databaseName' => $this->databaseName(),
             'databaseUser' => $this->databaseUser(),
+            'estateDatabaseName' => $this->estateDatabase()?->database,
             'estateName' => $this->estateName(),
             'estateOwner' => $this->estateOwner(),
             'regionsDirectory' => $this->regionsDirectory() ?: null,

@@ -10,6 +10,8 @@ use OpenSim\Config\GridFileService;
 use OpenSim\Config\IniEditor;
 use OpenSim\Data\Collection;
 use OpenSim\Data\Connections;
+use OpenSim\Data\Database;
+use OpenSim\Data\OSPDO;
 use OpenSim\Exceptions\ChannelUnavailable;
 use OpenSim\Provisioning\RegionName;
 use OpenSim\Provisioning\Slug;
@@ -307,13 +309,43 @@ final class Region extends Model
         return $region;
     }
 
-    /** The same region, with its row of the search tables. */
+    /** The same region, with its row of the search tables (its columns by their name in lower case). */
     public function withSearch(array $row): static
     {
         $region = clone $this;
-        $region->indexed = $row;
+        $region->indexed = array_change_key_case($row);
 
         return $region;
+    }
+
+    /**
+     * The table of the search that holds the regions it knows: `regions`, unless the database is shared with Robust, whose `regions`
+     * is another table (the search then keeps its own in `regionsregister`).
+     */
+    public static function searchTable(OSPDO $pdo): string
+    {
+        $robust = false;
+        try {
+            $robust = $pdo->query('SELECT uuid FROM regions LIMIT 1') !== false;
+        } catch (\Throwable) {
+        }
+
+        return $pdo->table_exists('regions') && !$robust ? 'regions' : 'regionsregister';
+    }
+
+    /**
+     * A region as the search engine knows it, null when the search has not got it or cannot be read. The search has its own
+     * database (see Database::Search), which is not the grid's.
+     */
+    public static function inSearch(GridConfig $config, string $uuid): ?static
+    {
+        $pdo = Connections::pdo($config, Database::Search);
+        if ($pdo === null) {
+            return null;
+        }
+        $rows = $pdo->get_results('SELECT * FROM ' . self::searchTable($pdo) . ' WHERE LOWER(regionUUID) = :id', ['id' => strtolower($uuid)], \PDO::FETCH_ASSOC);
+
+        return isset($rows[0]) ? static::fromSearch($config, $rows[0]) : null;
     }
 
     /**

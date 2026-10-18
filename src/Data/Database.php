@@ -47,6 +47,24 @@ enum Database: string
     /** The database is a simulator's. */
     public const PER_SIMULATOR = 'simulator';
 
+    /**
+     * Where the estate service of Robust has its database, in the order the core reads them (EstateDataService): the last that
+     * says one wins in the core, the first in this list.
+     */
+    private const CENTRAL_ESTATE = [
+        'Robust.EstateDataStore.ConnectionString',
+        'Robust.DatabaseService.EstateConnectionString',
+        'Robust.DatabaseService.ConnectionString',
+    ];
+
+    /**
+     * The services of Robust whose database is not set in `ConnectionString` of their own section alone, by section, in the order
+     * the core reads them (the last that says one wins in the core, the first in this list).
+     */
+    private const SERVICE_SETTINGS = [
+        'MuteListStore' => ['Robust.MuteListStore.ConnectionString', 'Robust.DatabaseService.MuteConnectionString'],
+    ];
+
     /** What the MoneyServer.ini of the distribution says for the database, until it is edited. */
     private const MONEY_PLACEHOLDERS = ['Database_name', 'Database_user', 'Database_password'];
 
@@ -125,7 +143,7 @@ enum Database: string
             self::Estate => ['estate_settings', 'estate_map', 'estate_managers', 'estate_groups', 'estate_users', 'estateban'],
             self::Economy => ['balances', 'transactions', 'totalsales', 'userinfo'],
             self::Search => [
-                'parcels', 'allparcels', 'regions', 'objects', 'popularplaces', 'events', 'classifieds', 'hostsregister', 'parcelsales',
+                'parcels', 'allparcels', 'regions', 'regionsregister', 'objects', 'popularplaces', 'events', 'classifieds', 'hostsregister', 'parcelsales',
                 'oshelpers_cache',
             ],
         };
@@ -139,10 +157,15 @@ enum Database: string
     public function connection(GridConfig $config, ?string $simulator = null): ?ConnectionString
     {
         if ($this === self::Estate && self::centralEstates($config)) {
-            // The estate service of Robust has the database of Robust unless it has its own
-            $own = self::read($config, 'Robust.EstateService.ConnectionString', null);
+            // The estate service of Robust reads the settings the simulators read, in Robust's config
+            foreach (self::CENTRAL_ESTATE as $path) {
+                $value = self::read($config, $path, null);
+                if ($value !== null) {
+                    return ConnectionString::parse($value);
+                }
+            }
 
-            return $own !== null ? ConnectionString::parse($own) : self::Robust->connection($config);
+            return null;
         }
         if ($this->scope() === self::PER_SIMULATOR && $simulator === null) {
             return null;
@@ -192,9 +215,97 @@ enum Database: string
      */
     public static function service(GridConfig $config, string $section): ?ConnectionString
     {
-        $own = self::read($config, "Robust.$section.ConnectionString", null);
+        foreach (self::serviceSettings($section) as $path) {
+            $value = self::read($config, $path, null);
+            if ($value !== null) {
+                return ConnectionString::parse($value);
+            }
+        }
 
-        return $own !== null ? ConnectionString::parse($own) : self::Robust->connection($config);
+        return null;
+    }
+
+    /**
+     * Where the database of a service of Robust is set, in the order it is looked for: the section of the service, then
+     * [DatabaseService].
+     *
+     * @return list<string> Role.Section.Key
+     */
+    public static function serviceSettings(string $section): array
+    {
+        return [...(self::SERVICE_SETTINGS[$section] ?? ["Robust.$section.ConnectionString"]), 'Robust.DatabaseService.ConnectionString'];
+    }
+
+    /**
+     * The database of a service as the config of one Robust says it (the sections and keys of the files it reads).
+     *
+     * @param array<string,array<string,string>> $settings section => key => value
+     */
+    public static function serviceOf(array $settings, string $section): ?ConnectionString
+    {
+        return self::firstIn($settings, self::serviceSettings($section));
+    }
+
+    /**
+     * The database as the config of one instance says it: the settings of its files, a Robust or a simulator. A Robust that
+     * serves the estates reads them where the simulators do.
+     *
+     * @param array<string,array<string,string>> $settings section => key => value
+     */
+    public function connectionOf(array $settings, bool $robust = false): ?ConnectionString
+    {
+        $paths = $this === self::Estate && $robust ? self::CENTRAL_ESTATE : $this->settings();
+
+        return self::firstIn($settings, $paths);
+    }
+
+    /**
+     * The database a table is in, for what Robust and its modules keep: a Database, or the section of the service of Robust that
+     * owns the table. Null for a table the engine does not know there.
+     */
+    public static function forTable(string $table): self|string|null
+    {
+        $table = strtolower($table);
+        foreach ([self::Assets, self::Profiles, self::Offline] as $database) {
+            if (in_array($table, array_map('strtolower', $database->tables()), true)) {
+                return $database;
+            }
+        }
+
+        return match (true) {
+            $table === 'useraccounts' => 'UserAccountService',
+            $table === 'griduser' => 'GridUserService',
+            $table === 'presence' => 'PresenceService',
+            $table === 'auth', $table === 'tokens' => 'AuthenticationService',
+            $table === 'avatars' => 'AvatarService',
+            $table === 'agentprefs' => 'AgentPreferencesService',
+            $table === 'friends' => 'FriendsService',
+            $table === 'mutelist' => 'MuteListStore',
+            $table === 'inventoryfolders', $table === 'inventoryitems' => 'InventoryService',
+            $table === 'regions' => 'GridService',
+            $table === 'hg_traveling_data' => 'UserAgentService',
+            str_starts_with($table, 'os_groups_') => 'Groups',
+            default => null,
+        };
+    }
+
+    /**
+     * The first of these settings that has a value.
+     *
+     * @param array<string,array<string,string>> $settings
+     * @param list<string> $paths Role.Section.Key
+     */
+    private static function firstIn(array $settings, array $paths): ?ConnectionString
+    {
+        foreach ($paths as $path) {
+            [, $section, $key] = explode('.', $path, 3);
+            $value = trim((string) ($settings[$section][$key] ?? ''));
+            if ($value !== '') {
+                return ConnectionString::parse($value);
+            }
+        }
+
+        return null;
     }
 
     /**

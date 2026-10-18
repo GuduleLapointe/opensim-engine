@@ -32,7 +32,7 @@ final class GridRegistry
         if ($grid->databaseName() === '' || $grid->isPlanned()) {
             return null; // a grid of another machine: its database is not ours to read
         }
-        $rows = $this->database->select($grid->databasePlan(), 'SELECT serverPort, serverURI FROM regions');
+        $rows = $this->database->select($grid->databasePlan('GridService'), 'SELECT serverPort, serverURI FROM regions');
 
         return $rows === null ? null : self::portsOf($rows);
     }
@@ -99,7 +99,7 @@ final class GridRegistry
         $rows =
             $grid->databaseName() === '' || $grid->isPlanned()
                 ? null
-                : $this->database->select($grid->databasePlan(), 'SELECT regionName FROM regions');
+                : $this->database->select($grid->databasePlan('GridService'), 'SELECT regionName FROM regions');
         foreach ($rows ?? [] as $row) {
             $names[strtolower(trim($row))] = true;
         }
@@ -138,7 +138,7 @@ final class GridRegistry
             $grid->databaseName() === '' || $grid->isPlanned()
                 ? null
                 : $this->database->select(
-                    $grid->databasePlan(),
+                    $grid->databasePlan('GridService'),
                     "SELECT CONCAT_WS(' ', locX DIV 256, locY DIV 256, sizeX DIV 256, sizeY DIV 256) FROM regions",
                 );
         foreach ($rows ?? [] as $row) {

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace OpenSim\Models;
 
 use OpenSim\Config\ConfigReader;
+use OpenSim\Config\ConnectionString;
 use OpenSim\Config\GridFileService;
+use OpenSim\Data\Database;
 
 /**
  * The Robust of a grid: the server of its services (login, users, inventory, assets, presence). A grid has one of its own on
@@ -26,6 +28,12 @@ final class Robust extends Instance
     protected function linkName(): string
     {
         return $this->grid()?->nick() ?? parent::linkName();
+    }
+
+    /** The database of its services that have none of their own: [DatabaseService]. */
+    public function database(): ?ConnectionString
+    {
+        return $this->connection(Database::Robust);
     }
 
     /** The name the grid gives itself (`gridname` of [GridInfoService]). */

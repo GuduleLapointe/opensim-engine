@@ -15,6 +15,9 @@ use OpenSim\Provisioning\DatabaseService;
  * Bans users from a grid: finds them by name or UUID (the accounts of the grid and the visitors of other grids), and writes
  * the statements that delete their data (account, inventory, assets they created, objects) and add them to the ban list of the
  * estates. The databases are only read: the statements are for the administrator to review and run, the simulators stopped.
+ *
+ * Each table is in the database of its service (see Database::forTable): the accounts where the user account service keeps them,
+ * the assets where the asset service does, the profiles, the offline messages, the estates of each simulator or of Robust.
  */
 final class UserBan
 {
@@ -51,43 +54,48 @@ final class UserBan
     }
 
     /**
-     * The databases of a grid of this machine: its own, and those of its simulators (their estates and objects).
+     * The databases of a grid for a ban: where each table is, and the ones of its simulators and of its estates.
      *
-     * @return array{0:?ConnectionString,1:list<ConnectionString>}
+     * @return array{of:\Closure(string):?ConnectionString,simulators:list<ConnectionString>,estates:list<ConnectionString>}
      */
     public static function databases(Grid $grid): array
     {
         $config = GridConfig::fromFolder($grid->directory());
-        $robust = Database::Robust->connection($config);
-        $others = [];
+        $simulators = [];
+        $estates = [];
         foreach (array_keys($config->tree()['sims'] ?? []) as $simulator) {
-            foreach ([Database::Simulator, Database::Estate] as $database) {
-                $db = $database->connection($config, $simulator);
-                if ($db !== null) {
-                    $others[$db->key()] = $db;
-                }
-            }
+            $db = Database::Simulator->connection($config, (string) $simulator);
+            $db !== null && $simulators[$db->key()] = $db;
+            $estate = Database::Estate->connection($config, (string) $simulator);
+            $estate !== null && $estates[$estate->key()] = $estate;
+        }
+        if (Database::centralEstates($config) && ($estate = Database::Estate->connection($config)) !== null) {
+            $estates[$estate->key()] = $estate;
         }
 
-        return [$robust, array_values($others)];
+        return [
+            'of' => static fn(string $table): ?ConnectionString => ($which = Database::forTable($table)) === null ? null : $grid->connection($which),
+            'simulators' => array_values($simulators),
+            'estates' => array_values($estates),
+        ];
     }
 
     /**
      * The statements that ban these users.
      *
      * @param list<string> $targets "First Last", "First.Last", "First.Last@grid" or a UUID
-     * @param list<ConnectionString> $others the databases of the simulators
+     * @param \Closure(string):?ConnectionString|ConnectionString $of the database a table is in (see databases()), or the one database
+     *        that has them all
+     * @param list<ConnectionString> $simulators the databases of the regions of the simulators (their objects)
+     * @param list<ConnectionString> $estates the databases that keep estates (their ban list)
      */
-    public function plan(array $targets, ConnectionString $robust, array $others = []): BanPlan
+    public function plan(array $targets, \Closure|ConnectionString $of, array $simulators = [], array $estates = []): BanPlan
     {
+        $of = $of instanceof ConnectionString ? static fn(string $table): ConnectionString => $of : $of;
         $plan = new BanPlan();
-        $databases = [$robust->key() => $robust];
-        foreach ($others as $db) {
-            $databases[$db->key()] ??= $db;
-        }
 
         foreach ($targets as $target) {
-            $found = $this->find($robust, trim($target), $plan);
+            $found = $this->find($of, trim($target), $plan);
             foreach ($found as $user) {
                 if (!in_array($user->uuid, array_map(static fn(BannedUser $u): string => $u->uuid, $plan->users), true)) {
                     $plan->users[] = $user;
@@ -96,9 +104,10 @@ final class UserBan
         }
 
         foreach ($plan->users as $user) {
-            $this->cleanup($plan, $user, $robust, $databases);
-            $this->ban($plan, $user, $databases);
-            $rows = $this->rows($robust, 'SELECT * FROM hg_traveling_data WHERE UserID = ' . AccountWriter::quote($user->uuid));
+            $this->cleanup($plan, $user, $of, $simulators);
+            $this->ban($plan, $user, $estates);
+            $traveling = $of('hg_traveling_data');
+            $rows = $traveling === null ? null : $this->rows($traveling, 'SELECT * FROM hg_traveling_data WHERE UserID = ' . AccountWriter::quote($user->uuid));
             foreach ($rows ?? [] as $row) {
                 $plan->traveling[] = implode("\t", $row);
             }
@@ -112,16 +121,16 @@ final class UserBan
      *
      * @return list<BannedUser>
      */
-    private function find(ConnectionString $robust, string $target, BanPlan $plan): array
+    private function find(\Closure $of, string $target, BanPlan $plan): array
     {
         $users = [];
         if (preg_match('/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i', $target)) {
             $uuid = strtolower($target);
             $id = AccountWriter::quote($uuid);
-            foreach ($this->rows($robust, "SELECT PrincipalID, FirstName, LastName FROM UserAccounts WHERE PrincipalID = $id") ?? [] as $row) {
+            foreach ($this->rowsOf($of, 'UserAccounts', "SELECT PrincipalID, FirstName, LastName FROM UserAccounts WHERE PrincipalID = $id") ?? [] as $row) {
                 $users[] = new BannedUser($row[0], $row[1] ?? '', $row[2] ?? '');
             }
-            foreach ($this->rows($robust, 'SELECT UserID FROM GridUser WHERE UserID LIKE ' . AccountWriter::quote("$uuid;%")) ?? [] as $row) {
+            foreach ($this->rowsOf($of, 'GridUser', 'SELECT UserID FROM GridUser WHERE UserID LIKE ' . AccountWriter::quote("$uuid;%")) ?? [] as $row) {
                 $users[] = self::visitor($row[0]);
             }
 
@@ -138,13 +147,13 @@ final class UserBan
         $grid = $m[3] ?? '';
         if ($grid === '') {
             $sql = 'SELECT PrincipalID, FirstName, LastName FROM UserAccounts WHERE FirstName = ' . AccountWriter::quote($first) . ' AND LastName = ' . AccountWriter::quote($last);
-            foreach ($this->rows($robust, $sql) ?? [] as $row) {
+            foreach ($this->rowsOf($of, 'UserAccounts', $sql) ?? [] as $row) {
                 $users[] = new BannedUser($row[0], $row[1] ?? '', $row[2] ?? '');
             }
         }
         // The visitors of other grids: GridUser keeps them as <uuid>;<home of the grid>;<First Last>
         $like = '%;' . ($grid !== '' ? '%' . self::like($grid) . '%;' : '') . self::like("$first $last");
-        foreach ($this->rows($robust, 'SELECT UserID FROM GridUser WHERE UserID LIKE ' . AccountWriter::quote($like)) ?? [] as $row) {
+        foreach ($this->rowsOf($of, 'GridUser', 'SELECT UserID FROM GridUser WHERE UserID LIKE ' . AccountWriter::quote($like)) ?? [] as $row) {
             $users[] = self::visitor($row[0]);
         }
         if ($users === []) {
@@ -165,15 +174,21 @@ final class UserBan
     }
 
     /** Statements that delete what the user has in the databases. */
-    private function cleanup(BanPlan $plan, BannedUser $user, ConnectionString $robust, array $databases): void
+    private function cleanup(BanPlan $plan, BannedUser $user, \Closure $of, array $simulators): void
     {
         $id = AccountWriter::quote($user->uuid);
         $plan->cleanup[] = '-- ' . $user->label() . ' (' . $user->uuid . ')';
         foreach (self::TABLES as $table => $condition) {
             $condition = strtr($condition, ['{id}' => $id, '{like}' => AccountWriter::quote($user->uuid . ';%')]);
-            $this->delete($plan, $robust, $table, $condition);
+            $db = $of($table);
+            if ($db === null) {
+                $plan->problems[] = sprintf('the database of %s is not known: nothing is deleted from it', $table);
+
+                continue;
+            }
+            $this->delete($plan, $db, $table, $condition);
         }
-        foreach ($databases as $db) {
+        foreach ($simulators as $db) {
             $this->delete($plan, $db, 'prims', "OwnerID = $id");
         }
     }
@@ -189,10 +204,10 @@ final class UserBan
     }
 
     /** Statements that add the user to the ban list of every estate of the databases that have some. */
-    private function ban(BanPlan $plan, BannedUser $user, array $databases): void
+    private function ban(BanPlan $plan, BannedUser $user, array $estates): void
     {
         $id = AccountWriter::quote($user->uuid);
-        foreach ($databases as $db) {
+        foreach ($estates as $db) {
             if (($this->rows($db, "SHOW TABLES LIKE 'estateban'") ?? []) === []) {
                 continue;
             }
@@ -219,6 +234,18 @@ final class UserBan
     private function rows(ConnectionString $db, string $sql): ?array
     {
         return ($this->select)($db, $sql);
+    }
+
+    /**
+     * The rows a query gives in the database of a table.
+     *
+     * @return ?list<list<string>>
+     */
+    private function rowsOf(\Closure $of, string $table, string $sql): ?array
+    {
+        $db = $of($table);
+
+        return $db === null ? null : $this->rows($db, $sql);
     }
 
     /** An identifier of a statement. */
