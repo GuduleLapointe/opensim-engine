@@ -8,6 +8,9 @@ use OpenSim\Config\GridConfig;
 use OpenSim\Data\Collection;
 use OpenSim\Data\Connections;
 use OpenSim\Data\Database;
+use OpenSim\Exceptions\ChannelUnavailable;
+use OpenSim\Provisioning\AccountWriter;
+use OpenSim\Provisioning\GridAccounts;
 use OpenSim\Provisioning\Slug;
 
 /**
@@ -45,6 +48,12 @@ final class Avatar extends Model
         'inventoryitems' => 'avatarID = {id}',
         'assets' => 'CreatorID = {id}',
     ];
+
+    /** What of an account can be changed, by name: the column of UserAccounts. */
+    private const ACCOUNT_SETTINGS = ['email' => 'Email', 'title' => 'UserTitle', 'level' => 'UserLevel', 'active' => 'active'];
+
+    /** What of a profile can be changed, by name: the column of userprofile. */
+    private const PROFILE_SETTINGS = ['about' => 'profileAboutText', 'profileUrl' => 'profileURL', 'wants' => 'profileWantToText', 'skills' => 'profileSkillsText', 'languages' => 'profileLanguages', 'firstLife' => 'profileFirstText'];
 
     /** The moment of the last visit as the database computes it: the later of Login and Logout, stored as texts. */
     private const LAST_SEEN = 'CASE WHEN COALESCE(g.Login + 0, 0) > COALESCE(g.Logout + 0, 0) THEN COALESCE(g.Login + 0, 0) ELSE COALESCE(g.Logout + 0, 0) END';
@@ -239,28 +248,150 @@ final class Avatar extends Model
     }
 
     /**
-     * The values of an account that can be changed: email, title, level and active.
+     * Make an avatar: its account, its password, its inventory with the default outfit, and its home when it is given. Each is
+     * written in the database of its service (the accounts, the passwords, the inventories may be in different ones), the account
+     * last so that nothing shows of an avatar that could not be made.
      *
-     * @throws ChannelUnavailable
+     * @param array<string,mixed> $values `name` ("First Last") or `firstName` and `lastName`, `email`, and `password` or `passwordHash`
+     *        (`['hash' => ..., 'salt' => ...]`, an account that is moved); `uuid` and `home` (the id of a region) when they are known
+     * @throws \InvalidArgumentException for a name that is not one, a missing password, a name taken
+     * @throws ChannelUnavailable when a database cannot be reached or refuses
+     */
+    public static function create(GridConfig $config, array $values): static
+    {
+        [$first, $last] = isset($values['name']) ? array_pad(explode(' ', trim((string) $values['name']), 2), 2, '') : [(string) ($values['firstName'] ?? ''), (string) ($values['lastName'] ?? '')];
+        if (!GridAccounts::validName("$first $last")) {
+            throw new \InvalidArgumentException("'$first $last' is not the name of an avatar: a first and a last name, letters, digits and . _ -");
+        }
+        $hash = isset($values['passwordHash']) ? (array) $values['passwordHash'] : null;
+        $password = (string) ($values['password'] ?? '');
+        if ($hash === null && $password === '') {
+            throw new \InvalidArgumentException("the avatar '$first $last' needs a password");
+        }
+        $uuid = isset($values['uuid']) ? strtolower((string) $values['uuid']) : null;
+        if ($uuid !== null && preg_match('/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/', $uuid) !== 1) {
+            throw new \InvalidArgumentException("'$uuid' is not a UUID");
+        }
+
+        $accounts = self::connect($config, 'UserAccountService', null, "create the avatar $first $last");
+        if ((int) $accounts->get_var('SELECT COUNT(*) FROM UserAccounts WHERE FirstName = :f AND LastName = :l', ['f' => $first, 'l' => $last]) > 0) {
+            throw new \InvalidArgumentException("an avatar called '$first $last' exists already");
+        }
+
+        $made = AccountWriter::standard()->tables($first, $last, trim((string) ($values['email'] ?? '')), $password, $hash, $uuid);
+        // Each database gets its rows in one transaction: the tables of the same database go together (the usual case: one)
+        $groups = [];
+        foreach ($made['tables'] as $table => $statements) {
+            $what = Database::forTable($table) ?? 'UserAccountService';
+            $key = Connections::key($config, $what) ?? $table;
+            $groups[$key]['what'] ??= $what;
+            $groups[$key]['statements'] = [...($groups[$key]['statements'] ?? []), ...$statements];
+            $groups[$key]['tables'][] = $table;
+        }
+        $written = [];
+        try {
+            foreach ($groups as $group) {
+                $pdo = self::connect($config, $group['what'], null, "create the avatar $first $last");
+                $own = !$pdo->inTransaction() && $pdo->beginTransaction();
+                try {
+                    foreach ($group['statements'] as $sql) {
+                        $pdo->exec($sql);
+                    }
+                    $own && $pdo->commit();
+                } catch (\PDOException $e) {
+                    $own && $pdo->inTransaction() && $pdo->rollBack();
+
+                    throw $e;
+                }
+                array_push($written, ...$group['tables']);
+            }
+            isset($values['home']) && self::setHome($config, $made['id'], (string) $values['home']);
+        } catch (\PDOException $e) {
+            throw ChannelUnavailable::for("create the avatar $first $last", $e->getMessage() . ($written === [] ? '' : ' (written before: ' . implode(', ', $written) . ')'));
+        }
+
+        return static::find($config, $made['id']) ?? throw ChannelUnavailable::for("create the avatar $first $last", 'the account was written but cannot be read back');
+    }
+
+    /**
+     * Change an avatar. The account: `email`, `title`, `level`, `active`; the password: `password`; the home: `home` (the id of a
+     * region); the profile it has: `about`, `profileUrl`, `wants`, `skills`, `languages`, `firstLife`. The name does not change.
+     *
+     * @throws ChannelUnavailable when a database cannot be reached, or the avatar has no profile to change
      * @throws \InvalidArgumentException for a value that is not one of these
      */
     public function update(array $values): void
     {
-        $columns = ['email' => 'Email', 'title' => 'UserTitle', 'level' => 'UserLevel', 'active' => 'active'];
-        $set = [];
-        $params = ['id' => $this->id()];
         foreach ($values as $name => $value) {
-            if (!isset($columns[$name])) {
+            if (!isset(self::ACCOUNT_SETTINGS[$name]) && !isset(self::PROFILE_SETTINGS[$name]) && !in_array($name, ['password', 'home'], true)) {
                 throw new \InvalidArgumentException("an avatar has no changeable '$name'");
             }
-            $set[] = "{$columns[$name]} = :$name";
-            $params[$name] = $name === 'active' ? (int) (bool) $value : $value;
         }
-        if ($set === []) {
+        if (isset($values['password']) && (string) $values['password'] === '') {
+            throw new \InvalidArgumentException('a password cannot be empty');
+        }
+        $action = 'change ' . $this->name();
+
+        $account = array_intersect_key($values, self::ACCOUNT_SETTINGS);
+        if ($account !== []) {
+            $set = [];
+            $params = ['id' => $this->id()];
+            foreach ($account as $name => $value) {
+                $set[] = self::ACCOUNT_SETTINGS[$name] . " = :$name";
+                $params[$name] = $name === 'active' ? (int) (bool) $value : $value;
+            }
+            self::connect($this->config, 'UserAccountService', null, $action)->prepareAndExecute('UPDATE UserAccounts SET ' . implode(', ', $set) . ' WHERE PrincipalID = :id', $params);
+        }
+
+        if (isset($values['password'])) {
+            $this->setPassword((string) $values['password'], $action);
+        }
+        if (isset($values['home'])) {
+            self::setHome($this->config, $this->id(), (string) $values['home']);
+        }
+
+        $profile = array_intersect_key($values, self::PROFILE_SETTINGS);
+        if ($profile !== []) {
+            $pdo = self::connect($this->config, Database::Profiles, null, $action);
+            if ((int) $pdo->get_var('SELECT COUNT(*) FROM userprofile WHERE useruuid = :id', ['id' => $this->id()]) === 0) {
+                throw ChannelUnavailable::for($action, 'the avatar has no profile yet: the grid makes it when the avatar opens it');
+            }
+            $set = [];
+            $params = ['id' => $this->id()];
+            foreach ($profile as $name => $value) {
+                $set[] = self::PROFILE_SETTINGS[$name] . " = :$name";
+                $params[$name] = (string) $value;
+            }
+            $pdo->prepareAndExecute('UPDATE userprofile SET ' . implode(', ', $set) . ' WHERE useruuid = :id', $params);
+        }
+    }
+
+    /** The password, as Robust keeps it: a new salt and the hash of the password with it. */
+    private function setPassword(string $password, string $action): void
+    {
+        $pdo = self::connect($this->config, 'AuthenticationService', null, $action);
+        $salt = bin2hex(random_bytes(16));
+        $hash = AccountWriter::passwordHash($password, $salt);
+        $changed = $pdo->prepareAndExecute('UPDATE auth SET passwordHash = :h, passwordSalt = :s WHERE UUID = :id', ['h' => $hash, 's' => $salt, 'id' => $this->id()]);
+        if ($changed !== false && $changed->rowCount() > 0) {
             return;
         }
-        $pdo = self::connect($this->config, 'UserAccountService', null, 'change ' . $this->name());
-        $pdo->prepareAndExecute('UPDATE UserAccounts SET ' . implode(', ', $set) . ' WHERE PrincipalID = :id', $params);
+        $pdo->prepareAndExecute(
+            'INSERT INTO auth (UUID, passwordHash, passwordSalt, webLoginKey, accountType) VALUES (:id, :h, :s, :k, :t)',
+            ['id' => $this->id(), 'h' => $hash, 's' => $salt, 'k' => '00000000-0000-0000-0000-000000000000', 't' => 'UserAccount'],
+        );
+    }
+
+    /** The home of an avatar: the region and the position Robust gives to a home. */
+    private static function setHome(GridConfig $config, string $id, string $regionId): void
+    {
+        $pdo = self::connect($config, 'GridUserService', null, 'set the home of ' . $id);
+        $params = ['id' => $id, 'r' => $regionId, 'p' => GridAccounts::HOME_POSITION, 'l' => '<0,1,0>'];
+        $changed = $pdo->prepareAndExecute('UPDATE GridUser SET HomeRegionID = :r, HomePosition = :p, HomeLookAt = :l WHERE UserID = :id', $params);
+        if ($changed !== false && $changed->rowCount() > 0) {
+            return;
+        }
+        $pdo->prepareAndExecute('INSERT INTO GridUser (UserID, HomeRegionID, HomePosition, HomeLookAt) VALUES (:id, :r, :p, :l)', $params);
     }
 
     public function enable(): bool

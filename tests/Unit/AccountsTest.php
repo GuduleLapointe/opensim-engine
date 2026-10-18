@@ -9,6 +9,7 @@ use OpenSim\Provisioning\AccountList;
 use OpenSim\Provisioning\AccountWriter;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Testing\EnvironmentFake;
+use OpenSim\Exceptions\ChannelUnavailable;
 
 /** A writer with ids, a time and a salt that follow one another, so the statements can be compared. */
 function accounts_writer(): AccountWriter
@@ -131,25 +132,22 @@ describe('statements of an account', function () {
 
 describe('import', function () {
     /**
-     * An importer over a database that is a list of statements, and a grid.
+     * An importer over a grid that is a list of names, and a log of what was made.
      *
-     * @param list<string> $names The accounts that exist.
-     * @param bool $fail Whether the database refuses the writing.
-     * @param list<string> $log Gets the statements that were run.
+     * @param list<string> $names The avatars that exist.
+     * @param bool $fail Whether the grid refuses to make one.
+     * @param list<array<string,mixed>> $log Gets the values of the avatars that were made.
      */
     function accounts_importer(array $names, bool $fail, array &$log): AccountImporter
     {
-        return new AccountImporter(function (GridPlan $plan, string $sql) use ($names, $fail, &$log): ?array {
-            if (str_starts_with($sql, 'SELECT CONCAT')) {
-                return $names;
-            }
-            if (str_starts_with($sql, 'SELECT uuid')) {
-                return ['607c44e9-3d01-45eb-a07e-937dc72dbadb'];
-            }
-            $log[] = $sql;
-
-            return $fail ? null : [];
-        }, accounts_writer());
+        return new AccountImporter(
+            static fn(Grid $grid): array => $names,
+            static fn(Grid $grid): string => '607c44e9-3d01-45eb-a07e-937dc72dbadb',
+            function (Grid $grid, array $values) use ($fail, &$log): void {
+                $fail && throw ChannelUnavailable::for('create the avatar', 'the database refuses it');
+                $log[] = $values;
+            },
+        );
     }
 
     function accounts_to_make(): array
@@ -177,7 +175,7 @@ describe('import', function () {
         expect($done['results'][0]['generated'])->toBeFalse();
         expect($done['results'][1]['generated'])->toBeTrue();
         expect(strlen($done['results'][1]['password']))->toBe(12);
-        expect($log[1])->toContain(md5(md5($done['results'][1]['password']) . ':' . str_repeat('ab', 16)));
+        expect($log[1])->toMatchArray(['firstName' => 'John', 'lastName' => 'Roe', 'password' => $done['results'][1]['password'], 'home' => '607c44e9-3d01-45eb-a07e-937dc72dbadb']);
     });
 
     test('stops at the first failure', function () {
@@ -202,7 +200,7 @@ describe('import', function () {
     });
 
     test('stops when the database of the grid cannot be read', function () {
-        $importer = new AccountImporter(static fn(GridPlan $plan, string $sql): ?array => null, accounts_writer());
+        $importer = new AccountImporter(static fn(Grid $grid): ?array => null, static fn(Grid $grid): ?string => null, static fn(Grid $grid, array $values) => null);
 
         $done = $importer->run(Grid::described(EnvironmentFake::with(), []), accounts_to_make(), true);
 

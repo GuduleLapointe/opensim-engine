@@ -123,14 +123,47 @@ final class AccountWriter
         ?string $homeRegionId = null,
         ?array $hash = null,
     ): array {
+        $made = $this->rows($first, $last, $email, $password, $homeRegionId, $hash);
+        $sql = ['START TRANSACTION', ...array_column($made['rows'], 1), 'COMMIT'];
+
+        return ['id' => $made['id'], 'sql' => implode(";\n", $sql) . ';'];
+    }
+
+    /**
+     * The statements that make an account, by the table they write in, so that each goes to the database of its service. The rows
+     * of the inventory, the password and the home come first and the account last: whatever fails in between leaves rows nobody can
+     * see (no account has them).
+     *
+     * @param ?string $uuid the id of the account, a new one when none is given
+     * @return array{id:string,tables:array<string,list<string>>} table => statements
+     */
+    public function tables(string $first, string $last, string $email, string $password, ?array $hash = null, ?string $uuid = null): array
+    {
+        $made = $this->rows($first, $last, $email, $password, null, $hash, $uuid);
+        $tables = [];
+        foreach ($made['rows'] as [$table, $sql]) {
+            $tables[$table][] = $sql;
+        }
+        $order = ['inventoryfolders' => 0, 'inventoryitems' => 1, 'auth' => 2, 'GridUser' => 3, 'UserAccounts' => 4];
+        uksort($tables, static fn(string $a, string $b): int => ($order[$a] ?? 9) <=> ($order[$b] ?? 9));
+
+        return ['id' => $made['id'], 'tables' => $tables];
+    }
+
+    /**
+     * @return array{id:string,rows:list<array{0:string,1:string}>} the table and the statement, in the order they are written
+     */
+    private function rows(string $first, string $last, string $email, string $password, ?string $homeRegionId, ?array $hash, ?string $uuid = null): array
+    {
         $q = [self::class, 'quote'];
-        $id = ($this->uuid)();
+        $id = $uuid ?? ($this->uuid)();
         $now = ($this->now)();
         $salt = $hash !== null ? $hash['salt'] : ($this->salt)();
         $passwordHash = $hash !== null ? $hash['hash'] : self::passwordHash($password, $salt);
-        $sql = ['START TRANSACTION'];
+        $rows = [];
 
-        $sql[] =
+        $rows[] = [
+            'UserAccounts',
             'INSERT INTO UserAccounts (PrincipalID, ScopeID, FirstName, LastName, Email, ServiceURLs, Created, UserLevel, UserFlags, UserTitle, active) VALUES (' .
             implode(', ', [
                 $q($id),
@@ -145,24 +178,31 @@ final class AccountWriter
                 $q(''),
                 1,
             ]) .
-            ')';
-        $sql[] =
+            ')',
+        ];
+        $rows[] = [
+            'auth',
             'INSERT INTO auth (UUID, passwordHash, passwordSalt, webLoginKey, accountType) VALUES (' .
             implode(', ', [$q($id), $q($passwordHash), $q($salt), $q(self::ZERO), $q('UserAccount')]) .
-            ')';
+            ')',
+        ];
         if ($homeRegionId !== null) {
-            $sql[] = GridAccounts::homeSql($id, $homeRegionId);
+            $rows[] = ['GridUser', GridAccounts::homeSql($id, $homeRegionId)];
         }
 
         $folders = [];
+        $sql = [];
         $root = ($this->uuid)();
         $sql[] = $this->folder($id, $root, self::ZERO, 'My Inventory', 8);
         $this->folders($sql, $folders, $id, $root, self::FOLDERS);
+        foreach ($sql as $statement) {
+            $rows[] = ['inventoryfolders', $statement];
+        }
 
         foreach (self::OUTFIT as [$name, $asset, $folder, $assetType, $wearable]) {
             $item = ($this->uuid)();
-            $sql[] = $this->item($id, $item, $asset, $assetType, $name, self::ALL, $wearable, $folders[$folder], $now);
-            $sql[] = $this->item(
+            $rows[] = ['inventoryitems', $this->item($id, $item, $asset, $assetType, $name, self::ALL, $wearable, $folders[$folder], $now)];
+            $rows[] = ['inventoryitems', $this->item(
                 $id,
                 ($this->uuid)(),
                 $item,
@@ -172,11 +212,10 @@ final class AccountWriter
                 $wearable,
                 $folders['Current Outfit'],
                 $now,
-            );
+            )];
         }
-        $sql[] = 'COMMIT';
 
-        return ['id' => $id, 'sql' => implode(";\n", $sql) . ';'];
+        return ['id' => $id, 'rows' => $rows];
     }
 
     /**

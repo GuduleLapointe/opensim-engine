@@ -119,14 +119,3 @@ describe('table', function () {
             ->and(Database::forTable('nothing_here'))->toBeNull();
     });
 });
-
-describe('account import', function () {
-    test('is refused when the tables of an account are not in one database', function () {
-        $grid = Grid::find(routing_machine()->environment, 'demo');
-        $importer = new AccountImporter(static fn($plan, string $sql): array => [], AccountWriter::standard());
-
-        $done = $importer->run($grid, [['first' => 'Ann', 'last' => 'Poe', 'email' => '', 'password' => 'x', 'line' => 1]], true);
-
-        expect($done['error'])->toContain('not in one database')->and($done['results'])->toBe([]);
-    });
-});

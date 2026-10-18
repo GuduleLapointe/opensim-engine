@@ -52,6 +52,21 @@ function avatar_database(): OSPDO
     return $pdo;
 }
 
+/** The same, with what an avatar is made of besides: the passwords, the homes, the inventories. */
+function avatar_creation_database(): OSPDO
+{
+    $pdo = avatar_database();
+    $pdo->exec('ALTER TABLE UserAccounts ADD COLUMN ServiceURLs TEXT');
+    $pdo->exec('ALTER TABLE GridUser ADD COLUMN HomePosition VARCHAR(64)');
+    $pdo->exec('ALTER TABLE GridUser ADD COLUMN HomeLookAt VARCHAR(64)');
+    $pdo->exec('CREATE TABLE auth (UUID CHAR(36) PRIMARY KEY, passwordHash CHAR(32), passwordSalt CHAR(32), webLoginKey VARCHAR(255), accountType VARCHAR(32))');
+    $pdo->exec('CREATE TABLE inventoryfolders (folderName VARCHAR(64), type INT, version INT, folderID CHAR(36), agentID CHAR(36), parentFolderID CHAR(36))');
+    $pdo->exec('CREATE TABLE inventoryitems (assetID CHAR(36), assetType INT, inventoryName VARCHAR(64), inventoryDescription VARCHAR(128), inventoryNextPermissions INT, inventoryCurrentPermissions INT, invType INT, creatorID VARCHAR(255), inventoryBasePermissions INT, inventoryEveryOnePermissions INT, salePrice INT, saleType INT, creationDate INT, groupID CHAR(36), groupOwned INT, flags INT, inventoryID CHAR(36), avatarID CHAR(36), parentFolderID CHAR(36), inventoryGroupPermissions INT)');
+    $pdo->exec("INSERT INTO auth VALUES ('11111111-1111-1111-1111-111111111111', 'old', 'salt', '', 'UserAccount')");
+
+    return $pdo;
+}
+
 /** Everything in one database. */
 function avatars_in(OSPDO $pdo): void
 {
@@ -277,12 +292,93 @@ describe('An avatar that is changed', function () {
         expect(fn() => $ada->update(['firstName' => 'Eve']))->toThrow(InvalidArgumentException::class);
     });
 
-    test('is not created and not deleted: no channel does it', function () {
+    test('is not deleted: no channel does it', function () {
         avatars_in(avatar_database());
         $config = avatar_grid();
 
-        expect(fn() => Avatar::create($config, ['firstName' => 'New']))->toThrow(ChannelUnavailable::class)
-            ->and(fn() => Avatar::find($config, 'Ada Love')->delete())->toThrow(ChannelUnavailable::class);
+        expect(fn() => Avatar::find($config, 'Ada Love')->delete())->toThrow(ChannelUnavailable::class);
+    });
+
+    test('has its password changed, its home set, and the profile it has changed', function () {
+        $pdo = avatar_creation_database();
+        avatars_in($pdo);
+        $config = avatar_grid();
+        $ada = Avatar::find($config, 'Ada Love');
+        $ada->update(['password' => 'new password', 'home' => 'cccc', 'about' => 'Changed', 'wants' => 'a boat']);
+
+        $auth = $pdo->get_row('SELECT passwordHash, passwordSalt FROM auth WHERE UUID = :id', ['id' => $ada->id()], PDO::FETCH_ASSOC);
+        expect($auth['passwordHash'])->toBe(md5(md5('new password') . ':' . $auth['passwordSalt']))
+            ->and($auth['passwordHash'])->not->toBe(md5(md5('old') . ':salt'))
+            ->and($pdo->get_var('SELECT HomeRegionID FROM GridUser WHERE UserID = :id', ['id' => $ada->id()]))->toBe('cccc')
+            ->and($pdo->get_var('SELECT HomePosition FROM GridUser WHERE UserID = :id', ['id' => $ada->id()]))->toBe('<128,128,22>');
+        $changed = Avatar::find($config, 'Ada Love')->detail();
+        expect($changed['about'])->toBe('Changed')->and($changed['wants'])->toBe('a boat')->and($changed['skills'])->toBe('scripting');
+
+        $cy = Avatar::find($config, 'Cy Gone');
+        $cy->update(['password' => 'first one']);
+        expect($pdo->get_var('SELECT accountType FROM auth WHERE UUID = :id', ['id' => $cy->id()]))->toBe('UserAccount');
+    });
+
+    test('has no profile to change before the grid made it, and an empty password is refused', function () {
+        avatars_in(avatar_creation_database());
+        $bob = Avatar::find(avatar_grid(), 'Bob Root');
+
+        expect(fn() => $bob->update(['about' => 'x']))->toThrow(ChannelUnavailable::class, 'no profile')
+            ->and(fn() => $bob->update(['password' => '']))->toThrow(InvalidArgumentException::class);
+    });
+})->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
+
+describe('An avatar that is made', function () {
+    test('has its account, its password, its inventory and its outfit, each in its table', function () {
+        $pdo = avatar_creation_database();
+        avatars_in($pdo);
+        $config = avatar_grid();
+        $new = Avatar::create($config, ['name' => 'New Person', 'email' => 'new@example.org', 'password' => 'secret']);
+
+        expect($new->name())->toBe('New Person')
+            ->and($new->detail()['email'])->toBe('new@example.org')
+            ->and($new->isEnabled())->toBeTrue()
+            ->and(Avatar::find($config, 'New Person')->id())->toBe($new->id());
+        $auth = $pdo->get_row('SELECT passwordHash, passwordSalt, accountType FROM auth WHERE UUID = :id', ['id' => $new->id()], PDO::FETCH_ASSOC);
+        expect($auth['passwordHash'])->toBe(md5(md5('secret') . ':' . $auth['passwordSalt']))
+            ->and($auth['accountType'])->toBe('UserAccount')
+            ->and($pdo->get_var('SELECT folderName FROM inventoryfolders WHERE agentID = :id AND type = 8', ['id' => $new->id()]))->toBe('My Inventory')
+            ->and((int) $pdo->get_var('SELECT COUNT(*) FROM inventoryfolders WHERE agentID = :id', ['id' => $new->id()]))->toBe(21)
+            ->and((int) $pdo->get_var('SELECT COUNT(*) FROM inventoryitems WHERE avatarID = :id', ['id' => $new->id()]))->toBe(12);
+    });
+
+    test('can be given its UUID and its home, and keep a password hash it comes with', function () {
+        $pdo = avatar_creation_database();
+        avatars_in($pdo);
+        $new = Avatar::create(avatar_grid(), [
+            'firstName' => 'Moved',
+            'lastName' => 'Over',
+            'uuid' => '44444444-4444-4444-4444-444444444444',
+            'home' => 'dddd',
+            'passwordHash' => ['hash' => 'abc', 'salt' => 'def'],
+        ]);
+
+        expect($new->id())->toBe('44444444-4444-4444-4444-444444444444')
+            ->and($pdo->get_var("SELECT passwordHash || '/' || passwordSalt FROM auth WHERE UUID = :id", ['id' => $new->id()]))->toBe('abc/def')
+            ->and($pdo->get_var('SELECT HomeRegionID FROM GridUser WHERE UserID = :id', ['id' => $new->id()]))->toBe('dddd');
+    });
+
+    test('is refused for a name that is not one, a name that is taken, no password, a UUID that is not one', function () {
+        avatars_in(avatar_creation_database());
+        $config = avatar_grid();
+
+        expect(fn() => Avatar::create($config, ['name' => 'Single', 'password' => 'x']))->toThrow(InvalidArgumentException::class, 'not the name')
+            ->and(fn() => Avatar::create($config, ['name' => 'Ada Love', 'password' => 'x']))->toThrow(InvalidArgumentException::class, 'exists already')
+            ->and(fn() => Avatar::create($config, ['name' => 'No Password']))->toThrow(InvalidArgumentException::class, 'needs a password')
+            ->and(fn() => Avatar::create($config, ['name' => 'Bad Uuid', 'password' => 'x', 'uuid' => 'nope']))->toThrow(InvalidArgumentException::class, 'not a UUID')
+            ->and(Avatar::find($config, 'Bad Uuid'))->toBeNull();
+    });
+
+    test('is refused when the database cannot be reached', function () {
+        avatars_in(avatar_creation_database());
+        Connections::using(static fn() => null);
+
+        expect(fn() => Avatar::create(avatar_grid(), ['name' => 'Lost Soul', 'password' => 'x']))->toThrow(ChannelUnavailable::class);
     });
 
     test('is refused when the database of the accounts cannot be reached', function () {
@@ -332,6 +428,40 @@ describe('avatars of a grid whose services have their own databases', function (
             ->and($bob->isOnline())->toBeFalse()
             ->and($bob->detail()['profileImage'])->toBe('img-bob')
             ->and(array_column(array_filter($list->columns(), static fn(array $c) => $c['sortable']), 'name'))->toBe(['name', 'email', 'created', 'level', 'active']);
+    });
+})->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
+
+describe('An avatar made in a grid whose services have their own databases', function () {
+    test('has each of its rows in the database of its service', function () {
+        $make = static function (string $sql): OSPDO {
+            $pdo = new OSPDO(['driver' => 'sqlite', 'name' => ':memory:']);
+            $pdo->exec($sql);
+
+            return $pdo;
+        };
+        $accounts = $make('CREATE TABLE UserAccounts (PrincipalID CHAR(36) PRIMARY KEY, ScopeID CHAR(36), FirstName VARCHAR(64), LastName VARCHAR(64), Email VARCHAR(64), ServiceURLs TEXT, Created INT, UserLevel INT DEFAULT 0, UserFlags INT DEFAULT 0, UserTitle VARCHAR(64) DEFAULT \'\', active INT DEFAULT 1)');
+        $auth = $make('CREATE TABLE auth (UUID CHAR(36) PRIMARY KEY, passwordHash CHAR(32), passwordSalt CHAR(32), webLoginKey VARCHAR(255), accountType VARCHAR(32))');
+        $inventory = $make('CREATE TABLE inventoryfolders (folderName VARCHAR(64), type INT, version INT, folderID CHAR(36), agentID CHAR(36), parentFolderID CHAR(36))');
+        $inventory->exec('CREATE TABLE inventoryitems (assetID CHAR(36), assetType INT, inventoryName VARCHAR(64), inventoryDescription VARCHAR(128), inventoryNextPermissions INT, inventoryCurrentPermissions INT, invType INT, creatorID VARCHAR(255), inventoryBasePermissions INT, inventoryEveryOnePermissions INT, salePrice INT, saleType INT, creationDate INT, groupID CHAR(36), groupOwned INT, flags INT, inventoryID CHAR(36), avatarID CHAR(36), parentFolderID CHAR(36), inventoryGroupPermissions INT)');
+        $visits = $make('CREATE TABLE GridUser (UserID VARCHAR(255) PRIMARY KEY, HomeRegionID CHAR(36), LastRegionID CHAR(36), Online CHAR(5), Login CHAR(16), Logout CHAR(16))');
+        Connections::using(static fn(Database|string $what) => match ($what) {
+            'UserAccountService' => $accounts,
+            'GridUserService' => $visits,
+            'AuthenticationService' => $auth,
+            'InventoryService' => $inventory,
+            default => null,
+        });
+        $config = avatar_grid(
+            "[GridUserService]\n ConnectionString = \"Data Source=localhost;Database=visits;User ID=os;Password=pw;\"\n" .
+                "[AuthenticationService]\n ConnectionString = \"Data Source=localhost;Database=auth;User ID=os;Password=pw;\"\n" .
+                "[InventoryService]\n ConnectionString = \"Data Source=localhost;Database=inventory;User ID=os;Password=pw;\"\n",
+        );
+
+        $new = Avatar::create($config, ['name' => 'Split Rows', 'password' => 'x']);
+
+        expect((int) $accounts->get_var('SELECT COUNT(*) FROM UserAccounts'))->toBe(1)
+            ->and($auth->get_var('SELECT UUID FROM auth'))->toBe($new->id())
+            ->and((int) $inventory->get_var('SELECT COUNT(*) FROM inventoryfolders'))->toBe(21);
     });
 })->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
 
