@@ -187,6 +187,9 @@ final class GridProvisioner
      */
     private function writeHelpers(GridPlan $plan): void
     {
+        foreach (HelpersConfig::unifyCase($plan->gridDir) as [$from, $to]) {
+            $this->ui->note(sprintf(_('Renamed %s to %s: the file of the helpers is %s.'), $from, $to, HelpersConfig::FILE));
+        }
         if (!$plan->helpers) {
             return;
         }

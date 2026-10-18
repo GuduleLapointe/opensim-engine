@@ -23,6 +23,31 @@ final class HelpersConfig
         return rtrim($gridDir, '/') . '/' . self::FILE;
     }
 
+    /**
+     * The files of a grid folder named like the file of the helpers in another case (`helpers.ini` of the first setups): a
+     * system that does not tell the cases apart (macOS, Windows) cannot hold both. The only one is renamed, the second one is
+     * kept aside as `<name>~`.
+     *
+     * @return list<array{0:string,1:string}> the names it had and the names it has now
+     */
+    public static function unifyCase(string $gridDir): array
+    {
+        $gridDir = rtrim($gridDir, '/');
+        $variants = array_values(array_filter(
+            scandir($gridDir) ?: [],
+            static fn(string $name): bool => $name !== self::FILE && strcasecmp($name, self::FILE) === 0,
+        ));
+        $moved = [];
+        foreach ($variants as $name) {
+            $to = in_array(self::FILE, scandir($gridDir) ?: [], true) ? "$name~" : self::FILE;
+            if (@rename("$gridDir/$name", "$gridDir/$to")) {
+                $moved[] = [$name, $to];
+            }
+        }
+
+        return $moved;
+    }
+
     /** The Robust config of a grid folder, empty when it has none. */
     private static function robust(string $gridDir): string
     {

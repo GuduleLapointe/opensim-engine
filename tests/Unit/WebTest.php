@@ -8,6 +8,17 @@ use OpenSim\Provisioning\Web\HelpersConfig;
 use OpenSim\Provisioning\Web\Services;
 use OpenSim\Provisioning\Web\Snippets;
 
+/** Whether the file system holds two files whose names differ by the case only. */
+function web_test_fs_tells_cases(): bool
+{
+    $dir = test_tmp() . '/case-' . bin2hex(random_bytes(4));
+    mkdir($dir);
+    touch("$dir/a");
+    touch("$dir/A");
+
+    return count(scandir($dir)) === 4;
+}
+
 describe('Services', function () {
     test('are under /helpers by default', function () {
         $services = new Services();
@@ -54,6 +65,28 @@ describe('Helpers.ini', function () {
     test('is the name of the file, in the folder of the grid', function () {
         expect(HelpersConfig::path('/etc/opensim/grids/alpha/'))->toBe('/etc/opensim/grids/alpha/Helpers.ini');
     });
+
+    test('is the only name in the folder of the grid: helpers.ini of the first setups becomes it', function () {
+        $dir = test_tmp() . '/helpers-case-' . bin2hex(random_bytes(4));
+        mkdir($dir);
+        file_put_contents("$dir/helpers.ini", "[Helpers]\npath = \"/helper\"\n");
+
+        expect(HelpersConfig::unifyCase($dir))->toBe([['helpers.ini', 'Helpers.ini']])
+            ->and(scandir($dir))->toContain('Helpers.ini')->not->toContain('helpers.ini')
+            ->and(file_get_contents("$dir/Helpers.ini"))->toContain('/helper')
+            ->and(HelpersConfig::unifyCase($dir))->toBe([]);
+    });
+
+    test('keeps the second file aside when the folder has both, where the system tells the cases apart', function () {
+        $dir = test_tmp() . '/helpers-both-' . bin2hex(random_bytes(4));
+        mkdir($dir);
+        file_put_contents("$dir/Helpers.ini", 'new');
+        file_put_contents("$dir/helpers.ini", 'old');
+
+        expect(HelpersConfig::unifyCase($dir))->toBe([['helpers.ini', 'helpers.ini~']])
+            ->and(file_get_contents("$dir/Helpers.ini"))->toBe('new')
+            ->and(file_get_contents("$dir/helpers.ini~"))->toBe('old');
+    })->skip(fn() => !web_test_fs_tells_cases(), 'the file system does not tell the cases apart');
 
     test('gives the web address and the path of the helpers from the Robust config, the economy being their path', function () {
         $dir = test_tmp() . '/helpers-ini-' . bin2hex(random_bytes(4));
