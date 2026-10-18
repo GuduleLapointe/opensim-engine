@@ -15,6 +15,12 @@ use OpenSim\Provisioning\Web\Services;
  */
 final class RobustConfig
 {
+    /** The connectors of the services the helpers rely on: offline messages, groups (their search and profiles), profiles. */
+    public const HELPERS_CONNECTORS = ['OfflineIMServiceConnector', 'GroupsServiceConnector', 'UserProfilesServiceConnector'];
+
+    /** The connectors a hypergrid adds to those of the distribution that are commented. */
+    public const HYPERGRID_CONNECTORS = ['HGGroupsServiceConnector'];
+
     public function example(GridPlan $plan): string
     {
         return $plan->binDir . '/' . ($plan->enableHypergrid ? 'Robust.HG.ini.example' : 'Robust.ini.example');
@@ -137,6 +143,10 @@ final class RobustConfig
         }
         if ($existing === null) {
             $ini->uncomment('UserProfilesServiceConnector');
+        }
+        // The services of the helpers are served by Robust, and so are the ones of the hypergrid
+        foreach ([...$plan->helpers ? self::HELPERS_CONNECTORS : [], ...$plan->enableHypergrid ? self::HYPERGRID_CONNECTORS : []] as $connector) {
+            $ini->uncomment($connector);
         }
         $this->alignSearch($ini);
 

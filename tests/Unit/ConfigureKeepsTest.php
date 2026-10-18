@@ -70,6 +70,43 @@ describe('Configuring a grid that exists', function () {
         expect($robust->generate($plan))->not->toMatch('/^\s*gatekeeper\s*=/m');
     });
 
+    test('serves the services of the helpers and the ones of the hypergrid, and only those', function () use ($plan) {
+        $connectors = <<<'INI'
+            [ServiceList]
+                AssetServiceConnector = "x"
+                ; OfflineIMServiceConnector = "${Const|PrivatePort}/OpenSim.Addons.OfflineIM.dll:OfflineIMServiceRobustConnector"
+                ; GroupsServiceConnector = "${Const|PrivatePort}/OpenSim.Addons.Groups.dll:GroupsServiceRobustConnector"
+                ; BakedTextureService = "${Const|PrivatePort}/OpenSim.Server.Handlers.dll:XBakesConnector"
+                ; UserProfilesServiceConnector = "${Const|PublicPort}/OpenSim.Server.Handlers.dll:UserProfilesConnector"
+                ; EstateDataService = "${Const|PrivatePort}/OpenSim.Server.Handlers.dll:EstateDataRobustConnector"
+                ; HGGroupsServiceConnector = "${Const|PublicPort}/OpenSim.Addons.Groups.dll:HGGroupsServiceRobustConnector"
+            INI;
+        $active = static fn(string $text): array => array_map(
+            static fn(string $line): string => trim(explode('=', $line)[0]),
+            preg_grep('/^\s*[A-Za-z]+\s*=/', explode("\n", substr($text, (int) strpos($text, '[ServiceList]'), 1500))) ?: [],
+        );
+
+        // No helpers, no hypergrid: the proposals of the distribution stay proposals (the profiles are the setup's own)
+        $plain = $plan();
+        $plain->enableHypergrid = false;
+        file_put_contents("{$plain->binDir}/Robust.ini.example", $connectors);
+        expect($active((new RobustConfig())->generate($plain)))->toContain('AssetServiceConnector', 'UserProfilesServiceConnector')
+            ->not->toContain('OfflineIMServiceConnector', 'GroupsServiceConnector', 'HGGroupsServiceConnector');
+
+        $helpers = $plan();
+        $helpers->enableHypergrid = false;
+        $helpers->helpers = true;
+        file_put_contents("{$helpers->binDir}/Robust.ini.example", $connectors);
+        expect($active((new RobustConfig())->generate($helpers)))->toContain('OfflineIMServiceConnector', 'GroupsServiceConnector', 'UserProfilesServiceConnector')
+            ->not->toContain('HGGroupsServiceConnector', 'BakedTextureService', 'EstateDataService');
+
+        $hypergrid = $plan();
+        $hypergrid->enableHypergrid = true;
+        file_put_contents("{$hypergrid->binDir}/Robust.HG.ini.example", $connectors);
+        expect($active((new RobustConfig())->generate($hypergrid)))->toContain('HGGroupsServiceConnector')
+            ->not->toContain('OfflineIMServiceConnector', 'GroupsServiceConnector');
+    });
+
     test('gives the search of the web to both settings that say it when only one is given, and keeps two that differ', function () use ($plan) {
         $plan = $plan();
         $robust = new RobustConfig();
