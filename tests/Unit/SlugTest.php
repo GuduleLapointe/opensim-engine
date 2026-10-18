@@ -20,3 +20,18 @@ describe('slug of a name', function () {
         ['Joyeux Noël', 'joyeux_noel'],
     ]);
 });
+
+describe('name of a nick', function () {
+    test('is its words, capitalized and apart', function (string $nick, string $name) {
+        expect(Slug::nameOf($nick))->toBe($name);
+    })->with([
+        ['watta_world', 'Watta World'],
+        ['speculoos', 'Speculoos'],
+        ['my-grid_2', 'My Grid 2'],
+        ['', ''],
+    ]);
+
+    test('gives a slug that is the nick again', function () {
+        expect(Slug::slug(Slug::nameOf('watta_world')))->toBe('watta_world');
+    });
+});

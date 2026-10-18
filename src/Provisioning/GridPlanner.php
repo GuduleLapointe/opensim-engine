@@ -160,7 +160,7 @@ final class GridPlanner
         $modify = $c['modify'];
         $text = static fn(string $name, mixed $default): string => trim((string) ($answers[$name] ?? $default));
 
-        $name = $text('name', $current['gridName'] ?? ($modify ? ucfirst($c['nick']) : $c['defaultName']));
+        $name = $text('name', $current['gridName'] ?? ($modify ? Slug::nameOf($c['nick']) : $c['defaultName']));
         $nick = $modify ? $c['nick'] : $text('nick', Slug::nick($name));
         $hypergrid = self::flag($answers['hypergrid'] ?? $c['currentHypergrid'] ?? true);
         $spacing = (int) ($answers['spacing'] ?? ($current['regionSpacing'] ?? 0));

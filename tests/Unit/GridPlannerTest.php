@@ -152,6 +152,10 @@ describe('A grid that exists', function () {
             ->and($moved['center'])->toBe('8100,8100');
     });
 
+    test('is named by its nick in words when its files do not say its name', function () {
+        expect(existing_planner(['nick' => 'watta_world', 'current' => ['dbPass' => 'x']])->resolve()['name'])->toBe('Watta World');
+    });
+
     test('has a password made when the one found is the default of old', function () {
         expect(existing_planner(['current' => ['dbPass' => 'changeme']])->resolve()['database_password'])->toBe('p1' . str_repeat('0', 18));
     });

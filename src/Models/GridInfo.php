@@ -74,7 +74,7 @@ final class GridInfo
         $grid->dir = "$etcRoot/grids/$nick";
         $grid->robustIni = $robustIni;
         $grid->hypergrid = str_contains(basename($robustIni), '.HG.');
-        $grid->name = $current['gridName'] ?? ($conf['GridName'] ?? ucfirst($nick));
+        $grid->name = $current['gridName'] ?? ($conf['GridName'] ?? Slug::nameOf($nick));
         $grid->slug = $conf['slug'] ?? Slug::slug($grid->name);
         $grid->regionSpacing = ctype_digit($conf['RegionSpacing'] ?? '') ? (int) $conf['RegionSpacing'] : 0;
         $grid->center = $conf['Center'] ?? '';
@@ -208,7 +208,7 @@ final class GridInfo
         $grid->remote = true;
         $grid->nick = $nick;
         $grid->dir = "$etcRoot/grids/$nick";
-        $grid->name = $conf['GridName'] ?? ucfirst($nick);
+        $grid->name = $conf['GridName'] ?? Slug::nameOf($nick);
         $grid->slug = $conf['slug'] ?? Slug::slug($grid->name);
         $grid->hypergrid = !in_array(strtolower($conf['Hypergrid'] ?? 'true'), ['false', '0', 'no'], true);
         $grid->preset = $conf['Preset'] ?? '';

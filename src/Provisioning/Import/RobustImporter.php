@@ -41,7 +41,7 @@ final class RobustImporter
         }
 
         $plan = new GridPlan();
-        $plan->gridName = $name !== '' ? $name : ucfirst($nick);
+        $plan->gridName = $name !== '' ? $name : Slug::nameOf($nick);
         $plan->gridNick = $nick;
         $plan->gridSlug = Slug::slug($plan->gridName);
         $plan->enableHypergrid = str_contains(basename($path), '.HG.') || isset($ini['Hypergrid']['GatekeeperURI']);

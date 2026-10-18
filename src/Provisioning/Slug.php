@@ -29,6 +29,14 @@ final class Slug
         return trim($slug, '_');
     }
 
+    /** The name a nick suggests, when nothing says better ("watta_world" is "Watta World"). */
+    public static function nameOf(string $nick): string
+    {
+        $words = preg_split('/[^A-Za-z0-9]+/', $nick, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return $words === [] ? ucfirst($nick) : implode(' ', array_map('ucfirst', $words));
+    }
+
     /** The name of an instance, as the launcher names it: the slug ("Speculoos Welcome" -> "speculoos_welcome"). */
     public static function instance(string $name): string
     {
