@@ -10,7 +10,7 @@ declare(strict_types=1);
 use OpenSim\Data\OSPDO;
 use OpenSim\Config\GridConfig;
 use OpenSim\Data\Connections;
-use OpenSim\Models\ChannelUnavailable;
+use OpenSim\Exceptions\ChannelUnavailable;
 use OpenSim\Models\Region;
 
 /** A grid folder whose Robust says its web address. */

@@ -11,7 +11,7 @@ use OpenSim\Data\OSPDO;
 use OpenSim\Config\GridConfig;
 use OpenSim\Data\Connections;
 use OpenSim\Data\Database;
-use OpenSim\Models\ChannelUnavailable;
+use OpenSim\Exceptions\ChannelUnavailable;
 use OpenSim\Models\Parcel;
 
 /** A grid with two simulators, each with its own database. */

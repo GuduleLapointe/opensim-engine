@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace OpenSim\Models;
 
+use OpenSim\Exceptions\ChannelUnavailable;
+use OpenSim\Interfaces\OpenSimModelInterface;
 use OpenSim\Data\OSPDO;
 use OpenSim\Config\GridConfig;
 use OpenSim\Data\Connections;

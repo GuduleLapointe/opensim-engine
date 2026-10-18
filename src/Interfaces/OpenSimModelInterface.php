@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OpenSim\Models;
+namespace OpenSim\Interfaces;
 
 use OpenSim\Config\GridConfig;
 use OpenSim\Data\Collection;

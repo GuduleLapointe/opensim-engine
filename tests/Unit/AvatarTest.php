@@ -13,7 +13,7 @@ use OpenSim\Data\Collection;
 use OpenSim\Data\Connections;
 use OpenSim\Data\Database;
 use OpenSim\Models\Avatar;
-use OpenSim\Models\ChannelUnavailable;
+use OpenSim\Exceptions\ChannelUnavailable;
 
 /** A grid folder whose Robust says its web address and its databases. */
 function avatar_grid(string $extra = ''): GridConfig

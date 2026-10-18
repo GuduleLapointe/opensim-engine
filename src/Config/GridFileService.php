@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Config;
 
-use OpenSim\Provisioning\SetupFailedException;
+use OpenSim\Exceptions\SetupFailedException;
 
 /**
  * The files of the folder of a grid. Every ini file may hold a password (OpenSimulator is made so: the connection strings,

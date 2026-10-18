@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OpenSim\Models;
+namespace OpenSim\Exceptions;
 
 /** A change that no channel can make now: the database cannot be reached, the simulator is stopped, the file cannot be written. */
 final class ChannelUnavailable extends \RuntimeException

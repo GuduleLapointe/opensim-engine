@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Provisioning;
 
+use OpenSim\Exceptions\SetupFailedException;
 use OpenSim\Config\GridFileService;
 use OpenSim\Console\InstanceConsoleService;
 use OpenSim\Models\GridInfo;

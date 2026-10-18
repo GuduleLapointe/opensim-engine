@@ -8,7 +8,7 @@
 
 
 use OpenSim\Config\GridFileService;
-use OpenSim\Provisioning\SetupFailedException;
+use OpenSim\Exceptions\SetupFailedException;
 
 /** A file nobody but its owner and root reads, in a folder of its own. */
 function locked_file(string $text): string
