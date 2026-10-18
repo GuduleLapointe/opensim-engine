@@ -2,6 +2,7 @@
 
 ### Unreleased
 
+- update: `OSPDO` is `OpenSim\Data\OSPDO` and the health checks `OpenSim\Health\Health`; the `legacy/` aliases (`OpenSim_Config`, `OpenSim_Oar`) are gone, the classes load through the autoloader only
 - update: the classes and functions of the WordPress plugin nobody here uses are gone (`OpenSim_Avatar`, `OpenSim_Form`..., the escaping and the dead functions); the plugin has its own copy
 - new: `Data\Stats`: the numbers of a grid (members, who is in world, regions, area), from the database of each service
 - new: `Models\Parcel` (the `land` of the simulators: list, search, sort, filters, the bitmap of 4 m squares, `Parcel::at()`), its flags as constants

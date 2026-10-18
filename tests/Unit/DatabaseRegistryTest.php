@@ -6,6 +6,7 @@ declare(strict_types=1);
  * The databases of a grid, from its config: where each is set, in which order, and what it falls back to.
  */
 
+use OpenSim\Data\OSPDO;
 use OpenSim\Config\GridConfig;
 use OpenSim\Data\Database;
 

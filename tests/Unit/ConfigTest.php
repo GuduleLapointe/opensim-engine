@@ -4,6 +4,8 @@
  * include, the constants, the first file that says a setting.
  */
 
+use OpenSim\Config\ConfigReader;
+use OpenSim\Config\GridConfig;
 
 /**
  * A grid folder in a temporary tree.
@@ -43,7 +45,7 @@ describe('Reading a file', function () {
     test('is as OpenSimulator reads it: sections, quotes, comments, constants replaced', function () {
         $dir = config_folder(['Robust.HG.ini' => ROBUST_INI]);
 
-        $ini = OpenSim_Config::read_ini("$dir/Robust.HG.ini");
+        $ini = ConfigReader::expand(ConfigReader::file("$dir/Robust.HG.ini"));
 
         expect($ini['Const']['BaseURL'])
             ->toBe('http://play.example.org')
@@ -51,20 +53,20 @@ describe('Reading a file', function () {
             ->toBe('http://play.example.org:8002')
             ->and($ini['GridInfoService']['gridname'])
             ->toBe('Alpha World')
-            ->and(OpenSim_Config::read_ini('/nonexistent.ini'))
+            ->and(ConfigReader::expand(ConfigReader::file('/nonexistent.ini')))
             ->toBe([]);
     });
 
     test('keeps the first of a key given twice in a section, as OpenSimulator does', function () {
         $dir = config_folder(['twice.ini' => "[DatabaseService]\nConnectionString = \"first\"\nConnectionString = \"second\"\n"]);
 
-        expect(OpenSim_Config::read_ini("$dir/twice.ini")['DatabaseService']['ConnectionString'])->toBe('first');
+        expect(ConfigReader::expand(ConfigReader::file("$dir/twice.ini"))['DatabaseService']['ConnectionString'])->toBe('first');
     });
 });
 
 describe('files a file includes', function () {
     /** The merged settings of the main file of a test folder. */
-    $chain = fn(array $files, string $main = 'OpenSim.ini') => OpenSim_Config::read(config_folder($files) . "/$main");
+    $chain = fn(array $files, string $main = 'OpenSim.ini') => ConfigReader::load(config_folder($files) . "/$main");
 
     test('are read after the file that includes them, in any section, a relative path being relative to that file', function () use ($chain) {
         $ini = $chain([
@@ -96,7 +98,7 @@ describe('files a file includes', function () {
         ]);
         file_put_contents("$dir/OpenSim.ini", str_replace('ETC', $dir, (string) file_get_contents("$dir/OpenSim.ini")));
 
-        expect(array_keys(OpenSim_Config::read("$dir/OpenSim.ini")))->toBe(['Const', 'Includes', 'A', 'B', 'C']);
+        expect(array_keys(ConfigReader::load("$dir/OpenSim.ini")))->toBe(['Const', 'Includes', 'A', 'B', 'C']);
     });
 
     test('are not read when nothing includes them, nor the constants of a file that is not read', function () use ($chain) {
@@ -119,7 +121,7 @@ describe('files a file includes', function () {
 });
 
 describe('config of a grid folder', function () {
-    $folder = fn(array $more = [], string $robust = 'Robust.HG.ini') => OpenSim_Config::from_folder(
+    $folder = fn(array $more = [], string $robust = 'Robust.HG.ini') => GridConfig::fromFolder(
         config_folder(['MoneyServer.ini' => "[MoneyServer]\nMoneyScriptAccessKey = \"k\"\n", $robust => ROBUST_INI] + $more),
         ['Helpers' => 'Helpers.ini'],
     );
@@ -186,7 +188,7 @@ describe('config of a grid folder', function () {
     });
 
     test('is empty, and nothing is created, for a folder that is not there', function () {
-        $config = OpenSim_Config::from_folder('/nonexistent/grid');
+        $config = GridConfig::fromFolder('/nonexistent/grid');
 
         expect($config->tree())->toBe([])->and($config->files())->toBe([])->and($config->find('A', 'b'))->toBeNull();
     });

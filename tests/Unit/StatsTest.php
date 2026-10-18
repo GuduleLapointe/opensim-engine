@@ -6,6 +6,7 @@ declare(strict_types=1);
  * The numbers of a grid, counted in the database of each service. The databases are in memory (SQLite) with the tables of OpenSimulator.
  */
 
+use OpenSim\Data\OSPDO;
 use OpenSim\Data\Stats;
 
 const STATS_NOW = 1_800_000_000;

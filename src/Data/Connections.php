@@ -14,20 +14,20 @@ use OpenSim\Provisioning\SqlRunner;
  */
 final class Connections
 {
-    /** @var array<string,\OSPDO> */
+    /** @var array<string,OSPDO> */
     private static array $handles = [];
 
     /** @var array<string,string> why a database could not be reached, by the key of its connection */
     private static array $failures = [];
 
-    /** @var ?\Closure(Database|string,?string,?\OpenSim\Config\ConnectionString):?\OSPDO */
+    /** @var ?\Closure(Database|string,?string,?\OpenSim\Config\ConnectionString):?OSPDO */
     private static ?\Closure $factory = null;
 
     /**
      * @param Database|string $what a database, or the section of a service of Robust (UserAccountService, GridUserService...)
      * @param ?string $simulator for the databases of a simulator
      */
-    public static function pdo(GridConfig $config, Database|string $what, ?string $simulator = null): ?\OSPDO
+    public static function pdo(GridConfig $config, Database|string $what, ?string $simulator = null): ?OSPDO
     {
         $connection = self::connection($config, $what, $simulator);
         if (self::$factory !== null) {
@@ -36,7 +36,7 @@ final class Connections
         if ($connection === null) {
             return null;
         }
-        $pdo = self::$handles[$connection->key()] ??= new \OSPDO($connection->credentials() + ['log' => false]);
+        $pdo = self::$handles[$connection->key()] ??= new OSPDO($connection->credentials() + ['log' => false]);
         if (!$pdo->connected) {
             self::$failures[$connection->key()] = SqlRunner::describe($pdo->error);
 

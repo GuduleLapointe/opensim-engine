@@ -1,11 +1,14 @@
 <?php
+
+namespace OpenSim\Data;
+
+use Exception;
+use PDO;
+use PDOException;
+use Throwable;
+
 /**
- * W4OS Database Engine
- *
- * Core database functionality that can be used by both WordPress and helpers.
- * This will contain all the database connection and query logic.
- *
- * This class extends PDO and provides additional methods for common operations.
+ * A PDO connection with the few methods the projects use on it (get_var, get_row, get_results, insert...).
  *
  * Accepts mixed arguments:
  * - DSN string as PDO takes it (e.g. 'mysql:host=localhost;dbname=mydb'), with the username, the password and the driver
@@ -23,10 +26,9 @@
  *
  * A connection that fails does not throw: $connected is false and $error says why.
  *
- * @package magicoli/opensim-helpers
+ * @package magicoli/opensim-engine
  * @since 3.0.0
  */
-
 class OSPDO extends PDO
 {
     /** Seconds to wait for a server that does not answer, unless the driver options say otherwise. */
@@ -69,29 +71,11 @@ class OSPDO extends PDO
                 $credentials['socket'],
             );
         } elseif (func_num_args() === 1 && is_string($dsn) && !self::is_dsn($dsn)) {
-            // If a single string is passed, assume it's service URI.
+            // A service address names no database: the credentials of a service are the config of its grid (Database::...->pdo())
             $url_parts = parse_url($dsn);
             $serviceURI = ($url_parts['host'] ?? '') . (empty($url_parts['port']) ? '' : ':' . $url_parts['port']);
-            $credentials = class_exists('W4OS3') ? W4OS3::get_credentials($serviceURI) : [];
-
-            if (!($credentials['db']['enabled'] ?? false)) {
-                $this->error = new Exception("No database enabled for the service $serviceURI");
-                return;
-            }
-
-            $username = $credentials['db']['user'];
-            $password = $credentials['db']['pass'];
-            $dbname = $credentials['db']['name'] ?? ($credentials['db']['database'] ?? null);
-            if (empty($dbname)) {
-                $this->error = new Exception("Database name is empty, cannot connect to the database of $serviceURI");
-                error_log($this->error->getMessage());
-                return;
-            }
-            $dsn = self::dsn(
-                'mysql',
-                $credentials['db']['host'] . (empty($credentials['db']['port']) ? '' : ':' . $credentials['db']['port']),
-                $dbname,
-            );
+            $this->error = new Exception("No database is known for the service $serviceURI");
+            return;
         } elseif (preg_match('/(?:^|[:;])dbname=([^;]*)/', $dsn, $m)) {
             $dbname = $m[1];
         } elseif (strpos($dsn, 'sqlite:') === 0) {

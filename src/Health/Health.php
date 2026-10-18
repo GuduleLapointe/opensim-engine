@@ -1,4 +1,9 @@
 <?php
+
+namespace OpenSim\Health;
+
+use OpenSim\Config\GridConfig;
+
 /**
  * Health checks of an OpenSimulator grid, for whoever serves it: the addresses its settings give and what each answers, what
  * an install needs. A tool for every consumer of the engine, alone or together (a web page, a command, a plugin): it takes
@@ -18,7 +23,7 @@
  * @license AGPLv3
  */
 
-class OpenSim_Health
+class Health
 {
     /** How long an address has to answer, in seconds. */
     const TIMEOUT = 3;
@@ -82,7 +87,7 @@ class OpenSim_Health
      * The names of the files the settings of a grid are in: the one of Robust (Robust.HG.ini, Robust.ini), the one of the
      * simulators and the one of the money server.
      *
-     * @param  OpenSim_Config|null $config
+     * @param  GridConfig|null $config
      * @return array{robust:string,opensim:string,money:string}
      */
     public static function names($config)
@@ -96,7 +101,7 @@ class OpenSim_Health
      * The addresses to ask, as groups of rows: what the grid says (get_grid_info), then, when the config of the grid is there, the
      * files it is in, the sections of each, the addresses they give, and the ones that are expected and not given, empty.
      *
-     * @param  array{config?:?OpenSim_Config,live?:array,login?:?string,owner?:?string} $in
+     * @param  array{config?:?GridConfig,live?:array,login?:?string,owner?:?string} $in
      *   - config: the config of the grid (null when this machine has none)
      *   - live:   what the grid says at /get_grid_info, key => value
      *   - login:  the login address

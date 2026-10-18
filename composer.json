@@ -50,11 +50,6 @@
         "psr-4": {
             "OpenSim\\": "src/"
         },
-        "classmap": [
-            "class-database.php",
-            "class-health.php",
-            "legacy/"
-        ],
         "files": [
             "includes/functions-gettext.php"
         ]

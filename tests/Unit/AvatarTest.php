@@ -7,6 +7,7 @@ declare(strict_types=1);
  * accounts, the visits and the profiles are in other databases. The databases are in memory (SQLite) with the tables of OpenSimulator.
  */
 
+use OpenSim\Data\OSPDO;
 use OpenSim\Config\GridConfig;
 use OpenSim\Data\Collection;
 use OpenSim\Data\Connections;

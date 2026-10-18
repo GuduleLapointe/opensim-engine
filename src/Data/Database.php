@@ -177,11 +177,11 @@ enum Database: string
      *
      * @param ?string $simulator see connection()
      */
-    public function pdo(GridConfig $config, ?string $simulator = null): ?\OSPDO
+    public function pdo(GridConfig $config, ?string $simulator = null): ?OSPDO
     {
         $connection = $this->connection($config, $simulator);
 
-        return $connection === null ? null : new \OSPDO($connection->credentials());
+        return $connection === null ? null : new OSPDO($connection->credentials());
     }
 
     /**

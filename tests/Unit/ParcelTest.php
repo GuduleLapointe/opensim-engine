@@ -7,6 +7,7 @@ declare(strict_types=1);
  * parcel that holds a point. The databases are in memory (SQLite) with the tables of OpenSimulator.
  */
 
+use OpenSim\Data\OSPDO;
 use OpenSim\Config\GridConfig;
 use OpenSim\Data\Connections;
 use OpenSim\Data\Database;

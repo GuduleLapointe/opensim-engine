@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace OpenSim\Provisioning;
 
+use OpenSim\Data\OSPDO;
+
 /**
  * Runs SQL statements through OSPDO and reports them as the MySQL client did, which the callers read: an exit code, the rows
  * (one line each, columns separated by tabs, NULL written as such) and "ERROR <number> (<state>): <message>".
@@ -31,7 +33,7 @@ final class SqlRunner
             $access = array_merge($access, self::own());
         }
 
-        $pdo = new \OSPDO(
+        $pdo = new OSPDO(
             [
                 'host' => $access['host'] ?? 'localhost',
                 'port' => $access['port'] ?? null,
@@ -158,7 +160,7 @@ final class SqlRunner
     private static function viaSudo(array $access, string $sql, ?string $database): array
     {
         $script =
-            'require_once ' . var_export(dirname(__DIR__, 2) . '/class-database.php', true) . '; require ' . var_export(__FILE__, true) .
+            'require_once ' . var_export(dirname(__DIR__) . '/Data/OSPDO.php', true) . '; require ' . var_export(__FILE__, true) .
             '; exit(OpenSim\\Provisioning\\SqlRunner::child());';
         $process = @proc_open(
             ['sudo', '-n', PHP_BINARY, '-d', 'display_errors=0', '-r', $script],

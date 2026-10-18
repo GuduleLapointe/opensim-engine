@@ -1,4 +1,6 @@
 <?php
+use OpenSim\Data\OSPDO;
+
 /**
  * helpers/engine/includes/functions.php
  *

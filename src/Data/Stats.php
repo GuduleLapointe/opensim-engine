@@ -26,13 +26,13 @@ final class Stats
      */
     public static function of(GridConfig $config, ?int $now = null): ?array
     {
-        return self::counts(static fn(string $service): ?\OSPDO => Connections::pdo($config, $service), $now ?? time());
+        return self::counts(static fn(string $service): ?OSPDO => Connections::pdo($config, $service), $now ?? time());
     }
 
     /**
      * The numbers, from the databases a function gives.
      *
-     * @param callable(string):?\OSPDO $dbFor gives the database of a service of Robust
+     * @param callable(string):?OSPDO $dbFor gives the database of a service of Robust
      * @return array{members:int,active_members:int,members_in_world:int,active_users:int,total_users:int,regions:int,area:int|float}|null
      *         null when a database cannot be reached
      */
@@ -50,13 +50,13 @@ final class Stats
         // An integer in the statement: a bound value would be text, which a number is not compared with in every database
         $month = (int) ($now - 30 * 86400);
         $zero = self::NULL_KEY;
-        $one = static function (\OSPDO $db, string $sql, array $params = []): int|float|string {
+        $one = static function (OSPDO $db, string $sql, array $params = []): int|float|string {
             $statement = $db->prepareAndExecute($sql, $params);
 
             return $statement ? $statement->fetchColumn() : 0;
         };
         // How many of the users are accounts: one query when both are in one database, else by groups of identifiers
-        $accountsAmong = static function (\OSPDO $db, string $sql, array $params, string $idsSql) use ($accounts, $one): int {
+        $accountsAmong = static function (OSPDO $db, string $sql, array $params, string $idsSql) use ($accounts, $one): int {
             if ($db === $accounts) {
                 return (int) $one($accounts, $sql, $params);
             }

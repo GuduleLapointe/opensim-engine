@@ -6,6 +6,7 @@ declare(strict_types=1);
  * The dump of a database: how a value is written in an INSERT, how a failure is told.
  */
 
+use OpenSim\Data\OSPDO;
 use OpenSim\Archives\DatabaseDump;
 
 describe('a value in an INSERT', function () {

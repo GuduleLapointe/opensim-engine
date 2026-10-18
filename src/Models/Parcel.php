@@ -357,7 +357,7 @@ final class Parcel extends Model
     /**
      * The databases of the simulators, one for each distinct one.
      *
-     * @return \Generator<int,\OSPDO>
+     * @return \Generator<int,OSPDO>
      */
     private static function databases(GridConfig $config): \Generator
     {

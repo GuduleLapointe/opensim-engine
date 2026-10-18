@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Archives;
 
+use OpenSim\Data\OSPDO;
 use OpenSim\Provisioning\SqlRunner;
 
 /**
@@ -186,7 +187,7 @@ final class DatabaseDump
      */
     private static function connect(array $db): \PDO
     {
-        $pdo = new \OSPDO(['host' => $db['host'], 'name' => $db['name'], 'user' => $db['user'], 'pass' => $db['pass'], 'log' => false]);
+        $pdo = new OSPDO(['host' => $db['host'], 'name' => $db['name'], 'user' => $db['user'], 'pass' => $db['pass'], 'log' => false]);
         if (!$pdo->connected) {
             throw new \RuntimeException("cannot connect to {$db['name']}: " . SqlRunner::describe($pdo->error));
         }

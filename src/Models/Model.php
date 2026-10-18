@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Models;
 
+use OpenSim\Data\OSPDO;
 use OpenSim\Config\GridConfig;
 use OpenSim\Data\Connections;
 use OpenSim\Data\Database;
@@ -93,7 +94,7 @@ abstract class Model implements OpenSimModelInterface
      * @param string $action what was being done ("read the avatars"), for the message
      * @throws ChannelUnavailable
      */
-    protected static function connect(GridConfig $config, Database|string $what, ?string $simulator, string $action): \OSPDO
+    protected static function connect(GridConfig $config, Database|string $what, ?string $simulator, string $action): OSPDO
     {
         $pdo = Connections::pdo($config, $what, $simulator);
         if ($pdo !== null) {

@@ -7,6 +7,7 @@ declare(strict_types=1);
  * process started with sudo, and the database service on a server that cannot be reached.
  */
 
+use OpenSim\Data\OSPDO;
 use OpenSim\Provisioning\DatabaseService;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\SqlRunner;
@@ -148,8 +149,7 @@ describe('options file of the person who runs', function () {
 
 describe('process started with sudo', function () {
     test('reads what to run on its input and answers in JSON', function () {
-        $script = 'require_once ' . var_export(dirname(__DIR__, 2) . '/class-database.php', true)
-            . '; require ' . var_export(dirname(__DIR__, 2) . '/src/Provisioning/SqlRunner.php', true)
+        $script = 'require ' . var_export(dirname(__DIR__, 2) . '/vendor/autoload.php', true)
             . '; exit(OpenSim\\Provisioning\\SqlRunner::child());';
         $process = proc_open([PHP_BINARY, '-r', $script], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
         fwrite($pipes[0], json_encode(['access' => ['host' => '127.0.0.1', 'port' => 1, 'user' => 'x', 'pass' => 'y'], 'sql' => 'SELECT 1', 'database' => null]));

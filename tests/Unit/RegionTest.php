@@ -7,6 +7,7 @@ declare(strict_types=1);
  * one region, and the names of the flags in the config of Robust. The database is in memory (SQLite) with the tables of OpenSimulator.
  */
 
+use OpenSim\Data\OSPDO;
 use OpenSim\Config\GridConfig;
 use OpenSim\Data\Connections;
 use OpenSim\Models\ChannelUnavailable;
