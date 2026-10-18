@@ -119,26 +119,6 @@ if (!function_exists('sanitize_url')) {
     }
 }
 
-/**
- * Escape URL for safe output in HTML
- *
- * @param string $url URL to escape
- * @return string Escaped URL
- */
-function escape_url($url)
-{
-    return htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
-}
-
-/**
- * Does nothing, just returns the string unchanged. Meant to replace dozens of
- * unnecessary calls to htmlspecialchars() in the code.
- */
-function do_not_sanitize($string, $foo = '', $bar = '', $john = '', $doe = '')
-{
-    return $string;
-}
-
 function php_has($extension)
 {
     switch ($extension) {
@@ -170,63 +150,6 @@ function php_has($extension)
             return extension_loaded($extension);
     }
     return false;
-}
-
-/**
- * Sanitize a string to be used as an ID or slug, like for html container id, css class, etc.
- */
-function sanitize_id($string)
-{
-    if (empty($string)) {
-        return false;
-    }
-
-    $id = $string;
-    try {
-        // Transliterate to Latin, remove diacritics, lowercase, but keep dashes and underscores
-        $id = @transliterator_transliterate('Any-Latin; NFD; [:Nonspacing Mark:] Remove; NFC; Lower();', $id);
-    } catch (Error $e) {
-        error_log('Warning (php-intl missing) ' . $e->getMessage());
-        $id = strtolower($id);
-    }
-    // Remove all punctuation except dashes and underscores
-    $id = preg_replace('/[^\p{L}\p{N}_\-\s]/u', '-', $id);
-    // Replace multiple separators with a single one
-    $sep = '[-_\s]';
-    $id = preg_replace("/$sep* $sep*/", '_', $id);
-    $id = preg_replace("/$sep*_$sep*/", '_', $id);
-    $id = preg_replace("/$sep*-$sep*/", '-', $id);
-    // Remove leading/trailing dashes
-    $id = trim($id, '-');
-
-    return $id;
-}
-
-function sanitize_version($string)
-{
-    if (empty($string)) {
-        return false;
-    }
-
-    $id = $string;
-    try {
-        // Transliterate to Latin, remove diacritics, lowercase, but keep dashes and underscores
-        $id = @transliterator_transliterate('Any-Latin; NFD; [:Nonspacing Mark:] Remove; NFC; Lower();', $id);
-    } catch (Error $e) {
-        error_log('Warning (php-intl missing) ' . $e->getMessage());
-        $id = strtolower($id);
-    }
-    // Remove all punctuation except dashes and underscores
-    $id = preg_replace('/[^\p{L}\p{N}_\-\s\.]/u', '-', $id);
-    // Replace multiple separators with a single one
-    $sep = '[-_\s]';
-    $id = preg_replace("/$sep* $sep*/", '_', $id);
-    $id = preg_replace("/$sep*_$sep*/", '_', $id);
-    $id = preg_replace("/$sep*-$sep*/", '-', $id);
-    // Remove leading/trailing dashes
-    $id = trim($id, '-');
-
-    return $id;
 }
 
 /**
@@ -435,22 +358,6 @@ function opensim_link_region($args, $var = null)
 }
 
 /**
- * Build region URL from array
- *
- * @param  array $region sanitized region array
- * @return string
- */
-function opensim_region_url($region)
-{
-    if (!is_array($region)) {
-        return false;
-    }
-    return $region['gatekeeper'] .
-        (empty($region['region']) ? '' : ':' . $region['region']) .
-        (empty($region['pos']) ? '' : '/' . $region['pos']);
-}
-
-/**
  * Get region data from region name or UUID
  *
  * @param  string|array $region region name or UUID or sanitized region array
@@ -570,241 +477,6 @@ function opensim_region_is_online($region)
     return (bool) is_uuid($link_region['uuid'] ?? false);
 }
 
-function opensim_user_alert($agentID, $message, $secureID = null)
-{
-    $agentServer = opensim_get_server_info($agentID);
-    if (!$agentServer) {
-        return false;
-    }
-    $serverip = $agentServer['serverIP'];
-    $httpport = $agentServer['serverHttpPort'];
-    $serveruri = $agentServer['serverURI'];
-
-    $avatarSession = opensim_get_avatar_session($agentID);
-    if (!$avatarSession) {
-        return false;
-    }
-    $sessionID = $avatarSession['sessionID'];
-    if ($secureID == null) {
-        $secureID = $avatarSession['secureID'];
-    }
-
-    $request = xmlrpc_encode_request('UserAlert', [
-        [
-            'clientUUID' => $agentID,
-            'clientSessionID' => $sessionID,
-            'clientSecureSessionID' => $secureID,
-            'Description' => $message,
-        ],
-    ]);
-    $response = currency_xmlrpc_call($serverip, $httpport, $serveruti, $request);
-
-    return $response;
-}
-
-/**
- * [oxXmlRequest description]
- *
- * @param  string $gatekeeper               [description]
- * @param  string $method                   [description]
- * @param  array  $request                  [description]
- * @return array             received xml response
- */
-function oxXmlRequest($gatekeeper, $method, $request)
-{
-    if (!function_exists('xmlrpc_encode_request')) {
-        error_log('[ERROR] (XML RPC missing) oxXmlRequest() requires xmlrpc_encode_request()');
-        return false;
-    }
-    $xml_request = xmlrpc_encode_request($method, [$request]); // phpcs:ignore PHPCompatibility.FunctionUse.RemovedFunctions
-
-    $options = [
-        'http' => [
-            'method' => 'POST',
-            'header' => 'Content-Type: text/xml' . "\r\n",
-            'timeout' => 3, // most of the time below 1 sec, but leave some time for slow ones
-            'content' => $xml_request,
-        ],
-    ];
-    // A grid with a certificate nobody signed, when the settings of the engine say it is fine
-    if (class_exists('Engine_Settings') && Engine_Settings::get('engine.Beta.enable_self_signed', false)) {
-        $options['ssl'] = ['verify_peer' => false, 'verify_peer_name' => false, 'allow_self_signed' => true];
-    }
-    $context = stream_context_create($options);
-
-    $response = @file_get_contents($gatekeeper, false, $context);
-    if ($response === false) {
-        return false;
-    } elseif (empty($response)) {
-        return false;
-    }
-
-    // xmlrpc_decode() from library-xmlrpc.php does not handle raw XML strings
-    // (new Response($xml) does not parse XML — it is a phpxmlrpc limitation).
-    // Use Encoder::decodeXml() directly, which correctly parses any XML-RPC envelope.
-    // decodeXml() returns a PhpXmlRpc\Response object; extract the PHP array from it.
-    try {
-        $encoder = new \PhpXmlRpc\Encoder();
-        $decoded = $encoder->decodeXml($response);
-    } catch (\Throwable $e) {
-        error_log("oxXmlRequest decode error ($gatekeeper $method): " . $e->getMessage());
-        return false;
-    }
-    if (empty($decoded)) {
-        return false;
-    }
-    if ($decoded instanceof \PhpXmlRpc\Response) {
-        if ($decoded->faultCode()) {
-            error_log(
-                "oxXmlRequest fault ($gatekeeper $method): " . $decoded->faultCode() . ' ' . $decoded->faultString(),
-            );
-            return false;
-        }
-        $xml_array = $encoder->decode($decoded->value());
-    } else {
-        $xml_array = $decoded;
-    }
-    if (empty($xml_array) || !is_array($xml_array)) {
-        return false;
-    }
-    if (xmlrpc_is_fault($xml_array)) {
-        // phpcs:ignore PHPCompatibility.FunctionUse.RemovedFunctions
-        return false;
-    }
-    return $xml_array;
-}
-
-function get_xml_response_data($requestURL, $request)
-{
-    if (empty($request)) {
-        return [];
-    }
-    if (!function_exists('xmlrpc_decode')) {
-        // Avoid crash but log error
-        error_log('[ERROR] (XML RPC missing) get_xml_response_data() requires xmlrpc_decode()');
-        return false;
-    }
-    $enable_self_signed = Engine_Settings::get('engine.Beta.enable_self_signed', false);
-
-    $options = [
-        'http' => [
-            'method' => 'POST',
-            'header' => 'Content-Type: text/xml' . "\r\n",
-            'content' => $request,
-        ],
-    ];
-
-    // Add SSL context options if self-signed certificates should be accepted
-    if ($enable_self_signed) {
-        $options['ssl'] = [
-            'verify_peer' => false,
-            'verify_peer_name' => false,
-            'allow_self_signed' => true,
-        ];
-    }
-
-    $context = stream_context_create($options);
-    $response = xmlrpc_decode(file_get_contents($requestURL, false, $context));
-    if (is_array($response) && !xmlrpc_is_fault($response) && !empty($response) && isset($response['data'])) {
-        return $response['data'];
-    } else {
-        return [];
-    }
-}
-
-function fix_utf_encoding($string)
-{
-    // Ensure the string is in UTF-8 encoding
-    if (!mb_check_encoding($string, 'UTF-8')) {
-        $string = mb_convert_encoding($string, 'UTF-8', 'ISO-8859-1');
-    }
-    return $string;
-}
-
-/**
- * Create a standardized response array for consistent project-wide usage
- *
- * @param bool $success Whether the operation was successful
- * @param string $message Human-readable message
- * @param mixed $data Optional data payload (for success responses)
- * @param string $error_code Optional error code for programmatic handling
- * @return array Standardized response structure
- */
-function osResponseArray($success, $message, $data = null, $error_code = null)
-{
-    $response = [
-        'success' => (bool) $success,
-        'message' => $message,
-        'timestamp' => time(),
-    ];
-
-    if ($success) {
-        if ($data !== null) {
-            $response['data'] = $data;
-        }
-    } else {
-        if ($error_code !== null) {
-            $response['error_code'] = $error_code;
-        }
-    }
-
-    return $response;
-}
-
-/**
- * Create a success response
- *
- * @param string $message Success message
- * @param mixed $data Optional data payload
- * @return array Success response
- */
-function osSuccess($message, $data = null)
-{
-    return osResponseArray(true, $message, $data);
-}
-
-/**
- * Create an error response
- *
- * @param string $message Error message
- * @param int $error_code HTTP response code (also used as exit code)
- * @return array Error response
- */
-function osError($message, $error_code = 500)
-{
-    return osResponseArray(false, $message, null, $error_code);
-}
-
-/**
- * Mimic OpenSim response for similar bad method calls.
- *
- * Usually for one of these error codes, but any code can be used:
- * - 405: Method Not Allowed
- * - 418: I'm a teapot
- */
-function die_knomes($error_message = false, $error_code = 405)
-{
-    if (empty($error_message && $error_message !== false)) {
-        $error_message = _(
-            'The realm of destinations you seek has eluded our grasp, spirited away by elusive knomes. Rally the grid managers, let them venture forth to curate a grand tapestry of remarkable places for your exploration!',
-        );
-    }
-
-    // Make sure message is UTF-8 encoded
-    if (!mb_check_encoding($error_message, 'UTF-8')) {
-        $error_message = mb_convert_encoding($error_message, 'UTF-8', 'ISO-8859-1');
-    }
-
-    // Add headers not sent yet, including UTF-8 and Content-Language
-    if (php_sapi_name() !== 'cli' && !headers_sent()) {
-        $locale = set_helpers_locale();
-        header('HTTP/1.1 ' . $error_code . ' ' . $error_message);
-        header('Content-Type: text/plain; charset=utf-8');
-        header('Content-Language: ' . $locale);
-    }
-    die($error_message);
-}
-
 /**
  * Die with HTTP error_code, the message being the status line and the text of the answer. Only a failure of the server (5xx) is
  * logged: a request that is wrong, or an address that is not a page (418), is not a failure.
@@ -837,33 +509,6 @@ function osDie($response = null, $error_code = null)
         error_log($success ? $error_message : "[ERROR] $error_code $error_message");
     }
     die($error_message === null ? '' : $error_message . "\n");
-}
-
-function caller_details($level = 2)
-{
-    // get calling function and file
-    $trace = debug_backtrace();
-    $level = isset($trace[$level]) ? $level : 1;
-    $caller = $trace[$level] ?? $trace[0];
-
-    $file = empty($caller['file']) ? '' : $caller['file'];
-    $function = $level > 1 ? $caller['function'] . '()' ?? '' : '';
-    $line = $caller['line'] ?? 0;
-    $class = $caller['class'] ?? '';
-    $type = $caller['type'] ?? '::';
-    if ($function && $class) {
-        $function = $class . $type . $function;
-    }
-    $file = $file . ':' . $line;
-    return trim(
-        sprintf(
-            '%s%s %s in %s',
-            $function,
-            empty($caller['error_code']) ? '' : " Error {$caller['error_code']}",
-            $caller['message'] ?? '',
-            $file,
-        ),
-    );
 }
 
 function osXmlResponse($success = true, $error_message = false, $data = false)
@@ -929,37 +574,6 @@ function osXmlDie($message = '', $error_code = null)
     }
     osXmlResponse(false, $message, []);
     die();
-}
-
-function osNotice($message)
-{
-    echo $message . "\n";
-}
-
-function osAdminNotice($message, $error_code = 0, $die = false)
-{
-    // get calling function and file
-    $trace = debug_backtrace();
-
-    if (isset($trace[1])) {
-        $caller = $trace[1];
-    } else {
-        $caller = $trace[0];
-    }
-    $file = empty($caller['file']) ? '' : $caller['file'];
-    $function = $caller['function'] . '()' ?? 'main';
-    $line = $caller['line'] ?? 0;
-    $class = $caller['class'] ?? 'main';
-    $type = $caller['type'] ?? '::';
-    if ($class != 'main') {
-        $function = $class . $type . $function;
-    }
-    $file = $file . ':' . $line;
-    $message = sprintf('%s%s: %s in %s', $function, empty($error_code) ? '' : " Error $error_code", $message, $file);
-    error_log($message);
-    if ($die == true) {
-        die($error_code);
-    }
 }
 
 /**
@@ -1109,30 +723,6 @@ function sprintf_safe($format, ...$args)
 }
 
 /**
- * Convert a string to PascalCase.
- * Preserves PascalCase-like words (e.g. "OpenSim", "OSHelper") as they are.
- *
- * @param string $string
- * @return string
- */
-function pascal_case($string)
-{
-    // Convert to PascalCase
-    $string = preg_replace('/[^a-zA-Z0-9]+/', ' ', $string); // Replace non-alphanumeric characters with space
-    $string = trim(preg_replace('/\s+/', ' ', $string)); // Remove extra spaces
-    $words = explode(' ', $string);
-    $pascal_words = [];
-    foreach ($words as $$key => $word) {
-        if (preg_match('/^[A-Z].*[a-z]/', $word)) {
-            continue;
-        }
-        $words[$key] = ucfirst(strtolower($word));
-    }
-    $string = implode('', $pascal_words);
-    return $string;
-}
-
-/**
  * parse_ini_file_decode
  * Extended parse_ini_file to handle json_encoded values.
  */
@@ -1168,32 +758,6 @@ function parse_ini_file_decode($filename, $process_sections = false, $scanner_mo
     return $ini_array;
 }
 
-function isSuccess($response)
-{
-    if ($response === true || $response === false) {
-        return $response;
-    }
-    if (is_array($response)) {
-        return !empty($response['success']) && $response['success'] === true;
-    } elseif (is_string($response)) {
-        if (in_array(strtolower($response), ['true', 'success', 'ok', 'yes', '1'], true)) {
-            return true;
-        }
-        if (in_array(strtolower($response), ['false', 'error', 'fail', 'no', '0'], true)) {
-            return false;
-        }
-        return !empty($response);
-    } elseif (is_numeric($response)) {
-        return $response == 1 || ($response >= 200 && $response < 300);
-    }
-    return false;
-}
-
-function isError($response)
-{
-    return !isSuccess($response);
-}
-
 /**
  * OpenSim source to help further attempts to allow Hypergrid search results.
  * Infouuid is a fake parcelid resolving to region handle and (region-level?)
@@ -1224,8 +788,6 @@ function isError($response)
 // (byte)y, (byte)(y >> 8), 0, 0 };
 // return new UUID(bytes, 0);
 // }
-
-require_once __DIR__ . '/functions-escaping.php';
 
 /**
  * Sanitize a destination URI or URL

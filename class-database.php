@@ -40,11 +40,6 @@ class OSPDO extends PDO
 
     public function __construct($dsn, $username = null, $password = null, $driver_options = null)
     {
-        // TODO: move this UI-related code in the closest UI calling class/function
-        if (class_exists('Engine_Settings') && Engine_Settings::get('show_errors')) {
-            $this->show_errors();
-        }
-
         $log = true;
         $dbname = null;
         // First handle the different attributes formatting
@@ -458,16 +453,5 @@ class OSPDO extends PDO
         }
 
         return $conditions;
-    }
-}
-
-/**
- * OpenSim_Database class, alias of OSPDO
- */
-class OpenSim_Database extends OSPDO
-{
-    public function __construct($dsn, $username = null, $password = null, $driver_options = null)
-    {
-        parent::__construct($dsn, $username, $password, $driver_options);
     }
 }

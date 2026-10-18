@@ -2,6 +2,7 @@
 
 ### Unreleased
 
+- update: the classes and functions of the WordPress plugin nobody here uses are gone (`OpenSim_Avatar`, `OpenSim_Form`..., the escaping and the dead functions); the plugin has its own copy
 - new: `Data\Stats`: the numbers of a grid (members, who is in world, regions, area), from the database of each service
 - new: `Models\Parcel` (the `land` of the simulators: list, search, sort, filters, the bitmap of 4 m squares, `Parcel::at()`), its flags as constants
 - update: `Models\Region` is a model (list, search, sort, filters, flags as constants named as in OpenSimulator); `RegionFlags` is gone (`Region::roles()`, `rolesIn()`, `giveRoles()`)

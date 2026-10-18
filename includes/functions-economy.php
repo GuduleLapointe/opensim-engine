@@ -312,48 +312,6 @@ function currency_add_money($agentID, $amount, $secureID = null)
 // Send the money to avatar for bonus
 // by Milo
 //
-function currency_send_money($agentID, $amount, $secretCode = null)
-{
-    if (!is_uuid($agentID)) {
-        return false;
-    }
-
-    if (!CURRENCY_USE_MONEYSERVER) {
-        noserver_save_transaction(null, $agentID, $amount, 5003, 0, 'Send Money', 0, 0, '');
-        $response = ['success' => true];
-        return $response;
-    }
-
-    //
-    // XML RPC to Region Server
-    //
-    $agentServer = opensim_get_server_info($agentID);
-    $serverip = $agentServer['serverIP'];
-    $httpport = $agentServer['serverHttpPort'];
-    $serveruri = $agentServer['serverURI'];
-    if ($serverip == '') {
-        return false;
-    }
-    $serverip = gethostbyname($serverip);
-
-    if ($secretCode != null) {
-        $secretCode = md5($secretCode . '_' . $serverip);
-    } else {
-        $secretCode = currency_get_confirm_value($serverip);
-    }
-
-    $request = xmlrpc_encode_request('SendMoneyBalance', [
-        [
-            'clientUUID' => $agentID,
-            'secretAccessCode' => $secretCode,
-            'amount' => $amount,
-        ],
-    ]);
-    $response = currency_xmlrpc_call($serverip, $httpport, $serveruri, $request);
-
-    return $response;
-}
-
 function currency_get_balance($agentID, $secureID = null)
 {
     $cash = -1;
