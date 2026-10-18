@@ -2,14 +2,17 @@
 
 declare(strict_types=1);
 
-namespace OpenSim\Models;
+namespace OpenSim\Controllers;
 
 use OpenSim\Config\ConfigReader;
 use OpenSim\Config\ConnectionString;
 use OpenSim\Config\InstanceSettings;
 use OpenSim\Console\ConsoleInterface;
 use OpenSim\Data\Database;
+use OpenSim\Interfaces\Enablable;
+use OpenSim\Models\Grid;
 use OpenSim\Network\InstancePorts;
+use OpenSim\Runtime\Core;
 use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\LogFile;
 use OpenSim\Runtime\Process;
@@ -18,13 +21,14 @@ use OpenSim\Runtime\StartService;
 use OpenSim\Runtime\StopService;
 
 /**
- * A process of OpenSimulator described by a config file: a Robust, or a simulator. It is what is started, stopped and talked
- * to; the grid it belongs to is only where its files are.
+ * What runs an OpenSimulator program, launched with dotnet from a config file: a Robust (RobustController), an OpenSim that runs a
+ * simulator (OpenSimController), later the money server. It is what is started, stopped and talked to, and what reads the config it
+ * runs with. It provides services, it does not own them: they are the grid's (see Service).
  *
- * The config file is the one the instance runs with (`-inifile=`): the link in `opensim.d` or `robust.d` of an enabled
- * instance, which is where the launcher found it, else the file itself.
+ * The config file is the one the controller runs with (`-inifile=`): the link in `opensim.d` or `robust.d` of an enabled
+ * controller, which is where the launcher found it, else the file itself.
  */
-abstract class Instance extends InstalledModel
+abstract class Controller implements Enablable
 {
     /** The sections the launcher reads its settings in, the last that says one wins. */
     private const LAUNCH_SECTIONS = ['Const', 'Launch', 'Startup', 'Network'];
@@ -38,12 +42,16 @@ abstract class Instance extends InstalledModel
     private readonly string $name;
 
     public function __construct(
-        Environment $environment,
+        protected readonly Environment $environment,
         private readonly string $ini,
         ?string $name = null,
     ) {
-        parent::__construct($environment);
         $this->name = self::cleanName($name ?? basename($ini, '.ini'));
+    }
+
+    public function environment(): Environment
+    {
+        return $this->environment;
     }
 
     /** `robust` or `opensim`. */
@@ -71,24 +79,12 @@ abstract class Instance extends InstalledModel
         return $this->name;
     }
 
-    /** What identifies it: its name (a simulator is known by its address). */
-    public function id(): string
-    {
-        return $this->name;
-    }
-
-    /** The name for a path or a command: its own, which has its grid in it for a simulator. */
-    public function slug(): string
-    {
-        return $this->name;
-    }
-
-    /** The channels a write can go through: its config, where it is linked to be enabled. */
-    public function channels(): array
+    /** Whether its config can be linked where the launcher finds it: it can be enabled and disabled. */
+    public function canBeEnabled(): bool
     {
         $folder = dirname($this->link());
 
-        return is_writable(is_dir($folder) ? $folder : dirname($folder)) ? ['ini'] : [];
+        return is_writable(is_dir($folder) ? $folder : dirname($folder));
     }
 
     /** The config file the instance runs with. */

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Config;
 
-use OpenSim\Models\Core;
+use OpenSim\Runtime\Core;
 
 /**
  * Where an install keeps its files: the settings of `opensim.conf`, [Defaults] first and the profile it points to over them

@@ -7,7 +7,7 @@ declare(strict_types=1);
  */
 
 use OpenSim\Models\Grid;
-use OpenSim\Models\Robust;
+use OpenSim\Controllers\RobustController;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\GridPlanner;
 use OpenSim\Runtime\Environment;
@@ -37,7 +37,7 @@ function planner(array $more = []): GridPlanner
  * The Robust of an existing grid, with these settings (by the names the planner knows them: gridName, baseHostname, publicPort,
  * privatePort, consolePort, consoleHost, consoleUser, consolePass, webUrl, dbHost, dbName, dbUser, dbPass).
  */
-function robust_current(array $set): Robust
+function robust_current(array $set): RobustController
 {
     $directory = test_tmp() . '/robustcurrent-' . bin2hex(random_bytes(4));
     mkdir($directory, 0o755, true);
@@ -67,7 +67,7 @@ function robust_current(array $set): Robust
     }
     file_put_contents("$directory/Robust.ini", implode("\n", $ini) . "\n");
 
-    return new Robust(Environment::forProfile([]), "$directory/Robust.ini", 'amy');
+    return new RobustController(Environment::forProfile([]), "$directory/Robust.ini", 'amy');
 }
 
 describe('A new grid', function () {

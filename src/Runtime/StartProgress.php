@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace OpenSim\Runtime;
 
-use OpenSim\Models\Instance;
-use OpenSim\Models\Simulator;
+use OpenSim\Controllers\Controller;
+use OpenSim\Controllers\OpenSimController;
 
 /**
  * How a simulator loads, shown while its start is waited for: what the process prints first, then the steps its log reports
@@ -23,13 +23,13 @@ final class StartProgress
      */
     public function __construct(
         private readonly Environment $environment,
-        private readonly Instance $instance,
+        private readonly Controller $instance,
         private readonly LogFile $log,
         private readonly int $mark,
         private readonly string $output = '',
     ) {
         $count = 0;
-        if ($instance instanceof Simulator && $instance->regionsDirectory() !== '') {
+        if ($instance instanceof OpenSimController && $instance->regionsDirectory() !== '') {
             foreach (glob($instance->regionsDirectory() . '/*.ini') ?: [] as $file) {
                 $count += (int) preg_match_all('/^[ \t]*\[/m', (string) file_get_contents($file));
             }

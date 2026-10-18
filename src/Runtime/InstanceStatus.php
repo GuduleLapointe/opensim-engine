@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Runtime;
 
-use OpenSim\Models\Instance;
+use OpenSim\Controllers\Controller;
 
 /**
  * One instance of the status: enabled on this machine, running or not.
@@ -12,7 +12,7 @@ use OpenSim\Models\Instance;
 final class InstanceStatus
 {
     public function __construct(
-        public readonly Instance $instance,
+        public readonly Controller $instance,
         public readonly ?Process $process,
     ) {
     }

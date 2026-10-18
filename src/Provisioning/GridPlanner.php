@@ -6,7 +6,7 @@ namespace OpenSim\Provisioning;
 
 use OpenSim\Config\ConfigReader;
 use OpenSim\Forms\FieldSet;
-use OpenSim\Models\Core;
+use OpenSim\Runtime\Core;
 use OpenSim\Models\Grid;
 use OpenSim\Network\Ports;
 use OpenSim\Provisioning\Web\HelpersConfig;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Runtime;
 
-use OpenSim\Models\Instance;
+use OpenSim\Controllers\Controller;
 
 /**
  * The connectors a Robust loads, as their class names: what its ServerMain reads, the non-empty values of `[ServiceList]` and
@@ -14,7 +14,7 @@ use OpenSim\Models\Instance;
 final class RobustServices
 {
     /** @return list<string> */
-    public static function of(Instance $instance): array
+    public static function of(Controller $instance): array
     {
         $values = array_values($instance->settings()['ServiceList'] ?? []);
         array_push($values, ...(preg_split('/[,\s]+/', $instance->setting('Startup', 'ServiceConnectors')) ?: []));

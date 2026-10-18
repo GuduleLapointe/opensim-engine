@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace OpenSim\Runtime;
 
-use OpenSim\Models\Core;
 
 /**
  * Enable the modules of the install for an instance: their files linked in the addins folder of its registry, where OpenSim

@@ -24,13 +24,13 @@ const SHOW_USERS = [
 ];
 
 /** The simulator `alpha` of a machine whose regions answer on their HTTP port as told: UUID => agents. */
-function counted_simulator(Machine $machine, array $agents = []): OpenSim\Models\Simulator
+function counted_simulator(Machine $machine, array $agents = []): OpenSim\Controllers\OpenSimController
 {
     foreach ($agents as $uuid => $count) {
         $machine->http["http://127.0.0.1:9000/monitorstats/$uuid"] = $count === null ? null : "<data><AgentCountMonitor>$count</AgentCountMonitor></data>";
     }
 
-    return Grid::find($machine->environment, 'demo')->simulator('alpha');
+    return Grid::find($machine->environment, 'demo')->simulator('alpha')->controller();
 }
 
 const ALPHA_REGION = '11111111-1111-4111-8111-111111111111';

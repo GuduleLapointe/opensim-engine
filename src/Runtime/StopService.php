@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace OpenSim\Runtime;
 
-use OpenSim\Models\Instance;
-use OpenSim\Models\Simulator;
+use OpenSim\Controllers\Controller;
+use OpenSim\Controllers\OpenSimController;
 
 /**
  * Stops an instance: the users of a simulator are warned and counted down to the shutdown (and the wait is cut short when nobody
@@ -29,7 +29,7 @@ final class StopService
     }
 
     /** @param bool $now stop without warning the users */
-    public function stop(Instance $instance, bool $now = false): Result
+    public function stop(Controller $instance, bool $now = false): Result
     {
         $env = $this->environment;
         $name = $instance->name();
@@ -37,7 +37,7 @@ final class StopService
         $running = $instance->isRunning();
 
         // Only a running simulator has users to warn
-        if ($instance instanceof Simulator && $running && $instance->executableBase() === 'OpenSim') {
+        if ($instance instanceof OpenSimController && $running && $instance->executableBase() === 'OpenSim') {
             $this->warn($instance, $now ? 0 : self::DELAY);
         }
         $process = $instance->process();
@@ -73,7 +73,7 @@ final class StopService
     }
 
     /** Warn the users of a simulator, counting down to the shutdown, unless nobody is there. */
-    private function warn(Simulator $simulator, int $delay): void
+    private function warn(OpenSimController $simulator, int $delay): void
     {
         $env = $this->environment;
         $name = $simulator->name();

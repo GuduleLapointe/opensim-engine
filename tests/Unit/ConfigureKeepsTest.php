@@ -6,7 +6,7 @@
 
 
 use OpenSim\Models\Grid;
-use OpenSim\Models\Robust;
+use OpenSim\Controllers\RobustController;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\RobustConfig;
 use OpenSim\Provisioning\SimulatorConfig;
@@ -83,7 +83,7 @@ describe('Configuring a grid that exists', function () {
                 ; EstateDataService = "${Const|PrivatePort}/OpenSim.Server.Handlers.dll:EstateDataRobustConnector"
                 ; HGGroupsServiceConnector = "${Const|PublicPort}/OpenSim.Addons.Groups.dll:HGGroupsServiceRobustConnector"
             INI;
-        $served = static fn(string $robustIni): array => Robust::connectorsIn($robustIni);
+        $served = static fn(string $robustIni): array => RobustController::connectorsIn($robustIni);
         $make = function (bool $helpers, bool $hypergrid) use ($plan, $connectors): GridPlan {
             $grid = $plan();
             $grid->helpers = $helpers;

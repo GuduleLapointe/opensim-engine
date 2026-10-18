@@ -7,7 +7,7 @@ namespace OpenSim\Testing;
 use OpenSim\Console\ConsoleFactoryInterface;
 use OpenSim\Console\ConsoleInterface;
 use OpenSim\Console\ScreenInterface;
-use OpenSim\Models\Instance;
+use OpenSim\Controllers\Controller;
 
 /**
  * One fake console per instance.
@@ -20,7 +20,7 @@ final class ConsoleFactoryFake implements ConsoleFactoryInterface
     /** @var array<string,true> the screen sessions that exist */
     public array $sessions = [];
 
-    public function for(Instance $instance): ConsoleInterface
+    public function for(Controller $instance): ConsoleInterface
     {
         return $this->console($instance->name());
     }

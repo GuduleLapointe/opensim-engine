@@ -5,7 +5,7 @@ namespace OpenSim\Provisioning;
 use OpenSim\Config\GridFileService;
 use OpenSim\Config\IniEditor;
 use OpenSim\Config\TextFileService;
-use OpenSim\Models\Robust;
+use OpenSim\Controllers\RobustController;
 
 /**
  * The architecture files a grid shares between its simulators (its
@@ -118,7 +118,7 @@ final class GridShared
     {
         foreach (['Robust.HG.ini', 'Robust.ini'] as $file) {
             if (is_file("$dir/$file")) {
-                return in_array($connector, Robust::connectorsIn("$dir/$file"), true);
+                return in_array($connector, RobustController::connectorsIn("$dir/$file"), true);
             }
         }
 

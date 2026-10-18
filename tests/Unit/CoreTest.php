@@ -6,7 +6,7 @@ declare(strict_types=1);
  * The cores installed on a machine and the runtime they need.
  */
 
-use OpenSim\Models\Core;
+use OpenSim\Runtime\Core;
 
 /** A folder of cores: name => assembly file name in its bin. */
 function cores_root(array $cores): string

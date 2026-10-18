@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * The models of the machine (grids, simulators, Robust) are listed, found and described as the models of the databases are, in the
+ * The models of the machine (grids, simulators) are listed, found and described as the models of the databases are, in the
  * environment of the machine.
  */
 
@@ -18,7 +18,6 @@ use OpenSim\Models\Estate;
 use OpenSim\Models\Grid;
 use OpenSim\Models\Parcel;
 use OpenSim\Models\Region;
-use OpenSim\Models\Robust;
 use OpenSim\Models\Simulator;
 use OpenSim\Testing\Machine;
 
@@ -34,7 +33,7 @@ function installed_machine(): Machine
 
 describe('the contract', function () {
     test('is the one of every model, the models of the machine listing and finding in its environment', function () {
-        foreach ([Grid::class, Simulator::class, Robust::class] as $class) {
+        foreach ([Grid::class, Simulator::class] as $class) {
             expect(is_subclass_of($class, InstalledModelInterface::class))->toBeTrue("$class")
                 ->and(is_subclass_of($class, ModelInterface::class))->toBeTrue("$class")
                 ->and(is_subclass_of($class, Enablable::class))->toBeTrue("$class")
@@ -99,16 +98,5 @@ describe('simulators', function () {
             ->and(Simulator::find($machine->environment, 'beta')?->httpPort())->toBe(9010)
             ->and(Simulator::find($machine->environment, gethostname() . ':9100')?->slug())->toBe('second_welcome')
             ->and(Simulator::find($machine->environment, 'nowhere'))->toBeNull();
-    });
-});
-
-describe('Robust', function () {
-    test('are those of the grids that have one, found by their nick or their address', function () {
-        $machine = installed_machine();
-
-        expect(array_map(static fn(Robust $r): string => $r->slug(), Robust::all($machine->environment)->items()))->toBe(['demo', 'second'])
-            ->and(Robust::find($machine->environment, 'second.example.org:8102')?->slug())->toBe('second')
-            ->and(Robust::find($machine->environment, 'demo')?->detail())->toMatchArray(['grid' => 'demo', 'publicPort' => 8002, 'enabled' => true])
-            ->and(Robust::find($machine->environment, 'nowhere'))->toBeNull();
     });
 });

@@ -7,6 +7,8 @@ namespace OpenSim\Models;
 use OpenSim\Config\ConfigReader;
 use OpenSim\Config\ConnectionString;
 use OpenSim\Config\GridConfig;
+use OpenSim\Controllers\Controller;
+use OpenSim\Controllers\RobustController;
 use OpenSim\Data\Collection;
 use OpenSim\Data\Database;
 use OpenSim\Provisioning\GridPlan;
@@ -434,7 +436,7 @@ final class Grid extends InstalledModel
             'cacheDirectory' => $plan->cacheDirectory,
             'logsDirectory' => $plan->logsDirectory,
             // What its Robust serves: as written when it is, else as the setup will write it
-            'connectors' => is_file($robustIni) ? Robust::connectorsIn($robustIni) : \OpenSim\Provisioning\RobustConfig::connectors($plan->helpers, $plan->enableHypergrid),
+            'connectors' => is_file($robustIni) ? RobustController::connectorsIn($robustIni) : \OpenSim\Provisioning\RobustConfig::connectors($plan->helpers, $plan->enableHypergrid),
             'search' => $plan->search,
             'helpers' => $plan->helpers,
             'webUrl' => $plan->webUrl,
@@ -576,7 +578,7 @@ final class Grid extends InstalledModel
             ];
         }
 
-        $robust = new Robust($this->environment, $robustIni, $nick);
+        $robust = new RobustController($this->environment, $robustIni, $nick);
         $name = $robust->gridName() ?? ($conf['GridName'] ?? Slug::nameOf($nick));
 
         return $values + [
@@ -1007,15 +1009,15 @@ final class Grid extends InstalledModel
     }
 
     /** Its Robust on this machine, null for a remote grid. Run with the link that enables it when it is enabled. */
-    public function robust(): ?Robust
+    public function robust(): ?RobustController
     {
         $file = $this->robustIni();
         if ($file === null || !is_file($file)) {
             return null;
         }
-        $robust = new Robust($this->environment, $file, $this->nick());
+        $robust = new RobustController($this->environment, $file, $this->nick());
 
-        return $robust->isEnabled() ? new Robust($this->environment, $robust->link(), $this->nick()) : $robust;
+        return $robust->isEnabled() ? new RobustController($this->environment, $robust->link(), $this->nick()) : $robust;
     }
 
     /**
@@ -1068,7 +1070,7 @@ final class Grid extends InstalledModel
     public function simulator(string $name): ?Simulator
     {
         foreach ($this->simulators() as $simulator) {
-            if ($simulator->name() === Instance::cleanName($name)) {
+            if ($simulator->name() === Controller::cleanName($name)) {
                 return $simulator;
             }
         }
@@ -1117,13 +1119,16 @@ final class Grid extends InstalledModel
     /**
      * The instances to run, in the order they start: its Robust, then, when asked, its enabled simulators.
      *
-     * @return list<Instance>
+     * @return list<Controller>
      */
     public function instances(bool $simulators = false): array
     {
         $robust = $this->robust();
 
-        return [...($robust !== null && $robust->isEnabled() ? [$robust] : []), ...($simulators ? $this->enabledSimulators() : [])];
+        return [
+            ...($robust !== null && $robust->isEnabled() ? [$robust] : []),
+            ...($simulators ? array_map(static fn(Simulator $s): Controller => $s->controller(), $this->enabledSimulators()) : []),
+        ];
     }
 
     /**
@@ -1137,7 +1142,7 @@ final class Grid extends InstalledModel
         foreach ($this->instances($simulators) as $instance) {
             $result = $instance->start();
             $results[] = $result;
-            if ($instance instanceof Robust && !$result->ok()) {
+            if ($instance instanceof RobustController && !$result->ok()) {
                 break;
             }
         }
@@ -1152,7 +1157,7 @@ final class Grid extends InstalledModel
      */
     public function stop(bool $now = false, bool $simulators = false): array
     {
-        return array_map(static fn(Instance $i): Result => $i->stop($now), array_reverse($this->instances($simulators)));
+        return array_map(static fn(Controller $i): Result => $i->stop($now), array_reverse($this->instances($simulators)));
     }
 
     /**

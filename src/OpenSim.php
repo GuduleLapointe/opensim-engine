@@ -6,9 +6,9 @@ namespace OpenSim;
 
 use OpenSim\Config\Layout;
 use OpenSim\Models\Grid;
-use OpenSim\Models\Instance;
-use OpenSim\Models\Robust;
-use OpenSim\Models\Simulator;
+use OpenSim\Controllers\Controller;
+use OpenSim\Controllers\OpenSimController;
+use OpenSim\Controllers\RobustController;
 use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\InstanceStatus;
 use OpenSim\Runtime\ReporterInterface;
@@ -26,7 +26,7 @@ use OpenSim\Runtime\Status;
  *     OpenSim::stop('vonda_welcome', now: true);
  *     OpenSim::status()->up();
  *
- * Whatever is done is done by the models (`Grid`, `Simulator`, `Robust`), which this finds from the name.
+ * Whatever is done is done by the models (`Grid`, `Simulator`) and their controllers, which this finds from the name.
  */
 final class OpenSim
 {
@@ -122,14 +122,14 @@ final class OpenSim
     /**
      * The enabled instances of this machine: the configs linked in `robust.d` and `opensim.d`, the Robusts first.
      *
-     * @return list<Instance>
+     * @return list<Controller>
      */
     public static function enabled(Environment $environment): array
     {
         $etc = rtrim($environment->layout->etcRoot(), '/');
         $instances = [];
         $seen = [];
-        foreach ([Robust::class => ['robust.d', 'robust-enabled'], Simulator::class => ['opensim.d', 'simulators-enabled']] as $class => $folders) {
+        foreach ([RobustController::class => ['robust.d', 'robust-enabled'], OpenSimController::class => ['opensim.d', 'simulators-enabled']] as $class => $folders) {
             foreach ($folders as $folder) {
                 $files = glob("$etc/$folder/*.ini") ?: [];
                 sort($files);
@@ -149,7 +149,7 @@ final class OpenSim
     /**
      * One instance by what names it: a config file, or the name of an enabled instance (the one of a grid is its Robust).
      */
-    public static function instance(Environment $environment, string $target): ?Instance
+    public static function instance(Environment $environment, string $target): ?Controller
     {
         $target = trim($target);
         if ($target === '') {
@@ -159,9 +159,9 @@ final class OpenSim
         if (str_ends_with($target, '.ini') && is_file($target)) {
             $real = realpath($target) ?: $target;
 
-            return str_contains(strtolower($target), 'robust') ? new Robust($environment, $real) : new Simulator($environment, $real);
+            return str_contains(strtolower($target), 'robust') ? new RobustController($environment, $real) : new OpenSimController($environment, $real);
         }
-        $name = Instance::cleanName($target);
+        $name = Controller::cleanName($target);
         foreach (self::enabled($environment) as $instance) {
             if ($instance->name() === $name) {
                 return $instance;
@@ -177,7 +177,7 @@ final class OpenSim
      * @param string|list<string>|null $targets
      * @param list<Result> $results where the targets that name nothing are told
      * @param bool $simulators the enabled simulators of the grids named come after their Robust
-     * @return list<Instance>
+     * @return list<Controller>
      */
     private static function resolve(Environment $environment, string|array|null $targets, array &$results, bool $simulators = false): array
     {
@@ -187,7 +187,7 @@ final class OpenSim
         }
         $instances = [];
         $seen = [];
-        $add = static function (Instance $instance) use (&$instances, &$seen): void {
+        $add = static function (Controller $instance) use (&$instances, &$seen): void {
             if (!isset($seen[$instance->name()])) {
                 $seen[$instance->name()] = true;
                 $instances[] = $instance;
@@ -203,9 +203,9 @@ final class OpenSim
                 continue;
             }
             $add($found);
-            if ($simulators && $found instanceof Robust) {
+            if ($simulators && $found instanceof RobustController) {
                 foreach ($found->grid()?->enabledSimulators() ?? [] as $simulator) {
-                    $add($simulator);
+                    $add($simulator->controller());
                 }
             }
         }
@@ -216,14 +216,14 @@ final class OpenSim
     /**
      * The order to stop instances in: the simulators, then the Robusts they depend on.
      *
-     * @param list<Instance> $instances
-     * @return list<Instance>
+     * @param list<Controller> $instances
+     * @return list<Controller>
      */
     private static function stopOrder(array $instances): array
     {
         return [
-            ...array_filter($instances, static fn(Instance $i): bool => !$i instanceof Robust),
-            ...array_filter($instances, static fn(Instance $i): bool => $i instanceof Robust),
+            ...array_filter($instances, static fn(Controller $i): bool => !$i instanceof RobustController),
+            ...array_filter($instances, static fn(Controller $i): bool => $i instanceof RobustController),
         ];
     }
 }

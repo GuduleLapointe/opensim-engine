@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Runtime;
 
-use OpenSim\Models\Simulator;
+use OpenSim\Controllers\OpenSimController;
 
 /**
  * The real users in the regions of a simulator, to know whether anybody is to be warned before it stops.
@@ -22,7 +22,7 @@ final class UserCounter
     }
 
     /** The real users in all the regions, null when nothing answers. */
-    public function count(Simulator $simulator): ?int
+    public function count(OpenSimController $simulator): ?int
     {
         $http = $this->http($simulator);
         if ($http === 0) {
@@ -39,7 +39,7 @@ final class UserCounter
      *
      * @return array{nobody:bool,unknown:bool}
      */
-    public function nobodyToWaitFor(Simulator $simulator): array
+    public function nobodyToWaitFor(OpenSimController $simulator): array
     {
         $count = $this->count($simulator);
 
@@ -50,7 +50,7 @@ final class UserCounter
      * The agents the regions of a simulator have, as it says on its HTTP port, one request per region (its UUID is in its
      * file). NPCs are counted. Null when a region does not answer.
      */
-    private function http(Simulator $simulator): ?int
+    private function http(OpenSimController $simulator): ?int
     {
         $port = $simulator->launchSetting('http_listener_port');
         $directory = $simulator->regionsDirectory();
@@ -75,7 +75,7 @@ final class UserCounter
     }
 
     /** The real users, as the console says them with `show users`; null when it cannot tell. */
-    private function console(Simulator $simulator): ?int
+    private function console(OpenSimController $simulator): ?int
     {
         $console = $simulator->console();
         if ($console instanceof \OpenSim\Console\RestConsole) {

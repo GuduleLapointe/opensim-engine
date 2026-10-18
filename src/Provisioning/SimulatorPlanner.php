@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace OpenSim\Provisioning;
 
 use OpenSim\Forms\FieldSet;
-use OpenSim\Models\Core;
+use OpenSim\Runtime\Core;
 use OpenSim\Models\Grid;
 use OpenSim\Models\Simulator;
 use OpenSim\Network\Ports;

@@ -5,19 +5,40 @@ declare(strict_types=1);
 namespace OpenSim\Models;
 
 use OpenSim\Config\ConnectionString;
+use OpenSim\Console\ConsoleInterface;
+use OpenSim\Controllers\OpenSimController;
 use OpenSim\Data\Collection;
-use OpenSim\Data\Database;
 use OpenSim\Provisioning\GridAccounts;
-use OpenSim\Provisioning\SimulatorMaster;
 use OpenSim\Provisioning\Slug;
+use OpenSim\Runtime\Core;
 use OpenSim\Runtime\Environment;
+use OpenSim\Runtime\LogFile;
+use OpenSim\Runtime\Process;
+use OpenSim\Runtime\Result;
 
 /**
- * A simulator: one process that runs one or several regions of a grid. It is its config (`sims/<name>.ini`) and the process
- * that runs from it: what the config says is asked of the simulator (ports, database, estate), whoever needs it.
+ * A simulator: what runs one or several regions of a grid, with the config it is made of (`sims/<name>.ini`). Its identity, its
+ * regions, its estate and its database are here; the program that runs it, started, stopped and talked to, is its controller
+ * (OpenSimController), which it starts and stops for whoever asks.
+ *
+ * Its services are the ones of its grid, as its config says them (see Service).
  */
-final class Simulator extends Instance
+final class Simulator extends InstalledModel
 {
+    private readonly OpenSimController $controller;
+
+    public function __construct(Environment $environment, string $ini, ?string $name = null)
+    {
+        parent::__construct($environment);
+        $this->controller = new OpenSimController($environment, $ini, $name);
+    }
+
+    /** What runs it. */
+    public function controller(): OpenSimController
+    {
+        return $this->controller;
+    }
+
     /**
      * The fields of a simulator, in the standard format of the forms (see Forms\FieldSet): what the setup asks to make or to change
      * one, and what any other form about a simulator shows. The groups are the screens of the setup.
@@ -151,61 +172,6 @@ final class Simulator extends Instance
             : _('An email address, or nothing.');
     }
 
-    public function type(): string
-    {
-        return 'opensim';
-    }
-
-    public function assembly(): string
-    {
-        return 'OpenSim';
-    }
-
-    public static function enabledFolder(): string
-    {
-        return 'opensim.d';
-    }
-
-    protected function consolePortKeys(): array
-    {
-        return ['console_port', 'consoleport'];
-    }
-
-    protected function configFiles(): array
-    {
-        $grid = $this->gridDirectory();
-
-        return $grid !== null && SimulatorMaster::exists($grid) ? [SimulatorMaster::path($grid), $this->ini()] : [$this->ini()];
-    }
-
-    /**
-     * The master of its grid, made again when the core or the grid changed, null when the grid has none (its simulators have
-     * their whole config).
-     */
-    public function master(string $binDir): ?string
-    {
-        $grid = $this->gridDirectory();
-        if ($grid === null || !SimulatorMaster::exists($grid)) {
-            return null;
-        }
-        (new SimulatorMaster())->ensure($grid, $binDir);
-        $this->forget();
-
-        return SimulatorMaster::path($grid);
-    }
-
-    /** The database of its regions: [SimulationDataStore], else [DatabaseService]. */
-    public function database(): ?ConnectionString
-    {
-        return $this->connection(Database::Simulator);
-    }
-
-    /** The database of its estates: [EstateDataStore], else EstateConnectionString of [DatabaseService], else the database of its regions. */
-    public function estateDatabase(): ?ConnectionString
-    {
-        return $this->connection(Database::Estate);
-    }
-
     /**
      * Where it is reached, `host:port`: what identifies it. The port is the one it listens on, the host the one its regions announce
      * (this machine's own when they say SYSTEMIP or when it has no region yet). Null when its config does not say its port.
@@ -287,22 +253,6 @@ final class Simulator extends Instance
         return $this->uri() ?? $this->name();
     }
 
-    /** The port it listens on, null when its config does not say it. */
-    public function httpPort(): ?int
-    {
-        return $this->own('httpPort');
-    }
-
-    public function estateName(): ?string
-    {
-        return $this->own('estateName');
-    }
-
-    public function estateOwner(): ?string
-    {
-        return $this->own('estateOwner');
-    }
-
     /**
      * Every fact about it, the password of its database and of its console left out.
      *
@@ -334,18 +284,229 @@ final class Simulator extends Instance
         ];
     }
 
+
+    public function name(): string
+    {
+        return $this->controller->name();
+    }
+
+    /** The name for a path or a command: its own, which has its grid in it (`vonda_welcome`, not `welcome`: every grid has one). */
+    public function slug(): string
+    {
+        return $this->controller->name();
+    }
+
+    /** The config file it runs with: its link when it is enabled. */
+    public function ini(): string
+    {
+        return $this->controller->ini();
+    }
+
+    public function link(): string
+    {
+        return $this->controller->link();
+    }
+
+    /** Whether its config is there. */
+    public function exists(): bool
+    {
+        return $this->controller->exists();
+    }
+
+    public function isEnabled(): bool
+    {
+        return $this->controller->isEnabled();
+    }
+
+    public function enable(): bool
+    {
+        return $this->controller->enable();
+    }
+
+    public function disable(): void
+    {
+        $this->controller->disable();
+    }
+
+    public function channels(): array
+    {
+        return $this->controller->canBeEnabled() ? ['ini'] : [];
+    }
+
+    public function start(): Result
+    {
+        return $this->controller->start();
+    }
+
+    public function stop(bool $now = false): Result
+    {
+        return $this->controller->stop($now);
+    }
+
+    public function restart(bool $now = false): Result
+    {
+        return $this->controller->restart($now);
+    }
+
+    public function isRunning(): bool
+    {
+        return $this->controller->isRunning();
+    }
+
+    public function process(): ?Process
+    {
+        return $this->controller->process();
+    }
+
+    public function console(): ConsoleInterface
+    {
+        return $this->controller->console();
+    }
+
+    public function logFile(): LogFile
+    {
+        return $this->controller->logFile();
+    }
+
+    /** The ports it listens on. */
+    public function ports(): array
+    {
+        return $this->controller->ports();
+    }
+
+    /** The core it runs from. */
+    public function core(): ?Core
+    {
+        return $this->controller->core();
+    }
+
+    /** @return ?array{port:int,user:string,password:string} its remote console, null when it runs in a screen session */
+    public function remoteConsole(): ?array
+    {
+        return $this->controller->remoteConsole();
+    }
+
+    /** One setting of its config, as written, empty when it does not say it. */
+    public function setting(string $section, string $key): string
+    {
+        return $this->controller->setting($section, $key);
+    }
+
+    /**
+     * The settings of its config, the files it includes read the way OpenSimulator reads them.
+     *
+     * @return array<string,array<string,string>>
+     */
+    public function settings(): array
+    {
+        return $this->controller->settings();
+    }
+
+    public function launchSetting(string ...$names): string
+    {
+        return $this->controller->launchSetting(...$names);
+    }
+
+    /** The grid it belongs to, null for a config that is not in the folder of one. */
+    public function grid(): ?Grid
+    {
+        return $this->controller->grid();
+    }
+
+    public function gridDirectory(): ?string
+    {
+        return $this->controller->gridDirectory();
+    }
+
+    /** The master of its grid, made again when the core or the grid changed. */
+    public function master(string $binDir): ?string
+    {
+        return $this->controller->master($binDir);
+    }
+
+    /** A database it connects to, as OpenSimulator chooses it from its config (see Controller::connection()). */
+    public function connection(\OpenSim\Data\Database|string $which): ?ConnectionString
+    {
+        return $this->controller->connection($which);
+    }
+
+    /** The database of its regions: [SimulationDataStore], else [DatabaseService]. */
+    public function database(): ?ConnectionString
+    {
+        return $this->controller->database();
+    }
+
+    /** The database of its estates: [EstateDataStore], else EstateConnectionString of [DatabaseService], else the database of its regions. */
+    public function estateDatabase(): ?ConnectionString
+    {
+        return $this->controller->estateDatabase();
+    }
+
+    public function databaseHost(): ?string
+    {
+        return $this->controller->databaseHost();
+    }
+
+    public function databaseName(): ?string
+    {
+        return $this->controller->databaseName();
+    }
+
+    public function databaseUser(): ?string
+    {
+        return $this->controller->databaseUser();
+    }
+
+    public function databasePassword(): ?string
+    {
+        return $this->controller->databasePassword();
+    }
+
+    public function consolePort(): ?int
+    {
+        return $this->controller->consolePort();
+    }
+
+    public function consoleHost(): ?string
+    {
+        return $this->controller->consoleHost();
+    }
+
+    public function consoleUser(): ?string
+    {
+        return $this->controller->consoleUser();
+    }
+
+    public function consolePassword(): ?string
+    {
+        return $this->controller->consolePassword();
+    }
+
+    /** The port it listens on, null when its config does not say it. */
+    public function httpPort(): ?int
+    {
+        return $this->controller->httpPort();
+    }
+
+    public function estateName(): ?string
+    {
+        return $this->controller->estateName();
+    }
+
+    public function estateOwner(): ?string
+    {
+        return $this->controller->estateOwner();
+    }
+
     /** The folder of the descriptions of its regions, empty when its config does not say where they are. */
     public function regionsDirectory(): string
     {
-        return rtrim($this->launchSetting('regionload_regionsdir'), '/');
+        return $this->controller->regionsDirectory();
     }
 
     /** Whether it has a region to load: a region file in its regions folder. One without waits for the answers of a region to create. */
     public function hasRegion(): bool
     {
-        $dir = $this->regionsDirectory();
-
-        // A simulator that does not say where its regions are (one made by hand) is left alone
-        return $dir === '' || glob("$dir/*.ini") !== [];
+        return $this->controller->hasRegion();
     }
 }

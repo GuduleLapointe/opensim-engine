@@ -6,7 +6,7 @@ declare(strict_types=1);
  * What the machine needs to run a core: the runtime, the modules, the processes.
  */
 
-use OpenSim\Models\Core;
+use OpenSim\Runtime\Core;
 use OpenSim\Runtime\ModuleLinker;
 use OpenSim\Runtime\Process;
 use OpenSim\Runtime\RuntimeProbe;
