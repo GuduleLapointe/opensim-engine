@@ -19,7 +19,7 @@ use OpenSim\Provisioning\Slug;
  *
  * The estates are the grid's when its Robust serves them (EstateDataService), else each simulator keeps its own, in its own database
  * (or one shared by several simulators): an estate is then known by its simulator and its number, which only means something there
- * (`alpha:101`). `simulator()` tells which, null for the estates of the grid.
+ * (`vonda_welcome:101`: its slug, which has the grid in it). `simulator()` tells which, null for the estates of the grid.
  *
  * Its ban list is the bans of its regions, whoever is banned (an avatar of the grid or a visitor of another one, see Avatar): there
  * is no ban list of the whole grid in the core, banning on the whole grid is banning in every estate.

@@ -118,3 +118,26 @@ describe('Robust', function () {
             ->and($robust->regionFlags())->toBe(['DefaultRegion', 'FallbackRegion']);
     });
 });
+
+describe('simulator identity', function () {
+    test('is its address, host and port, and its slug has the grid in it', function () {
+        $machine = new Machine();
+        $grid = Grid::find($machine->environment, 'demo');
+        $alpha = $grid->simulator('alpha');
+        $machine->write($machine->grid . '/sims/alpha/regions/Plaza.ini', "[Plaza]\nRegionUUID = 11111111-1111-4111-8111-111111111111\nExternalHostName = \"play.example.org\"\n");
+
+        expect($alpha->uri())->toBe('play.example.org:9000')
+            ->and($alpha->id())->toBe('play.example.org:9000')
+            ->and($alpha->slug())->toBe('alpha')
+            ->and($alpha->detail())->toMatchArray(['id' => 'play.example.org:9000', 'uri' => 'play.example.org:9000', 'slug' => 'alpha']);
+
+        // SYSTEMIP is this machine; a simulator with no region yet has no host announced
+        $machine->write($machine->grid . '/sims/alpha/regions/Plaza.ini', "[Plaza]\nExternalHostName = SYSTEMIP\n");
+        expect($grid->simulator('alpha')->uri())->toBe(gethostname() . ':9000');
+        $machine->write($machine->grid . '/sims/beta.ini', file_get_contents($machine->grid . '/sims/beta.ini'));
+        expect($grid->simulator('beta')->uri())->toBe(gethostname() . ':9010');
+
+        $ghost = new Simulator($machine->environment, $machine->grid . '/sims/ghost.ini');
+        expect($ghost->uri())->toBeNull()->and($ghost->id())->toBe('ghost');
+    });
+});

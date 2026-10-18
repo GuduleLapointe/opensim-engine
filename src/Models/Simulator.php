@@ -204,6 +204,42 @@ final class Simulator extends Instance
         return $this->connection(Database::Estate);
     }
 
+    /**
+     * Where it is reached, `host:port`: what identifies it. The port is the one it listens on, the host the one its regions announce
+     * (this machine's own when they say SYSTEMIP or when it has no region yet). Null when its config does not say its port.
+     */
+    public function uri(): ?string
+    {
+        $port = $this->httpPort();
+        if ($port === null) {
+            return null;
+        }
+        $host = '';
+        foreach ($this->regionsDirectory() !== '' ? Region::inDirectory($this->regionsDirectory()) : [] as $region) {
+            $host = (string) $region->externalHost();
+            if ($host !== '') {
+                break;
+            }
+        }
+        if ($host === '' || strcasecmp($host, 'SYSTEMIP') === 0) {
+            $host = (string) gethostname();
+        }
+
+        return $host !== '' ? "$host:$port" : null;
+    }
+
+    /** What identifies it: its address, else its name. */
+    public function id(): string
+    {
+        return $this->uri() ?? $this->name();
+    }
+
+    /** The name for a path or a command: its own and the grid's (`vonda_welcome`, not `welcome`: every grid has one). */
+    public function slug(): string
+    {
+        return $this->name();
+    }
+
     /** The port it listens on, null when its config does not say it. */
     public function httpPort(): ?int
     {
@@ -228,7 +264,10 @@ final class Simulator extends Instance
     public function detail(): array
     {
         return [
+            'id' => $this->id(),
+            'uri' => $this->uri(),
             'name' => $this->name(),
+            'slug' => $this->slug(),
             'grid' => $this->grid()?->nick(),
             'ini' => $this->ini(),
             'link' => $this->link(),

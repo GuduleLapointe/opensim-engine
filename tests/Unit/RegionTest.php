@@ -346,4 +346,4 @@ describe('region as the search engine knows it', function () {
         [, $apart] = region_search_databases(false);
         expect(Region::searchTable($apart))->toBe('regions');
     });
-});
+})->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');

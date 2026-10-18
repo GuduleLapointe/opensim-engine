@@ -142,7 +142,7 @@ describe('estates of the simulators', function () {
             ->and(count($detail['bans']))->toBe(2)
             ->and(json_encode($detail))->toBeString();
     });
-});
+})->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
 
 describe('estates of the grid', function () {
     test('are read in the database of Robust, known by their number', function () {
@@ -155,7 +155,7 @@ describe('estates of the grid', function () {
             ->and($estates->items()[0]->simulator())->toBeNull()
             ->and(Estate::find(estate_config(true), '101')?->name())->toBe('My Estate');
     });
-});
+})->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
 
 describe('ban list', function () {
     test('is changed in the database of the estate, or told as a statement to review', function () {
@@ -193,7 +193,7 @@ describe('ban list', function () {
             ->and(fn() => $estate->ban(ESTATE_BANNED))->toThrow(ChannelUnavailable::class)
             ->and(fn() => Estate::all(estate_config()))->toThrow(ChannelUnavailable::class);
     });
-});
+})->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
 
 describe('region', function () {
     test('knows its estate', function () {
@@ -206,4 +206,4 @@ describe('region', function () {
         Connections::using(static fn(): ?OSPDO => null);
         expect($region->estate())->toBeNull();
     });
-});
+})->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite is missing');
