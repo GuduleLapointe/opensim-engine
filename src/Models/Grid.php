@@ -17,7 +17,7 @@ use OpenSim\Runtime\Result;
  * The services of a grid (its Robust) start, stop and restart on their own: its simulators do not need to restart with them.
  * They are included when asked, and then stop first and start last.
  */
-final class Grid
+final class Grid implements \OpenSim\Interfaces\Enablable
 {
     /** The files that hold the Robust config, the first that exists is the one. */
     private const ROBUST_FILES = ['Robust.HG.ini', 'Robust.ini'];

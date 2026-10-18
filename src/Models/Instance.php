@@ -21,7 +21,7 @@ use OpenSim\Runtime\StopService;
  * The config file is the one the instance runs with (`-inifile=`): the link in `opensim.d` or `robust.d` of an enabled
  * instance, which is where the launcher found it, else the file itself.
  */
-abstract class Instance
+abstract class Instance implements \OpenSim\Interfaces\Enablable
 {
     /** The sections the launcher reads its settings in, the last that says one wins. */
     private const LAUNCH_SECTIONS = ['Const', 'Launch', 'Startup', 'Network'];

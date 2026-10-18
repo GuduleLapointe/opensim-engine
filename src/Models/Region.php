@@ -6,15 +6,26 @@ namespace OpenSim\Models;
 
 use OpenSim\Config\ConfigReader;
 use OpenSim\Config\GridConfig;
+use OpenSim\Config\GridFileService;
 use OpenSim\Config\IniEditor;
 use OpenSim\Data\Collection;
 use OpenSim\Data\Connections;
+use OpenSim\Exceptions\ChannelUnavailable;
 use OpenSim\Provisioning\RegionName;
 use OpenSim\Provisioning\Slug;
 
 /**
- * A region: a square of the map of a grid, described by a file of the simulator that runs it (name, UUID, place, size, port) and
- * registered in the regions table of the grid services (its flags, its place, when it was last seen).
+ * A region: a square of the map of a grid. It is one object wherever it is known from, with the same properties (name, slug,
+ * place, size, address, validation of its name...); what differs is which of its methods can answer:
+ *
+ *  - the grid: its row in the regions table of the grid services (`all()`, `find()`): flags, owner, when it was last seen;
+ *  - the config: the file of the simulator that runs it (`configured()`): its simulator, its port, whether the simulator loads it
+ *    (it is enabled while the file ends in .ini). A region only the config knows was never started, or fails;
+ *  - the search: its row in the tables of OpenSimSearch (`indexed()`).
+ *
+ * `merged()` has the regions of the grid with what the config says of them, then the ones only the config knows. A method that needs
+ * a source the region does not come from answers what it can (nothing known: 0, null) or, for a change, is refused with
+ * ChannelUnavailable. `in()` tells.
  *
  * The fields of a region are defined here, for whoever shows them: the setup of a grid, its administration, the page of the owner
  * of a region (see Forms\FieldSet).
@@ -52,6 +63,20 @@ final class Region extends Model
     /** The size of a region that does not say it. */
     private const DEFAULT_SIZE = 256;
 
+    /** Where a region is known from. */
+    public const GRID = 'grid';
+    public const CONFIG = 'config';
+    public const SEARCH = 'search';
+
+    /** The suffix that disables the file of a region: the simulator loads the .ini ones only. */
+    private const DISABLED = '.disabled';
+
+    /** @var array<string,mixed> what the config says: simulator, file, enabled, name and the settings of the file */
+    private array $local = [];
+
+    /** @var array<string,mixed> the row of the search tables */
+    private array $indexed = [];
+
     private const COLUMNS = 'r.uuid, r.regionName, r.regionHandle, r.locX, r.locY, r.sizeX, r.sizeY, r.serverIP, r.serverPort, r.serverURI, r.flags, r.last_seen, r.PrincipalID, r.access, r.ScopeID, r.regionMapTexture';
 
     /** The columns a list can be sorted on, by their name in the collection: the expressions they are sorted by. */
@@ -63,19 +88,61 @@ final class Region extends Model
         'flags' => ['r.flags'],
     ];
 
+    /** Its UUID, else the simulator and the name for a region that has none yet. */
     public function id(): string
     {
-        return (string) $this->row['uuid'];
+        return $this->uuid() ?? (($this->local['simulator'] ?? '') . ':' . $this->name());
     }
 
-    public function uuid(): string
+    /** Its UUID, null while none was given (a region configured and never started has one in its file). */
+    public function uuid(): ?string
     {
-        return $this->id();
+        $uuid = (string) ($this->row['uuid'] ?? ($this->local['RegionUUID'] ?? ($this->indexed['regionuuid'] ?? '')));
+
+        return $uuid !== '' ? strtolower($uuid) : null;
     }
 
     public function name(): string
     {
-        return (string) $this->row['regionName'];
+        return (string) ($this->row['regionName'] ?? ($this->local['name'] ?? ($this->indexed['regionname'] ?? '')));
+    }
+
+    /** The sources that know it: grid, config, search. */
+    public function sources(): array
+    {
+        return array_keys(array_filter([self::GRID => $this->row !== [], self::CONFIG => $this->local !== [], self::SEARCH => $this->indexed !== []]));
+    }
+
+    /** Whether this source knows the region (see GRID, CONFIG, SEARCH). */
+    public function in(string $source): bool
+    {
+        return in_array($source, $this->sources(), true);
+    }
+
+    /** The simulator whose file describes it, empty when the config does not know it. */
+    public function simulator(): string
+    {
+        return (string) ($this->local['simulator'] ?? '');
+    }
+
+    /** The file that describes it in its simulator, empty when the config does not know it. */
+    public function file(): string
+    {
+        return (string) ($this->local['file'] ?? '');
+    }
+
+    /** The address its simulator announces for it (ExternalHostName), null when its file does not say it. */
+    public function externalHost(): ?string
+    {
+        $host = (string) ($this->local['ExternalHostName'] ?? '');
+
+        return $host !== '' ? $host : null;
+    }
+
+    /** The port its simulator gives it, null when the config does not know it. */
+    public function internalPort(): ?int
+    {
+        return isset($this->local['InternalPort']) ? (int) $this->local['InternalPort'] : null;
     }
 
     public function slug(): string
@@ -150,23 +217,29 @@ final class Region extends Model
     /** Its place on the map, in regions of 256 meters. */
     public function x(): int
     {
-        return intdiv((int) ($this->row['locX'] ?? 0), self::DEFAULT_SIZE);
+        return isset($this->row['locX']) ? intdiv((int) $this->row['locX'], self::DEFAULT_SIZE) : $this->place()[0];
     }
 
     public function y(): int
     {
-        return intdiv((int) ($this->row['locY'] ?? 0), self::DEFAULT_SIZE);
+        return isset($this->row['locY']) ? intdiv((int) $this->row['locY'], self::DEFAULT_SIZE) : $this->place()[1];
     }
 
-    /** The size in meters, 256 when the table does not say it. */
+    /** @return array{0:int,1:int} the place its file gives, in regions */
+    private function place(): array
+    {
+        return array_map('intval', explode(',', (string) ($this->local['Location'] ?? '0,0'))) + [0, 0];
+    }
+
+    /** The size in meters, 256 when nothing says it. */
     public function width(): int
     {
-        return (int) ($this->row['sizeX'] ?? 0) ?: self::DEFAULT_SIZE;
+        return (int) ($this->row['sizeX'] ?? ($this->local['SizeX'] ?? 0)) ?: self::DEFAULT_SIZE;
     }
 
     public function height(): int
     {
-        return (int) ($this->row['sizeY'] ?? 0) ?: self::DEFAULT_SIZE;
+        return (int) ($this->row['sizeY'] ?? ($this->local['SizeY'] ?? ($this->local['SizeX'] ?? 0))) ?: self::DEFAULT_SIZE;
     }
 
     public function detail(): array
@@ -201,7 +274,258 @@ final class Region extends Model
             'lastSeen' => ((int) ($row['last_seen'] ?? 0)) ?: null,
             'access' => isset($row['access']) ? (int) $row['access'] : null,
             'mapImage' => $row['regionMapTexture'] ?? null,
+            'sources' => $this->sources(),
+            'simulator' => $this->simulator() ?: null,
+            'file' => $this->file() ?: null,
+            'internalPort' => $this->internalPort(),
+            'enabled' => $this->in(self::CONFIG) ? $this->isEnabled() : null,
         ];
+    }
+
+    /** A region from its file in the regions folder of a simulator. */
+    public static function fromConfig(GridConfig $config, string $simulator, string $file, string $name, array $values, bool $enabled): static
+    {
+        return (new static($config, []))->withConfig(['name' => $name, 'simulator' => $simulator, 'file' => $file, 'enabled' => $enabled] + $values);
+    }
+
+    /** A region from a row of the search tables. */
+    public static function fromSearch(GridConfig $config, array $row): static
+    {
+        return (new static($config, []))->withSearch($row);
+    }
+
+    /**
+     * The same region, with what its config says of it (see fromConfig()).
+     *
+     * @param array<string,mixed> $local
+     */
+    public function withConfig(array $local): static
+    {
+        $region = clone $this;
+        $region->local = $local;
+
+        return $region;
+    }
+
+    /** The same region, with its row of the search tables. */
+    public function withSearch(array $row): static
+    {
+        $region = clone $this;
+        $region->indexed = $row;
+
+        return $region;
+    }
+
+    /**
+     * The regions the files of a folder describe (a region folder of a simulator): one file each, named after the region, the section
+     * of the file being its name. Those that end in .ini.disabled are the disabled ones.
+     *
+     * @return list<static> by name
+     */
+    public static function inDirectory(string $regionsDir, ?GridConfig $config = null, string $simulator = ''): array
+    {
+        $regions = [];
+        $files = array_merge(glob("$regionsDir/*.ini") ?: [], glob("$regionsDir/*.ini" . self::DISABLED) ?: []);
+        sort($files);
+        foreach ($files as $file) {
+            foreach (static::inFile($file, $config, $simulator) as $region) {
+                $regions[$region->name()] = $region;
+            }
+        }
+        ksort($regions);
+
+        return array_values($regions);
+    }
+
+    /**
+     * The regions one file describes (usually one).
+     *
+     * @return list<static>
+     */
+    public static function inFile(string $file, ?GridConfig $config = null, string $simulator = ''): array
+    {
+        $config ??= new GridConfig();
+        $regions = [];
+        foreach (ConfigReader::parse(GridFileService::read($file)) as $name => $values) {
+            $name = trim((string) $name);
+            $regions[] = static::fromConfig($config, $simulator, $file, $name, $values, !str_ends_with($file, self::DISABLED));
+        }
+
+        return $regions;
+    }
+
+    /**
+     * The regions described by the files of the simulators of the grid that are on this machine, the ones its Robust does not know
+     * included (never started, or failing).
+     *
+     * @param ?string $simulator only the ones of this simulator
+     * @return list<static>
+     */
+    public static function configured(GridConfig $config, ?string $simulator = null): array
+    {
+        $regions = [];
+        foreach ($config->tree()['sims'] ?? [] as $name => $sections) {
+            $dir = rtrim((string) ($sections['Startup']['regionload_regionsdir'] ?? ''), '/');
+            if ($dir === '' || ($simulator !== null && $simulator !== '' && (string) $name !== $simulator)) {
+                continue;
+            }
+            array_push($regions, ...static::inDirectory($dir, $config, (string) $name));
+        }
+
+        return $regions;
+    }
+
+    /**
+     * A region by its key: its UUID, or the simulator and the name of one that has none yet. The grid's, with what the config says of
+     * it; else the one only the config knows.
+     */
+    public static function locate(GridConfig $config, string $key): ?static
+    {
+        $configured = null;
+        foreach (static::configured($config) as $region) {
+            if (strcasecmp($region->id(), $key) === 0) {
+                $configured = $region;
+                break;
+            }
+        }
+        $uuid = $configured?->uuid() ?? $key;
+        $registered = null;
+        if (preg_match('/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i', $uuid) === 1) {
+            try {
+                $registered = static::find($config, $uuid);
+            } catch (ChannelUnavailable) {
+                $registered = null;
+            }
+        }
+
+        return $registered !== null && $configured !== null ? $registered->withConfig($configured->local) : ($registered ?? $configured);
+    }
+
+    /**
+     * The regions of the grid with what the config says of them, then the ones only the config knows. However many there are, a page
+     * asks for its own. Options as all()'s, and `simulator` (only the regions its files describe). When the grid cannot be read,
+     * only what is configured here is known and the collection says why (problem()).
+     *
+     * @param array{search?:string,sort?:string,filters?:array<string,string>,page?:int,perPage?:int,simulator?:string} $options
+     */
+    public static function merged(GridConfig $config, array $options = []): Collection
+    {
+        $simulator = (string) ($options['simulator'] ?? '');
+        $local = static::configured($config, $simulator !== '' ? $simulator : null);
+        $byUuid = [];
+        foreach ($local as $region) {
+            $region->uuid() === null || $byUuid[$region->uuid()] = $region;
+        }
+        $perPage = max(1, (int) ($options['perPage'] ?? 25));
+        $page = max(1, (int) ($options['page'] ?? 1));
+        $filters = (array) ($options['filters'] ?? []);
+        $search = (string) ($options['search'] ?? '');
+        $request = ['search' => $search, 'sort' => (string) ($options['sort'] ?? 'name'), 'filters' => $filters, 'page' => $page, 'perPage' => $perPage];
+        if ($simulator !== '') {
+            $request['uuids'] = array_keys($byUuid);
+        }
+
+        $registered = [];
+        $total = 0;
+        $problem = null;
+        $known = [];
+        $meta = [];
+        try {
+            $list = static::all($config, $request);
+            $registered = $list->items();
+            $total = $list->total();
+            $known = array_flip(static::known($config, array_keys($byUuid)));
+            $meta = ['sort' => $list->sort(), 'columns' => $list->columns(), 'filters' => $list->filters(), 'applied' => $list->applied()];
+        } catch (ChannelUnavailable $e) {
+            $problem = $e->getMessage();
+        }
+
+        $unknown = array_values(array_filter(
+            $local,
+            static fn(self $region): bool => ($region->uuid() === null || !isset($known[$region->uuid()])) && $region->matches($search, $filters),
+        ));
+        usort($unknown, static fn(self $a, self $b): int => strcasecmp($a->name(), $b->name()));
+
+        $items = array_map(static fn(self $region): self => isset($byUuid[$region->uuid()]) ? $region->withConfig($byUuid[$region->uuid()]->local) : $region, $registered);
+        $take = $perPage - count($items);
+        if ($take > 0) {
+            array_push($items, ...array_slice($unknown, max(0, ($page - 1) * $perPage - $total), $take));
+        }
+
+        return new Collection($items, ['total' => $total + count($unknown), 'page' => $page, 'perPage' => $perPage, 'search' => trim($search), 'problem' => $problem] + $meta);
+    }
+
+    /**
+     * Whether a region that only the config knows is in a search and the filters: its name has the words, and a filter on what only a
+     * registered region has (its flags) keeps it when it asks for "no".
+     *
+     * @param array<string,mixed> $filters
+     */
+    private function matches(string $search, array $filters): bool
+    {
+        foreach (preg_split('/\s+/', trim($search), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $word) {
+            if (stripos($this->name(), $word) === false) {
+                return false;
+            }
+        }
+        foreach ($filters as $filter) {
+            if ($filter === 'yes') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** Whether the simulator loads it: its file ends in .ini. A region the config does not know is not one this machine disables. */
+    public function isEnabled(): bool
+    {
+        return (bool) ($this->local['enabled'] ?? true);
+    }
+
+    /**
+     * Have its simulator load it at its next start.
+     *
+     * @throws ChannelUnavailable when the config does not know it, or its file cannot be renamed
+     */
+    public function enable(): bool
+    {
+        $file = $this->file();
+        if ($file === '') {
+            throw ChannelUnavailable::for('enable ' . $this->name(), 'no file of a simulator describes it');
+        }
+        if (!str_ends_with($file, self::DISABLED)) {
+            return true;
+        }
+        $enabled = substr($file, 0, -strlen(self::DISABLED));
+        if (is_file($enabled) || !@rename($file, $enabled)) {
+            throw ChannelUnavailable::for('enable ' . $this->name(), "$file cannot be renamed");
+        }
+        $this->local['file'] = $enabled;
+        $this->local['enabled'] = true;
+
+        return true;
+    }
+
+    /**
+     * Stop its simulator from loading it at its next start. Its file keeps its description, and its UUID.
+     *
+     * @throws ChannelUnavailable when the config does not know it, or its file cannot be renamed
+     */
+    public function disable(): void
+    {
+        $file = $this->file();
+        if ($file === '') {
+            throw ChannelUnavailable::for('disable ' . $this->name(), 'no file of a simulator describes it');
+        }
+        if (str_ends_with($file, self::DISABLED)) {
+            return;
+        }
+        if (!@rename($file, $file . self::DISABLED)) {
+            throw ChannelUnavailable::for('disable ' . $this->name(), "$file cannot be renamed");
+        }
+        $this->local['file'] = $file . self::DISABLED;
+        $this->local['enabled'] = false;
     }
 
     /**

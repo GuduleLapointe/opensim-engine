@@ -6,6 +6,7 @@ namespace OpenSim\Interfaces;
 
 use OpenSim\Config\GridConfig;
 use OpenSim\Data\Collection;
+use OpenSim\Exceptions\ChannelUnavailable;
 
 /**
  * What every model of the engine offers, whatever the table or the file it comes from, so that any application (the manager, a
@@ -15,7 +16,7 @@ use OpenSim\Data\Collection;
  * A write goes through a channel (the database, the console of a simulator, an ini file) and is refused with ChannelUnavailable
  * when no channel can do it.
  */
-interface OpenSimModelInterface
+interface OpenSimModelInterface extends Enablable
 {
     /** What identifies it in its table or its file. */
     public function id(): string|int|null;
@@ -50,8 +51,6 @@ interface OpenSimModelInterface
     /** When it was last there, null when it never was or when the model has no such date. */
     public function lastSeen(): ?\DateTimeImmutable;
 
-    public function isEnabled(): bool;
-
     /**
      * The channels a write can go through now.
      *
@@ -64,12 +63,6 @@ interface OpenSimModelInterface
      * @throws ChannelUnavailable
      */
     public function update(array $values): void;
-
-    /** @throws ChannelUnavailable */
-    public function enable(): void;
-
-    /** @throws ChannelUnavailable */
-    public function disable(): void;
 
     /** @throws ChannelUnavailable */
     public function delete(): void;

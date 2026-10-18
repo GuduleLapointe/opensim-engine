@@ -4,7 +4,7 @@ namespace OpenSim\Archives;
 
 use OpenSim\Console\InstanceConsoleService;
 use OpenSim\Models\GridInfo;
-use OpenSim\Models\RegionState;
+use OpenSim\Models\Region;
 use OpenSim\Models\SimState;
 
 /**
@@ -240,12 +240,10 @@ final class ArchiveRunner
      */
     private function region(GridInfo $grid, string $slug, array $options): ?string
     {
-        $names = array_keys(
-            array_filter(
-                RegionState::list("{$grid->dir}/sims/$slug/regions"),
-                static fn(array $region): bool => $region['enabled'],
-            ),
-        );
+        $names = array_values(array_map(
+            static fn(Region $region): string => $region->name(),
+            array_filter(Region::inDirectory("{$grid->dir}/sims/$slug/regions"), static fn(Region $region): bool => $region->isEnabled()),
+        ));
         if (isset($options['region'])) {
             if ($names !== [] && !in_array($options['region'], $names, true)) {
                 throw new \InvalidArgumentException(

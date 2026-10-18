@@ -4,7 +4,7 @@ namespace OpenSim\Provisioning;
 
 use OpenSim\Config\GridFileService;
 use OpenSim\Models\GridInfo;
-use OpenSim\Models\RegionState;
+use OpenSim\Models\Region;
 
 /**
  * What the grid knows of its regions, from the database of its Robust: their
@@ -116,7 +116,7 @@ final class GridRegistry
     {
         $names = [];
         foreach (glob("$gridDir/sims/*/regions", GLOB_ONLYDIR) ?: [] as $dir) {
-            foreach (array_keys(RegionState::list($dir)) as $name) {
+            foreach (array_map(static fn(Region $region): string => $region->name(), Region::inDirectory($dir)) as $name) {
                 $names[strtolower($name)] = true;
             }
         }

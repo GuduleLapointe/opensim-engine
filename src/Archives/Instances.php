@@ -3,7 +3,7 @@
 namespace OpenSim\Archives;
 
 use OpenSim\Models\GridInfo;
-use OpenSim\Models\RegionState;
+use OpenSim\Models\Region;
 
 /**
  * Which grid, and which simulator or region of it, the words of a command name: `GRID`, `GRID SIM`, `GRID _SIM`,
@@ -94,7 +94,7 @@ final class Instances
         }
         foreach (glob("$etc/grids/$nick/sims/*.ini") ?: [] as $ini) {
             $sim = basename($ini, '.ini');
-            foreach (array_keys(RegionState::list("$etc/grids/$nick/sims/$sim/regions")) as $region) {
+            foreach (array_map(static fn(Region $region): string => $region->name(), Region::inDirectory("$etc/grids/$nick/sims/$sim/regions")) as $region) {
                 if (strcasecmp($region, $ref) === 0) {
                     return [$sim, $region];
                 }

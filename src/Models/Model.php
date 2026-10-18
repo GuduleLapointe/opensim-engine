@@ -69,7 +69,7 @@ abstract class Model implements OpenSimModelInterface
         throw ChannelUnavailable::for('change ' . $this->name());
     }
 
-    public function enable(): void
+    public function enable(): bool
     {
         throw ChannelUnavailable::for('enable ' . $this->name());
     }

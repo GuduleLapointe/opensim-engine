@@ -58,6 +58,12 @@ final class Collection implements \Countable, \IteratorAggregate, \JsonSerializa
         return $this->meta['total'] ?? count($this->items);
     }
 
+    /** Why part of what was asked could not be had (a database that cannot be reached), null when all was. */
+    public function problem(): ?string
+    {
+        return $this->meta['problem'] ?? null;
+    }
+
     /** The page this collection is, from 1. */
     public function page(): int
     {

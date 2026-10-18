@@ -211,9 +211,11 @@ final class Avatar extends Model
         $pdo->prepareAndExecute('UPDATE UserAccounts SET ' . implode(', ', $set) . ' WHERE PrincipalID = :id', $params);
     }
 
-    public function enable(): void
+    public function enable(): bool
     {
         $this->update(['active' => true]);
+
+        return true;
     }
 
     public function disable(): void
