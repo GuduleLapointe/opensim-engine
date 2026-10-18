@@ -24,7 +24,8 @@
         "phpxmlrpc/phpxmlrpc": "^4.11",
         "magicoli/kick-inside": "^0.1.0",
         "symfony/yaml": "^7.4",
-        "nubs/random-name-generator": "^2.2"
+        "nubs/random-name-generator": "^2.2",
+        "laminas/laminas-escaper": "^2.12@stable"
     },
     "require-dev": {
         "dealerdirect/phpcodesniffer-composer-installer": "^1.2",
@@ -51,7 +52,9 @@
             "OpenSim\\": "src/"
         },
         "files": [
-            "includes/functions-gettext.php"
+            "includes/functions-gettext.php",
+            "includes/constants.php",
+            "includes/polyfills.php"
         ]
     },
     "suggest": {

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "39ca17aca9f55f13528f446b96598a57",
+    "content-hash": "91658fe4ec48f2678c27ec747201052e",
     "packages": [
         {
             "name": "laminas/laminas-escaper",
@@ -4859,6 +4859,7 @@
     "aliases": [],
     "minimum-stability": "dev",
     "stability-flags": {
+        "laminas/laminas-escaper": 0,
         "magicoli/opensim-rest-php": 20,
         "phpcompatibility/php-compatibility": 20
     },

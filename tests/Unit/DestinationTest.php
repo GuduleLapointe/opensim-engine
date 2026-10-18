@@ -1,24 +1,28 @@
 <?php
 /**
- * The functions of the engine that need nothing but their arguments: destinations and teleport links, UUIDs, the text the
+ * What the engine does with nothing but its arguments: destinations and teleport links, UUIDs, the text the
  * search tables take.
  */
 
+use OpenSim\Economy\Currency;
+use OpenSim\Hypergrid\Destination;
+use OpenSim\Text\Encoding;
+use OpenSim\Text\Uuid;
+
 require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
-require_once dirname(__DIR__, 2) . '/includes/functions.php';
 
 const TP_DESTINATION = 'hg.example.org:8002:My Region/128/64/22';
 
 describe('Destinations', function () {
     test('keep a position that has a zero in it', function () {
-        expect(opensim_parse_url('grid.example:8002:Plaza/0/128/30')['pos'])
+        expect(Destination::parse('grid.example:8002:Plaza/0/128/30')['pos'])
             ->toBe('0/128/30')
-            ->and(opensim_format_tp('grid.example:8002:Plaza/0/0/30', TPLINK_HOP))
+            ->and(Destination::format('grid.example:8002:Plaza/0/0/30', TPLINK_HOP))
             ->toBe('hop://grid.example:8002/Plaza/0/0/30');
     });
 
     test('are read from the forms people write them', function (string $url) {
-        $parsed = opensim_parse_url($url);
+        $parsed = Destination::parse($url);
 
         expect($parsed['gatekeeper'])
             ->toBe('http://grid.example:8002')
@@ -26,7 +30,7 @@ describe('Destinations', function () {
             ->toBe('Region Name')
             ->and($parsed['pos'])
             ->toBe('1/2/3')
-            ->and(opensim_uri($url))
+            ->and(Destination::uri($url))
             ->toBe('grid.example:8002/Region Name/1/2/3');
     })->with([
         'with colons' => 'grid.example:8002:Region Name/1/2/3',
@@ -39,14 +43,14 @@ describe('Destinations', function () {
 
     test('keep the region alone, and an address alone', function () {
         // Every key is there, empty when the address has nothing for it, for who extracts them
-        expect(opensim_parse_url('grid.example:8002:Plaza'))
+        expect(Destination::parse('grid.example:8002:Plaza'))
             ->toMatchArray(['region' => 'Plaza', 'gatekeeper' => 'http://grid.example:8002', 'pos' => '', 'key' => 'grid.example:8002/plaza'])
-            ->and(opensim_parse_url('Plaza/10/20/30'))
+            ->and(Destination::parse('Plaza/10/20/30'))
             ->toMatchArray(['region' => 'Plaza', 'pos' => '10/20/30', 'gatekeeper' => '', 'host' => '']);
     });
 
     test('get the default gatekeeper when they have none', function () {
-        expect(opensim_parse_url('Plaza/1/2/3', 'http://login.example:8002')['gatekeeper'])->toBe(
+        expect(Destination::parse('Plaza/1/2/3', 'http://login.example:8002')['gatekeeper'])->toBe(
             'http://login.example:8002',
         );
     });
@@ -54,7 +58,7 @@ describe('Destinations', function () {
 
 describe('Teleport links', function () {
     test('are made in each format', function (int $format, string $link) {
-        expect(opensim_format_tp(TP_DESTINATION, $format))->toBe($link);
+        expect(Destination::format(TP_DESTINATION, $format))->toBe($link);
     })->with([
         'text' => [TPLINK_TXT, 'hg.example.org:8002 My Region/128/64/22'],
         'viewer link' => [TPLINK_HG, 'secondlife://hg.example.org:8002%20My%20Region/128/64/22'],
@@ -64,14 +68,14 @@ describe('Teleport links', function () {
     ]);
 
     test('leave the position out when it is out of a local region', function () {
-        expect(opensim_format_tp('hg.example.org:8002:My Region/300/64/22', TPLINK_HG))->toBe(
+        expect(Destination::format('hg.example.org:8002:My Region/300/64/22', TPLINK_HG))->toBe(
             'secondlife://hg.example.org:8002%20My%20Region',
         );
     });
 
     test('are several, one per line, or an array', function () {
-        $both = opensim_format_tp(TP_DESTINATION, TPLINK_TXT + TPLINK_HOP);
-        $array = opensim_format_tp(TP_DESTINATION, TPLINK_TXT + TPLINK_HOP + TPLINK_ARRAY);
+        $both = Destination::format(TP_DESTINATION, TPLINK_TXT + TPLINK_HOP);
+        $array = Destination::format(TP_DESTINATION, TPLINK_TXT + TPLINK_HOP + TPLINK_ARRAY);
 
         expect($both)
             ->toBe("hg.example.org:8002 My Region/128/64/22\nhop://hg.example.org:8002/My+Region/128/64/22")
@@ -83,50 +87,50 @@ describe('Teleport links', function () {
     });
 
     test('are none for nothing', function () {
-        expect(opensim_format_tp('', TPLINK_HG))
+        expect(Destination::format('', TPLINK_HG))
             ->toBe('')
-            ->and(opensim_format_tp('', TPLINK_HG + TPLINK_ARRAY))
+            ->and(Destination::format('', TPLINK_HG + TPLINK_ARRAY))
             ->toBe([]);
     });
 });
 
 describe('UUIDs', function () {
     test('are told from other texts', function () {
-        expect((bool) is_uuid('9d315475-daf9-4e31-a5e6-d787ddfcbef6'))
+        expect((bool) Uuid::isValid('9d315475-daf9-4e31-a5e6-d787ddfcbef6'))
             ->toBeTrue()
-            ->and((bool) is_uuid('9D315475-DAF9-4E31-A5E6-D787DDFCBEF6'))
+            ->and((bool) Uuid::isValid('9D315475-DAF9-4E31-A5E6-D787DDFCBEF6'))
             ->toBeTrue()
-            ->and((bool) is_uuid('9d315475-daf9-4e31-a5e6'))
+            ->and((bool) Uuid::isValid('9d315475-daf9-4e31-a5e6'))
             ->toBeFalse()
-            ->and((bool) is_uuid("9d315475-daf9-4e31-a5e6-d787ddfcbef6'; DROP TABLE x"))
+            ->and((bool) Uuid::isValid("9d315475-daf9-4e31-a5e6-d787ddfcbef6'; DROP TABLE x"))
             ->toBeFalse()
-            ->and((bool) is_uuid('nothing'))
+            ->and((bool) Uuid::isValid('nothing'))
             ->toBeFalse();
     });
 
     test('null and the null key are valid only when asked', function () {
         $null = '00000000-0000-0000-0000-000000000000';
 
-        expect(is_uuid(null))
+        expect(Uuid::isValid(null))
             ->toBeFalse()
-            ->and(is_uuid(null, true))
+            ->and(Uuid::isValid(null, true))
             ->toBeTrue()
-            ->and(is_uuid($null, true))
+            ->and(Uuid::isValid($null, true))
             ->toBeTrue();
     });
 
     test('are checked as version 4 when it is asked', function () {
-        expect((bool) is_uuid('9d315475-daf9-4e31-a5e6-d787ddfcbef6', false, true))
+        expect((bool) Uuid::isValid('9d315475-daf9-4e31-a5e6-d787ddfcbef6', false, true))
             ->toBeTrue()
-            ->and((bool) is_uuid('9d315475-daf9-1e31-a5e6-d787ddfcbef6', false, true))
+            ->and((bool) Uuid::isValid('9d315475-daf9-1e31-a5e6-d787ddfcbef6', false, true))
             ->toBeFalse();
     });
 });
 
 test('search tables take Latin-1: what it cannot hold becomes a question mark', function () {
-    expect(opensim_latin1_only('Café Zoë'))
+    expect(Encoding::latin1Only('Café Zoë'))
         ->toBe('Café Zoë')
-        ->and(opensim_latin1_only('Price: 5€ 日本'))
+        ->and(Encoding::latin1Only('Price: 5€ 日本'))
         ->toBe('Price: 5? ??');
 });
 
@@ -155,7 +159,7 @@ describe('session of an avatar', function () {
         $avatar = 'aaaaaaaa-0000-4000-8000-000000000001';
         $GLOBALS['OpenSimDB'] = $presence([$avatar => ['rrrrrrrr-0000-4000-8000-000000000003', 'ssssssss-0000-4000-8000-000000000004', 'xxxxxxxx-0000-4000-8000-000000000005']]);
 
-        expect(opensim_get_avatar_session($avatar))->toBe([
+        expect(Currency::avatarSession($avatar))->toBe([
             'regionID' => 'rrrrrrrr-0000-4000-8000-000000000003',
             'sessionID' => 'ssssssss-0000-4000-8000-000000000004',
             'secureID' => 'xxxxxxxx-0000-4000-8000-000000000005',
@@ -165,9 +169,19 @@ describe('session of an avatar', function () {
     test('is empty for an avatar who is not in the grid, and null for what is not an avatar', function () use ($presence) {
         $GLOBALS['OpenSimDB'] = $presence([]);
 
-        expect(opensim_get_avatar_session('bbbbbbbb-0000-4000-8000-000000000002'))
+        expect(Currency::avatarSession('bbbbbbbb-0000-4000-8000-000000000002'))
             ->toBe([])
-            ->and(opensim_get_avatar_session('not-an-avatar'))
+            ->and(Currency::avatarSession('not-an-avatar'))
             ->toBeNull();
+    });
+});
+
+describe('Region urls', function () {
+    test('are written back from the parts', function () {
+        $parts = Destination::parse('hg.example.org:8002:My Region/128/64/22');
+
+        expect(Destination::regionUrl($parts))->toBe('http://hg.example.org:8002:My Region/128/64/22')
+            ->and(Destination::regionUrl(['gatekeeper' => 'http://hg.example.org:8002']))->toBe('http://hg.example.org:8002')
+            ->and(Destination::regionUrl('not an array'))->toBeFalse();
     });
 });
