@@ -4,15 +4,20 @@ declare(strict_types=1);
 
 namespace OpenSim\Models;
 
+use OpenSim\Config\InstanceSettings;
 use OpenSim\Provisioning\GridAccounts;
 use OpenSim\Provisioning\SimulatorMaster;
 use OpenSim\Provisioning\Slug;
 
 /**
- * A simulator: one process that runs one or several regions of a grid.
+ * A simulator: one process that runs one or several regions of a grid. It is its config (`sims/<name>.ini`) and the process
+ * that runs from it: what the config says is asked of the simulator (ports, database, estate), whoever needs it.
  */
 final class Simulator extends Instance
 {
+    /** @var ?array<string,mixed> what its own config says (see InstanceSettings) */
+    private ?array $own = null;
+
     /**
      * The fields of a simulator, in the standard format of the forms (see Forms\FieldSet): what the setup asks to make or to change
      * one, and what any other form about a simulator shows. The groups are the screens of the setup.
@@ -187,6 +192,110 @@ final class Simulator extends Instance
         $this->forget();
 
         return SimulatorMaster::path($grid);
+    }
+
+    /** Whether its config is there. */
+    public function exists(): bool
+    {
+        return is_file($this->ini());
+    }
+
+    protected function forget(): void
+    {
+        parent::forget();
+        $this->own = null;
+    }
+
+    /** What its own file says, in the names of InstanceSettings; nothing for a simulator that is not made yet. */
+    private function own(string $key): mixed
+    {
+        return ($this->own ??= $this->exists() ? InstanceSettings::of($this->ini()) : [])[$key] ?? null;
+    }
+
+    /** The port it listens on, null when its config does not say it. */
+    public function httpPort(): ?int
+    {
+        return $this->own('httpPort');
+    }
+
+    /** The port of its remote console, null when its config has none (it runs in a screen session). */
+    public function consolePort(): ?int
+    {
+        return $this->own('consolePort');
+    }
+
+    /** The host clients reach its remote console by. */
+    public function consoleHost(): ?string
+    {
+        return $this->own('consoleHost');
+    }
+
+    public function consoleUser(): ?string
+    {
+        return $this->own('consoleUser');
+    }
+
+    public function consolePassword(): ?string
+    {
+        return $this->own('consolePass');
+    }
+
+    /** The database of its regions, null when its config does not say it. */
+    public function databaseHost(): ?string
+    {
+        return $this->own('dbHost');
+    }
+
+    public function databaseName(): ?string
+    {
+        return $this->own('dbName');
+    }
+
+    public function databaseUser(): ?string
+    {
+        return $this->own('dbUser');
+    }
+
+    public function databasePassword(): ?string
+    {
+        return $this->own('dbPass');
+    }
+
+    public function estateName(): ?string
+    {
+        return $this->own('estateName');
+    }
+
+    public function estateOwner(): ?string
+    {
+        return $this->own('estateOwner');
+    }
+
+    /**
+     * Every fact about it, the password of its database and of its console left out.
+     *
+     * @return array<string,mixed>
+     */
+    public function detail(): array
+    {
+        return [
+            'name' => $this->name(),
+            'grid' => $this->grid()?->nick(),
+            'ini' => $this->ini(),
+            'link' => $this->link(),
+            'enabled' => $this->isEnabled(),
+            'running' => $this->isRunning(),
+            'httpPort' => $this->httpPort(),
+            'consolePort' => $this->consolePort(),
+            'console' => $this->remoteConsole() !== null ? 'rest' : 'screen',
+            'databaseHost' => $this->databaseHost(),
+            'databaseName' => $this->databaseName(),
+            'databaseUser' => $this->databaseUser(),
+            'estateName' => $this->estateName(),
+            'estateOwner' => $this->estateOwner(),
+            'regionsDirectory' => $this->regionsDirectory() ?: null,
+            'core' => $this->core()?->directory(),
+        ];
     }
 
     /** The folder of the descriptions of its regions, empty when its config does not say where they are. */

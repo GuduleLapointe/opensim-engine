@@ -2,8 +2,8 @@
 
 namespace OpenSim\Archives;
 
-use OpenSim\Config\InstanceSettings;
 use OpenSim\Models\Grid;
+use OpenSim\Models\Simulator;
 use OpenSim\Provisioning\Slug;
 use OpenSim\Runtime\Environment;
 
@@ -244,14 +244,15 @@ final class BackupService
                 'pass' => $grid->databasePassword(),
             ];
         }
-        foreach ($slug !== null ? [$slug] : Grid::at(Environment::forProfile($this->profile), $grid->directory())->simulatorNames() as $simulator) {
-            $db = InstanceSettings::of("{$grid->directory()}/sims/$simulator.ini");
-            if (($db['dbName'] ?? '') !== '') {
-                $found[($db['dbHost'] ?? 'localhost') . '/' . $db['dbName']] = [
-                    'host' => $db['dbHost'] ?? 'localhost',
-                    'name' => $db['dbName'],
-                    'user' => $db['dbUser'] ?? '',
-                    'pass' => $db['dbPass'] ?? '',
+        $environment = Environment::forProfile($this->profile);
+        foreach ($slug !== null ? [$slug] : Grid::at($environment, $grid->directory())->simulatorNames() as $name) {
+            $simulator = new Simulator($environment, "{$grid->directory()}/sims/$name.ini");
+            if (($simulator->databaseName() ?? '') !== '') {
+                $found[($simulator->databaseHost() ?? 'localhost') . '/' . $simulator->databaseName()] = [
+                    'host' => $simulator->databaseHost() ?? 'localhost',
+                    'name' => $simulator->databaseName(),
+                    'user' => $simulator->databaseUser() ?? '',
+                    'pass' => $simulator->databasePassword() ?? '',
                 ];
             }
         }

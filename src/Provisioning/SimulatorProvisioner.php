@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace OpenSim\Provisioning;
 
-use OpenSim\Config\InstanceSettings;
 use OpenSim\Exceptions\SetupFailedException;
 use OpenSim\Config\GridFileService;
 use OpenSim\Console\InstanceConsoleService;
@@ -177,7 +176,7 @@ final class SimulatorProvisioner
             }
             if ($plan->createRegion) {
                 $this->giveHome($plan, $grid);
-                $this->initRegion($plan);
+                $this->initRegion($plan, $profile);
             }
             $this->ui->note(
                 !$plan->createRegion
@@ -226,7 +225,7 @@ final class SimulatorProvisioner
      *
      * Not fatal: a region without it is a region whose parcel is named "Your Parcel".
      */
-    private function initRegion(SimulatorPlan $plan): void
+    private function initRegion(SimulatorPlan $plan, array $profile): void
     {
         $archive = $this->initArchive();
         if ($archive === null || RegionName::problem($plan->regionName) !== null) {
@@ -247,12 +246,12 @@ final class SimulatorProvisioner
         }
 
         // The database of the simulator, as its config says (a region added to a simulator knows no more)
-        $conf = InstanceSettings::of($plan->iniPath());
+        $own = new Simulator(Environment::forProfile($profile), $plan->iniPath());
         $db = new GridPlan();
-        $db->dbHost = (string) ($conf['dbHost'] ?? $plan->dbHost);
-        $db->dbName = (string) ($conf['dbName'] ?? $plan->dbName);
-        $db->dbUser = (string) ($conf['dbUser'] ?? $plan->dbUser);
-        $db->dbPass = (string) ($conf['dbPass'] ?? $plan->dbPass);
+        $db->dbHost = (string) ($own->databaseHost() ?? $plan->dbHost);
+        $db->dbName = (string) ($own->databaseName() ?? $plan->dbName);
+        $db->dbUser = (string) ($own->databaseUser() ?? $plan->dbUser);
+        $db->dbPass = (string) ($own->databasePassword() ?? $plan->dbPass);
         $database = new DatabaseService($this->ui);
         $uuid = $plan->regionUuid;
         for ($try = 0; $try < 30; $try++) {
@@ -316,7 +315,7 @@ final class SimulatorProvisioner
         $owner =
             $plan->estateOwner !== ''
                 ? $plan->estateOwner
-                : (string) (InstanceSettings::of($plan->iniPath())['estateOwner'] ?? '');
+                : (string) ($grid->simulator($plan->slug)?->estateOwner() ?? '');
         if ($owner === '') {
             return;
         }
@@ -444,7 +443,7 @@ final class SimulatorProvisioner
             );
         }
         $this->giveHome($plan, $grid);
-        $this->initRegion($plan);
+        $this->initRegion($plan, $profile);
         $this->ui->note(sprintf(_('Region %s is online.'), $plan->regionName));
     }
     /** Robust gives the roles to a region when it registers, from its config read when it starts. */

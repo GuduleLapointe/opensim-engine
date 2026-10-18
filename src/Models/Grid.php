@@ -788,6 +788,47 @@ final class Grid implements \OpenSim\Interfaces\Enablable
         ];
     }
 
+    /**
+     * Every fact about it, whatever the source, the password of its database left out.
+     *
+     * @return array<string,mixed>
+     */
+    public function detail(): array
+    {
+        $folder = $this->in(self::FOLDER);
+
+        return [
+            'nick' => $this->nick(),
+            'name' => $this->name(),
+            'slug' => $this->slug(),
+            'sources' => $this->sources(),
+            'directory' => $this->directory() ?: null,
+            'remote' => $this->isRemote(),
+            'planned' => $this->isPlanned(),
+            'enabled' => $folder ? $this->isEnabled() : null,
+            'hypergrid' => $this->isHypergrid(),
+            'baseHostname' => $this->baseHostname(),
+            'publicPort' => $this->publicPort(),
+            'privatePort' => $this->privatePort(),
+            'center' => $this->center() ?: null,
+            'regionSpacing' => $this->regionSpacing(),
+            'preset' => $this->preset() ?: null,
+            'coreDirectory' => $this->coreDirectory() ?: null,
+            'robustIni' => $this->robustIni(),
+            'connectors' => $this->connectors(),
+            'regionFlags' => $this->regionFlags(),
+            'roles' => $this->roles(),
+            'missingRoles' => $this->missingRoles(),
+            'databaseHost' => $this->databaseHost(),
+            'databaseName' => $this->databaseName(),
+            'databaseUser' => $this->databaseUser(),
+            'webUrl' => $this->webUrl() ?: null,
+            'helpers' => $this->hasHelpers(),
+            'simulators' => $folder ? $this->simulatorNames() : null,
+            'announcement' => $this->said() ?: null,
+        ];
+    }
+
     /** The name of the instance running its Robust: what the launcher makes of the config file name. */
     public function robustInstance(): string
     {

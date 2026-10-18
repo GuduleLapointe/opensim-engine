@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace OpenSim\Provisioning;
 
-use OpenSim\Config\InstanceSettings;
 use OpenSim\Forms\FieldSet;
 use OpenSim\Models\Core;
 use OpenSim\Models\Grid;
@@ -49,8 +48,8 @@ final class SimulatorPlanner
             'simulatorName' => '',      // that name
             'defaultName' => 'Sim1',
             'block' => 9000,      // the first block of ten ports free for the simulators of the grid
-            'current' => [],      // the settings of the simulator that exists (InstanceSettings::of its config)
-            'sibling' => [],      // the database account of another simulator of the grid: dbHost, dbUser, dbPass
+            'current' => null,    // the simulator, when it exists: its settings are the ones proposed
+            'sibling' => null,    // another simulator of the grid, whose database account is proposed
             'accounts' => null,   // the accounts of the grid, null when they are not known here
             'nextPort' => null,   // Closure(int $min): int, the first free port from there (default: Ports::next)
             'random' => null,     // Closure(int $length, bool $letters): string (default: random_int)
@@ -108,19 +107,20 @@ final class SimulatorPlanner
         $grid = $this->context['grid'];
         $slug = Slug::slug($grid->nick() . '_' . $name);
         $ini = "{$grid->directory()}/sims/$slug.ini";
-        $sibling = [];
+        $environment = Environment::forProfile($this->context['profile']);
+        $sibling = null;
         foreach (glob("{$grid->directory()}/sims/*.ini") ?: [] as $other) {
-            if (basename($other, '.ini') === $slug || $sibling !== []) {
+            if (basename($other, '.ini') === $slug || $sibling !== null) {
                 continue;
             }
-            $found = InstanceSettings::of($other);
-            if (($found['dbUser'] ?? '') !== '' && ($found['dbPass'] ?? '') !== '') {
+            $found = new Simulator($environment, $other);
+            if (($found->databaseUser() ?? '') !== '' && ($found->databasePassword() ?? '') !== '') {
                 // The account of the first simulator of the grid is the one of the next ones, and so is its password
-                $sibling = array_intersect_key($found, array_flip(['dbHost', 'dbUser', 'dbPass']));
+                $sibling = $found;
             }
         }
 
-        return $this->with(['current' => is_file($ini) ? InstanceSettings::of($ini) : [], 'sibling' => $sibling]);
+        return $this->with(['current' => is_file($ini) ? new Simulator($environment, $ini) : null, 'sibling' => $sibling]);
     }
 
     /** The cores that can run the simulator (folder => name). */
@@ -168,29 +168,29 @@ final class SimulatorPlanner
             ? $core
             : (string) ($grid->coreDirectory() !== '' && isset($cores[$grid->coreDirectory()]) ? $grid->coreDirectory() : array_key_first($cores));
 
-        $http0 = (int) ($current['httpPort'] ?? $c['block']);
+        $http0 = (int) ($current?->httpPort() ?? $c['block']);
         $http = (int) ($answers['http_port'] ?? $http0);
-        $console0 = (int) ($current['consolePort'] ?? $this->consoleFor($http0));
+        $console0 = (int) ($current?->consolePort() ?? $this->consoleFor($http0));
         $owner = $c['accounts'] === null
-            ? $text('estate_owner', $current['estateOwner'] ?? '')
-            : ($c['accounts'] === [] ? '+' : $text('estate_owner', isset($current['estateOwner']) && in_array($current['estateOwner'], $c['accounts'], true) ? $current['estateOwner'] : $c['accounts'][0]));
+            ? $text('estate_owner', $current?->estateOwner() ?? '')
+            : ($c['accounts'] === [] ? '+' : $text('estate_owner', $current?->estateOwner() !== null && in_array($current->estateOwner(), $c['accounts'], true) ? $current->estateOwner() : $c['accounts'][0]));
 
         return [
             'name' => $name,
             'slug' => $slug,
             'core' => $core,
             'http_port' => $http,
-            'external_host' => $text('external_host', $current['externalHost'] ?? 'SYSTEMIP'),
-            'console' => $text('console', isset($current['consoleUser']) || $current === [] ? 'rest' : 'screen'),
+            'external_host' => $text('external_host', 'SYSTEMIP'),
+            'console' => $text('console', $current === null || $current->consoleUser() !== null ? 'rest' : 'screen'),
             'console_port' => (int) ($answers['console_port'] ?? ($http === $http0 ? $console0 : $this->consoleFor($http))),
-            'database_host' => $text('database_host', $current['dbHost'] ?? ($sibling['dbHost'] ?? $grid->databaseHost())),
-            'database_name' => $text('database_name', $current['dbName'] ?? $slug),
-            'database_user' => $text('database_user', $current['dbUser'] ?? ($sibling['dbUser'] ?? $grid->databaseUser())),
+            'database_host' => $text('database_host', $current?->databaseHost() ?? ($sibling?->databaseHost() ?? $grid->databaseHost())),
+            'database_name' => $text('database_name', $current?->databaseName() ?? $slug),
+            'database_user' => $text('database_user', $current?->databaseUser() ?? ($sibling?->databaseUser() ?? $grid->databaseUser())),
             'database_password' => $text(
                 'database_password',
-                $current['dbPass'] ?? ($sibling['dbPass'] ?? ($grid->databasePassword() !== '' ? $grid->databasePassword() : $this->secret('database_password', 20, false))),
+                $current?->databasePassword() ?? ($sibling?->databasePassword() ?? ($grid->databasePassword() !== '' ? $grid->databasePassword() : $this->secret('database_password', 20, false))),
             ),
-            'estate_name' => $text('estate_name', $current['estateName'] ?? "{$grid->name()} Estate"),
+            'estate_name' => $text('estate_name', $current?->estateName() ?? "{$grid->name()} Estate"),
             'estate_owner' => $owner,
             'new_name' => $text('new_name', ''),
             'new_password' => (string) ($answers['new_password'] ?? ''),
@@ -273,9 +273,9 @@ final class SimulatorPlanner
             $plan->consolePort = $v['console_port'];
             // As the helpers make theirs: 12 lower case letters, 32 letters and digits; the host clients reach it by is the public
             // address of the machine, when it is known
-            $plan->consoleHost = (string) ($current['consoleHost'] ?? ($plan->externalHost !== 'SYSTEMIP' ? $plan->externalHost : ''));
-            $plan->consoleUser = (string) ($current['consoleUser'] ?? $this->secret('console_user', 12, true));
-            $plan->consolePass = (string) ($current['consolePass'] ?? $this->secret('console_password', 32, false));
+            $plan->consoleHost = (string) ($current?->consoleHost() ?? ($plan->externalHost !== 'SYSTEMIP' ? $plan->externalHost : ''));
+            $plan->consoleUser = (string) ($current?->consoleUser() ?? $this->secret('console_user', 12, true));
+            $plan->consolePass = (string) ($current?->consolePassword() ?? $this->secret('console_password', 32, false));
         }
 
         $plan->dbHost = $v['database_host'];
