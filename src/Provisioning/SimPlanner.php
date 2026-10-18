@@ -6,10 +6,11 @@ namespace OpenSim\Provisioning;
 
 use OpenSim\Forms\FieldSet;
 use OpenSim\Models\Core;
+use OpenSim\Models\Grid;
 use OpenSim\Models\GridInfo;
-use OpenSim\Models\SimState;
 use OpenSim\Models\Simulator;
 use OpenSim\Network\Ports;
+use OpenSim\Runtime\Environment;
 
 /**
  * From the answers about a simulator to its plan. The answers are the fields of Simulator::fields(), by name (its screens: the
@@ -73,7 +74,7 @@ final class SimPlanner
         ]);
         // The first simulator of a grid has the name of its landing region, that is its first region; an accent is
         // transliterated (Noël becomes Noel)
-        $firstSim = !$grid->remote && SimState::names($grid->dir) === [];
+        $firstSim = !$grid->remote && Grid::at(Environment::forProfile($profile), $grid->dir)->simulatorNames() === [];
         $taken = static fn(string $v): ?string => Simulator::validateName($v) ?? (is_file("{$grid->dir}/sims/" . GridInfo::instanceName("{$grid->nick}_$v") . '.ini') ? 'taken' : null);
 
         // The ports of a simulator are a block of ten, the first free one from where the simulators of the grid start (9000 for

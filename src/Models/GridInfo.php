@@ -8,6 +8,7 @@ use OpenSim\Config\GridFileService;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\LocationFinder;
 use OpenSim\Provisioning\Slug;
+use OpenSim\Runtime\Environment;
 
 /**
  * A grid already configured, as its files tell it: what a simulator needs to
@@ -65,7 +66,7 @@ final class GridInfo
     public static function load(array $profile, string $nick): ?self
     {
         $etcRoot = $profile['EtcRoot'] ?? '';
-        $robustIni = GridState::robustIni($etcRoot, $nick);
+        $robustIni = Grid::find(Environment::forProfile($profile), $nick)?->robustIni();
         if ($robustIni === null) {
             return self::loadRemote($profile, $nick);
         }
@@ -195,7 +196,7 @@ final class GridInfo
     /** Whether the grid is only described here, its Robust being on another machine. */
     public static function isRemote(string $etcRoot, string $nick): bool
     {
-        return GridState::robustIni($etcRoot, $nick) === null &&
+        return Grid::find(Environment::forProfile(['EtcRoot' => $etcRoot]), $nick)?->robustIni() === null &&
             self::remoteValues("$etcRoot/grids/$nick/$nick.conf") !== null;
     }
 

@@ -3,8 +3,8 @@
 namespace OpenSim\Archives;
 
 use OpenSim\Models\GridInfo;
-use OpenSim\Models\GridState;
-use OpenSim\Models\SimState;
+use OpenSim\Models\Grid;
+use OpenSim\Runtime\Environment;
 
 /**
  * The backup of the administrator: what it takes to install a grid again as it is, on another machine or after a crash.
@@ -81,6 +81,7 @@ final class BackupService
     {
         $etc = rtrim($this->profile['EtcRoot'] ?? '', '/');
         $grid = GridInfo::load($this->profile, $nick) ?? throw new \RuntimeException("grid '$nick' is not known here");
+        $model = Grid::at(Environment::forProfile($this->profile), $grid->dir);
         $output = rtrim($options['output'] ?? $this->defaultOutput(), '/');
         if (!is_dir($output) && !@mkdir($output, 0o750, true) && !is_dir($output)) {
             throw new \RuntimeException("cannot make the folder $output");
@@ -140,7 +141,7 @@ final class BackupService
             $excludes = [];
             if ($slug !== null) {
                 // The simulator, with what it shares with the others (the files of the grid, not their simulators)
-                foreach (SimState::names($grid->dir) as $other) {
+                foreach ($model->simulatorNames() as $other) {
                     if ($other !== $slug) {
                         $excludes[] = "grids/$nick/sims/$other";
                         $excludes[] = "grids/$nick/sims/$other.ini";
@@ -151,13 +152,10 @@ final class BackupService
             $links =
                 $slug === null
                     ? [
-                        GridState::link($etc, $nick),
-                        ...array_map(
-                            static fn(string $s): string => SimState::link($etc, $s),
-                            SimState::names($grid->dir),
-                        ),
+                        ...array_filter([$model->robust()?->link()]),
+                        ...array_map($model->simulatorLink(...), $model->simulatorNames()),
                     ]
-                    : [SimState::link($etc, $slug)];
+                    : [$model->simulatorLink($slug)];
             foreach ($links as $link) {
                 if (is_link($link) && str_starts_with($link, "$etc/")) {
                     $paths[] = substr($link, strlen($etc) + 1);
@@ -192,7 +190,7 @@ final class BackupService
                         ? ["$slug.log*"]
                         : array_merge(
                             ["{$grid->robustInstance()}.log*"],
-                            array_map(static fn(string $s): string => "$s.log*", SimState::names($grid->dir)),
+                            array_map(static fn(string $s): string => "$s.log*", $model->simulatorNames()),
                         );
                 $found = [];
                 foreach ($names as $pattern) {
@@ -245,7 +243,7 @@ final class BackupService
                 'pass' => $grid->dbPass,
             ];
         }
-        foreach ($slug !== null ? [$slug] : SimState::names($grid->dir) as $sim) {
+        foreach ($slug !== null ? [$slug] : Grid::at(Environment::forProfile($this->profile), $grid->dir)->simulatorNames() as $sim) {
             $db = GridInfo::parse("{$grid->dir}/sims/$sim.ini");
             if (($db['dbName'] ?? '') !== '') {
                 $found[($db['dbHost'] ?? 'localhost') . '/' . $db['dbName']] = [

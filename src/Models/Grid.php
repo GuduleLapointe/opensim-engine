@@ -366,6 +366,25 @@ final class Grid implements \OpenSim\Interfaces\Enablable
         return $simulators;
     }
 
+    /**
+     * The names of the config files of its simulators, enabled or not: what their links and their logs are named after.
+     *
+     * @return list<string>
+     */
+    public function simulatorNames(): array
+    {
+        $names = array_map(static fn(string $file): string => basename($file, '.ini'), glob($this->directory . '/sims/*.ini') ?: []);
+        sort($names);
+
+        return $names;
+    }
+
+    /** The link that enables a simulator, by the name of its config file: where the launcher finds it. */
+    public function simulatorLink(string $name): string
+    {
+        return (new Simulator($this->environment, "{$this->directory}/sims/$name.ini"))->link();
+    }
+
     /** @return list<Simulator> the simulators that start with the others */
     public function enabledSimulators(): array
     {

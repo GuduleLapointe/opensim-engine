@@ -8,9 +8,10 @@ use OpenSim\Exceptions\SetupFailedException;
 use OpenSim\Config\GridFileService;
 use OpenSim\Config\IniEditor;
 use OpenSim\Models\GridInfo;
-use OpenSim\Models\GridState;
+use OpenSim\Models\Grid;
 use OpenSim\Provisioning\Web\HelpersConfig;
 use OpenSim\Provisioning\Web\Snippets;
+use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\ShellService;
 
 /**
@@ -26,7 +27,6 @@ final class GridProvisioner
     /** The writing itself: run as the system user of the install, root, or the user of an install without one. */
     public function apply(GridPlan $plan, array $profile): void
     {
-        $etcRoot = $profile['EtcRoot'];
         $this->makeDirs($plan);
         $conf = (new GridConf())->write($plan);
         $this->ui->note(sprintf(_('Wrote %s'), $conf));
@@ -59,9 +59,11 @@ final class GridProvisioner
         }
 
         if ($plan->enable) {
-            if (GridState::enable($etcRoot, $plan->gridNick)) {
-                $this->giveToSystemUser($systemUser, [GridState::link($etcRoot, $plan->gridNick)], false);
-                $this->ui->note(sprintf(_('Enabled: %s'), GridState::link($etcRoot, $plan->gridNick)));
+            $grid = Grid::at(Environment::forProfile($profile), $plan->gridDir);
+            if ($grid->enable()) {
+                $link = (string) $grid->robust()?->link();
+                $this->giveToSystemUser($systemUser, [$link], false);
+                $this->ui->note(sprintf(_('Enabled: %s'), $link));
                 if ($plan->start) {
                     $this->startGrid($plan);
                 }

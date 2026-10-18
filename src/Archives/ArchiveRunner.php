@@ -5,7 +5,8 @@ namespace OpenSim\Archives;
 use OpenSim\Console\InstanceConsoleService;
 use OpenSim\Models\GridInfo;
 use OpenSim\Models\Region;
-use OpenSim\Models\SimState;
+use OpenSim\Models\Grid;
+use OpenSim\Runtime\Environment;
 
 /**
  * `opensim save|load iar|oar`: find the simulator, the region and the file, give the console of the simulator its command,
@@ -206,10 +207,10 @@ final class ArchiveRunner
     /** A simulator of the grid that runs: any for a command that is the grid's (an inventory), the only one for a region */
     private function pickSimulator(GridInfo $grid, bool $onlyOne): string
     {
-        $etc = $this->profile['EtcRoot'] ?? '';
-        $names = SimState::names($grid->dir);
+        $model = Grid::at(Environment::forProfile($this->profile), $grid->dir);
+        $names = $model->simulatorNames();
         $up = array_values(
-            array_filter($names, fn(string $slug): bool => ($this->running)(SimState::link($etc, $slug))),
+            array_filter($names, fn(string $slug): bool => ($this->running)($model->simulatorLink($slug))),
         );
         if ($up === []) {
             throw new \RuntimeException(

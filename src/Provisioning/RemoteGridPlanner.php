@@ -7,7 +7,7 @@ namespace OpenSim\Provisioning;
 use OpenSim\Forms\FieldSet;
 use OpenSim\Models\Grid;
 use OpenSim\Models\GridInfo;
-use OpenSim\Models\GridState;
+use OpenSim\Runtime\Environment;
 
 /**
  * From the answers about a grid whose Robust runs elsewhere to the description a simulator joins it with. The answers are the
@@ -144,7 +144,7 @@ final class RemoteGridPlanner
             $nick = Slug::nick($name);
         }
 
-        if (GridState::robustIni($etcRoot, $nick) !== null) {
+        if (Grid::find(Environment::forProfile($profile), $nick)?->robustIni() !== null) {
             $result['error'] = sprintf(_("A grid of this machine already has the nick '%s': it is its own Robust, not another one."), $nick);
 
             return $result;

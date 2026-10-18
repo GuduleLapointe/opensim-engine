@@ -51,6 +51,16 @@ final class Environment
         );
     }
 
+    /**
+     * The environment of an install described by its profile (the settings of its layout, `Layout::all()`).
+     *
+     * @param array<string,string> $profile
+     */
+    public static function forProfile(array $profile, ?ReporterInterface $reporter = null): self
+    {
+        return self::system(new Layout($profile), $reporter);
+    }
+
     /** The same environment saying what it does to another reporter. */
     public function reporting(ReporterInterface $reporter): self
     {

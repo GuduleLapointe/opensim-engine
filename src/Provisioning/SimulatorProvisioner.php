@@ -7,9 +7,11 @@ namespace OpenSim\Provisioning;
 use OpenSim\Exceptions\SetupFailedException;
 use OpenSim\Config\GridFileService;
 use OpenSim\Console\InstanceConsoleService;
+use OpenSim\Models\Grid;
 use OpenSim\Models\GridInfo;
 use OpenSim\Models\Region;
-use OpenSim\Models\SimState;
+use OpenSim\Models\Simulator;
+use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\ShellService;
 
 /**
@@ -116,9 +118,10 @@ final class SimulatorProvisioner
         GridFileService::protect($plan->gridDir);
 
         if ($plan->enable) {
-            if (SimState::enable($etcRoot, $plan->slug, $plan->iniPath())) {
-                $this->giveToSystemUser($systemUser, [SimState::link($etcRoot, $plan->slug)], false);
-                $this->ui->note(sprintf(_('Enabled: %s'), SimState::link($etcRoot, $plan->slug)));
+            $simulator = new Simulator(Environment::forProfile($profile), $plan->iniPath());
+            if ($simulator->enable()) {
+                $this->giveToSystemUser($systemUser, [$simulator->link()], false);
+                $this->ui->note(sprintf(_('Enabled: %s'), $simulator->link()));
                 if ($plan->start) {
                     $this->startSim($plan, $grid, $profile);
                 }
@@ -408,7 +411,7 @@ final class SimulatorProvisioner
             return;
         }
 
-        if (!InstanceConsoleService::running(SimState::link($profile['EtcRoot'], $plan->slug))) {
+        if (!InstanceConsoleService::running(Grid::at(Environment::forProfile($profile), $plan->gridDir)->simulatorLink($plan->slug))) {
             $this->startSim($plan, $grid, $profile);
 
             return;
