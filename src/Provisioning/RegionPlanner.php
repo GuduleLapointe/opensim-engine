@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace OpenSim\Provisioning;
 
 use OpenSim\Forms\FieldSet;
-use OpenSim\Models\GridInfo;
+use OpenSim\Models\Grid;
 use OpenSim\Models\Region;
 use OpenSim\Network\Ports;
 
@@ -38,7 +38,7 @@ final class RegionPlanner
     public static function context(): array
     {
         return [
-            'grid' => null,          // the GridInfo of the grid the region is in
+            'grid' => null,          // the Grid of the grid the region is in
             'optional' => false,     // the first region of a simulator, which may be left out
             'fixed' => false,        // a region that exists, which only moves
             'pool' => [],            // instance => title of the simulators that can take it
@@ -64,7 +64,7 @@ final class RegionPlanner
      * @param array<string,string> $pool the simulators that can take it (instance => title)
      * @param ?\Closure(string):int $portOfSimulator the HTTP port of a simulator of the pool
      */
-    public static function forSimulator(SimulatorPlan $plan, GridInfo $grid, DatabaseService $database, bool $optional = false, array $pool = [], string $defaultName = '', ?\Closure $portOfSimulator = null): self
+    public static function forSimulator(SimulatorPlan $plan, Grid $grid, DatabaseService $database, bool $optional = false, array $pool = [], string $defaultName = '', ?\Closure $portOfSimulator = null): self
     {
         $registry = new GridRegistry($database);
 
@@ -233,10 +233,10 @@ final class RegionPlanner
         if (isset($this->context['taken'][strtolower(trim($name))])) {
             return 'The grid has a region of this name already.';
         }
-        if ($grid?->remote === true) {
+        if ($grid?->isRemote() === true) {
             $has = $this->context['remoteHas'] !== null
                 ? ($this->context['remoteHas'])(trim($name))
-                : RobustGrid::hasRegion($grid->baseHostname, $grid->privatePort, trim($name));
+                : RobustGrid::hasRegion($grid->baseHostname(), $grid->privatePort(), trim($name));
             if ($has === true) {
                 return 'The grid has a region of this name already.';
             }

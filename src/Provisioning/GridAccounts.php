@@ -3,7 +3,7 @@
 namespace OpenSim\Provisioning;
 
 use OpenSim\Console\InstanceConsoleService;
-use OpenSim\Models\GridInfo;
+use OpenSim\Models\Grid;
 use OpenSim\Runtime\ShellService;
 
 /**
@@ -33,9 +33,9 @@ final class GridAccounts
      *
      * @return list<string>|null
      */
-    public function names(GridInfo $grid): ?array
+    public function names(Grid $grid): ?array
     {
-        if ($grid->planned) {
+        if ($grid->isPlanned()) {
             return []; // not made yet: no account
         }
 
@@ -46,7 +46,7 @@ final class GridAccounts
     }
 
     /** Whether an account exists, or null when it cannot be told. */
-    public function exists(GridInfo $grid, string $name): ?bool
+    public function exists(Grid $grid, string $name): ?bool
     {
         if (!self::validName($name)) {
             return false;
@@ -77,7 +77,7 @@ final class GridAccounts
      *
      * @return bool|null whether the account has that home or one of its own, null when it cannot be told
      */
-    public function setHome(GridInfo $grid, string $name, string $regionId): ?bool
+    public function setHome(Grid $grid, string $name, string $regionId): ?bool
     {
         if (!self::validName($name) || preg_match('/^[0-9a-fA-F-]{36}$/', $regionId) !== 1) {
             return false;
@@ -110,7 +110,7 @@ final class GridAccounts
      *
      * @return bool|null whether it could be written, null when it cannot be told
      */
-    public function raiseHome(GridInfo $grid, string $name): ?bool
+    public function raiseHome(Grid $grid, string $name): ?bool
     {
         if (!self::validName($name)) {
             return false;
@@ -135,7 +135,7 @@ final class GridAccounts
      * Create an account, through the console of the grid's Robust, which is
      * started when it is not running. Runs as the user of the instances.
      */
-    public function create(GridInfo $grid, string $name, string $password, string $email): bool
+    public function create(Grid $grid, string $name, string $password, string $email): bool
     {
         $instance = $grid->robustInstance();
         // The answers of the prompts that follow: the email, a random ID, the default model
@@ -145,11 +145,11 @@ final class GridAccounts
         $lines = "create user $name $typed $email\n\n\n\n";
 
         if (!InstanceConsoleService::send($instance, $lines)) {
-            $this->ui->note(sprintf(_("Starting the grid '%s' to create the account."), $grid->nick));
-            [$code] = InstanceControl::run($this->ui, 'start', $grid->nick);
+            $this->ui->note(sprintf(_("Starting the grid '%s' to create the account."), $grid->nick()));
+            [$code] = InstanceControl::run($this->ui, 'start', $grid->nick());
             if ($code !== 0 || !InstanceConsoleService::send($instance, $lines)) {
                 $this->ui->error(
-                    sprintf(_("Could not reach the console of the grid '%s' to create the account."), $grid->nick),
+                    sprintf(_("Could not reach the console of the grid '%s' to create the account."), $grid->nick()),
                 );
 
                 return false;

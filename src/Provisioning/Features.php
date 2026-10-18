@@ -3,7 +3,7 @@
 namespace OpenSim\Provisioning;
 
 use OpenSim\Config\IniEditor;
-use OpenSim\Models\GridInfo;
+use OpenSim\Models\Grid;
 
 /**
  * What `opensim enable|disable <grid> <feature>` writes: the settings a feature of a grid needs, in the files of its
@@ -30,7 +30,7 @@ final class Features
     public const MONEY = ['beta' => 'BetaGridLikeMoneyModule', 'gloebit' => 'Gloebit'];
 
     /** @param array<string,mixed> $profile the setup of the user (CoreDirectory, EnabledModules, ModulesRoot) */
-    public function __construct(private GridInfo $grid, private array $profile = []) {}
+    public function __construct(private Grid $grid, private array $profile = []) {}
 
     public static function isFeature(string $word): bool
     {
@@ -65,9 +65,9 @@ final class Features
      */
     public function general(): string
     {
-        $dir = $this->grid->preset !== '' ? SimulatorMaster::presetDir($this->grid->dir) : null;
+        $dir = $this->grid->preset() !== '' ? SimulatorMaster::presetDir($this->grid->directory()) : null;
 
-        return ($dir ?? $this->grid->dir) . '/OpenSim.ini';
+        return ($dir ?? $this->grid->directory()) . '/OpenSim.ini';
     }
 
     /**
@@ -78,7 +78,7 @@ final class Features
     public function simulators(): array
     {
         $simulators = [];
-        $files = glob("{$this->grid->dir}/sims/*.ini") ?: [];
+        $files = glob("{$this->grid->directory()}/sims/*.ini") ?: [];
         sort($files);
         foreach ($files as $file) {
             $simulators[basename($file, '.ini')] = $file;
@@ -127,12 +127,12 @@ final class Features
      */
     private function search(bool $on, string $prefix, array $result): array
     {
-        $name = SimulatorConfig::dataServiceNameOf($this->grid->nick, $this->grid->name);
+        $name = SimulatorConfig::dataServiceNameOf($this->grid->nick(), $this->grid->name());
         $query = $prefix !== '' ? "$prefix/query.php" : $this->grid->helperUrl('query');
         $register = $prefix !== '' ? "$prefix/register.php" : $this->grid->helperUrl('register');
         if ($on && ($query === '' || $register === '')) {
-            $result['error'] = "the grid {$this->grid->nick} has no helpers: give the address of its search service, "
-                . "opensim enable {$this->grid->nick} search https://www.example.org/helpers";
+            $result['error'] = "the grid {$this->grid->nick()} has no helpers: give the address of its search service, "
+                . "opensim enable {$this->grid->nick()} search https://www.example.org/helpers";
 
             return $result;
         }
@@ -143,7 +143,7 @@ final class Features
                 $this->put($ini, $grid, 'Search', 'Module', 'OpenSimSearch');
                 $this->put($ini, $grid, 'Search', 'SearchURL', $this->quote($query));
                 $this->put($ini, $grid, 'DataSnapshot', 'index_sims', 'true');
-                $this->put($ini, $grid, 'DataSnapshot', 'gridname', $this->quote($this->grid->name));
+                $this->put($ini, $grid, 'DataSnapshot', 'gridname', $this->quote($this->grid->name()));
                 $this->put($ini, $grid, 'DataSnapshot', $service, $this->quote($register));
 
                 return;
@@ -195,8 +195,8 @@ final class Features
      */
     private function finish(array $result): array
     {
-        if ($result['error'] === null && $this->layered() && $this->grid->coreDirectory !== '') {
-            (new SimulatorMaster())->ensure($this->grid->dir, $this->grid->coreDirectory . '/bin');
+        if ($result['error'] === null && $this->layered() && $this->grid->coreDirectory() !== '') {
+            (new SimulatorMaster())->ensure($this->grid->directory(), $this->grid->coreDirectory() . '/bin');
         }
 
         return $result;
@@ -205,7 +205,7 @@ final class Features
     /** Whether the grid has a master for its simulators: what it decides is in its OpenSim.ini, its simulators say what is their own. */
     private function layered(): bool
     {
-        return SimulatorMaster::exists($this->grid->dir);
+        return SimulatorMaster::exists($this->grid->directory());
     }
 
     /** The path of a page of the helpers on the site of the grid (/search, /profile), empty when the grid has no helpers. */
@@ -349,13 +349,14 @@ final class Features
      */
     private function robust(callable $edit, array &$result): bool
     {
-        if ($this->grid->remote || $this->grid->robustIni === '' || !is_file($this->grid->robustIni)) {
-            $result['notes'][] = "Robust of {$this->grid->nick} is not on this machine: the same change is to make in its config there";
+        $ini = $this->grid->robustIni();
+        if ($this->grid->isRemote() || $ini === null || !is_file($ini)) {
+            $result['notes'][] = "Robust of {$this->grid->nick()} is not on this machine: the same change is to make in its config there";
 
             return false;
         }
 
-        return $this->edit($this->grid->robustIni, $edit);
+        return $this->edit($ini, $edit);
     }
 
     /** Run an edit on an ini file and save it when it changed. */
@@ -375,7 +376,8 @@ final class Features
     /** The address of the economy the grid gives its viewers, else where its helpers are. */
     private function economyUrl(): string
     {
-        $current = $this->grid->robustIni !== '' && is_file($this->grid->robustIni) ? IniEditor::load($this->grid->robustIni)->get('GridInfoService', 'economy') : null;
+        $ini = $this->grid->robustIni();
+        $current = $ini !== null && is_file($ini) ? IniEditor::load($ini)->get('GridInfoService', 'economy') : null;
         if ($current !== null && $current !== '') {
             return $current;
         }

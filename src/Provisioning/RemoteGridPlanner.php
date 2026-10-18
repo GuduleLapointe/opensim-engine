@@ -6,7 +6,6 @@ namespace OpenSim\Provisioning;
 
 use OpenSim\Forms\FieldSet;
 use OpenSim\Models\Grid;
-use OpenSim\Models\GridInfo;
 use OpenSim\Runtime\Environment;
 
 /**
@@ -114,12 +113,13 @@ final class RemoteGridPlanner
      * The grid these answers describe.
      *
      * @param string $preset the preset the answers come from: the grid is not asked what the preset says
-     * @return array{grid:?GridInfo,error:?string,notes:list<string>,warnings:list<string>}
+     * @return array{grid:?Grid,error:?string,notes:list<string>,warnings:list<string>}
      */
     public function plan(array $answers, string $preset = ''): array
     {
         $profile = $this->context['profile'];
         $etcRoot = (string) ($profile['EtcRoot'] ?? '');
+        $environment = Environment::forProfile($profile);
         $v = $this->resolve($answers);
         $result = ['grid' => null, 'error' => null, 'notes' => [], 'warnings' => []];
 
@@ -129,7 +129,7 @@ final class RemoteGridPlanner
         $public = (int) ($parts['port'] ?? 8002);
 
         // A preset says all that is needed, the grid is not asked
-        $said = $preset !== '' ? [] : $this->says($host, $public);
+        $said = $preset !== '' ? [] : $this->says($environment, $host, $public);
         if ($said === [] && $preset === '') {
             $result['warnings'][] = sprintf(
                 _('The grid did not answer at http://%s:%s/get_grid_info: check its address and its public port, or go on with what you know of it.'),
@@ -144,34 +144,35 @@ final class RemoteGridPlanner
             $nick = Slug::nick($name);
         }
 
-        if (Grid::find(Environment::forProfile($profile), $nick)?->robustIni() !== null) {
+        $known = Grid::find($environment, $nick);
+        if ($known?->robustIni() !== null) {
             $result['error'] = sprintf(_("A grid of this machine already has the nick '%s': it is its own Robust, not another one."), $nick);
 
             return $result;
         }
-        if (GridInfo::isRemote($etcRoot, $nick)) {
+        if ($known?->isRemote()) {
             $result['notes'][] = sprintf(_("Grid '%s' is already known here, its description is kept."), $nick);
-            $result['grid'] = GridInfo::load($profile, $nick);
+            $result['grid'] = $known;
 
             return $result;
         }
 
-        $grid = new GridInfo();
-        $grid->remote = true;
-        $grid->preset = $preset;
-        $grid->nick = $nick;
-        $grid->name = $name;
-        $grid->slug = Slug::slug($name);
-        $grid->dir = "$etcRoot/grids/$nick";
-        $grid->hypergrid = filter_var($v['hypergrid'], FILTER_VALIDATE_BOOLEAN);
-        $grid->baseHostname = $host;
-        $grid->publicPort = $public;
-        $grid->privatePort = trim((string) $v['private_port']) !== '' ? (int) $v['private_port'] : $public + 1;
-        $grid->coreDirectory = (string) ($profile['CoreDirectory'] ?? '');
-        $grid->dataDirectory = ($profile['DataRoot'] ?? '') . "/$nick";
-        $grid->cacheDirectory = ($profile['CacheRoot'] ?? '') . "/$nick";
-        $grid->logsDirectory = (string) ($profile['LogsRoot'] ?? '');
-        $result['grid'] = $grid;
+        $result['grid'] = Grid::described([
+            'remote' => true,
+            'preset' => $preset,
+            'nick' => $nick,
+            'name' => $name,
+            'slug' => Slug::slug($name),
+            'directory' => "$etcRoot/grids/$nick",
+            'hypergrid' => filter_var($v['hypergrid'], FILTER_VALIDATE_BOOLEAN),
+            'baseHostname' => $host,
+            'publicPort' => $public,
+            'privatePort' => trim((string) $v['private_port']) !== '' ? (int) $v['private_port'] : $public + 1,
+            'coreDirectory' => (string) ($profile['CoreDirectory'] ?? ''),
+            'dataDirectory' => ($profile['DataRoot'] ?? '') . "/$nick",
+            'cacheDirectory' => ($profile['CacheRoot'] ?? '') . "/$nick",
+            'logsDirectory' => (string) ($profile['LogsRoot'] ?? ''),
+        ], $environment);
 
         return $result;
     }
@@ -181,19 +182,12 @@ final class RemoteGridPlanner
      *
      * @return array<string,string> gridname, gridnick..., empty when it does not answer
      */
-    private function says(string $host, int $port): array
+    private function says(Environment $environment, string $host, int $port): array
     {
         if ($this->context['says'] !== null) {
             return ($this->context['says'])($host, $port);
         }
-        $body = @file_get_contents("http://$host:$port/get_grid_info", false, stream_context_create(['http' => ['timeout' => 5]]));
-        $said = [];
-        foreach (['gridname', 'gridnick'] as $key) {
-            if ($body !== false && preg_match("#<$key>([^<]+)</$key>#", $body, $m)) {
-                $said[$key] = trim(html_entity_decode($m[1], ENT_QUOTES | ENT_XML1));
-            }
-        }
 
-        return $said;
+        return Grid::announcement($environment, $host, $port);
     }
 }

@@ -2,8 +2,9 @@
 
 namespace OpenSim\Archives;
 
-use OpenSim\Models\GridInfo;
+use OpenSim\Config\InstanceSettings;
 use OpenSim\Models\Grid;
+use OpenSim\Provisioning\Slug;
 use OpenSim\Runtime\Environment;
 
 /**
@@ -80,8 +81,8 @@ final class BackupService
     private function backup(string $nick, ?string $slug, array $options): string
     {
         $etc = rtrim($this->profile['EtcRoot'] ?? '', '/');
-        $grid = GridInfo::load($this->profile, $nick) ?? throw new \RuntimeException("grid '$nick' is not known here");
-        $model = Grid::at(Environment::forProfile($this->profile), $grid->dir);
+        $grid = Grid::find(Environment::forProfile($this->profile), $nick) ?? throw new \RuntimeException("grid '$nick' is not known here");
+        $model = Grid::at(Environment::forProfile($this->profile), $grid->directory());
         $output = rtrim($options['output'] ?? $this->defaultOutput(), '/');
         if (!is_dir($output) && !@mkdir($output, 0o750, true) && !is_dir($output)) {
             throw new \RuntimeException("cannot make the folder $output");
@@ -127,7 +128,7 @@ final class BackupService
                             $databases,
                         ),
                         'etc' => $etc,
-                        'data' => $grid->dataDirectory,
+                        'data' => $grid->dataDirectory(),
                         'logs' => (bool) ($options['logs'] ?? false),
                         'archives' => (bool) ($options['archives'] ?? false),
                     ],
@@ -167,7 +168,7 @@ final class BackupService
             $this->append($tar, 'etc', $etc, $paths, $excludes);
 
             // The data: the folder of the grid, without the archives of the users unless asked
-            $data = rtrim($grid->dataDirectory, '/');
+            $data = rtrim($grid->dataDirectory(), '/');
             if (is_dir($data)) {
                 $excludes = $options['archives'] ?? false ? [] : [basename($data) . '/backups'];
                 $root = dirname($data);
@@ -184,7 +185,7 @@ final class BackupService
                 }
             }
             if ($options['logs'] ?? false) {
-                $logs = rtrim($grid->logsDirectory, '/');
+                $logs = rtrim($grid->logsDirectory(), '/');
                 $names =
                     $slug !== null
                         ? ["$slug.log*"]
@@ -222,7 +223,7 @@ final class BackupService
     /** The name of a simulator without the grid's: the part of its instance after the nick */
     private function simulatorName(string $nick, string $slug): string
     {
-        $prefix = GridInfo::instanceName($nick) . '_';
+        $prefix = Slug::slug($nick) . '_';
 
         return Archives::part(str_starts_with($slug, $prefix) ? substr($slug, strlen($prefix)) : $slug);
     }
@@ -232,19 +233,19 @@ final class BackupService
      *
      * @return list<array{host:string,name:string,user:string,pass:string}>
      */
-    private function databases(GridInfo $grid, ?string $slug): array
+    private function databases(Grid $grid, ?string $slug): array
     {
         $found = [];
-        if ($slug === null && !$grid->remote && $grid->dbName !== '') {
-            $found["{$grid->dbHost}/{$grid->dbName}"] = [
-                'host' => $grid->dbHost,
-                'name' => $grid->dbName,
-                'user' => $grid->dbUser,
-                'pass' => $grid->dbPass,
+        if ($slug === null && !$grid->isRemote() && $grid->databaseName() !== '') {
+            $found["{$grid->databaseHost()}/{$grid->databaseName()}"] = [
+                'host' => $grid->databaseHost(),
+                'name' => $grid->databaseName(),
+                'user' => $grid->databaseUser(),
+                'pass' => $grid->databasePassword(),
             ];
         }
-        foreach ($slug !== null ? [$slug] : Grid::at(Environment::forProfile($this->profile), $grid->dir)->simulatorNames() as $simulator) {
-            $db = GridInfo::parse("{$grid->dir}/sims/$simulator.ini");
+        foreach ($slug !== null ? [$slug] : Grid::at(Environment::forProfile($this->profile), $grid->directory())->simulatorNames() as $simulator) {
+            $db = InstanceSettings::of("{$grid->directory()}/sims/$simulator.ini");
             if (($db['dbName'] ?? '') !== '') {
                 $found[($db['dbHost'] ?? 'localhost') . '/' . $db['dbName']] = [
                     'host' => $db['dbHost'] ?? 'localhost',

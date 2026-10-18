@@ -19,7 +19,7 @@ final class GridConf
      * The description of a grid whose Robust is on another machine, what a
      * simulator needs to join it.
      *
-     * @param array<string,mixed> $grid GridInfo::describe()
+     * @param array<string,mixed> $grid Grid::describe()
      */
     public function writeRemote(array $grid): string
     {
@@ -39,7 +39,7 @@ final class GridConf
             'LogsDirectory = "' . $grid['logsDirectory'] . '"',
             '',
         ];
-        $path = "{$grid['dir']}/{$grid['nick']}.conf";
+        $path = "{$grid['directory']}/{$grid['nick']}.conf";
         @mkdir(dirname($path), 0o755, true);
         file_put_contents($path, implode("\n", $lines));
 

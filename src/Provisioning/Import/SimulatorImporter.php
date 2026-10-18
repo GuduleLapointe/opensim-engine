@@ -5,8 +5,9 @@ namespace OpenSim\Provisioning\Import;
 use OpenSim\Config\GridFileService;
 use OpenSim\Config\ConfigReader;
 use OpenSim\Config\ConnectionString;
-use OpenSim\Models\GridInfo;
+use OpenSim\Models\Grid;
 use OpenSim\Provisioning\SimulatorPlan;
+use OpenSim\Provisioning\Slug;
 
 /**
  * Ports the configuration of a simulator of a grid (an OpenSim.ini with its includes, its regions folder) the way
@@ -23,7 +24,7 @@ final class SimulatorImporter
     public static function plan(
         array $raw,
         string $path,
-        GridInfo $grid,
+        Grid $grid,
         array $profile,
         ?string $name,
         string $core,
@@ -51,22 +52,22 @@ final class SimulatorImporter
         }
 
         $plan = new SimulatorPlan();
-        $plan->gridNick = $grid->nick;
-        $plan->gridName = $grid->name;
-        $plan->gridDir = $grid->dir;
-        $plan->hypergrid = $grid->hypergrid;
-        $plan->baseHostname = $grid->baseHostname;
-        $plan->publicPort = $grid->publicPort;
-        $plan->privatePort = $grid->privatePort;
-        $plan->logsDirectory = $grid->logsDirectory;
-        $plan->gridHere = !$grid->remote;
-        $plan->connectors = $grid->connectors;
+        $plan->gridNick = $grid->nick();
+        $plan->gridName = $grid->name();
+        $plan->gridDir = $grid->directory();
+        $plan->hypergrid = $grid->isHypergrid();
+        $plan->baseHostname = $grid->baseHostname();
+        $plan->publicPort = $grid->publicPort();
+        $plan->privatePort = $grid->privatePort();
+        $plan->logsDirectory = $grid->logsDirectory();
+        $plan->gridHere = !$grid->isRemote();
+        $plan->connectors = $grid->connectors();
         $plan->coreDirectory = $core;
         $plan->simulatorName = $name;
-        $plan->slug = GridInfo::instanceName($grid->nick . '_' . $name);
+        $plan->slug = Slug::slug($grid->nick() . '_' . $name);
         $plan->httpPort = $port;
-        $plan->dataDirectory = "{$grid->dataDirectory}/{$plan->slug}";
-        $plan->cacheDirectory = "{$grid->cacheDirectory}/{$plan->slug}";
+        $plan->dataDirectory = "{$grid->dataDirectory()}/{$plan->slug}";
+        $plan->cacheDirectory = "{$grid->cacheDirectory()}/{$plan->slug}";
         [$plan->dbHost, $plan->dbName, $plan->dbUser, $plan->dbPass] = [$db->source, $db->database, $db->user, $db->password];
 
         $network = $ini['Network'] ?? [];
@@ -79,7 +80,7 @@ final class SimulatorImporter
         } else {
             $plan->consoleMode = 'screen';
         }
-        $plan->estateName = $ini['Estates']['DefaultEstateName'] ?? "{$grid->name} Estate";
+        $plan->estateName = $ini['Estates']['DefaultEstateName'] ?? "{$grid->name()} Estate";
         $plan->estateOwner = $ini['Estates']['DefaultEstateOwnerName'] ?? '';
         $plan->createRegion = false;
         $plan->enable = false;

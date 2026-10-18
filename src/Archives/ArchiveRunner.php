@@ -3,9 +3,9 @@
 namespace OpenSim\Archives;
 
 use OpenSim\Console\InstanceConsoleService;
-use OpenSim\Models\GridInfo;
-use OpenSim\Models\Region;
 use OpenSim\Models\Grid;
+use OpenSim\Models\Region;
+use OpenSim\Provisioning\Slug;
 use OpenSim\Runtime\Environment;
 
 /**
@@ -110,12 +110,12 @@ final class ArchiveRunner
         }
 
         [$nick, $slug, $named] = Instances::locate($this->profile, $refs);
-        $grid = GridInfo::load($this->profile, $nick) ?? throw new \RuntimeException("grid '$nick' is not known here");
+        $grid = Grid::find(Environment::forProfile($this->profile), $nick) ?? throw new \RuntimeException("grid '$nick' is not known here");
         if ($named !== null && !isset($options['region'])) {
             $options['region'] = $named;
         }
         $slug ??= $this->pickSimulator($grid, $kind === 'oar');
-        $directory = rtrim($grid->dataDirectory, '/') . "/backups/$kind";
+        $directory = rtrim($grid->dataDirectory(), '/') . "/backups/$kind";
 
         $lines = [];
         $region = null;
@@ -125,14 +125,14 @@ final class ArchiveRunner
             // No region is all of them: the root of the console
             $lines[] = 'change region ' . ($region ?? 'root');
             $simulator = $this->simulatorName($grid, $slug);
-            $prefix = Archives::oarPrefix($grid->nick, $simulator, isset($options['all']) ? null : $region);
+            $prefix = Archives::oarPrefix($grid->nick(), $simulator, isset($options['all']) ? null : $region);
             $name =
-                $verb === 'save' ? Archives::oarName($grid->nick, $simulator, $region, $options, Archives::stamp()) : null;
+                $verb === 'save' ? Archives::oarName($grid->nick(), $simulator, $region, $options, Archives::stamp()) : null;
         } else {
-            $prefix = Archives::iarPrefix($grid->nick, $given['first'], $given['last']);
+            $prefix = Archives::iarPrefix($grid->nick(), $given['first'], $given['last']);
             $name =
                 $verb === 'save'
-                    ? Archives::iarName($grid->nick, $given['first'], $given['last'], $options, Archives::stamp())
+                    ? Archives::iarName($grid->nick(), $given['first'], $given['last'], $options, Archives::stamp())
                     : null;
             $arguments = [$given['first'], $given['last'], $given['path'], $this->password($given)];
         }
@@ -141,7 +141,7 @@ final class ArchiveRunner
         $arguments[] = $file;
         $lines[] = Archives::line($verb, $kind, $options, $arguments);
 
-        $log = rtrim($grid->logsDirectory, '/') . "/$slug.log";
+        $log = rtrim($grid->logsDirectory(), '/') . "/$slug.log";
         $mark = is_file($log) ? (int) filesize($log) : 0;
         if (!($this->send)($slug, implode("\n", $lines) . "\n")) {
             throw new \RuntimeException("$slug does not answer: is it running?");
@@ -205,16 +205,16 @@ final class ArchiveRunner
     }
 
     /** A simulator of the grid that runs: any for a command that is the grid's (an inventory), the only one for a region */
-    private function pickSimulator(GridInfo $grid, bool $onlyOne): string
+    private function pickSimulator(Grid $grid, bool $onlyOne): string
     {
-        $model = Grid::at(Environment::forProfile($this->profile), $grid->dir);
+        $model = Grid::at(Environment::forProfile($this->profile), $grid->directory());
         $names = $model->simulatorNames();
         $up = array_values(
             array_filter($names, fn(string $slug): bool => ($this->running)($model->simulatorLink($slug))),
         );
         if ($up === []) {
             throw new \RuntimeException(
-                "no simulator of the grid '{$grid->nick}' runs" .
+                "no simulator of the grid '{$grid->nick()}' runs" .
                     ($names === [] ? ' (it has none)' : ': start one of ' . implode(', ', $names)),
             );
         }
@@ -226,9 +226,9 @@ final class ArchiveRunner
         return $up[0];
     }
 
-    private function simulatorName(GridInfo $grid, string $slug): string
+    private function simulatorName(Grid $grid, string $slug): string
     {
-        $prefix = GridInfo::instanceName($grid->nick) . '_';
+        $prefix = Slug::slug($grid->nick()) . '_';
 
         return str_starts_with($slug, $prefix) ? substr($slug, strlen($prefix)) : $slug;
     }
@@ -239,11 +239,11 @@ final class ArchiveRunner
      *
      * @param array<string,string|true> $options
      */
-    private function region(GridInfo $grid, string $slug, array $options): ?string
+    private function region(Grid $grid, string $slug, array $options): ?string
     {
         $names = array_values(array_map(
             static fn(Region $region): string => $region->name(),
-            array_filter(Region::inDirectory("{$grid->dir}/sims/$slug/regions"), static fn(Region $region): bool => $region->isEnabled()),
+            array_filter(Region::inDirectory("{$grid->directory()}/sims/$slug/regions"), static fn(Region $region): bool => $region->isEnabled()),
         ));
         if (isset($options['region'])) {
             if ($names !== [] && !in_array($options['region'], $names, true)) {

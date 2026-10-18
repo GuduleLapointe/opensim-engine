@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace OpenSim\Models;
 
 use OpenSim\Config\ConfigReader;
+use OpenSim\Config\InstanceSettings;
+use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\LocationFinder;
+use OpenSim\Provisioning\Slug;
 use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\Result;
 
@@ -16,15 +19,70 @@ use OpenSim\Runtime\Result;
  *
  * The services of a grid (its Robust) start, stop and restart on their own: its simulators do not need to restart with them.
  * They are included when asked, and then stop first and start last.
+ *
+ * It is the same object whatever it is read from, and it owns what is known of the grid. Where it comes from (`sources()`, `in()`):
+ *
+ *  - its folder on this machine (`at()`, `find()`, `all()`): the Robust config and the description;
+ *  - a plan, a grid that is not made yet (`planned()`);
+ *  - a description given (`described()`): what the setup asks of a grid run elsewhere, a test;
+ *  - what the grid says of itself at its public port, /get_grid_info (`announced()`).
+ *
+ * What a source does not tell has the value of a grid by the book (DEFAULTS). The xmlrpc calls of the hypergrid, the tables of
+ * OpenSimSearch, the console and the database give the same properties when they are read.
  */
 final class Grid implements \OpenSim\Interfaces\Enablable
 {
     /** The files that hold the Robust config, the first that exists is the one. */
     private const ROBUST_FILES = ['Robust.HG.ini', 'Robust.ini'];
 
+    /** Where a grid is known from. */
+    public const FOLDER = 'folder';
+    public const PLAN = 'plan';
+    public const DESCRIBED = 'described';
+    public const ANNOUNCED = 'announced';
+
+    /** What a grid is when its sources do not say. */
+    private const DEFAULTS = [
+        'nick' => '',
+        'name' => '',
+        'slug' => '',
+        'hypergrid' => true,
+        'regionSpacing' => 0,
+        'center' => '',
+        'regionFlags' => [],
+        'directory' => '',
+        'robustIni' => '',
+        'coreDirectory' => '',
+        'baseHostname' => 'localhost',
+        'publicPort' => 8002,
+        'privatePort' => 8003,
+        'databaseHost' => 'localhost',
+        'databaseName' => '',
+        'databaseUser' => 'opensim',
+        'databasePassword' => '',
+        'dataDirectory' => '',
+        'cacheDirectory' => '',
+        'logsDirectory' => '',
+        'remote' => false,
+        'preset' => '',
+        'planned' => false,
+        'connectors' => [],
+        'webUrl' => '',
+        'helpers' => false,
+        'helpersPath' => '/helpers',
+        'search' => 'internal',
+    ];
+
+    /**
+     * @param ?array<string,mixed> $values what the sources say, by the names of DEFAULTS; null for a grid of this machine, read
+     *        from its folder when asked
+     * @param list<string> $sources
+     */
     private function __construct(
         private readonly Environment $environment,
         private readonly string $directory,
+        private ?array $values = null,
+        private readonly array $sources = [self::FOLDER],
     ) {
     }
 
@@ -275,12 +333,16 @@ final class Grid implements \OpenSim\Interfaces\Enablable
         return new self($environment, rtrim($directory, '/'));
     }
 
-    /** The grid of this nick on this machine, null when there is none. */
+    /** The grid of this nick on this machine, null when there is none: a Robust config or the description of a remote grid. */
     public static function find(Environment $environment, string $nick): ?self
     {
         $directory = rtrim($environment->layout->etcRoot(), '/') . "/grids/$nick";
+        if ($nick === '' || preg_match('/^[A-Za-z0-9._-]+$/', $nick) !== 1 || !is_dir($directory)) {
+            return null;
+        }
+        $grid = new self($environment, $directory);
 
-        return $nick !== '' && preg_match('/^[A-Za-z0-9._-]+$/', $nick) && is_dir($directory) ? new self($environment, $directory) : null;
+        return $grid->isKnown() ? $grid : null;
     }
 
     /**
@@ -292,20 +354,456 @@ final class Grid implements \OpenSim\Interfaces\Enablable
     {
         $grids = [];
         foreach (glob(rtrim($environment->layout->etcRoot(), '/') . '/grids/*', GLOB_ONLYDIR) ?: [] as $directory) {
-            $grids[] = new self($environment, $directory);
+            $grid = new self($environment, $directory);
+            $grid->isKnown() && $grids[] = $grid;
         }
 
         return $grids;
     }
 
+    /**
+     * A grid that is planned, to plan its simulator before it is made: nothing of it is on disk or in the database yet.
+     */
+    public static function planned(Environment $environment, GridPlan $plan): self
+    {
+        $robustIni = $plan->robustIni();
+
+        return new self($environment, $plan->gridDir, [
+            'planned' => true,
+            'nick' => $plan->gridNick,
+            'name' => $plan->gridName,
+            'slug' => $plan->gridSlug,
+            'directory' => $plan->gridDir,
+            'robustIni' => $robustIni,
+            'hypergrid' => $plan->enableHypergrid,
+            'regionSpacing' => $plan->regionSpacing,
+            'center' => $plan->center,
+            'coreDirectory' => $plan->coreDirectory,
+            'baseHostname' => $plan->baseHostname,
+            'publicPort' => $plan->publicPort,
+            'privatePort' => $plan->privatePort,
+            'databaseHost' => $plan->dbHost,
+            'databaseName' => $plan->dbName,
+            'databaseUser' => $plan->dbUser,
+            'databasePassword' => $plan->dbPass,
+            'dataDirectory' => $plan->dataDirectory,
+            'cacheDirectory' => $plan->cacheDirectory,
+            'logsDirectory' => $plan->logsDirectory,
+            // What its Robust serves: as written when it is, else as the setup will write it
+            'connectors' => is_file($robustIni) ? Robust::connectorsIn($robustIni) : \OpenSim\Provisioning\RobustConfig::connectors($plan->helpers, $plan->enableHypergrid),
+            'search' => $plan->search,
+            'helpers' => $plan->helpers,
+            'webUrl' => $plan->webUrl,
+            'helpersPath' => $plan->helpersPath,
+        ], [self::PLAN]);
+    }
+
+    /**
+     * A grid from what is known of it: the answers of the setup about a grid run elsewhere, a description kept, a test.
+     *
+     * @param array<string,mixed> $values by the names of the properties (nick, name, slug, directory, baseHostname, publicPort,
+     *        privatePort, hypergrid, preset, remote...); what is not given is what a grid is by the book
+     */
+    public static function described(array $values, ?Environment $environment = null): self
+    {
+        $environment ??= Environment::forProfile([]);
+
+        return new self($environment, rtrim((string) ($values['directory'] ?? ''), '/'), $values, [self::DESCRIBED]);
+    }
+
+    /**
+     * A grid from what it says of itself at its public port, null when it does not answer.
+     */
+    public static function announced(Environment $environment, string $host, int $port): ?self
+    {
+        $said = self::announcement($environment, $host, $port);
+        if ($said === []) {
+            return null;
+        }
+
+        return new self($environment, '', [
+            'nick' => $said['gridnick'] ?? '',
+            'name' => $said['gridname'] ?? '',
+            'baseHostname' => $host,
+            'publicPort' => $port,
+            'announcement' => $said,
+        ], [self::ANNOUNCED]);
+    }
+
+    /**
+     * What a grid says of itself at its public port (get_grid_info), as it says it.
+     *
+     * @return array<string,string> gridname, gridnick, login... by the name of the element; empty when it does not answer
+     */
+    public static function announcement(Environment $environment, string $host, int $port): array
+    {
+        $url = "http://$host:$port/get_grid_info";
+        $body = $environment->http !== null
+            ? ($environment->http)($url)
+            : @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => 5]]));
+        $said = [];
+        if (is_string($body) && preg_match_all('#<([A-Za-z_][\w.-]*)>([^<]+)</\1>#', $body, $found, PREG_SET_ORDER) > 0) {
+            foreach ($found as [, $key, $value]) {
+                $said[$key] = trim(html_entity_decode($value, ENT_QUOTES | ENT_XML1));
+            }
+        }
+
+        return $said;
+    }
+
+    /**
+     * The same grid with these properties, by their names (nick, name, databaseHost, publicPort...).
+     *
+     * @param array<string,mixed> $values
+     */
+    public function with(array $values): self
+    {
+        return new self($this->environment, $this->directory, $values + $this->values(), $this->sources);
+    }
+
+    /** @return list<string> the sources that know it: folder, plan, described, announced */
+    public function sources(): array
+    {
+        return $this->sources;
+    }
+
+    public function in(string $source): bool
+    {
+        return in_array($source, $this->sources, true);
+    }
+
+    /** What the grid said of itself when it was asked (get_grid_info), empty when it was not. */
+    public function said(): array
+    {
+        return (array) ($this->values()['announcement'] ?? []);
+    }
+
+    /** Whether the grid is there: a Robust config, or the description of a remote grid. */
+    public function isKnown(): bool
+    {
+        return !$this->in(self::FOLDER) || $this->robustIni() !== null || $this->isRemote();
+    }
+
+    /** One property, from the sources, else what a grid is by the book. */
+    private function get(string $key): mixed
+    {
+        return $this->values()[$key] ?? self::DEFAULTS[$key];
+    }
+
+    /**
+     * What the sources say. A grid of this machine reads its folder the first time it is asked.
+     *
+     * @return array<string,mixed>
+     */
+    private function values(): array
+    {
+        return $this->values ??= $this->fromFolder();
+    }
+
+    /** @return array<string,mixed> */
+    private function fromFolder(): array
+    {
+        $layout = $this->environment->layout;
+        $nick = basename($this->directory);
+        $conf = $this->settings();
+        $values = [
+            'nick' => $nick,
+            'directory' => $this->directory,
+            'coreDirectory' => $conf['CoreDirectory'] ?? $layout->get('CoreDirectory'),
+            'dataDirectory' => $conf['DataDirectory'] ?? $layout->dataRoot() . "/$nick",
+            'cacheDirectory' => $conf['CacheDirectory'] ?? $layout->cacheRoot() . "/$nick",
+            'logsDirectory' => $conf['LogsDirectory'] ?? $layout->logsRoot(),
+        ];
+        $robustIni = $this->robustFile();
+        if ($robustIni === null) {
+            if (!$this->hasRemoteDescription()) {
+                return $values;
+            }
+
+            return $values + [
+                'remote' => true,
+                'name' => $conf['GridName'] ?? Slug::nameOf($nick),
+                'slug' => $conf['slug'] ?? Slug::slug($conf['GridName'] ?? Slug::nameOf($nick)),
+                'hypergrid' => !in_array(strtolower($conf['Hypergrid'] ?? 'true'), ['false', '0', 'no'], true),
+                'preset' => $conf['Preset'] ?? '',
+                'baseHostname' => $conf['BaseHostname'] ?? 'localhost',
+                'publicPort' => (int) ($conf['PublicPort'] ?? 8002),
+                'privatePort' => (int) ($conf['PrivatePort'] ?? 8003),
+            ];
+        }
+
+        $current = InstanceSettings::of($robustIni);
+        $name = $current['gridName'] ?? ($conf['GridName'] ?? Slug::nameOf($nick));
+
+        return $values + [
+            'robustIni' => $robustIni,
+            'hypergrid' => str_contains(basename($robustIni), '.HG.'),
+            'name' => $name,
+            'slug' => $conf['slug'] ?? Slug::slug($name),
+            'regionSpacing' => ctype_digit($conf['RegionSpacing'] ?? '') ? (int) $conf['RegionSpacing'] : 0,
+            'center' => $conf['Center'] ?? '',
+            'regionFlags' => $current['regionFlags'] ?? [],
+            'connectors' => $current['connectors'] ?? [],
+            'baseHostname' => $current['baseHostname'] ?? 'localhost',
+            'publicPort' => $current['publicPort'] ?? 8002,
+            'privatePort' => $current['privatePort'] ?? 8003,
+            'databaseHost' => $current['dbHost'] ?? 'localhost',
+            'databaseName' => $current['dbName'] ?? '',
+            'databaseUser' => $current['dbUser'] ?? 'opensim',
+            'databasePassword' => $current['dbPass'] ?? '',
+        ];
+    }
+
     public function nick(): string
     {
-        return basename($this->directory);
+        return (string) $this->get('nick');
+    }
+
+    /** The name the grid gives itself. */
+    public function name(): string
+    {
+        return (string) $this->get('name');
+    }
+
+    public function slug(): string
+    {
+        return (string) $this->get('slug');
     }
 
     public function directory(): string
     {
         return $this->directory;
+    }
+
+    public function isHypergrid(): bool
+    {
+        return (bool) $this->get('hypergrid');
+    }
+
+    /** Free blocks the regions leave between them, the rule of the grid (a grid only described here follows the default one). */
+    public function regionSpacing(): int
+    {
+        return (int) $this->get('regionSpacing');
+    }
+
+    /** The center of the grid, "x,y", empty when it has none (the one its port gives). */
+    public function center(): string
+    {
+        return (string) $this->get('center');
+    }
+
+    /** The center of the grid: the one it was given, else the one its port gives. */
+    public function centerPlace(): array
+    {
+        return LocationFinder::parse($this->center()) ?? LocationFinder::first($this->publicPort());
+    }
+
+    /**
+     * The roles the regions of the Robust config have (see Region::flagNames()); empty for a grid described only.
+     *
+     * @return list<string>
+     */
+    public function regionFlags(): array
+    {
+        return (array) $this->get('regionFlags');
+    }
+
+    public function coreDirectory(): string
+    {
+        return (string) $this->get('coreDirectory');
+    }
+
+    public function baseHostname(): string
+    {
+        return (string) $this->get('baseHostname');
+    }
+
+    public function publicPort(): int
+    {
+        return (int) $this->get('publicPort');
+    }
+
+    public function privatePort(): int
+    {
+        return (int) $this->get('privatePort');
+    }
+
+    public function databaseHost(): string
+    {
+        return (string) $this->get('databaseHost');
+    }
+
+    public function databaseName(): string
+    {
+        return (string) $this->get('databaseName');
+    }
+
+    public function databaseUser(): string
+    {
+        return (string) $this->get('databaseUser');
+    }
+
+    public function databasePassword(): string
+    {
+        return (string) $this->get('databasePassword');
+    }
+
+    public function dataDirectory(): string
+    {
+        return (string) $this->get('dataDirectory');
+    }
+
+    public function cacheDirectory(): string
+    {
+        return (string) $this->get('cacheDirectory');
+    }
+
+    public function logsDirectory(): string
+    {
+        return (string) $this->get('logsDirectory');
+    }
+
+    /** The preset of a remote grid (see Presets): the settings its simulators need, kept as an ini in its folder. */
+    public function preset(): string
+    {
+        return (string) $this->get('preset');
+    }
+
+    /** A grid that is only planned, not made yet (the quick setup plans its first simulator before making anything). */
+    public function isPlanned(): bool
+    {
+        return (bool) $this->get('planned');
+    }
+
+    /**
+     * The connectors Robust serves (BakedTextureService, EstateDataService, GroupsServiceConnector...).
+     *
+     * @return list<string>
+     */
+    public function connectors(): array
+    {
+        return (array) $this->get('connectors');
+    }
+
+    /** Whether Robust serves a connector of [ServiceList] (the keys the distribution comments: see RobustConfig::connectors()). */
+    public function serves(string $connector): bool
+    {
+        return in_array($connector, $this->connectors(), true);
+    }
+
+    /** The web site of the grid's helpers, when it has some (see helperUrl()). */
+    public function webUrl(): string
+    {
+        return (string) $this->get('webUrl');
+    }
+
+    public function hasHelpers(): bool
+    {
+        return (bool) $this->get('helpers');
+    }
+
+    public function helpersPath(): string
+    {
+        return (string) $this->get('helpersPath');
+    }
+
+    /** Where the search of a grid that is planned is: internal (its helpers), shared (see SHARED_SEARCH) or disabled. */
+    public function search(): string
+    {
+        return (string) $this->get('search');
+    }
+
+    /**
+     * The address of a service of the helpers (offline, register, query...), empty when the grid has none: under the economy
+     * the grid gives its viewers, on its web site.
+     */
+    public function helperUrl(string $service): string
+    {
+        if ($this->isPlanned()) {
+            // The search of the simulators (query, register) is the helpers' own, another provider's or nobody's
+            if (in_array($service, ['query', 'register'], true) && $this->search() !== 'internal') {
+                return $this->search() === 'shared' ? self::SHARED_SEARCH . "/$service.php" : '';
+            }
+
+            return $this->hasHelpers() ? (new \OpenSim\Provisioning\Web\Services($this->helpersPath()))->url($this->webUrl(), $service) : '';
+        }
+        $webUrl = \OpenSim\Provisioning\Web\HelpersConfig::webUrl($this->directory);
+        if ($webUrl === '') {
+            return '';
+        }
+
+        return \OpenSim\Provisioning\Web\HelpersConfig::services($this->directory)->url($webUrl, $service);
+    }
+
+    /**
+     * The roles a region of this grid can have: all of them, a grid can have several regions with the same role.
+     *
+     * @return list<string>
+     */
+    public function roles(): array
+    {
+        if ($this->isRemote()) {
+            return [];
+        }
+        $flags = [Region::DEFAULT_REGION, ...($this->isHypergrid() ? [Region::DEFAULT_HGREGION] : []), Region::FALLBACK_REGION];
+
+        return array_map(Region::flagName(...), $flags);
+    }
+
+    /**
+     * The roles no region of a grid run from this machine has yet (see roles()), to offer them to the next region.
+     *
+     * @return list<string>
+     */
+    public function missingRoles(): array
+    {
+        return $this->isRemote() ? [] : array_values(array_diff($this->roles(), $this->regionFlags()));
+    }
+
+    /**
+     * Whether a grid run from this machine still needs its default region (the one visitors arrive in), which comes first: until
+     * it exists nobody can log in.
+     */
+    public function needsLandingRegion(): bool
+    {
+        return array_intersect($this->missingRoles(), [Region::flagName(Region::DEFAULT_REGION), Region::flagName(Region::DEFAULT_HGREGION)]) !== [];
+    }
+
+    /** The description of a remote grid, to keep it: what a simulator needs to join it. */
+    public function describe(): array
+    {
+        return [
+            'nick' => $this->nick(),
+            'name' => $this->name(),
+            'slug' => $this->slug(),
+            'baseHostname' => $this->baseHostname(),
+            'publicPort' => $this->publicPort(),
+            'privatePort' => $this->privatePort(),
+            'hypergrid' => $this->isHypergrid(),
+            'preset' => $this->preset(),
+            'dataDirectory' => $this->dataDirectory(),
+            'cacheDirectory' => $this->cacheDirectory(),
+            'logsDirectory' => $this->logsDirectory(),
+            'directory' => $this->directory(),
+        ];
+    }
+
+    /** The name of the instance running its Robust: what the launcher makes of the config file name. */
+    public function robustInstance(): string
+    {
+        return Slug::slug($this->nick());
+    }
+
+    /** The grid's own database settings, to ask questions of it. */
+    public function databasePlan(): GridPlan
+    {
+        $plan = new GridPlan();
+        $plan->dbHost = $this->databaseHost();
+        $plan->dbName = $this->databaseName();
+        $plan->dbUser = $this->databaseUser();
+        $plan->dbPass = $this->databasePassword();
+
+        return $plan;
     }
 
     /**
@@ -315,17 +813,23 @@ final class Grid implements \OpenSim\Interfaces\Enablable
      */
     public function settings(): array
     {
-        return ConfigReader::load($this->directory . '/' . $this->nick() . '.conf')['Grid'] ?? [];
+        return ConfigReader::load($this->directory . '/' . basename($this->directory) . '.conf')['Grid'] ?? [];
     }
 
     /** Whether its Robust is on another machine: the grid is only described here. */
     public function isRemote(): bool
     {
-        return $this->robustIni() === null && in_array(strtolower(trim($this->settings()['Remote'] ?? '')), ['true', '1', 'yes'], true);
+        return $this->in(self::FOLDER) ? $this->robustFile() === null && $this->hasRemoteDescription() : (bool) $this->get('remote');
     }
 
-    /** The config file of its Robust, null for a grid that has none (a remote grid). */
-    public function robustIni(): ?string
+    /** Whether the description of its folder says its Robust is elsewhere. */
+    private function hasRemoteDescription(): bool
+    {
+        return in_array(strtolower(trim($this->settings()['Remote'] ?? '')), ['true', '1', 'yes'], true);
+    }
+
+    /** The config file of its Robust in its folder. */
+    private function robustFile(): ?string
     {
         foreach (self::ROBUST_FILES as $file) {
             if (is_file("{$this->directory}/$file")) {
@@ -336,11 +840,24 @@ final class Grid implements \OpenSim\Interfaces\Enablable
         return null;
     }
 
+    /**
+     * The config file of its Robust: the one of its folder, the one a plan will write. Null for a grid that has none (a remote grid).
+     */
+    public function robustIni(): ?string
+    {
+        if ($this->in(self::FOLDER)) {
+            return $this->robustFile();
+        }
+        $ini = (string) $this->get('robustIni');
+
+        return $ini !== '' ? $ini : null;
+    }
+
     /** Its Robust on this machine, null for a remote grid. Run with the link that enables it when it is enabled. */
     public function robust(): ?Robust
     {
         $file = $this->robustIni();
-        if ($file === null) {
+        if ($file === null || !is_file($file)) {
             return null;
         }
         $robust = new Robust($this->environment, $file, $this->nick());

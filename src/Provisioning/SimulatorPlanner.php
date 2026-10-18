@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace OpenSim\Provisioning;
 
+use OpenSim\Config\InstanceSettings;
 use OpenSim\Forms\FieldSet;
 use OpenSim\Models\Core;
 use OpenSim\Models\Grid;
-use OpenSim\Models\GridInfo;
 use OpenSim\Models\Simulator;
 use OpenSim\Network\Ports;
 use OpenSim\Runtime\Environment;
@@ -42,14 +42,14 @@ final class SimulatorPlanner
     public static function context(): array
     {
         return [
-            'grid' => null,       // the GridInfo of the grid it joins (one that is only planned is fine)
+            'grid' => null,       // the Grid of the grid it joins (one that is only planned is fine)
             'profile' => [],
             'cores' => [],        // folder => name
             'modify' => false,    // the simulator is named by the caller: it exists and its name stays
             'simulatorName' => '',      // that name
             'defaultName' => 'Sim1',
             'block' => 9000,      // the first block of ten ports free for the simulators of the grid
-            'current' => [],      // the settings of the simulator that exists (GridInfo::parse of its config)
+            'current' => [],      // the settings of the simulator that exists (InstanceSettings::of its config)
             'sibling' => [],      // the database account of another simulator of the grid: dbHost, dbUser, dbPass
             'accounts' => null,   // the accounts of the grid, null when they are not known here
             'nextPort' => null,   // Closure(int $min): int, the first free port from there (default: Ports::next)
@@ -63,7 +63,7 @@ final class SimulatorPlanner
      * @param ?string $simulatorName the simulator to change, null for a new one
      * @param ?string $regionName the region the simulator is made for, which gives it its name
      */
-    public static function forGrid(GridInfo $grid, array $profile, DatabaseService $database, UiInterface $ui, ?string $simulatorName = null, ?string $regionName = null): self
+    public static function forGrid(Grid $grid, array $profile, DatabaseService $database, UiInterface $ui, ?string $simulatorName = null, ?string $regionName = null): self
     {
         $planner = new self([
             'grid' => $grid,
@@ -74,8 +74,8 @@ final class SimulatorPlanner
         ]);
         // The first simulator of a grid has the name of its landing region, that is its first region; an accent is
         // transliterated (Noël becomes Noel)
-        $firstSimulator = !$grid->remote && Grid::at(Environment::forProfile($profile), $grid->dir)->simulatorNames() === [];
-        $taken = static fn(string $v): ?string => Simulator::validateName($v) ?? (is_file("{$grid->dir}/sims/" . GridInfo::instanceName("{$grid->nick}_$v") . '.ini') ? 'taken' : null);
+        $firstSimulator = !$grid->isRemote() && Grid::at(Environment::forProfile($profile), $grid->directory())->simulatorNames() === [];
+        $taken = static fn(string $v): ?string => Simulator::validateName($v) ?? (is_file("{$grid->directory()}/sims/" . Slug::slug("{$grid->nick()}_$v") . '.ini') ? 'taken' : null);
 
         // The ports of a simulator are a block of ten, the first free one from where the simulators of the grid start (9000 for
         // Robust on 8002), on this machine and among the regions the grids of this machine know on the others
@@ -83,8 +83,8 @@ final class SimulatorPlanner
 
         $context = [
             'defaultName' => $simulatorName ?? SimulatorName::suggest($regionName, $firstSimulator ? 'Welcome' : null, $taken),
-            'block' => Ports::nextBlock(Ports::simulatorsFrom($grid->publicPort), $foreign),
-            'accounts' => $grid->remote ? null : (new GridAccounts($database, $ui))->names($grid),
+            'block' => Ports::nextBlock(Ports::simulatorsFrom($grid->publicPort()), $foreign),
+            'accounts' => $grid->isRemote() ? null : (new GridAccounts($database, $ui))->names($grid),
         ];
 
         return $planner->with($context)->forSimulator($simulatorName ?? $context['defaultName']);
@@ -106,21 +106,21 @@ final class SimulatorPlanner
     public function forSimulator(string $name): self
     {
         $grid = $this->context['grid'];
-        $slug = GridInfo::instanceName($grid->nick . '_' . $name);
-        $ini = "{$grid->dir}/sims/$slug.ini";
+        $slug = Slug::slug($grid->nick() . '_' . $name);
+        $ini = "{$grid->directory()}/sims/$slug.ini";
         $sibling = [];
-        foreach (glob("{$grid->dir}/sims/*.ini") ?: [] as $other) {
+        foreach (glob("{$grid->directory()}/sims/*.ini") ?: [] as $other) {
             if (basename($other, '.ini') === $slug || $sibling !== []) {
                 continue;
             }
-            $found = GridInfo::parse($other);
+            $found = InstanceSettings::of($other);
             if (($found['dbUser'] ?? '') !== '' && ($found['dbPass'] ?? '') !== '') {
                 // The account of the first simulator of the grid is the one of the next ones, and so is its password
                 $sibling = array_intersect_key($found, array_flip(['dbHost', 'dbUser', 'dbPass']));
             }
         }
 
-        return $this->with(['current' => is_file($ini) ? GridInfo::parse($ini) : [], 'sibling' => $sibling]);
+        return $this->with(['current' => is_file($ini) ? InstanceSettings::of($ini) : [], 'sibling' => $sibling]);
     }
 
     /** The cores that can run the simulator (folder => name). */
@@ -161,12 +161,12 @@ final class SimulatorPlanner
         $text = static fn(string $name, mixed $default): string => trim((string) ($answers[$name] ?? $default));
 
         $name = $c['modify'] ? $c['simulatorName'] : Slug::ascii($text('name', $c['defaultName']));
-        $slug = GridInfo::instanceName($grid->nick . '_' . $name);
+        $slug = Slug::slug($grid->nick() . '_' . $name);
         $cores = $c['cores'];
-        $core = $text('core', count($cores) > 1 ? $grid->coreDirectory : '');
+        $core = $text('core', count($cores) > 1 ? $grid->coreDirectory() : '');
         $core = $core !== ''
             ? $core
-            : (string) ($grid->coreDirectory !== '' && isset($cores[$grid->coreDirectory]) ? $grid->coreDirectory : array_key_first($cores));
+            : (string) ($grid->coreDirectory() !== '' && isset($cores[$grid->coreDirectory()]) ? $grid->coreDirectory() : array_key_first($cores));
 
         $http0 = (int) ($current['httpPort'] ?? $c['block']);
         $http = (int) ($answers['http_port'] ?? $http0);
@@ -183,14 +183,14 @@ final class SimulatorPlanner
             'external_host' => $text('external_host', $current['externalHost'] ?? 'SYSTEMIP'),
             'console' => $text('console', isset($current['consoleUser']) || $current === [] ? 'rest' : 'screen'),
             'console_port' => (int) ($answers['console_port'] ?? ($http === $http0 ? $console0 : $this->consoleFor($http))),
-            'database_host' => $text('database_host', $current['dbHost'] ?? ($sibling['dbHost'] ?? $grid->dbHost)),
+            'database_host' => $text('database_host', $current['dbHost'] ?? ($sibling['dbHost'] ?? $grid->databaseHost())),
             'database_name' => $text('database_name', $current['dbName'] ?? $slug),
-            'database_user' => $text('database_user', $current['dbUser'] ?? ($sibling['dbUser'] ?? $grid->dbUser)),
+            'database_user' => $text('database_user', $current['dbUser'] ?? ($sibling['dbUser'] ?? $grid->databaseUser())),
             'database_password' => $text(
                 'database_password',
-                $current['dbPass'] ?? ($sibling['dbPass'] ?? ($grid->dbPass !== '' ? $grid->dbPass : $this->secret('database_password', 20, false))),
+                $current['dbPass'] ?? ($sibling['dbPass'] ?? ($grid->databasePassword() !== '' ? $grid->databasePassword() : $this->secret('database_password', 20, false))),
             ),
-            'estate_name' => $text('estate_name', $current['estateName'] ?? "{$grid->name} Estate"),
+            'estate_name' => $text('estate_name', $current['estateName'] ?? "{$grid->name()} Estate"),
             'estate_owner' => $owner,
             'new_name' => $text('new_name', ''),
             'new_password' => (string) ($answers['new_password'] ?? ''),
@@ -244,25 +244,25 @@ final class SimulatorPlanner
         $current = $this->context['current'];
 
         $plan = new SimulatorPlan();
-        $plan->gridNick = $grid->nick;
-        $plan->gridName = $grid->name;
-        $plan->gridDir = $grid->dir;
-        $plan->hypergrid = $grid->hypergrid;
-        $plan->baseHostname = $grid->baseHostname;
-        $plan->publicPort = $grid->publicPort;
-        $plan->privatePort = $grid->privatePort;
-        $plan->logsDirectory = $grid->logsDirectory;
-        $plan->gridHere = !$grid->remote;
+        $plan->gridNick = $grid->nick();
+        $plan->gridName = $grid->name();
+        $plan->gridDir = $grid->directory();
+        $plan->hypergrid = $grid->isHypergrid();
+        $plan->baseHostname = $grid->baseHostname();
+        $plan->publicPort = $grid->publicPort();
+        $plan->privatePort = $grid->privatePort();
+        $plan->logsDirectory = $grid->logsDirectory();
+        $plan->gridHere = !$grid->isRemote();
         // A remote grid not kept yet is written with the simulator
-        $plan->remoteGrid = $grid->remote && !is_file("{$grid->dir}/{$grid->nick}.conf") ? $grid->describe() : null;
+        $plan->remoteGrid = $grid->isRemote() && !is_file("{$grid->directory()}/{$grid->nick()}.conf") ? $grid->describe() : null;
         // A grid joined by a preset: the simulators read the files of the preset, where they are
-        $plan->preset = $grid->preset;
-        $plan->configDir = $grid->preset !== '' ? (new Presets([], (string) ($this->context['profile']['EtcRoot'] ?? '')))->dir($grid->preset) : '';
+        $plan->preset = $grid->preset();
+        $plan->configDir = $grid->preset() !== '' ? (new Presets([], (string) ($this->context['profile']['EtcRoot'] ?? '')))->dir($grid->preset()) : '';
 
         $plan->simulatorName = $v['name'];
         $plan->slug = $v['slug'];
-        $plan->dataDirectory = "{$grid->dataDirectory}/{$plan->slug}";
-        $plan->cacheDirectory = "{$grid->cacheDirectory}/{$plan->slug}";
+        $plan->dataDirectory = "{$grid->dataDirectory()}/{$plan->slug}";
+        $plan->cacheDirectory = "{$grid->cacheDirectory()}/{$plan->slug}";
         $plan->coreDirectory = $v['core'];
         $plan->httpPort = $v['http_port'];
         $plan->externalHost = $v['external_host'];
@@ -287,7 +287,7 @@ final class SimulatorPlanner
         $plan->offlineUrl = $grid->helperUrl('offline');
         $plan->registerUrl = $grid->helperUrl('register');
         $plan->searchUrl = $grid->helperUrl('query');
-        $plan->connectors = $grid->connectors;
+        $plan->connectors = $grid->connectors();
 
         $plan->estateName = $v['estate_name'];
         if ($v['estate_owner'] === '+') {

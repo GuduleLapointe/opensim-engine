@@ -6,8 +6,9 @@ namespace OpenSim\Provisioning;
 
 use OpenSim\Config\ConfigReader;
 use OpenSim\Config\IniEditor;
+use OpenSim\Config\InstanceSettings;
 use OpenSim\Config\TextFileService;
-use OpenSim\Models\GridInfo;
+use OpenSim\Models\Grid;
 
 /**
  * The master config of the simulators of a grid, `OpenSimGridDefaults.ini` in its folder, given to OpenSimulator with
@@ -90,7 +91,7 @@ final class SimulatorMaster
     private function grid(string $gridDir, string $binDir, string $configDir): string
     {
         $robust = is_file("$gridDir/Robust.HG.ini") ? "$gridDir/Robust.HG.ini" : "$gridDir/Robust.ini";
-        $info = is_file($robust) ? GridInfo::parse($robust) : [];
+        $info = is_file($robust) ? InstanceSettings::of($robust) : [];
         $conf = ConfigReader::file("$gridDir/" . basename($gridDir) . '.conf')['Grid'] ?? [];
         $host = (string) ($info['baseHostname'] ?? ($conf['BaseHostname'] ?? 'localhost'));
         $public = (int) ($info['publicPort'] ?? ($conf['PublicPort'] ?? 8002));

@@ -5,7 +5,7 @@ namespace OpenSim\Provisioning;
 use OpenSim\Config\GridFileService;
 use OpenSim\Config\IniEditor;
 use OpenSim\Config\TextFileService;
-use OpenSim\Models\GridInfo;
+use OpenSim\Models\Grid;
 
 /**
  * Writes the config of a simulator and of its regions.
@@ -131,10 +131,10 @@ final class SimulatorConfig
      * @param bool $paths with the folder of the snapshot, which the model gives a simulator that has a master
      * @return list<string>
      */
-    public static function gridLayer(SimulatorPlan|GridInfo $from, bool $paths = false): array
+    public static function gridLayer(SimulatorPlan|Grid $from, bool $paths = false): array
     {
         $plan = $from instanceof SimulatorPlan;
-        $name = self::dataServiceNameOf($plan ? $from->gridNick : $from->nick, $plan ? $from->gridName : $from->name);
+        $name = self::dataServiceNameOf($plan ? $from->gridNick : $from->nick(), $plan ? $from->gridName : $from->name());
         $search = $plan ? $from->searchUrl : $from->helperUrl('query');
         $register = $plan ? $from->registerUrl : $from->helperUrl('register');
         $offline = $plan ? $from->offlineUrl : $from->helperUrl('offline');
@@ -155,7 +155,7 @@ final class SimulatorConfig
                 ? [
                     ';; The search of the grid: the simulator tells its regions to the helpers',
                     'index_sims = true',
-                    'gridname = "' . ($plan ? $from->gridName : $from->name) . '"',
+                    'gridname = "' . ($plan ? $from->gridName : $from->name()) . '"',
                     'DATA_SRV_' . $name . ' = "' . $register . '"',
                 ]
                 : [],
@@ -173,7 +173,7 @@ final class SimulatorConfig
             '[UserProfiles]',
             'ProfileServiceURL = "${Const|BaseURL}:${Const|PublicPort}"',
             '',
-            ...in_array('BakedTextureService', $from->connectors, true)
+            ...in_array('BakedTextureService', $plan ? $from->connectors : $from->connectors(), true)
                 ? [
                     ';; The bakes of the avatars are kept by Robust',
                     '[XBakes]',
@@ -181,7 +181,7 @@ final class SimulatorConfig
                     '',
                 ]
                 : [],
-            ...in_array('GroupsServiceConnector', $from->connectors, true) ? self::groupsLayer($from) : [],
+            ...in_array('GroupsServiceConnector', $plan ? $from->connectors : $from->connectors(), true) ? self::groupsLayer($from) : [],
         ];
     }
 
@@ -211,9 +211,9 @@ final class SimulatorConfig
      *
      * @return list<string>
      */
-    private static function groupsLayer(SimulatorPlan|GridInfo $from): array
+    private static function groupsLayer(SimulatorPlan|Grid $from): array
     {
-        $hypergrid = in_array('HGGroupsServiceConnector', $from->connectors, true);
+        $hypergrid = in_array('HGGroupsServiceConnector', $from instanceof SimulatorPlan ? $from->connectors : $from->connectors(), true);
 
         return [
             ';; The groups are kept by Robust',

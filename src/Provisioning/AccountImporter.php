@@ -2,7 +2,7 @@
 
 namespace OpenSim\Provisioning;
 
-use OpenSim\Models\GridInfo;
+use OpenSim\Models\Grid;
 
 /**
  * Makes the accounts of a list in the database of a grid (see AccountWriter), or tells what it would make: the
@@ -34,7 +34,7 @@ final class AccountImporter
      * @param bool $keepGoing go on after an account that failed
      * @return array{error:?string,results:list<array{first:string,last:string,email:string,status:string,detail:string,password:string,generated:bool}>}
      */
-    public function run(GridInfo $grid, array $accounts, bool $apply, bool $keepGoing = false): array
+    public function run(Grid $grid, array $accounts, bool $apply, bool $keepGoing = false): array
     {
         $plan = $grid->databasePlan();
         $names = ($this->query)($plan, "SELECT CONCAT(FirstName, ' ', LastName) FROM UserAccounts");

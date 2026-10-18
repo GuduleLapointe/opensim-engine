@@ -142,20 +142,16 @@ describe('The options of a new grid', function () {
     });
 
     test('tell the simulators where the search is: the helpers, the shared provider or nobody', function () {
-        $grid = new \OpenSim\Models\GridInfo();
-        $grid->planned = true;
-        $grid->helpers = true;
-        $grid->webUrl = 'https://play.example.org';
-        $grid->helpersPath = '/helpers';
+        $grid = Grid::described(['planned' => true, 'helpers' => true, 'webUrl' => 'https://play.example.org', 'helpersPath' => '/helpers']);
 
         expect($grid->helperUrl('query'))->toBe('https://play.example.org/helpers/query.php');
-        $grid->search = 'shared';
-        expect($grid->helperUrl('query'))->toBe('https://2do.directory/helpers/query.php')
-            ->and($grid->helperUrl('register'))->toBe('https://2do.directory/helpers/register.php')
+        $shared = $grid->with(['search' => 'shared']);
+        expect($shared->helperUrl('query'))->toBe('https://2do.directory/helpers/query.php')
+            ->and($shared->helperUrl('register'))->toBe('https://2do.directory/helpers/register.php')
             // What is not the search stays the grid's own
-            ->and($grid->helperUrl('offline'))->toBe('https://play.example.org/helpers/offline.php');
-        $grid->search = 'disabled';
-        expect($grid->helperUrl('query'))->toBe('')->and($grid->helperUrl('register'))->toBe('');
+            ->and($shared->helperUrl('offline'))->toBe('https://play.example.org/helpers/offline.php');
+        $disabled = $grid->with(['search' => 'disabled']);
+        expect($disabled->helperUrl('query'))->toBe('')->and($disabled->helperUrl('register'))->toBe('');
     });
 });
 

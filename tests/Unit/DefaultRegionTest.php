@@ -5,7 +5,8 @@
  * read back from it.
  */
 
-use OpenSim\Models\GridInfo;
+use OpenSim\Config\InstanceSettings;
+use OpenSim\Models\Grid;
 use OpenSim\Models\Region;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\RegionName;
@@ -96,13 +97,10 @@ describe('Grid setup', function () {
 
 describe('Roles of a region', function () {
     test('a grid can give are default, default HG (on Hypergrid) and fallback', function () {
-        $grid = new GridInfo();
-        $grid->hypergrid = true;
+        $grid = Grid::described(['hypergrid' => true]);
         expect($grid->roles())->toBe(['DefaultRegion', 'DefaultHGRegion', 'FallbackRegion']);
-        $grid->hypergrid = false;
-        expect($grid->roles())->toBe(['DefaultRegion', 'FallbackRegion']);
-        $grid->remote = true;
-        expect($grid->roles())->toBe([]);
+        expect($grid->with(['hypergrid' => false])->roles())->toBe(['DefaultRegion', 'FallbackRegion']);
+        expect($grid->with(['remote' => true])->roles())->toBe([]);
     });
 
     test('are found in the config, the commented example left out', function () {
@@ -149,7 +147,7 @@ describe('Roles of a region', function () {
 
     test('are read back from the config of the grid', function () {
         $file = robust_file("[GridService]\nRegion_Welcome = \"DefaultRegion, Persistent\"\n");
-        $read = GridInfo::parse($file);
+        $read = InstanceSettings::of($file);
         unlink($file);
 
         expect($read['regionFlags'])->toBe(['DefaultRegion', 'Persistent']);
@@ -158,32 +156,29 @@ describe('Roles of a region', function () {
 
 describe('landing region of a grid', function () {
     test('is needed until a region is default', function () {
-        $grid = new GridInfo();
+        $grid = Grid::described([]);
 
         expect($grid->needsLandingRegion())->toBeTrue();
         expect($grid->missingRoles())->toBe(['DefaultRegion', 'DefaultHGRegion', 'FallbackRegion']);
 
-        $grid->regionFlags = ['DefaultRegion'];
+        $grid = $grid->with(['regionFlags' => ['DefaultRegion']]);
         expect($grid->needsLandingRegion())->toBeTrue(); // the Hypergrid visitors have none yet
         expect($grid->missingRoles())->toBe(['DefaultHGRegion', 'FallbackRegion']);
 
-        $grid->regionFlags = ['DefaultRegion', 'DefaultHGRegion'];
+        $grid = $grid->with(['regionFlags' => ['DefaultRegion', 'DefaultHGRegion']]);
         expect($grid->needsLandingRegion())->toBeFalse();
         expect($grid->missingRoles())->toBe(['FallbackRegion']);
     });
 
     test('skips the HG role without Hypergrid', function () {
-        $grid = new GridInfo();
-        $grid->hypergrid = false;
+        $grid = Grid::described(['hypergrid' => false]);
 
         expect($grid->missingRoles())->toBe(['DefaultRegion', 'FallbackRegion']);
-        $grid->regionFlags = ['DefaultRegion'];
-        expect($grid->needsLandingRegion())->toBeFalse();
+        expect($grid->with(['regionFlags' => ['DefaultRegion']])->needsLandingRegion())->toBeFalse();
     });
 
     test('is the business of the grid run elsewhere', function () {
-        $remote = new GridInfo();
-        $remote->remote = true;
+        $remote = Grid::described(['remote' => true]);
 
         expect($remote->needsLandingRegion())->toBeFalse();
         expect($remote->missingRoles())->toBe([]);

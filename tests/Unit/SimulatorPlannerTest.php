@@ -6,31 +6,29 @@ declare(strict_types=1);
  * From the answers about a simulator to its plan: what is proposed, what follows, a simulator that exists, the owner of its estate.
  */
 
-use OpenSim\Models\GridInfo;
+use OpenSim\Models\Grid;
 use OpenSim\Models\Simulator;
 use OpenSim\Provisioning\SimulatorPlan;
 use OpenSim\Provisioning\SimulatorPlanner;
 
 /** A grid of this machine: demo, Robust at 8002, its database account known. */
-function sim_grid(array $set = []): GridInfo
+function sim_grid(array $set = []): Grid
 {
-    $grid = new GridInfo();
-    $grid->nick = 'demo';
-    $grid->name = 'Demo World';
-    $grid->dir = test_tmp() . '/simgrid-' . bin2hex(random_bytes(4));
-    mkdir($grid->dir . '/sims', 0o755, true);
-    $grid->coreDirectory = '/cores/0.9.3.0';
-    $grid->dataDirectory = '/var/lib/demo';
-    $grid->cacheDirectory = '/var/cache/demo';
-    $grid->logsDirectory = '/var/log/demo';
-    $grid->dbHost = 'db.example.org';
-    $grid->dbUser = 'gridaccount';
-    $grid->dbPass = 'gridpass';
-    foreach ($set as $property => $value) {
-        $grid->$property = $value;
-    }
+    $directory = test_tmp() . '/simgrid-' . bin2hex(random_bytes(4));
+    mkdir("$directory/sims", 0o755, true);
 
-    return $grid;
+    return Grid::described([
+        'nick' => 'demo',
+        'name' => 'Demo World',
+        'directory' => $directory,
+        'coreDirectory' => '/cores/0.9.3.0',
+        'dataDirectory' => '/var/lib/demo',
+        'cacheDirectory' => '/var/cache/demo',
+        'logsDirectory' => '/var/log/demo',
+        'databaseHost' => 'db.example.org',
+        'databaseUser' => 'gridaccount',
+        'databasePassword' => 'gridpass',
+    ])->with($set);
 }
 
 /** A planner with the accounts of the grid and no random: a counter. */
@@ -79,7 +77,7 @@ describe('A new simulator', function () {
 
     test('uses the database account of another simulator of the grid, its password too', function () {
         $grid = sim_grid();
-        file_put_contents("{$grid->dir}/sims/demo_first.ini", "[DatabaseService]\nConnectionString = \"Data Source=sibling.example.org;Database=demo_first;User ID=sibling;Password=siblingpass;\"\n");
+        file_put_contents("{$grid->directory()}/sims/demo_first.ini", "[DatabaseService]\nConnectionString = \"Data Source=sibling.example.org;Database=demo_first;User ID=sibling;Password=siblingpass;\"\n");
 
         $v = simulator_planner(['grid' => $grid])->forSimulator('Welcome')->resolve();
 
@@ -87,7 +85,7 @@ describe('A new simulator', function () {
     });
 
     test('makes a password when the grid has none to give, the same one each time', function () {
-        $planner = simulator_planner(['grid' => sim_grid(['dbPass' => ''])]);
+        $planner = simulator_planner(['grid' => sim_grid(['databasePassword' => ''])]);
 
         expect($planner->resolve()['database_password'])->toBe('p1' . str_repeat('0', 18))
             ->and($planner->plan()->dbPass)->toBe('p1' . str_repeat('0', 18));
@@ -185,7 +183,7 @@ describe('A simulator that exists', function () {
     function existing_sim(): SimulatorPlanner
     {
         $grid = sim_grid();
-        file_put_contents("{$grid->dir}/sims/demo_garden.ini", <<<INI
+        file_put_contents("{$grid->directory()}/sims/demo_garden.ini", <<<INI
             [Network]
             http_listener_port = 9010
             ConsoleUser = "olduser"
@@ -222,7 +220,7 @@ describe('A simulator that exists', function () {
 
     test('is a screen session when its config has no console', function () {
         $grid = sim_grid();
-        file_put_contents("{$grid->dir}/sims/demo_garden.ini", "[Network]\nhttp_listener_port = 9010\n");
+        file_put_contents("{$grid->directory()}/sims/demo_garden.ini", "[Network]\nhttp_listener_port = 9010\n");
 
         expect(simulator_planner(['grid' => $grid, 'modify' => true, 'simulatorName' => 'Garden'])->forSimulator('Garden')->resolve()['console'])->toBe('screen');
     });

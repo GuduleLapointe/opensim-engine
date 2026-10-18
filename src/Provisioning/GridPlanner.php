@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace OpenSim\Provisioning;
 
 use OpenSim\Config\ConfigReader;
+use OpenSim\Config\InstanceSettings;
 use OpenSim\Forms\FieldSet;
 use OpenSim\Models\Core;
 use OpenSim\Models\Grid;
-use OpenSim\Models\GridInfo;
 use OpenSim\Network\Ports;
 use OpenSim\Provisioning\Web\HelpersConfig;
 use OpenSim\Provisioning\Web\Services;
@@ -50,7 +50,7 @@ final class GridPlanner
             'cores' => [],          // folder => name of the cores that can run the grid
             'modify' => false,      // the grid exists and is changed: its nick stays
             'nick' => '',           // the grid whose settings are the starting point
-            'current' => [],        // its settings, as GridInfo::parse reads them
+            'current' => [],        // its settings, as InstanceSettings::of reads them
             'currentHypergrid' => null,
             'savedCenter' => '',
             'defaultName' => 'My',
@@ -103,7 +103,7 @@ final class GridPlanner
 
         return new self([
             'nick' => $nick,
-            'current' => $existing !== null ? GridInfo::parse($existing) : [],
+            'current' => $existing !== null ? InstanceSettings::of($existing) : [],
             'currentHypergrid' => $existing !== null ? str_contains(basename($existing), '.HG.') : null,
             'savedCenter' => trim((string) $center, " \t\""),
             'helpersAvailable' => is_file(HelpersConfig::path($dir)) || is_dir(Snippets::WEBROOT),

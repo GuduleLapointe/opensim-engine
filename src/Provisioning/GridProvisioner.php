@@ -7,7 +7,6 @@ namespace OpenSim\Provisioning;
 use OpenSim\Exceptions\SetupFailedException;
 use OpenSim\Config\GridFileService;
 use OpenSim\Config\IniEditor;
-use OpenSim\Models\GridInfo;
 use OpenSim\Models\Grid;
 use OpenSim\Provisioning\Web\HelpersConfig;
 use OpenSim\Provisioning\Web\Snippets;
@@ -33,7 +32,7 @@ final class GridProvisioner
         $this->writeRobust($plan);
         $this->writeHelpers($plan);
         $this->copyConfigInclude($plan);
-        $this->writeMaster($plan);
+        $this->writeMaster($plan, $profile);
         $this->applyOptions($plan, $profile);
 
         $logConfig = (new RobustLogConfig())->write($plan);
@@ -171,7 +170,7 @@ final class GridProvisioner
         if ($plan->economy !== 'gloebit') {
             return;
         }
-        $grid = GridInfo::load($profile, $plan->gridNick);
+        $grid = Grid::find(Environment::forProfile($profile), $plan->gridNick);
         $result = $grid === null ? ['error' => 'the grid is not there', 'notes' => []] : (new Features($grid, $profile))->enable(Features::ECONOMY, ['money' => 'gloebit']);
         $result['error'] === null || $this->ui->warn(sprintf(_('The currency of the grid was not set: %s'), $result['error']));
         foreach ($result['notes'] as $note) {
@@ -185,7 +184,7 @@ final class GridProvisioner
      * decide: a feature that was disabled stays so), then the master is made from the core, the model of the toolset, the grid and
      * these decisions. The simulators say only what makes them their own.
      */
-    private function writeMaster(GridPlan $plan): void
+    private function writeMaster(GridPlan $plan, array $profile): void
     {
         $general = "{$plan->etcDirectory}/OpenSim.ini";
         if (!is_file($general)) {
@@ -194,7 +193,7 @@ final class GridProvisioner
         if (!SimulatorMaster::exists($plan->etcDirectory)) {
             $ini = IniEditor::load($general);
             $before = $ini->toString();
-            $ini->overlay(implode("\n", SimulatorConfig::gridLayer(GridInfo::fromPlan($plan))));
+            $ini->overlay(implode("\n", SimulatorConfig::gridLayer(Grid::planned(Environment::forProfile($profile), $plan))));
             if ($ini->toString() !== $before) {
                 $ini->save($general);
             }

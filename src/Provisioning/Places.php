@@ -2,7 +2,7 @@
 
 namespace OpenSim\Provisioning;
 
-use OpenSim\Models\GridInfo;
+use OpenSim\Models\Grid;
 
 /**
  * Where a region can go in a grid: the free place nearest to the one asked, by
@@ -22,20 +22,20 @@ final class Places
      * @return array{0:int,1:int}
      */
     public static function nearestFree(
-        GridInfo $grid,
+        Grid $grid,
         array $known,
         int $x,
         int $y,
         ?string $ignored = null,
         bool &$unreachable = false,
     ): array {
-        $gap = $grid->regionSpacing;
-        if (!$grid->remote) {
+        $gap = $grid->regionSpacing();
+        if (!$grid->isRemote()) {
             return LocationFinder::nearestFree($known, $x, $y, $gap);
         }
 
         for ($radius = 20; ; $radius *= 2) {
-            $asked = RobustGrid::locations($grid->baseHostname, $grid->privatePort, $x, $y, $radius);
+            $asked = RobustGrid::locations($grid->baseHostname(), $grid->privatePort(), $x, $y, $radius);
             if ($asked === null) {
                 $unreachable = true;
 

@@ -3,7 +3,7 @@
  * The accounts made from a list, directly in the database of a grid.
  */
 
-use OpenSim\Models\GridInfo;
+use OpenSim\Models\Grid;
 use OpenSim\Provisioning\AccountImporter;
 use OpenSim\Provisioning\AccountList;
 use OpenSim\Provisioning\AccountWriter;
@@ -158,7 +158,7 @@ describe('import', function () {
 
     test('writes nothing without --apply', function () {
         $log = [];
-        $grid = new GridInfo();
+        $grid = Grid::described([]);
 
         $done = accounts_importer(['jane doe'], false, $log)->run($grid, accounts_to_make(), false);
 
@@ -169,7 +169,7 @@ describe('import', function () {
     test('writes each account, makes missing passwords', function () {
         $log = [];
 
-        $done = accounts_importer([], false, $log)->run(new GridInfo(), accounts_to_make(), true);
+        $done = accounts_importer([], false, $log)->run(Grid::described([]), accounts_to_make(), true);
 
         expect($log)->toHaveCount(3);
         expect(array_column($done['results'], 'status'))->toBe(['created', 'created', 'created']);
@@ -181,9 +181,9 @@ describe('import', function () {
 
     test('stops at the first failure', function () {
         $log = [];
-        $stopped = accounts_importer([], true, $log)->run(new GridInfo(), accounts_to_make(), true);
+        $stopped = accounts_importer([], true, $log)->run(Grid::described([]), accounts_to_make(), true);
         $log = [];
-        $going = accounts_importer([], true, $log)->run(new GridInfo(), accounts_to_make(), true, true);
+        $going = accounts_importer([], true, $log)->run(Grid::described([]), accounts_to_make(), true, true);
 
         expect(array_column($stopped['results'], 'status'))->toBe(['failed', 'not tried', 'not tried']);
         expect(array_column($going['results'], 'status'))->toBe(['failed', 'failed', 'failed']);
@@ -191,7 +191,7 @@ describe('import', function () {
 
     test('gives only the passwords it made', function () {
         $log = [];
-        $done = accounts_importer([], false, $log)->run(new GridInfo(), accounts_to_make(), true);
+        $done = accounts_importer([], false, $log)->run(Grid::described([]), accounts_to_make(), true);
 
         $csv = AccountImporter::resultCsv($done['results']);
 
@@ -203,7 +203,7 @@ describe('import', function () {
     test('stops when the database of the grid cannot be read', function () {
         $importer = new AccountImporter(static fn(GridPlan $plan, string $sql): ?array => null, accounts_writer());
 
-        $done = $importer->run(new GridInfo(), accounts_to_make(), true);
+        $done = $importer->run(Grid::described([]), accounts_to_make(), true);
 
         expect($done['error'])->not->toBeNull();
         expect($done['results'])->toBe([]);

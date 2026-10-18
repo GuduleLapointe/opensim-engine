@@ -9,11 +9,11 @@ declare(strict_types=1);
 
 use OpenSim\Config\ConfigReader;
 use OpenSim\Models\Grid;
-use OpenSim\Models\GridInfo;
 use OpenSim\Provisioning\Features;
 use OpenSim\Provisioning\SimulatorConfig;
 use OpenSim\Provisioning\SimulatorPlan;
 use OpenSim\Provisioning\SimulatorMaster;
+use OpenSim\Runtime\Environment;
 use OpenSim\Testing\Machine;
 
 /** A machine whose core has its defaults and whose grid has decided something in its OpenSim.ini. */
@@ -161,12 +161,12 @@ describe('A grid joined by a preset', function () {
         [$machine, $grid, $preset] = preset_machine();
         $bin = $machine->core . '/bin';
         (new SimulatorMaster())->ensure($grid, $bin);
-        $info = GridInfo::load(['EtcRoot' => $machine->etc, 'CoreDirectory' => $machine->core], 'osg');
+        $info = Grid::find(Environment::forProfile(['EtcRoot' => $machine->etc, 'CoreDirectory' => $machine->core]), 'osg');
         $features = new Features($info, ['EtcRoot' => $machine->etc, 'CoreDirectory' => $machine->core]);
 
         $result = $features->enable(Features::ECONOMY, ['money' => 'gloebit']);
 
-        expect($info->preset)->toBe('osg')
+        expect($info->preset())->toBe('osg')
             ->and($features->general())->toBe($preset . '/OpenSim.ini')
             ->and($result['error'])->toBeNull()
             ->and(ConfigReader::load($preset . '/OpenSim.ini')['Economy']['economymodule'])->toBe('Gloebit')
@@ -255,7 +255,7 @@ describe('config of a simulator', function () {
 describe('features of a grid with a master', function () {
     function master_features(Machine $machine): Features
     {
-        return new Features(GridInfo::load(['EtcRoot' => $machine->etc, 'CoreDirectory' => $machine->core], 'demo'));
+        return new Features(Grid::find(Environment::forProfile(['EtcRoot' => $machine->etc, 'CoreDirectory' => $machine->core]), 'demo'));
     }
 
     test('are decided in the OpenSim.ini of the grid, and the master follows', function () {
@@ -327,7 +327,7 @@ describe('grid made by the setup', function () {
         $plan->helpersPath = '/helpers';
 
         $method = new ReflectionMethod(OpenSim\Provisioning\GridProvisioner::class, 'writeMaster');
-        $method->invoke(new OpenSim\Provisioning\GridProvisioner($ui), $plan);
+        $method->invoke(new OpenSim\Provisioning\GridProvisioner($ui), $plan, ['EtcRoot' => $machine->etc]);
     }
 
     test('has what it decides for its simulators in its OpenSim.ini, quoted as the files of OpenSimulator are, and in its master', function () {
@@ -349,7 +349,7 @@ describe('grid made by the setup', function () {
     test('keeps a feature the operator disabled after it was made', function () {
         $machine = master_machine();
         master_provision($machine);
-        (new Features(GridInfo::load(['EtcRoot' => $machine->etc, 'CoreDirectory' => $machine->core], 'demo')))->disable('search');
+        (new Features(Grid::find(Environment::forProfile(['EtcRoot' => $machine->etc, 'CoreDirectory' => $machine->core]), 'demo')))->disable('search');
 
         master_provision($machine);
 

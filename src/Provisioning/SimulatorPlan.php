@@ -18,7 +18,7 @@ final class SimulatorPlan
     public string $baseHostname = 'localhost';
     public int $publicPort = 8002;
     public int $privatePort = 8003;
-    /** The description of the grid when it is a remote one not kept yet (GridInfo::describe()). */
+    /** The description of the grid when it is a remote one not kept yet (Grid::describe()). */
     public ?array $remoteGrid = null;
     /** The grid runs on this machine (its Robust is here), not at another host. */
     public bool $gridHere = true;
@@ -70,7 +70,7 @@ final class SimulatorPlan
     public string $registerUrl = '';
     /** The search service of the helpers, which the module of search of the simulator asks (empty without helpers) */
     public string $searchUrl = '';
-    /** @var list<string> The connectors the Robust of the grid serves besides the usual ones (see GridInfo::$connectors). */
+    /** @var list<string> The connectors the Robust of the grid serves besides the usual ones (see Grid::connectors()). */
     public array $connectors = [];
 
     public string $estateName = '';

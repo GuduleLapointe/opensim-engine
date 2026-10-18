@@ -3,8 +3,9 @@
 namespace OpenSim\Provisioning;
 
 use OpenSim\Config\GridFileService;
-use OpenSim\Models\GridInfo;
+use OpenSim\Models\Grid;
 use OpenSim\Models\Region;
+use OpenSim\Runtime\Environment;
 
 /**
  * What the grid knows of its regions, from the database of its Robust: their
@@ -26,9 +27,9 @@ final class GridRegistry
      *
      * @return list<int>|null null when the registry cannot be read
      */
-    public function ports(GridInfo $grid): ?array
+    public function ports(Grid $grid): ?array
     {
-        if ($grid->dbName === '' || $grid->planned) {
+        if ($grid->databaseName() === '' || $grid->isPlanned()) {
             return null; // a grid of another machine: its database is not ours to read
         }
         $rows = $this->database->select($grid->databasePlan(), 'SELECT serverPort, serverURI FROM regions');
@@ -44,16 +45,16 @@ final class GridRegistry
      * @param  array<string,string> $profile the setup of the user (EtcRoot)
      * @return list<int>
      */
-    public function knownPorts(array $profile, ?GridInfo $grid = null): array
+    public function knownPorts(array $profile, ?Grid $grid = null): array
     {
         $infos = [];
         foreach (\OpenSim\Archives\Instances::grids((string) ($profile['EtcRoot'] ?? '')) as $nick) {
-            if (($info = GridInfo::load($profile, $nick)) !== null) {
+            if (($info = Grid::find(Environment::forProfile($profile), $nick)) !== null) {
                 $infos[$nick] = $info;
             }
         }
         if ($grid !== null) {
-            $infos[$grid->nick] = $grid;
+            $infos[$grid->nick()] = $grid;
         }
         $ports = [];
         foreach ($infos as $info) {
@@ -92,18 +93,18 @@ final class GridRegistry
      *
      * @return array<string,true> lower case names
      */
-    public function names(GridInfo $grid): array
+    public function names(Grid $grid): array
     {
         $names = [];
         $rows =
-            $grid->dbName === '' || $grid->planned
+            $grid->databaseName() === '' || $grid->isPlanned()
                 ? null
                 : $this->database->select($grid->databasePlan(), 'SELECT regionName FROM regions');
         foreach ($rows ?? [] as $row) {
             $names[strtolower(trim($row))] = true;
         }
 
-        return $names + self::fileNames($grid->dir);
+        return $names + self::fileNames($grid->directory());
     }
 
     /**
@@ -130,11 +131,11 @@ final class GridRegistry
      *
      * @return array<string,true>
      */
-    public function locations(GridInfo $grid): array
+    public function locations(Grid $grid): array
     {
         $used = [];
         $rows =
-            $grid->dbName === '' || $grid->planned
+            $grid->databaseName() === '' || $grid->isPlanned()
                 ? null
                 : $this->database->select(
                     $grid->databasePlan(),
@@ -146,7 +147,7 @@ final class GridRegistry
                 LocationFinder::take($used, $n[0], $n[1], $n[2], $n[3]);
             }
         }
-        foreach (glob("{$grid->dir}/sims/*/regions/*.ini") ?: [] as $file) {
+        foreach (glob("{$grid->directory()}/sims/*/regions/*.ini") ?: [] as $file) {
             foreach (preg_split('/^\s*\[/m', GridFileService::read($file)) ?: [] as $section) {
                 if (preg_match('/^\s*Location\s*=\s*(\d+)\s*,\s*(\d+)/m', $section, $m)) {
                     $width = preg_match('/^\s*SizeX\s*=\s*(\d+)/m', $section, $w) ? intdiv((int) $w[1], 256) : 1;

@@ -6,24 +6,15 @@ declare(strict_types=1);
  * From the answers about a region to what its simulator plan says: the name, the roles, the place, the port.
  */
 
-use OpenSim\Models\GridInfo;
+use OpenSim\Models\Grid;
 use OpenSim\Models\Region;
 use OpenSim\Provisioning\RegionPlanner;
 use OpenSim\Provisioning\SimulatorPlan;
 
 /** A grid of this machine at 8002 whose center is 100,100, with Hypergrid and no region yet. */
-function region_grid(array $set = []): GridInfo
+function region_grid(array $set = []): Grid
 {
-    $grid = new GridInfo();
-    $grid->nick = 'demo';
-    $grid->name = 'Demo';
-    $grid->dir = '/nonexistent/grids/demo';
-    $grid->center = '100,100';
-    foreach ($set as $property => $value) {
-        $grid->$property = $value;
-    }
-
-    return $grid;
+    return Grid::described(['nick' => 'demo', 'name' => 'Demo', 'directory' => '/nonexistent/grids/demo', 'center' => '100,100'])->with($set);
 }
 
 /** A planner whose random things are not: a name by a counter, a port by the block. */

@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace OpenSim\Provisioning;
 
+use OpenSim\Config\InstanceSettings;
 use OpenSim\Exceptions\SetupFailedException;
 use OpenSim\Config\GridFileService;
 use OpenSim\Console\InstanceConsoleService;
 use OpenSim\Models\Grid;
-use OpenSim\Models\GridInfo;
 use OpenSim\Models\Region;
 use OpenSim\Models\Simulator;
 use OpenSim\Runtime\Environment;
@@ -36,7 +36,7 @@ final class SimulatorProvisioner
         if ($plan->remoteGrid !== null) {
             $this->ui->note(sprintf(_('Wrote %s'), (new GridConf())->writeRemote($plan->remoteGrid)));
         }
-        $grid = GridInfo::load($profile, $plan->gridNick);
+        $grid = Grid::find(Environment::forProfile($profile), $plan->gridNick);
         if ($grid === null) {
             $this->ui->error(sprintf(_("Grid '%s' not found."), $plan->gridNick));
 
@@ -56,7 +56,7 @@ final class SimulatorProvisioner
             if (!$accounts->create($grid, $plan->estateOwner, $plan->ownerPassword, $plan->ownerEmail)) {
                 throw new SetupFailedException('account');
             }
-            $this->ui->note(sprintf(_("Account %s created in the grid '%s'."), $plan->estateOwner, $grid->nick));
+            $this->ui->note(sprintf(_("Account %s created in the grid '%s'."), $plan->estateOwner, $grid->nick()));
         }
 
         foreach (
@@ -136,14 +136,14 @@ final class SimulatorProvisioner
      * Start the simulator and report whether it came up: the launcher's
      * answer, then, for a new region, its registration in the grid.
      */
-    private function startSimulator(SimulatorPlan $plan, GridInfo $grid, array $profile): void
+    private function startSimulator(SimulatorPlan $plan, Grid $grid, array $profile): void
     {
 
         // A region registers with the grid when it starts: the grid has to run (when
         // it is ours: a Robust on another machine is its administrator's)
-        if (!$grid->remote) {
+        if (!$grid->isRemote()) {
             // Robust reads the roles of its regions when it starts: it starts again to give them
-            [$code] = InstanceControl::run($this->ui, $plan->regionRoles !== [] ? 'restart' : 'start', $grid->nick, true);
+            [$code] = InstanceControl::run($this->ui, $plan->regionRoles !== [] ? 'restart' : 'start', $grid->nick(), true);
             if ($code !== 0) {
                 $this->failed(
                     $plan,
@@ -151,9 +151,9 @@ final class SimulatorProvisioner
                         _(
                             "The grid '%s' is not running, and a simulator cannot start without it. Enable and start it first: %s -v start %s",
                         ),
-                        $grid->nick,
+                        $grid->nick(),
                         'opensim',
-                        $grid->nick,
+                        $grid->nick(),
                     ),
                 );
             }
@@ -164,14 +164,14 @@ final class SimulatorProvisioner
         [$code, $said] = InstanceControl::run($this->ui, 'restart', $plan->slug, $now !== '');
         $pending = $code === 0 && str_contains($said, 'still starting');
         if ($code === 0 && !$pending) {
-            if ($plan->createRegion && !$grid->remote && !$this->registered($plan, $grid)) {
+            if ($plan->createRegion && !$grid->isRemote() && !$this->registered($plan, $grid)) {
                 $this->failed(
                     $plan,
                     sprintf(
                         _("Simulator '%s' runs, but the region %s did not register in the grid '%s'."),
                         $plan->simulatorName,
                         $plan->regionName,
-                        $grid->nick,
+                        $grid->nick(),
                     ),
                 );
             }
@@ -182,7 +182,7 @@ final class SimulatorProvisioner
             $this->ui->note(
                 !$plan->createRegion
                     ? sprintf(_("Simulator '%s' is running."), $plan->simulatorName)
-                    : ($grid->remote
+                    : ($grid->isRemote()
                         ? sprintf(
                             _(
                                 "Simulator '%s' is running, region %s started: see the grid, on its map, for its registration.",
@@ -247,7 +247,7 @@ final class SimulatorProvisioner
         }
 
         // The database of the simulator, as its config says (a region added to a simulator knows no more)
-        $conf = GridInfo::parse($plan->iniPath());
+        $conf = InstanceSettings::of($plan->iniPath());
         $db = new GridPlan();
         $db->dbHost = (string) ($conf['dbHost'] ?? $plan->dbHost);
         $db->dbName = (string) ($conf['dbName'] ?? $plan->dbName);
@@ -308,15 +308,15 @@ final class SimulatorProvisioner
      * The owner of the estate gets the default region as home: Robust sets the home of an account
      * when it is made, and the default region did not exist yet for this one.
      */
-    private function giveHome(SimulatorPlan $plan, GridInfo $grid): void
+    private function giveHome(SimulatorPlan $plan, Grid $grid): void
     {
-        if ($grid->remote || !in_array(Region::flagName(Region::DEFAULT_REGION), $plan->regionRoles, true)) {
+        if ($grid->isRemote() || !in_array(Region::flagName(Region::DEFAULT_REGION), $plan->regionRoles, true)) {
             return;
         }
         $owner =
             $plan->estateOwner !== ''
                 ? $plan->estateOwner
-                : (string) (GridInfo::parse($plan->iniPath())['estateOwner'] ?? '');
+                : (string) (InstanceSettings::of($plan->iniPath())['estateOwner'] ?? '');
         if ($owner === '') {
             return;
         }
@@ -331,7 +331,7 @@ final class SimulatorProvisioner
         }
     }
     /** Whether the grid knows the region, waiting a little for it to tell. */
-    private function registered(SimulatorPlan $plan, GridInfo $grid): bool
+    private function registered(SimulatorPlan $plan, Grid $grid): bool
     {
         if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9 ._-]*$/', $plan->regionName)) {
             return true; // cannot be looked for
@@ -378,21 +378,22 @@ final class SimulatorProvisioner
         }
     }
     /** Give the roles asked to the region in the Robust config of the grid. */
-    private function giveRoles(SimulatorPlan $plan, GridInfo $grid): void
+    private function giveRoles(SimulatorPlan $plan, Grid $grid): void
     {
-        if ($plan->regionRoles === [] || $grid->remote || $grid->robustIni === '') {
+        $ini = $grid->robustIni();
+        if ($plan->regionRoles === [] || $grid->isRemote() || $ini === null) {
             return;
         }
-        Region::giveRoles($grid->robustIni, $plan->regionName, $plan->regionRoles);
+        Region::giveRoles($ini, $plan->regionName, $plan->regionRoles);
         $this->ui->note(
-            sprintf(_('Updated %s: %s is %s.'), $grid->robustIni, $plan->regionName, implode(', ', $plan->regionRoles)),
+            sprintf(_('Updated %s: %s is %s.'), $ini, $plan->regionName, implode(', ', $plan->regionRoles)),
         );
     }
     /**
      * Write the region, and load it in the simulator through its console, which does not restart
      * it. The simulator is started when it is not running.
      */
-    private function applyRegion(SimulatorPlan $plan, array $profile, GridInfo $grid): void
+    private function applyRegion(SimulatorPlan $plan, array $profile, Grid $grid): void
     {
         @mkdir($plan->regionsDir(), 0o755, true);
         $region = (new SimulatorConfig())->writeRegion($plan);
@@ -418,7 +419,7 @@ final class SimulatorProvisioner
         }
 
         // Robust reads the roles of its regions when it starts
-        if ($plan->regionRoles !== [] && !$grid->remote) {
+        if ($plan->regionRoles !== [] && !$grid->isRemote()) {
             $this->restartGrid($grid);
         }
         // The questions of a region with no estate are answered with their default (the estate it has)
@@ -439,7 +440,7 @@ final class SimulatorProvisioner
         if (!$this->registered($plan, $grid)) {
             $this->failed(
                 $plan,
-                sprintf(_("Region %s did not register in the grid '%s'."), $plan->regionName, $grid->nick),
+                sprintf(_("Region %s did not register in the grid '%s'."), $plan->regionName, $grid->nick()),
             );
         }
         $this->giveHome($plan, $grid);
@@ -447,16 +448,16 @@ final class SimulatorProvisioner
         $this->ui->note(sprintf(_('Region %s is online.'), $plan->regionName));
     }
     /** Robust gives the roles to a region when it registers, from its config read when it starts. */
-    private function restartGrid(GridInfo $grid): void
+    private function restartGrid(Grid $grid): void
     {
-        [$code] = InstanceControl::run($this->ui, 'restart', $grid->nick, true);
+        [$code] = InstanceControl::run($this->ui, 'restart', $grid->nick(), true);
         if ($code !== 0) {
             $this->ui->warn(
                 sprintf(
                     _("The grid '%s' did not restart: try %s -v restart now %s"),
-                    $grid->nick,
+                    $grid->nick(),
                     'opensim',
-                    $grid->nick,
+                    $grid->nick(),
                 ),
             );
         }

@@ -35,20 +35,20 @@ describe('A grid on another machine', function () {
         expect($result['error'])->toBeNull()->and($result['warnings'])->toBe([])
             ->and($calls->getArrayCopy())->toBe(['play.example.org:8102']);
         $grid = $result['grid'];
-        expect($grid->remote)->toBeTrue()
-            ->and([$grid->nick, $grid->name, $grid->slug])->toBe(['far', 'Far World', 'far_world'])
-            ->and([$grid->baseHostname, $grid->publicPort, $grid->privatePort])->toBe(['play.example.org', 8102, 8103])
-            ->and($grid->hypergrid)->toBeTrue()
-            ->and($grid->dir)->toBe("$etc/grids/far")
-            ->and($grid->coreDirectory)->toBe('/cores/0.9.3.0')
-            ->and([$grid->dataDirectory, $grid->cacheDirectory, $grid->logsDirectory])->toBe(['/data/far', '/cache/far', '/logs']);
+        expect($grid->isRemote())->toBeTrue()
+            ->and([$grid->nick(), $grid->name(), $grid->slug()])->toBe(['far', 'Far World', 'far_world'])
+            ->and([$grid->baseHostname(), $grid->publicPort(), $grid->privatePort()])->toBe(['play.example.org', 8102, 8103])
+            ->and($grid->isHypergrid())->toBeTrue()
+            ->and($grid->directory())->toBe("$etc/grids/far")
+            ->and($grid->coreDirectory())->toBe('/cores/0.9.3.0')
+            ->and([$grid->dataDirectory(), $grid->cacheDirectory(), $grid->logsDirectory()])->toBe(['/data/far', '/cache/far', '/logs']);
     });
 
     test('takes the scheme and the port of the address, or the usual port', function () {
         [$planner] = remote_planner(['gridname' => 'X']);
 
-        expect($planner->plan(['address' => 'https://play.example.org:9000/'])['grid']->publicPort)->toBe(9000)
-            ->and($planner->plan(['address' => 'play.example.org'])['grid']->publicPort)->toBe(8002);
+        expect($planner->plan(['address' => 'https://play.example.org:9000/'])['grid']->publicPort())->toBe(9000)
+            ->and($planner->plan(['address' => 'play.example.org'])['grid']->publicPort())->toBe(8002);
     });
 
     test('keeps what was answered over what the grid says, the private port included', function () {
@@ -56,7 +56,7 @@ describe('A grid on another machine', function () {
 
         $grid = $planner->plan(['address' => 'play.example.org:8002', 'name' => 'My Name', 'nick' => 'my-nick!', 'private_port' => '9999', 'hypergrid' => false])['grid'];
 
-        expect([$grid->name, $grid->nick, $grid->privatePort, $grid->hypergrid])->toBe(['My Name', 'mynick', 9999, false]);
+        expect([$grid->name(), $grid->nick(), $grid->privatePort(), $grid->isHypergrid()])->toBe(['My Name', 'mynick', 9999, false]);
     });
 
     test('is named after its host when it does not answer, and the person is told', function () {
@@ -64,8 +64,8 @@ describe('A grid on another machine', function () {
 
         $result = $planner->plan(['address' => 'garden.example.org:8002']);
 
-        expect($result['grid']->name)->toBe('Garden')
-            ->and($result['grid']->nick)->toBe('garden')
+        expect($result['grid']->name())->toBe('Garden')
+            ->and($result['grid']->nick())->toBe('garden')
             ->and($result['warnings'][0])->toContain('did not answer at http://garden.example.org:8002/get_grid_info');
     });
 
@@ -87,8 +87,8 @@ describe('A grid on another machine', function () {
         $result = $planner->plan(['address' => 'new.example.org:8002']);
 
         expect($result['notes'])->toBe(["Grid 'far' is already known here, its description is kept."])
-            ->and($result['grid']->name)->toBe('Far Described')
-            ->and($result['grid']->baseHostname)->toBe('old.example.org');
+            ->and($result['grid']->name())->toBe('Far Described')
+            ->and($result['grid']->baseHostname())->toBe('old.example.org');
     });
 
     test('is joined with what its preset says, and is not asked', function () {
@@ -107,8 +107,8 @@ describe('A grid on another machine', function () {
             ->and($answers)->toBe(['address' => 'grid.speculoos.world:8002', 'name' => 'Speculoos World', 'nick' => 'speculoos', 'private_port' => 8003, 'hypergrid' => true])
             ->and($calls->getArrayCopy())->toBe([])
             ->and($result['warnings'])->toBe([])
-            ->and($result['grid']->preset)->toBe('speculoos')
-            ->and($result['grid']->nick)->toBe('speculoos');
+            ->and($result['grid']->preset())->toBe('speculoos')
+            ->and($result['grid']->nick())->toBe('speculoos');
     });
 
     test('has an address, and a private port that is a number when it is given', function () {

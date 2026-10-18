@@ -5,6 +5,8 @@
  */
 
 
+use OpenSim\Models\Grid;
+use OpenSim\Models\Robust;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\RobustConfig;
 use OpenSim\Provisioning\SimulatorConfig;
@@ -81,7 +83,7 @@ describe('Configuring a grid that exists', function () {
                 ; EstateDataService = "${Const|PrivatePort}/OpenSim.Server.Handlers.dll:EstateDataRobustConnector"
                 ; HGGroupsServiceConnector = "${Const|PublicPort}/OpenSim.Addons.Groups.dll:HGGroupsServiceRobustConnector"
             INI;
-        $served = static fn(string $robustIni): array => \OpenSim\Models\GridInfo::connectorsIn($robustIni);
+        $served = static fn(string $robustIni): array => Robust::connectorsIn($robustIni);
         $make = function (bool $helpers, bool $hypergrid) use ($plan, $connectors): GridPlan {
             $grid = $plan();
             $grid->helpers = $helpers;
@@ -232,12 +234,7 @@ describe('Configuring a simulator that exists', function () {
 
 describe('What a grid tells its simulators of the connectors its Robust serves', function () {
     test('is the counterpart of each: the bakes, the groups, the groups of the hypergrid', function () {
-        $grid = new \OpenSim\Models\GridInfo();
-        $lines = static fn(array $connectors): string => implode("\n", (function () use ($grid, $connectors) {
-            $grid->connectors = $connectors;
-
-            return SimulatorConfig::gridLayer($grid);
-        })());
+        $lines = static fn(array $connectors): string => implode("\n", SimulatorConfig::gridLayer(Grid::described(['connectors' => $connectors])));
 
         $none = $lines([]);
         expect($none)->not->toContain('[XBakes]')->not->toContain('[Groups]');

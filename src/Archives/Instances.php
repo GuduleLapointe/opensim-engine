@@ -2,8 +2,9 @@
 
 namespace OpenSim\Archives;
 
-use OpenSim\Models\GridInfo;
+use OpenSim\Models\Grid;
 use OpenSim\Models\Region;
+use OpenSim\Provisioning\Slug;
 
 /**
  * Which grid, and which simulator or region of it, the words of a command name: `GRID`, `GRID SIM`, `GRID _SIM`,
@@ -120,7 +121,7 @@ final class Instances
     /** The instance of a simulator named in full (grid_sim), or by its own name with or without a leading underscore */
     public static function simulator(string $etc, string $nick, string $ref): ?string
     {
-        foreach ([$ref, GridInfo::instanceName($nick . '_' . ltrim($ref, '_'))] as $candidate) {
+        foreach ([$ref, Slug::slug($nick . '_' . ltrim($ref, '_'))] as $candidate) {
             if (is_file("$etc/grids/$nick/sims/$candidate.ini")) {
                 return $candidate;
             }
