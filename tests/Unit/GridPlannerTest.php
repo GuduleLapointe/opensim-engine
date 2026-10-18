@@ -7,8 +7,11 @@ declare(strict_types=1);
  */
 
 use OpenSim\Models\Grid;
+use OpenSim\Models\Robust;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\GridPlanner;
+use OpenSim\Runtime\Environment;
+use OpenSim\Testing\Machine;
 
 /** A planner for a machine called amy, with random things that are not: a counter. */
 function planner(array $more = []): GridPlanner
@@ -28,6 +31,43 @@ function planner(array $more = []): GridPlanner
             return str_pad(($letters ? 'l' : 'p') . $counter, $length, $letters ? 'x' : '0');
         },
     ]);
+}
+
+/**
+ * The Robust of an existing grid, with these settings (by the names the planner knows them: gridName, baseHostname, publicPort,
+ * privatePort, consolePort, consoleHost, consoleUser, consolePass, webUrl, dbHost, dbName, dbUser, dbPass).
+ */
+function robust_current(array $set): Robust
+{
+    $directory = test_tmp() . '/robustcurrent-' . bin2hex(random_bytes(4));
+    mkdir($directory, 0o755, true);
+    $ini = ['[Const]'];
+    foreach (['baseHostname' => 'BaseHostname', 'publicPort' => 'PublicPort', 'privatePort' => 'PrivatePort', 'webUrl' => 'WebURL'] as $key => $name) {
+        isset($set[$key]) && $ini[] = "$name = \"{$set[$key]}\"";
+    }
+    if (isset($set['gridName'])) {
+        array_push($ini, '[GridInfoService]', "gridname = \"{$set['gridName']}\"");
+    }
+    $console = ['consolePort' => 'ConsolePort', 'consoleHost' => 'ConsoleHost', 'consoleUser' => 'ConsoleUser', 'consolePass' => 'ConsolePass'];
+    if (array_intersect_key($console, $set) !== []) {
+        $ini[] = '[Network]';
+        foreach ($console as $key => $name) {
+            isset($set[$key]) && $ini[] = "$name = \"{$set[$key]}\"";
+        }
+    }
+    if (array_intersect_key(['dbHost' => 1, 'dbName' => 1, 'dbUser' => 1, 'dbPass' => 1], $set) !== []) {
+        $ini[] = '[DatabaseService]';
+        $ini[] = sprintf(
+            'ConnectionString = "Data Source=%s;Database=%s;User ID=%s;Password=%s;Old Guids=true;"',
+            $set['dbHost'] ?? 'localhost',
+            $set['dbName'] ?? 'robust',
+            $set['dbUser'] ?? 'opensim',
+            $set['dbPass'] ?? '',
+        );
+    }
+    file_put_contents("$directory/Robust.ini", implode("\n", $ini) . "\n");
+
+    return new Robust(Environment::forProfile([]), "$directory/Robust.ini", 'amy');
 }
 
 describe('A new grid', function () {
@@ -163,11 +203,12 @@ describe('A grid that exists', function () {
             'nick' => 'amy',
             'currentHypergrid' => false,
             'savedCenter' => '8100,8100',
-            'current' => [
+            'savedSpacing' => 2,
+            'current' => robust_current([
                 'gridName' => 'Amy World', 'baseHostname' => 'amy.old.org', 'publicPort' => 8102, 'privatePort' => 8105, 'consolePort' => 8108,
                 'webUrl' => 'https://web.old.org', 'dbHost' => 'db.old.org', 'dbName' => 'old_db', 'dbUser' => 'olduser', 'dbPass' => 'oldpass',
                 'consoleUser' => 'oldconsole', 'consolePass' => 'oldconsolepass', 'consoleHost' => 'console.old.org',
-            ],
+            ]),
         ]);
     }
 
@@ -178,6 +219,7 @@ describe('A grid that exists', function () {
             'name' => 'Amy World', 'nick' => 'amy', 'hypergrid' => false, 'hostname' => 'amy.old.org', 'public_port' => 8102,
             'private_port' => 8105, 'console_port' => 8108, 'center' => '8100,8100', 'web_url' => 'https://web.old.org',
             'database_host' => 'db.old.org', 'database_name' => 'old_db', 'database_user' => 'olduser', 'database_password' => 'oldpass',
+            'spacing' => 2,
         ]);
     });
 
@@ -195,15 +237,15 @@ describe('A grid that exists', function () {
     });
 
     test('is named by its nick in words when its files do not say its name', function () {
-        expect(existing_planner(['nick' => 'watta_world', 'current' => ['dbPass' => 'x']])->resolve()['name'])->toBe('Watta World');
+        expect(existing_planner(['nick' => 'watta_world', 'current' => robust_current(['dbPass' => 'x'])])->resolve()['name'])->toBe('Watta World');
     });
 
     test('has a password made when the one found is the default of old', function () {
-        expect(existing_planner(['current' => ['dbPass' => 'changeme']])->resolve()['database_password'])->toBe('p1' . str_repeat('0', 18));
+        expect(existing_planner(['current' => robust_current(['dbPass' => 'changeme'])])->resolve()['database_password'])->toBe('p1' . str_repeat('0', 18));
     });
 
     test('is a console on a screen when its Robust has none', function () {
-        expect(existing_planner(['current' => ['gridName' => 'X']])->resolve()['console'])->toBe('screen');
+        expect(existing_planner(['current' => robust_current(['gridName' => 'X'])])->resolve()['console'])->toBe('screen');
     });
 });
 
@@ -213,5 +255,16 @@ describe('fields of a grid', function () {
 
         expect($names)->toBe(['name', 'nick', 'hypergrid', 'spacing', 'core', 'hostname', 'public_port', 'private_port', 'center', 'console', 'console_port', 'web_url', 'helpers', 'helpers_path', 'search', 'economy', 'ossl', 'web_server', 'web_site', 'database_host', 'database_name', 'database_user', 'database_password']);
         expect(Grid::fields(['modify' => true])[1]['enable'])->toBeFalse()->and(Grid::fields()[1]['enable'])->toBeTrue();
+    });
+});
+
+describe('grid planner from an existing grid of this machine', function () {
+    test('proposes its spacing, its center and its Robust settings as they are', function () {
+        $machine = new Machine();
+        $machine->write($machine->grid . '/demo.conf', "[Grid]\nGridName = Demo\nRegionSpacing = 3\nCenter = \"1000,1000\"\nCoreDirectory = {$machine->core}\n");
+
+        $v = planner(['profile' => ['EtcRoot' => $machine->etc, 'DataRoot' => $machine->root . '/data']])->forNick('demo')->resolve();
+
+        expect($v)->toMatchArray(['spacing' => 3, 'center' => '1000,1000', 'public_port' => 8002, 'private_port' => 8003, 'hypergrid' => true]);
     });
 });

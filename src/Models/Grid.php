@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace OpenSim\Models;
 
 use OpenSim\Config\ConfigReader;
-use OpenSim\Config\InstanceSettings;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\LocationFinder;
 use OpenSim\Provisioning\Slug;
@@ -532,8 +531,8 @@ final class Grid implements \OpenSim\Interfaces\Enablable
             ];
         }
 
-        $current = InstanceSettings::of($robustIni);
-        $name = $current['gridName'] ?? ($conf['GridName'] ?? Slug::nameOf($nick));
+        $robust = new Robust($this->environment, $robustIni, $nick);
+        $name = $robust->gridName() ?? ($conf['GridName'] ?? Slug::nameOf($nick));
 
         return $values + [
             'robustIni' => $robustIni,
@@ -542,15 +541,15 @@ final class Grid implements \OpenSim\Interfaces\Enablable
             'slug' => $conf['slug'] ?? Slug::slug($name),
             'regionSpacing' => ctype_digit($conf['RegionSpacing'] ?? '') ? (int) $conf['RegionSpacing'] : 0,
             'center' => $conf['Center'] ?? '',
-            'regionFlags' => $current['regionFlags'] ?? [],
-            'connectors' => $current['connectors'] ?? [],
-            'baseHostname' => $current['baseHostname'] ?? 'localhost',
-            'publicPort' => $current['publicPort'] ?? 8002,
-            'privatePort' => $current['privatePort'] ?? 8003,
-            'databaseHost' => $current['dbHost'] ?? 'localhost',
-            'databaseName' => $current['dbName'] ?? '',
-            'databaseUser' => $current['dbUser'] ?? 'opensim',
-            'databasePassword' => $current['dbPass'] ?? '',
+            'regionFlags' => $robust->regionFlags(),
+            'connectors' => $robust->connectors(),
+            'baseHostname' => $robust->baseHostname() ?? 'localhost',
+            'publicPort' => $robust->publicPort() ?? 8002,
+            'privatePort' => $robust->privatePort() ?? 8003,
+            'databaseHost' => $robust->databaseHost() ?? 'localhost',
+            'databaseName' => $robust->databaseName() ?? '',
+            'databaseUser' => $robust->databaseUser() ?? 'opensim',
+            'databasePassword' => $robust->databasePassword() ?? '',
         ];
     }
 

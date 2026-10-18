@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace OpenSim\Provisioning;
 
 use OpenSim\Config\ConfigReader;
-use OpenSim\Config\InstanceSettings;
 use OpenSim\Forms\FieldSet;
 use OpenSim\Models\Core;
 use OpenSim\Models\Grid;
@@ -13,6 +12,7 @@ use OpenSim\Network\Ports;
 use OpenSim\Provisioning\Web\HelpersConfig;
 use OpenSim\Provisioning\Web\Services;
 use OpenSim\Provisioning\Web\Snippets;
+use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\ShellService;
 
 /**
@@ -50,8 +50,9 @@ final class GridPlanner
             'cores' => [],          // folder => name of the cores that can run the grid
             'modify' => false,      // the grid exists and is changed: its nick stays
             'nick' => '',           // the grid whose settings are the starting point
-            'current' => [],        // its settings, as InstanceSettings::of reads them
+            'current' => null,      // its Robust, when it exists: its settings are the ones proposed
             'currentHypergrid' => null,
+            'savedSpacing' => 0,
             'savedCenter' => '',
             'defaultName' => 'My',
             'defaultHost' => 'localhost',
@@ -93,18 +94,14 @@ final class GridPlanner
     public function forNick(string $nick): self
     {
         $dir = rtrim((string) ($this->context['profile']['EtcRoot'] ?? ''), '/') . "/grids/$nick";
-        $existing = null;
-        foreach (['Robust.HG.ini', 'Robust.ini'] as $file) {
-            if ($existing === null && is_file("$dir/$file")) {
-                $existing = "$dir/$file";
-            }
-        }
+        $grid = Grid::find(Environment::forProfile($this->context['profile']), $nick);
         $center = ConfigReader::file("$dir/$nick.conf")['Grid']['Center'] ?? '';
 
         return new self([
             'nick' => $nick,
-            'current' => $existing !== null ? InstanceSettings::of($existing) : [],
-            'currentHypergrid' => $existing !== null ? str_contains(basename($existing), '.HG.') : null,
+            'current' => $grid?->robust(),
+            'currentHypergrid' => $grid?->robust() !== null ? $grid->isHypergrid() : null,
+            'savedSpacing' => $grid?->regionSpacing() ?? 0,
             'savedCenter' => trim((string) $center, " \t\""),
             'helpersAvailable' => is_file(HelpersConfig::path($dir)) || is_dir(Snippets::WEBROOT),
             'helpersPath' => HelpersConfig::basePath($dir),
@@ -174,27 +171,27 @@ final class GridPlanner
         $modify = $c['modify'];
         $text = static fn(string $name, mixed $default): string => trim((string) ($answers[$name] ?? $default));
 
-        $name = $text('name', $current['gridName'] ?? ($modify ? Slug::nameOf($c['nick']) : $c['defaultName']));
+        $name = $text('name', $current?->gridName() ?? ($modify ? Slug::nameOf($c['nick']) : $c['defaultName']));
         $nick = $modify ? $c['nick'] : $text('nick', Slug::nick($name));
         $hypergrid = self::flag($answers['hypergrid'] ?? $c['currentHypergrid'] ?? true);
-        $spacing = (int) ($answers['spacing'] ?? ($current['regionSpacing'] ?? 0));
+        $spacing = (int) ($answers['spacing'] ?? $c['savedSpacing']);
         $cores = $c['cores'];
         $core = $text('core', count($cores) > 1 ? (string) ($profile['CoreDirectory'] ?? '') : '');
         $core = $core !== '' ? $core : (string) array_key_first($cores);
 
-        $host0 = (string) ($current['baseHostname'] ?? $c['defaultHost']);
+        $host0 = (string) ($current?->baseHostname() ?? $c['defaultHost']);
         $host = $text('hostname', $host0);
-        $public0 = (int) ($current['publicPort'] ?? $c['defaultPublic']);
+        $public0 = (int) ($current?->publicPort() ?? $c['defaultPublic']);
         $public = (int) ($answers['public_port'] ?? $public0);
-        $private0 = (int) ($current['privatePort'] ?? $this->privateFor($public0));
+        $private0 = (int) ($current?->privatePort() ?? $this->privateFor($public0));
         $private = (int) ($answers['private_port'] ?? ($public === $public0 ? $private0 : $this->privateFor($public)));
-        $console0 = (int) ($current['consolePort'] ?? $this->consoleFor($public0, $private0));
+        $console0 = (int) ($current?->consolePort() ?? $this->consoleFor($public0, $private0));
         $consolePort = (int) ($answers['console_port'] ?? ($public === $public0 ? $console0 : $this->consoleFor($public, $private)));
         $center = $text('center', $c['savedCenter'] !== '' ? $c['savedCenter'] : "$public,$public");
-        $web0 = (string) ($current['webUrl'] ?? "https://$host0");
+        $web0 = (string) ($current?->webUrl() ?? "https://$host0");
         $web = $text('web_url', $host === $host0 ? $web0 : "https://$host");
 
-        $foundPassword = (string) ($current['dbPass'] ?? '');
+        $foundPassword = (string) ($current?->databasePassword() ?? '');
 
         return [
             'name' => $name,
@@ -206,7 +203,7 @@ final class GridPlanner
             'public_port' => $public,
             'private_port' => $private,
             'center' => $center,
-            'console' => $text('console', isset($current['consoleUser']) || $current === [] ? 'rest' : 'screen'),
+            'console' => $text('console', $current === null || $current->consoleUser() !== null ? 'rest' : 'screen'),
             'console_port' => $consolePort,
             'web_url' => $web,
             'helpers' => self::flag($answers['helpers'] ?? $c['helpersAvailable']),
@@ -217,9 +214,9 @@ final class GridPlanner
             'ossl' => self::flag($answers['ossl'] ?? false),
             'web_server' => self::choice($answers['web_server'] ?? null, ['caddy', 'apache', 'nginx'], $c['webServer']),
             'web_site' => self::choice($answers['web_site'] ?? null, ['helpers', 'website'], 'helpers'),
-            'database_host' => $text('database_host', $current['dbHost'] ?? ($profile['DataSource'] ?? 'localhost')),
-            'database_name' => $text('database_name', $current['dbName'] ?? strtolower($nick) . '_robust'),
-            'database_user' => $text('database_user', $current['dbUser'] ?? 'opensim'),
+            'database_host' => $text('database_host', $current?->databaseHost() ?? ($profile['DataSource'] ?? 'localhost')),
+            'database_name' => $text('database_name', $current?->databaseName() ?? strtolower($nick) . '_robust'),
+            'database_user' => $text('database_user', $current?->databaseUser() ?? 'opensim'),
             // A password found is reused, otherwise one is made (never changeme)
             'database_password' => $text(
                 'database_password',
@@ -284,9 +281,9 @@ final class GridPlanner
         if ($plan->consoleMode === 'rest') {
             $plan->consolePort = $v['console_port'];
             // As the helpers make theirs: 12 lower case letters, 32 letters and digits
-            $plan->consoleHost = (string) ($current['consoleHost'] ?? $plan->baseHostname);
-            $plan->consoleUser = (string) ($current['consoleUser'] ?? $this->secret('console_user', 12, true));
-            $plan->consolePass = (string) ($current['consolePass'] ?? $this->secret('console_password', 32, false));
+            $plan->consoleHost = (string) ($current?->consoleHost() ?? $plan->baseHostname);
+            $plan->consoleUser = (string) ($current?->consoleUser() ?? $this->secret('console_user', 12, true));
+            $plan->consolePass = (string) ($current?->consolePassword() ?? $this->secret('console_password', 32, false));
         }
         $plan->dbHost = $v['database_host'];
         $plan->dbName = $v['database_name'];

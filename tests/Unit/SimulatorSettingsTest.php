@@ -79,3 +79,42 @@ describe('grid detail', function () {
             ->and(json_encode($detail))->toBeString();
     });
 });
+
+describe('Robust', function () {
+    test('tells what its own config says: names, ports, console, database, services, roles of regions', function () {
+        $machine = new Machine();
+        $machine->write($machine->grid . '/Robust.HG.ini', <<<INI
+            [Const]
+                BaseHostname = "play.example.org"
+                PublicPort = 8002
+                PrivatePort = 8003
+                WebURL = "https://play.example.org"
+            [GridInfoService]
+                gridname = "Demo World"
+            [Network]
+                ConsolePort = 8404
+                ConsoleHost = "play.example.org"
+                ConsoleUser = "admin"
+                ConsolePass = "secret"
+            [DatabaseService]
+                ConnectionString = "Data Source=db.example.org;Database=demo_robust;User ID=gridaccount;Password=gridpass;Old Guids=true;"
+            [ServiceList]
+                AssetServiceConnector = "8003/OpenSim.Server.Handlers.dll:AssetServiceConnector"
+                BakedTextureService = "8003/OpenSim.Server.Handlers.dll:XBakesConnector"
+            [GridService]
+                Region_Welcome = "DefaultRegion, FallbackRegion"
+            INI);
+        $robust = Grid::find($machine->environment, 'demo')->robust();
+
+        expect($robust->exists())->toBeTrue()
+            ->and([$robust->gridName(), $robust->baseHostname(), $robust->webUrl(), $robust->publicPort(), $robust->privatePort()])
+                ->toBe(['Demo World', 'play.example.org', 'https://play.example.org', 8002, 8003])
+            ->and([$robust->consolePort(), $robust->consoleHost(), $robust->consoleUser(), $robust->consolePassword()])->toBe([8404, 'play.example.org', 'admin', 'secret'])
+            ->and([$robust->databaseHost(), $robust->databaseName(), $robust->databaseUser(), $robust->databasePassword()])
+                ->toBe(['db.example.org', 'demo_robust', 'gridaccount', 'gridpass'])
+            ->and($robust->connectors())->toBe(['AssetServiceConnector', 'BakedTextureService'])
+            ->and($robust->serves('BakedTextureService'))->toBeTrue()
+            ->and($robust->serves('GroupsServiceConnector'))->toBeFalse()
+            ->and($robust->regionFlags())->toBe(['DefaultRegion', 'FallbackRegion']);
+    });
+});

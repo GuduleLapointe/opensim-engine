@@ -28,6 +28,60 @@ final class Robust extends Instance
         return $this->grid()?->nick() ?? parent::linkName();
     }
 
+    /** The name the grid gives itself (`gridname` of [GridInfoService]). */
+    public function gridName(): ?string
+    {
+        return $this->own('gridName');
+    }
+
+    public function baseHostname(): ?string
+    {
+        return $this->own('baseHostname');
+    }
+
+    /** The web site of the grid (`WebURL`), where its helpers are. */
+    public function webUrl(): ?string
+    {
+        return $this->own('webUrl');
+    }
+
+    /** The port the viewers and the other grids reach it by. */
+    public function publicPort(): ?int
+    {
+        return $this->own('publicPort');
+    }
+
+    /** The port of the simulators of the grid, which they reach it by. */
+    public function privatePort(): ?int
+    {
+        return $this->own('privatePort');
+    }
+
+    /**
+     * The services it serves: the connectors of its [ServiceList].
+     *
+     * @return list<string>
+     */
+    public function connectors(): array
+    {
+        return (array) ($this->own('connectors') ?? []);
+    }
+
+    public function serves(string $connector): bool
+    {
+        return in_array($connector, $this->connectors(), true);
+    }
+
+    /**
+     * The roles its config gives to regions (Region_<Name> = "DefaultRegion, ...").
+     *
+     * @return list<string>
+     */
+    public function regionFlags(): array
+    {
+        return (array) ($this->own('regionFlags') ?? []);
+    }
+
     /**
      * The connectors a Robust config serves: the keys of its [ServiceList].
      *

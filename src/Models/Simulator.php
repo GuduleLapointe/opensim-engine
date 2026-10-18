@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace OpenSim\Models;
 
-use OpenSim\Config\InstanceSettings;
 use OpenSim\Provisioning\GridAccounts;
 use OpenSim\Provisioning\SimulatorMaster;
 use OpenSim\Provisioning\Slug;
@@ -15,9 +14,6 @@ use OpenSim\Provisioning\Slug;
  */
 final class Simulator extends Instance
 {
-    /** @var ?array<string,mixed> what its own config says (see InstanceSettings) */
-    private ?array $own = null;
-
     /**
      * The fields of a simulator, in the standard format of the forms (see Forms\FieldSet): what the setup asks to make or to change
      * one, and what any other form about a simulator shows. The groups are the screens of the setup.
@@ -194,71 +190,10 @@ final class Simulator extends Instance
         return SimulatorMaster::path($grid);
     }
 
-    /** Whether its config is there. */
-    public function exists(): bool
-    {
-        return is_file($this->ini());
-    }
-
-    protected function forget(): void
-    {
-        parent::forget();
-        $this->own = null;
-    }
-
-    /** What its own file says, in the names of InstanceSettings; nothing for a simulator that is not made yet. */
-    private function own(string $key): mixed
-    {
-        return ($this->own ??= $this->exists() ? InstanceSettings::of($this->ini()) : [])[$key] ?? null;
-    }
-
     /** The port it listens on, null when its config does not say it. */
     public function httpPort(): ?int
     {
         return $this->own('httpPort');
-    }
-
-    /** The port of its remote console, null when its config has none (it runs in a screen session). */
-    public function consolePort(): ?int
-    {
-        return $this->own('consolePort');
-    }
-
-    /** The host clients reach its remote console by. */
-    public function consoleHost(): ?string
-    {
-        return $this->own('consoleHost');
-    }
-
-    public function consoleUser(): ?string
-    {
-        return $this->own('consoleUser');
-    }
-
-    public function consolePassword(): ?string
-    {
-        return $this->own('consolePass');
-    }
-
-    /** The database of its regions, null when its config does not say it. */
-    public function databaseHost(): ?string
-    {
-        return $this->own('dbHost');
-    }
-
-    public function databaseName(): ?string
-    {
-        return $this->own('dbName');
-    }
-
-    public function databaseUser(): ?string
-    {
-        return $this->own('dbUser');
-    }
-
-    public function databasePassword(): ?string
-    {
-        return $this->own('dbPass');
     }
 
     public function estateName(): ?string

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OpenSim\Models;
 
 use OpenSim\Config\ConfigReader;
+use OpenSim\Config\InstanceSettings;
 use OpenSim\Console\ConsoleInterface;
 use OpenSim\Network\InstancePorts;
 use OpenSim\Runtime\Environment;
@@ -28,6 +29,9 @@ abstract class Instance implements \OpenSim\Interfaces\Enablable
 
     /** @var ?array<string,array<string,string>> */
     private ?array $settings = null;
+
+    /** @var ?array<string,mixed> what its own config says (see InstanceSettings) */
+    private ?array $own = null;
 
     private readonly string $name;
 
@@ -89,6 +93,62 @@ abstract class Instance implements \OpenSim\Interfaces\Enablable
     protected function forget(): void
     {
         $this->settings = null;
+        $this->own = null;
+    }
+
+    /** Whether its config is there. */
+    public function exists(): bool
+    {
+        return is_file($this->ini);
+    }
+
+    /** What its own file says, in the names of InstanceSettings; nothing for an instance that is not made yet. */
+    protected function own(string $key): mixed
+    {
+        return ($this->own ??= $this->exists() ? InstanceSettings::of($this->ini) : [])[$key] ?? null;
+    }
+
+    /** The port of its remote console, null when its config has none (it runs in a screen session). */
+    public function consolePort(): ?int
+    {
+        return $this->own('consolePort');
+    }
+
+    /** The host clients reach its remote console by. */
+    public function consoleHost(): ?string
+    {
+        return $this->own('consoleHost');
+    }
+
+    public function consoleUser(): ?string
+    {
+        return $this->own('consoleUser');
+    }
+
+    public function consolePassword(): ?string
+    {
+        return $this->own('consolePass');
+    }
+
+    /** The database it connects to, null when its config does not say it. */
+    public function databaseHost(): ?string
+    {
+        return $this->own('dbHost');
+    }
+
+    public function databaseName(): ?string
+    {
+        return $this->own('dbName');
+    }
+
+    public function databaseUser(): ?string
+    {
+        return $this->own('dbUser');
+    }
+
+    public function databasePassword(): ?string
+    {
+        return $this->own('dbPass');
     }
 
     /**
