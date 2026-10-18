@@ -14,6 +14,9 @@ use OpenSim\Provisioning\Slug;
  * An avatar of the grid: its account (UserAccounts of the user account service), where it was (GridUser of the grid user service)
  * and its profile (userprofile of the profiles service). The three are read in one query when they are in the same database, which is
  * the usual case, else one query for each.
+ *
+ * It is local, or it is a visitor of another grid (the grid keeps the visits in GridUser), or someone known by their UUID alone:
+ * whoever is banned or whose data is deleted is any of them. What it left in the databases of the grid is told by leftovers().
  */
 final class Avatar extends Model
 {
@@ -27,6 +30,21 @@ final class Avatar extends Model
 
     /** The account the services of the grid have, which is not a person: Robust makes it for itself. */
     private const TECHNICAL = ['GRID', 'SERVICES'];
+
+    /** What a person leaves in the databases, by table: the condition that finds it, {id} being their UUID and {like} the start of the ids of GridUser. */
+    private const LEFTOVERS = [
+        'UserAccounts' => 'PrincipalID = {id}',
+        'GridUser' => 'UserID = {id} OR UserID LIKE {like}',
+        'userprofile' => 'useruuid = {id}',
+        'tokens' => 'UUID = {id}',
+        'auth' => 'UUID = {id}',
+        'Avatars' => 'PrincipalID = {id}',
+        'Presence' => 'UserID = {id}',
+        'im_offline' => 'PrincipalID = {id}',
+        'inventoryfolders' => 'agentID = {id}',
+        'inventoryitems' => 'avatarID = {id}',
+        'assets' => 'CreatorID = {id}',
+    ];
 
     /** The moment of the last visit as the database computes it: the later of Login and Logout, stored as texts. */
     private const LAST_SEEN = 'CASE WHEN COALESCE(g.Login + 0, 0) > COALESCE(g.Logout + 0, 0) THEN COALESCE(g.Login + 0, 0) ELSE COALESCE(g.Logout + 0, 0) END';
@@ -65,12 +83,44 @@ final class Avatar extends Model
         return Slug::slug($this->name());
     }
 
+    public function firstName(): string
+    {
+        return (string) ($this->row['FirstName'] ?? '');
+    }
+
+    public function lastName(): string
+    {
+        return (string) ($this->row['LastName'] ?? '');
+    }
+
+    /** The grid a visitor comes from (host:port), empty for an avatar of this grid. */
+    public function grid(): string
+    {
+        return (string) ($this->row['grid'] ?? '');
+    }
+
+    /** Whether it is an avatar of this grid, not a visitor from another. */
+    public function isLocal(): bool
+    {
+        return $this->grid() === '';
+    }
+
+    /** First.Last@grid as a viewer shows it; the UUID for someone whose name is not known. */
+    public function label(): string
+    {
+        if ($this->firstName() === '' && $this->lastName() === '') {
+            return $this->id();
+        }
+
+        return $this->firstName() . '.' . $this->lastName() . ($this->isLocal() ? '' : '@' . $this->grid());
+    }
+
     /** The name of the avatar for the other grids: first.last@host:port. */
     public function uri(): ?string
     {
-        $grid = $this->config->gridUri();
+        $grid = $this->isLocal() ? $this->config->gridUri() : $this->grid();
 
-        return $grid === null ? null : strtolower($this->row['FirstName'] . '.' . $this->row['LastName']) . '@' . $grid;
+        return $grid === null || $grid === '' ? null : strtolower($this->firstName() . '.' . $this->lastName()) . '@' . $grid;
     }
 
     /** The user flags of the account. */
@@ -155,8 +205,10 @@ final class Avatar extends Model
             'name' => $this->name(),
             'slug' => $this->slug(),
             'uri' => $this->uri(),
-            'firstName' => $row['FirstName'],
-            'lastName' => $row['LastName'],
+            'firstName' => $this->firstName(),
+            'lastName' => $this->lastName(),
+            'grid' => $this->grid() ?: null,
+            'local' => $this->isLocal(),
             'email' => $row['Email'] ?? null,
             'title' => $row['UserTitle'] ?? '',
             'created' => isset($row['Created']) ? (int) $row['Created'] : null,
@@ -221,6 +273,183 @@ final class Avatar extends Model
     public function disable(): void
     {
         $this->update(['active' => false]);
+    }
+
+    /** A visitor of another grid, from its id in GridUser: <uuid>;<home of the grid>;<First Last>. */
+    public static function visitor(GridConfig $config, string $userId): static
+    {
+        $parts = explode(';', $userId);
+        $name = preg_split('/\s+/', trim($parts[2] ?? ''), 2) ?: [];
+        $grid = preg_replace('#^[a-z]+://|/+$#i', '', trim($parts[1] ?? '')) ?? '';
+
+        return new static($config, ['PrincipalID' => strtolower($parts[0]), 'FirstName' => $name[0] ?? '', 'LastName' => $name[1] ?? '', 'grid' => $grid]);
+    }
+
+    /** Someone known by their UUID alone: who never came here can be banned all the same. */
+    public static function unknown(GridConfig $config, string $uuid): static
+    {
+        return new static($config, ['PrincipalID' => strtolower($uuid), 'FirstName' => '', 'LastName' => '']);
+    }
+
+    /**
+     * The people a name or a UUID stands for: the account of the grid, and the visitors of other grids that have come ("First Last",
+     * "First.Last", "First.Last@grid"). A UUID nobody here has is someone all the same. None when no one has the name.
+     *
+     * @return list<static>
+     * @throws \InvalidArgumentException when it is neither a name nor a UUID
+     */
+    public static function lookup(GridConfig $config, string $target): array
+    {
+        $target = trim($target);
+        $people = [];
+        if (self::isUuid($target)) {
+            $uuid = strtolower($target);
+            $local = self::find($config, $uuid);
+            $local !== null && $people[] = $local;
+            foreach (self::visits($config, "$uuid;%") as $userId) {
+                $people[] = static::visitor($config, $userId);
+            }
+
+            // A UUID is enough to ban someone who never came here
+            return $people !== [] ? $people : [static::unknown($config, $uuid)];
+        }
+        if (preg_match('/^([A-Za-z0-9_-]+)[. ]([A-Za-z0-9_-]+)(?:@(\S+))?$/', $target, $m) !== 1) {
+            throw new \InvalidArgumentException(sprintf("'%s' is neither a name (First Last, First.Last@grid) nor a UUID", $target));
+        }
+        [, $first, $last] = $m;
+        $grid = $m[3] ?? '';
+        if ($grid === '') {
+            $local = self::find($config, "$first $last");
+            $local !== null && $people[] = $local;
+        }
+        // The visitors of other grids: GridUser keeps them as <uuid>;<home of the grid>;<First Last>
+        foreach (self::visits($config, '%;' . ($grid !== '' ? '%' . self::like($grid) . '%;' : '') . self::like("$first $last")) as $userId) {
+            $people[] = static::visitor($config, $userId);
+        }
+
+        return $people;
+    }
+
+    /**
+     * What this person left in the databases of the grid, each thing in the database of its service: the account, the visits, the
+     * profile, the inventory, the assets they made, their objects in the regions.
+     *
+     * @return list<array{table:string,database:?\OpenSim\Config\ConnectionString,rows:int,condition:string}> database null when the
+     *         grid does not say where the table is
+     */
+    public function leftovers(): array
+    {
+        $id = "'" . $this->id() . "'";
+        $found = [];
+        foreach (self::LEFTOVERS as $table => $condition) {
+            $which = Database::forTable($table);
+            $condition = strtr($condition, ['{id}' => $id, '{like}' => "'" . $this->id() . ";%'"]);
+            $found[] = $this->leftover($table, $which, null, $condition);
+        }
+        $seen = [];
+        foreach (array_keys($this->config->tree()['sims'] ?? []) as $simulator) {
+            $key = Connections::key($this->config, Database::Simulator, (string) $simulator);
+            if ($key === null || isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $found[] = $this->leftover('prims', Database::Simulator, (string) $simulator, "OwnerID = $id");
+        }
+
+        return $found;
+    }
+
+    /**
+     * The statements that delete what this person left, for whoever reviews them: nothing is run. Only where there is something.
+     *
+     * @param ?list<array{table:string,database:?\OpenSim\Config\ConnectionString,rows:int,condition:string}> $leftovers what leftovers()
+     *        said, when it was asked already
+     * @return list<string> the comments and the statements
+     */
+    public function purgeSql(?array $leftovers = null): array
+    {
+        $lines = [];
+        foreach ($leftovers ?? $this->leftovers() as $left) {
+            if ($left['database'] === null || $left['rows'] === 0) {
+                continue;
+            }
+            $lines[] = sprintf('-- Delete %d row%s from %s.%s', $left['rows'], $left['rows'] > 1 ? 's' : '', $left['database']->database, $left['table']);
+            $lines[] = sprintf('DELETE FROM %s.%s WHERE %s;', self::quoteName($left['database']->database), self::quoteName($left['table']), $left['condition']);
+        }
+
+        return $lines;
+    }
+
+    /**
+     * The hypergrid data of this person, for information: the rows of hg_traveling_data.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function travelingData(): array
+    {
+        $pdo = Connections::pdo($this->config, Database::forTable('hg_traveling_data') ?? 'UserAgentService');
+        if ($pdo === null) {
+            return [];
+        }
+        try {
+            return $pdo->get_results('SELECT * FROM hg_traveling_data WHERE UserID = :id', ['id' => $this->id()], \PDO::FETCH_ASSOC);
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @param Database|string|null $which
+     * @return array{table:string,database:?\OpenSim\Config\ConnectionString,rows:int,condition:string}
+     */
+    private function leftover(string $table, Database|string|null $which, ?string $simulator, string $condition): array
+    {
+        $database = $which === null ? null : ($which instanceof Database ? $which->connection($this->config, $simulator) : Database::service($this->config, $which));
+        $pdo = $which === null ? null : Connections::pdo($this->config, $which, $simulator);
+        $rows = 0;
+        if ($pdo !== null) {
+            try {
+                $rows = (int) $pdo->get_var('SELECT COUNT(*) FROM ' . self::quoteName($table) . " WHERE $condition");
+            } catch (\Throwable) {
+                $rows = 0;
+            }
+        }
+
+        return ['table' => $table, 'database' => $database, 'rows' => $rows, 'condition' => $condition];
+    }
+
+    /**
+     * The ids of the visits that match a pattern of GridUser.
+     *
+     * @return list<string>
+     */
+    private static function visits(GridConfig $config, string $pattern): array
+    {
+        $pdo = Connections::pdo($config, 'GridUserService');
+        if ($pdo === null) {
+            return [];
+        }
+        try {
+            return array_map('strval', $pdo->get_col("SELECT UserID FROM GridUser WHERE UserID LIKE :p ESCAPE '!'", ['p' => $pattern]));
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /** A text for a LIKE written with ESCAPE '!': its wildcards are characters. */
+    private static function like(string $text): string
+    {
+        return strtr($text, ['!' => '!!', '%' => '!%', '_' => '!_']);
+    }
+
+    private static function quoteName(string $name): string
+    {
+        return '`' . str_replace('`', '``', $name) . '`';
+    }
+
+    private static function isUuid(string $text): bool
+    {
+        return preg_match('/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i', $text) === 1;
     }
 
     /**

@@ -205,19 +205,3 @@ describe('list of the databases', function () {
         expect($credentials)->toBe(['host' => 'db.example.org', 'port' => 3307, 'name' => 'grid_assets', 'user' => 'assets', 'pass' => 'pw_grid_assets']);
     });
 });
-
-describe('ban', function () {
-    test('reads the databases of Robust, of the simulators and of their estates, each once', function () {
-        $machine = new OpenSim\Testing\Machine();
-        $db = static fn(string $name) => "ConnectionString = \"Data Source=localhost;Database=$name;User ID=os;Password=pw;\"\n";
-        $machine->write($machine->grid . '/Robust.HG.ini', "[DatabaseService]\n " . $db('demo_robust'));
-        $machine->write($machine->grid . '/sims/alpha.ini', "[DatabaseService]\n " . $db('alpha') . "[EstateDataStore]\n " . $db('shared_estate'));
-        $machine->write($machine->grid . '/sims/beta.ini', "[DatabaseService]\n " . $db('beta') . "[EstateDataStore]\n " . $db('shared_estate'));
-
-        $databases = OpenSim\Moderation\UserBan::databases(OpenSim\Models\Grid::find($machine->environment, 'demo'));
-
-        expect(($databases['of'])('UserAccounts')->database)->toBe('demo_robust')
-            ->and(array_map(static fn($c) => $c->database, $databases['simulators']))->toBe(['alpha', 'beta'])
-            ->and(array_map(static fn($c) => $c->database, $databases['estates']))->toBe(['shared_estate']);
-    });
-});

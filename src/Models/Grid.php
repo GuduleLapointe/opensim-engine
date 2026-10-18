@@ -891,6 +891,17 @@ final class Grid implements \OpenSim\Interfaces\Enablable
     }
 
     /**
+     * The estates of the grid: its own when its Robust serves them, else those of each simulator (see Estate::all() for the options).
+     * A ban on the whole grid is a ban in each of them.
+     *
+     * @throws \OpenSim\Exceptions\ChannelUnavailable when no database of estates can be reached
+     */
+    public function estates(array $options = []): \OpenSim\Data\Collection
+    {
+        return Estate::all(GridConfig::fromFolder($this->directory), $options);
+    }
+
+    /**
      * The settings of a database of the grid, to ask questions of it: the database of a service (a Database, or the section of a
      * service of Robust), else the default one of the grid.
      */
