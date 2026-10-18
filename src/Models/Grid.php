@@ -69,6 +69,7 @@ final class Grid extends InstalledModel
         'cacheDirectory' => '',
         'logsDirectory' => '',
         'remote' => false,
+        'standalone' => false,
         'preset' => '',
         'planned' => false,
         'connectors' => [],
@@ -525,7 +526,7 @@ final class Grid extends InstalledModel
     /** Whether the grid is there: a Robust config, or the description of a remote grid. */
     public function isKnown(): bool
     {
-        return !$this->in(self::FOLDER) || $this->robustIni() !== null || $this->isRemote();
+        return !$this->in(self::FOLDER) || $this->robustIni() !== null || $this->isRemote() || $this->isStandalone();
     }
 
     /** One property, from the sources, else what a grid is by the book. */
@@ -559,6 +560,22 @@ final class Grid extends InstalledModel
             'logsDirectory' => $conf['LogsDirectory'] ?? $layout->logsRoot(),
         ];
         $robustIni = $this->robustFile();
+        if ($robustIni === null && $this->hasStandaloneDescription()) {
+            $hypergrid = !in_array(strtolower($conf['Hypergrid'] ?? 'true'), ['false', '0', 'no'], true);
+            $simulator = $this->simulators()[0] ?? null;
+            $port = (int) ($conf['PublicPort'] ?? ($simulator?->httpPort() ?: 9000));
+
+            // One process serves the grid: its login, its services and its region are on the same port
+            return $values + [
+                'standalone' => true,
+                'name' => $conf['GridName'] ?? Slug::nameOf($nick),
+                'slug' => $conf['slug'] ?? Slug::slug($conf['GridName'] ?? Slug::nameOf($nick)),
+                'hypergrid' => $hypergrid,
+                'baseHostname' => $conf['BaseHostname'] ?? 'localhost',
+                'publicPort' => $port,
+                'privatePort' => $port,
+            ];
+        }
         if ($robustIni === null) {
             if (!$this->hasRemoteDescription()) {
                 return $values;
@@ -848,6 +865,7 @@ final class Grid extends InstalledModel
             'sources' => $this->sources(),
             'directory' => $this->directory() ?: null,
             'remote' => $this->isRemote(),
+            'standalone' => $this->isStandalone(),
             'planned' => $this->isPlanned(),
             'enabled' => $folder ? $this->isEnabled() : null,
             'hypergrid' => $this->isHypergrid(),
@@ -973,6 +991,20 @@ final class Grid extends InstalledModel
     public function isRemote(): bool
     {
         return $this->in(self::FOLDER) ? $this->robustFile() === null && $this->hasRemoteDescription() : (bool) $this->get('remote');
+    }
+
+    /**
+     * Whether the grid is a standalone: one simulator serves the grid itself (its login, its services, its region), no Robust runs.
+     */
+    public function isStandalone(): bool
+    {
+        return $this->in(self::FOLDER) ? $this->robustFile() === null && $this->hasStandaloneDescription() : (bool) $this->get('standalone');
+    }
+
+    /** Whether the description of its folder says it is a standalone. */
+    private function hasStandaloneDescription(): bool
+    {
+        return in_array(strtolower(trim($this->settings()['Standalone'] ?? '')), ['true', '1', 'yes'], true);
     }
 
     /** Whether the description of its folder says its Robust is elsewhere. */
@@ -1131,17 +1163,32 @@ final class Grid extends InstalledModel
     /** Whether the grid is run from this machine: its Robust is enabled. */
     public function isEnabled(): bool
     {
+        if ($this->isStandalone()) {
+            return $this->enabledSimulators() !== [];
+        }
+
         return $this->robust()?->isEnabled() ?? false;
     }
 
-    /** Enable its Robust. */
+    /** Enable its Robust, or its simulator when it is a standalone. */
     public function enable(): bool
     {
+        if ($this->isStandalone()) {
+            return ($this->simulators()[0] ?? null)?->enable() ?? false;
+        }
+
         return $this->robust()?->enable() ?? false;
     }
 
     public function disable(): void
     {
+        if ($this->isStandalone()) {
+            foreach ($this->simulators() as $simulator) {
+                $simulator->disable();
+            }
+
+            return;
+        }
         $this->robust()?->disable();
     }
 
@@ -1152,6 +1199,10 @@ final class Grid extends InstalledModel
      */
     public function instances(bool $simulators = false): array
     {
+        // The simulator of a standalone is the grid: it has no Robust to start before it
+        if ($this->isStandalone()) {
+            return array_map(static fn(Simulator $s): Controller => $s->controller(), $this->enabledSimulators());
+        }
         $robust = $this->robust();
 
         return [

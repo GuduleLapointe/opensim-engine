@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OpenSim\Models;
 
 use OpenSim\Config\GridConfig;
+use OpenSim\Controllers\Controller;
 use OpenSim\Controllers\RobustController;
 use OpenSim\Data\Collection;
 use OpenSim\Data\Database;
@@ -65,6 +66,11 @@ final class Service extends InstalledModel
         'hg-groups' => ['connectors' => ['HGGroupsServiceConnector'], 'port' => self::PUBLIC, 'setting' => null, 'database' => null],
         'instant-message' => ['connectors' => ['InstantMessageServerConnector'], 'port' => self::PUBLIC, 'setting' => null, 'database' => null],
     ];
+
+    /** What a standalone serves by itself: the services of the grid, the ones of the hypergrid when it is one. */
+    private const STANDALONE = ['asset', 'inventory', 'grid', 'estate', 'authentication', 'avatar', 'agent-preferences', 'presence', 'user-account', 'grid-user', 'friends', 'map-image', 'mute-list', 'profile', 'login', 'grid-info'];
+
+    private const STANDALONE_HYPERGRID = ['gatekeeper', 'user-agent', 'hg-friends', 'hg-asset', 'hg-inventory', 'instant-message'];
 
     /** @var array{0:?string}|null the address declared for the simulators of the grid, read once */
     private ?array $declaration = null;
@@ -259,9 +265,16 @@ final class Service extends InstalledModel
         return self::CATALOG[$this->key]['setting'];
     }
 
-    /** The Robust of the grid that serves it, null when none does. */
-    public function provider(): ?RobustController
+    /**
+     * What serves it: a Robust of the grid, or the simulator of a standalone grid. Null when nothing does.
+     */
+    public function provider(): ?Controller
     {
+        if ($this->grid->isStandalone()) {
+            $serves = in_array($this->key, self::STANDALONE, true) || ($this->grid->isHypergrid() && in_array($this->key, self::STANDALONE_HYPERGRID, true));
+
+            return $serves ? ($this->grid->simulators()[0] ?? null)?->controller() : null;
+        }
         foreach ($this->grid->robusts() as $robust) {
             foreach ($this->connectors() as $connector) {
                 if ($robust->serves($connector)) {
@@ -301,11 +314,15 @@ final class Service extends InstalledModel
             return $own;
         }
         $provider = $this->provider();
-        if ($provider !== null) {
+        if ($provider instanceof RobustController) {
             $port = $this->port() === self::PUBLIC ? $provider->publicPort() : $provider->privatePort();
             $base = $provider->setting('Const', 'BaseURL') ?: 'http://' . ($provider->baseHostname() ?? 'localhost');
 
             return $port !== null ? "$base:$port" : $base;
+        }
+        if ($provider !== null) {
+            // The simulator of a standalone answers for everything on its own port
+            return ($provider->setting('Const', 'BaseURL') ?: 'http://' . $this->grid->baseHostname()) . ':' . $this->grid->publicPort();
         }
 
         return $this->declared();
