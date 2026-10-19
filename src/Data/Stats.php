@@ -14,8 +14,6 @@ use OpenSim\Config\GridConfig;
  */
 final class Stats
 {
-    private const NULL_KEY = '00000000-0000-0000-0000-000000000000';
-
     /** How many identifiers are asked at once to the database of the accounts. */
     private const GROUP = 500;
 
@@ -49,7 +47,7 @@ final class Stats
         }
         // An integer in the statement: a bound value would be text, which a number is not compared with in every database
         $month = (int) ($now - 30 * 86400);
-        $zero = self::NULL_KEY;
+        $zero = NULL_KEY;
         $one = static function (OSPDO $db, string $sql, array $params = []): int|float|string {
             $statement = $db->prepareAndExecute($sql, $params);
 

@@ -15,7 +15,7 @@ final class ImagickConverter implements ConverterInterface
         return extension_loaded('imagick') && in_array('JP2', \Imagick::queryFormats('JP2'), true);
     }
 
-    public function convert(string $data, string $format): ?string
+    public function convert(string $data, string $format, ?int $width = null): ?string
     {
         if (!extension_loaded('imagick') || $data === '') {
             return null;
@@ -24,6 +24,8 @@ final class ImagickConverter implements ConverterInterface
             $image = new \Imagick();
             $image->readImageBlob($data);
             $image->setImageFormat($format);
+            // The height follows the width
+            $width !== null && $width > 0 && $image->resizeImage($width, 0, \Imagick::FILTER_LANCZOS, 1);
             $blob = $image->getImageBlob();
         } catch (\ImagickException) {
             return null;

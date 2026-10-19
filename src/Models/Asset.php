@@ -9,6 +9,7 @@ use OpenSim\Data\Collection;
 use OpenSim\Data\Connections;
 use OpenSim\Data\Database;
 use OpenSim\Exceptions\ChannelUnavailable;
+use OpenSim\Text\Uuid;
 
 /**
  * An asset of the grid: what its users and its regions keep in the asset service, a texture, a sound, a notecard, a script, an
@@ -48,9 +49,6 @@ class Asset extends Model
         56 => ['settings', 'application/vnd.ll.settings', self::class],
         57 => ['material', 'application/vnd.ll.material', self::class],
     ];
-
-    /** The id nobody has: asked for, it is the picture of nothing. */
-    public const NULL_KEY = '00000000-0000-0000-0000-000000000000';
 
     /** What is read of an asset, the data left out (it can be megabytes). */
     private const COLUMNS = 'id, name, description, assetType, local, temporary, create_time, access_time, asset_flags, CreatorID, LENGTH(data) AS size';
@@ -113,7 +111,7 @@ class Asset extends Model
     {
         $creator = (string) ($this->row['CreatorID'] ?? '');
 
-        return $creator !== '' && $creator !== self::NULL_KEY ? $creator : null;
+        return Uuid::isEmpty($creator) ? null : $creator;
     }
 
     public function flags(): int

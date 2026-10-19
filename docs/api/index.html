@@ -11,7 +11,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "OpenSim engine",
-        "version": "7dded51",
+        "version": "2845ef3",
         "license": {
             "name": "AGPL-3.0-or-later",
             "identifier": "AGPL-3.0-or-later"
@@ -2116,80 +2116,6 @@
                 }
             }
         },
-        "/grids/{grid}/addresses": {
-            "get": {
-                "operationId": "getAddresses",
-                "tags": [
-                    "A grid: addresses"
-                ],
-                "summary": "Every address the grid gives or has by default, whichever section of whichever file says it",
-                "description": "The running grid first (get_grid_info), then the config of the grid (Robust, OpenSim, Helpers.ini), then where its helpers answer. `meta.sources` says where each address comes from: provider, simulator, live, config or default. The elements get_grid_info gives that are not addresses are `gridInfo()` of the grid, all of them, the free ones included.",
-                "parameters": [
-                    {
-                        "name": "grid",
-                        "in": "path",
-                        "required": true,
-                        "description": "The nick of the grid",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "web",
-                        "in": "query",
-                        "description": "Only the web services, not the ports of Robust",
-                        "schema": {
-                            "type": "string",
-                            "enum": [
-                                "yes",
-                                "no"
-                            ]
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "The addresses",
-                        "content": {
-                            "application/vnd.api+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/components/schemas/Addresses"
-                                        },
-                                        "meta": {
-                                            "type": "object",
-                                            "properties": {
-                                                "sources": {
-                                                    "type": "object",
-                                                    "additionalProperties": {
-                                                        "type": [
-                                                            "string",
-                                                            "null"
-                                                        ]
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "The grid is not known here",
-                        "content": {
-                            "application/problem+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Problem"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/grids/{grid}/assets/{id}.{format}": {
             "get": {
                 "operationId": "getAssetMedia",
@@ -3640,30 +3566,6 @@
                             "self": {
                                 "type": "string"
                             }
-                        }
-                    }
-                }
-            },
-            "Addresses": {
-                "type": "object",
-                "description": "The addresses of a grid by the key of the service (currency, query, search, register, offline, motd, guide, map, grid-status, assets...)",
-                "required": [
-                    "type",
-                    "id",
-                    "attributes"
-                ],
-                "properties": {
-                    "type": {
-                        "const": "addresses"
-                    },
-                    "id": {
-                        "type": "string",
-                        "description": "The nick of the grid"
-                    },
-                    "attributes": {
-                        "type": "object",
-                        "additionalProperties": {
-                            "type": "string"
                         }
                     }
                 }

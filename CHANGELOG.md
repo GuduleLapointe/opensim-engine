@@ -2,8 +2,9 @@
 
 ### Unreleased
 
-- new: `Grid::addresses()` and `address()`: every address of the grid, wherever it is said; the web services of the catalog are `query`, `search`, `welcome`, `web-profile`, `currency`, `landtool`, `register`, `offline`, `motd`, `guide`, `grid-status`, `grid-status-rss`, `parser`, `events-parser`, `text-images`, `assets`, `map`
-- new: `Models\Asset` (every type, `Image` for the pictures), `Assets\WebAssets`: textures converted for the web and cached, from `w4os`
+- new: `Text\Uuid::isNullKey()` (the two keys for nobody) and `isEmpty()`
+- new: `Grid::addresses()`, `address()` and `helpersUri()`, `economy()`, `searchUri()`, `searchApi()`...: every address of the grid, wherever it is said; the web services of the catalog are `query`, `search`, `welcome`, `web-profile`, `currency`, `landtool`, `register`, `offline`, `motd`, `guide`, `grid-status`, `grid-status-rss`, `parser`, `events-parser`, `text-images`, `assets`, `map`
+- new: `Models\Asset` (every type, `Image` for the pictures), `Assets\WebAssets`: pictures converted for the web, resized when asked, and cached; `php-imagick` is required
 - new: `Grid::gridInfo()` and `gridInfoIsLive()`: what the running Robust says at get_grid_info, else its config; `Network\GridInfoReader` reads it for everyone
 - new: the API of the avatars, regions, parcels and estates of a grid, the tasks, the forms, the writes; `composer docs` makes its documentation
 - new: the web services (search, currency, registration, offline, motd, guide) in the catalog of `Service`, fixed or standard

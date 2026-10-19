@@ -71,9 +71,9 @@ function asset_converter(array &$calls): ConverterInterface
     return new class ($calls) implements ConverterInterface {
         public function __construct(private array &$calls) {}
 
-        public function convert(string $data, string $format): ?string
+        public function convert(string $data, string $format, ?int $width = null): ?string
         {
-            $this->calls[] = $format;
+            $this->calls[] = $width === null ? $format : "$format@$width";
 
             return in_array($data, ['JP2-BYTES', 'TGA-BYTES', 'JPEG-BYTES'], true) ? "$format:$data" : null;
         }
@@ -328,5 +328,71 @@ describe('the Imagick converter', function () {
             ->toBeNull()
             ->and($converter->convert('', 'png'))
             ->toBeNull();
+    })->skip(fn() => !extension_loaded('imagick'), 'imagick is missing');
+});
+
+describe('the Imagick converter, for real', function () {
+    /** A picture of 4 x 2 pixels, in the format asked. */
+    function asset_picture(string $format): string
+    {
+        $image = new Imagick();
+        $image->newImage(4, 2, new ImagickPixel('red'));
+        $image->setImageFormat($format);
+
+        return $image->getImageBlob();
+    }
+
+    test(
+        'resizes to a width, the height following, and a picture already in the format is converted all the same when it is resized',
+        function () {
+            $converter = new OpenSim\Assets\ImagickConverter();
+            $size = static function (string $blob): array {
+                $image = new Imagick();
+                $image->readImageBlob($blob);
+
+                return [$image->getImageWidth(), $image->getImageHeight()];
+            };
+
+            expect($size((string) $converter->convert(asset_picture('png'), 'jpg', 2)))
+                ->toBe([2, 1])
+                ->and($size((string) $converter->convert(asset_picture('png'), 'png')))
+                ->toBe([4, 2]);
+        },
+    )->skip(fn() => !extension_loaded('imagick'), 'imagick is missing');
+
+    test('reads the JPEG 2000 of the grid', function () {
+        $converter = new OpenSim\Assets\ImagickConverter();
+        $jp2 = asset_picture('jp2');
+
+        expect(substr((string) $converter->convert($jp2, 'png'), 1, 3))->toBe('PNG');
+    })->skip(fn() => !OpenSim\Assets\ImagickConverter::available(), 'imagick has no JPEG 2000');
+
+    test('keeps a JPEG as it is unless it is resized', function () {
+        $jpeg = asset_picture('jpeg');
+        $calls = [];
+        $converter = new class ($calls) implements OpenSim\Assets\ConverterInterface {
+            public function __construct(private array &$calls) {}
+
+            public function convert(string $data, string $format, ?int $width = null): ?string
+            {
+                $this->calls[] = [$format, $width];
+
+                return "converted:$format:$width";
+            }
+        };
+        $image = new OpenSim\Models\Image(new OpenSim\Config\GridConfig(), [
+            'id' => ASSET_JPEG,
+            'assetType' => 19,
+            'data' => $jpeg,
+        ]);
+
+        expect($image->render($converter, 'jpg'))
+            ->toBe($jpeg)
+            ->and($image->render($converter, 'jpg', 128))
+            ->toBe('converted:jpg:128')
+            ->and($image->render($converter, 'png'))
+            ->toBe('converted:png:')
+            ->and($calls)
+            ->toBe([['jpg', 128], ['png', null]]);
     })->skip(fn() => !extension_loaded('imagick'), 'imagick is missing');
 });

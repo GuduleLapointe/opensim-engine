@@ -1230,6 +1230,102 @@ final class Grid extends InstalledModel
         return $this->service($key)?->uri();
     }
 
+    /**
+     * The address the grid gives its viewers for its economy: the one `currency.php` and `landtool.php` are under. The running grid
+     * says it, else its config, else it is where its helpers are.
+     */
+    public function economy(): ?string
+    {
+        $currency = $this->address('currency');
+
+        return $currency !== null ? (string) preg_replace('#/currency\.php$#', '', $currency) : null;
+    }
+
+    /**
+     * Where the helpers of the grid are: the web site of the grid and the path of its economy (`/helpers` when the economy is
+     * elsewhere or says nothing). Null for a grid without a web site.
+     */
+    public function helpersUri(): ?string
+    {
+        $web = $this->isPlanned() ? $this->webUrl() : \OpenSim\Provisioning\Web\HelpersConfig::webUrl($this->directory);
+        if ($web === '') {
+            return null;
+        }
+        $economy = $this->economy();
+        $local = $economy !== null && parse_url($economy, PHP_URL_HOST) === parse_url($web, PHP_URL_HOST);
+        $path = $local
+            ? \OpenSim\Provisioning\Web\Services::pathOf($economy)
+            : \OpenSim\Provisioning\Web\HelpersConfig::DEFAULT_PATH;
+
+        return rtrim($web, '/') . ($path === '/' ? '' : $path);
+    }
+
+    /** The web page of the search of the grid. */
+    public function searchUri(): ?string
+    {
+        return $this->address('search');
+    }
+
+    /** The search API the simulators query (`query.php`). */
+    public function searchApi(): ?string
+    {
+        return $this->address('query');
+    }
+
+    /** Where the simulators register for the search. */
+    public function registerUri(): ?string
+    {
+        return $this->address('register');
+    }
+
+    /** Where the offline messages are kept. */
+    public function offlineUri(): ?string
+    {
+        return $this->address('offline');
+    }
+
+    /** The message of the day the viewers show when they log in. */
+    public function motdUri(): ?string
+    {
+        return $this->address('motd');
+    }
+
+    /** The destination guide. */
+    public function guideUri(): ?string
+    {
+        return $this->address('guide');
+    }
+
+    /** The welcome page the viewers show. */
+    public function welcomeUri(): ?string
+    {
+        return $this->address('welcome');
+    }
+
+    /** The map tiles of the grid, on the public port of Robust. */
+    public function mapUri(): ?string
+    {
+        return $this->address('map');
+    }
+
+    /** The page of the status of the grid. */
+    public function gridStatusUri(): ?string
+    {
+        return $this->address('grid-status');
+    }
+
+    /** The feed of the status of the grid. */
+    public function gridStatusRss(): ?string
+    {
+        return $this->address('grid-status-rss');
+    }
+
+    /** The web assets server: the address of the assets as pictures. */
+    public function assetsUri(): ?string
+    {
+        return $this->address('assets');
+    }
+
     /** A service of the grid by its key (`asset`, `profile`), null when the grid does not have it. */
     public function service(string $key): ?Service
     {

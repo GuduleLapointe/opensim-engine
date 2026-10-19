@@ -72,8 +72,6 @@ The profile arrays (`['EtcRoot' => ..., 'DataRoot' => ...]`) are gone: whatever 
 
 `Health::grid_info()` and `Grid::announcement()` are `Network\GridInfoReader::read()`; a grid gives its own with `Grid::gridInfo()`.
 
-The pictures of the assets (`templates/assets-render.php` and `class-helpers-assets.php` of w4os) are `Assets\WebAssets` and `Models\Image`; the plugin asks `WebAssets::for($grid)->get($uuid, $format)` and sends the bytes.
-
 The web services of a grid (search, currency, land purchase, registration, offline messages, message of the day, guide, images of a text) are in the catalog of `Models\Service`: where the config of the grid puts each, whether its format is fixed by OpenSimulator and the viewers (`query`, `currency`, `landtool`: only the address is free) or the engine's (`standard`: the old script is its `legacy` name).
 
 ## Functions

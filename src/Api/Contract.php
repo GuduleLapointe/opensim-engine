@@ -497,58 +497,6 @@ final class Contract
                 ];
             }
         }
-        $schemas['Addresses'] = [
-            'type' => 'object',
-            'description' =>
-                'The addresses of a grid by the key of the service (currency, query, search, register, offline, motd, guide, map, grid-status, assets...)',
-            'required' => ['type', 'id', 'attributes'],
-            'properties' => [
-                'type' => ['const' => 'addresses'],
-                'id' => ['type' => 'string', 'description' => 'The nick of the grid'],
-                'attributes' => ['type' => 'object', 'additionalProperties' => ['type' => 'string']],
-            ],
-        ];
-        $paths['/grids/{grid}/addresses']['get'] = [
-            'operationId' => 'getAddresses',
-            'tags' => [$scopes['grid'] . ': addresses'],
-            'summary' => 'Every address the grid gives or has by default, whichever section of whichever file says it',
-            'description' =>
-                'The running grid first (get_grid_info), then the config of the grid (Robust, OpenSim, Helpers.ini), then where its helpers answer. `meta.sources` says where each address comes from: provider, simulator, live, config or default. The elements get_grid_info gives that are not addresses are `gridInfo()` of the grid, all of them, the free ones included.',
-            'parameters' => [
-                self::gridParameter(),
-                [
-                    'name' => 'web',
-                    'in' => 'query',
-                    'description' => 'Only the web services, not the ports of Robust',
-                    'schema' => ['type' => 'string', 'enum' => ['yes', 'no']],
-                ],
-            ],
-            'responses' => [
-                '200' => [
-                    'description' => 'The addresses',
-                    'content' => [
-                        Response::JSON_API => [
-                            'schema' => [
-                                'type' => 'object',
-                                'properties' => [
-                                    'data' => ['$ref' => '#/components/schemas/Addresses'],
-                                    'meta' => [
-                                        'type' => 'object',
-                                        'properties' => [
-                                            'sources' => [
-                                                'type' => 'object',
-                                                'additionalProperties' => ['type' => ['string', 'null']],
-                                            ],
-                                        ],
-                                    ],
-                                ],
-                            ],
-                        ],
-                    ],
-                ],
-                '404' => self::problem('The grid is not known here'),
-            ],
-        ];
         $paths['/grids/{grid}/assets/{id}.{format}']['get'] = [
             'operationId' => 'getAssetMedia',
             'tags' => [$scopes['grid'] . ': assets'],

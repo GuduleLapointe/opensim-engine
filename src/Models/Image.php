@@ -19,17 +19,24 @@ final class Image extends Asset
     public const DEFAULT_FORMAT = 'jpg';
 
     /**
-     * The picture in a format of the web, null when the data is missing or cannot be converted (a JPEG asked as jpg is not converted).
+     * The picture in a format of the web, null when the data is missing or cannot be converted. An image already in the format asked
+     * is given as it is, unless it is to be resized.
      *
      * @param string $format one of FORMATS
+     * @param ?int $width the width in pixels to resize to, the height following
      */
-    public function render(ConverterInterface $converter, string $format = self::DEFAULT_FORMAT): ?string
-    {
+    public function render(
+        ConverterInterface $converter,
+        string $format = self::DEFAULT_FORMAT,
+        ?int $width = null,
+    ): ?string {
         $data = $this->data();
         if (!isset(self::FORMATS[$format]) || $data === null) {
             return null;
         }
 
-        return $this->mime() === self::FORMATS[$format] ? $data : $converter->convert($data, $format);
+        return $width === null && $this->mime() === self::FORMATS[$format]
+            ? $data
+            : $converter->convert($data, $format, $width);
     }
 }

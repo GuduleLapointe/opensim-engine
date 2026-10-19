@@ -7,6 +7,21 @@ namespace OpenSim\Text;
  */
 final class Uuid
 {
+    /** The keys OpenSimulator has for nobody: all zeros (the global `NULL_KEY`), and zeros ending with a one. */
+    public const NULL_KEYS = ['00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000001'];
+
+    /** Whether it is one of the keys for nobody. */
+    public static function isNullKey(mixed $uuid): bool
+    {
+        return is_string($uuid) && in_array(strtolower(trim($uuid)), self::NULL_KEYS, true);
+    }
+
+    /** Whether it is nothing: what PHP calls empty (null, '', 0, false, []), or a key for nobody. */
+    public static function isEmpty(mixed $value): bool
+    {
+        return empty($value) || self::isNullKey($value);
+    }
+
     /**
      * Verify if given string is an UUID.
      * In theory, we would check want v4-compliant uuids
@@ -27,7 +42,7 @@ final class Uuid
         if (!is_string($uuid)) {
             return false;
         }
-        if (defined('NULL_KEY') && $uuid == NULL_KEY) {
+        if (self::isNullKey($uuid)) {
             return $nullok;
         }
 

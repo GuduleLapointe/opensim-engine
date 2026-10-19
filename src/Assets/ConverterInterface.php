@@ -12,7 +12,8 @@ interface ConverterInterface
     /**
      * @param string $data the bytes of the grid
      * @param string $format the format asked: png, jpg...
+     * @param ?int $width the width in pixels to resize to, the height following; null keeps the size
      * @return ?string the converted bytes, null when they cannot be
      */
-    public function convert(string $data, string $format): ?string;
+    public function convert(string $data, string $format, ?int $width = null): ?string;
 }

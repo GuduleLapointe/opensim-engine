@@ -351,7 +351,6 @@ describe('The contract', function () {
                     'Assets',
                     'Tasks',
                     'Forms',
-                    'Addresses',
                 ])
                 ->and($paths['/services']['get']['parameters'])
                 ->toContain([
@@ -458,40 +457,6 @@ describe('The contract', function () {
             }
         }
         expect($wrong)->toBe([]);
-    });
-});
-
-describe('The API, for the addresses of a grid', function () {
-    test('gives every address of the grid in one document, and where each comes from', function () {
-        $machine = new Machine();
-        $machine->write(
-            $machine->grid . '/Robust.HG.ini',
-            file_get_contents($machine->grid . '/Robust.HG.ini') .
-                "\n[GridInfoService]\n    economy = \"https://play.example.org/helpers\"\n    mood = \"free\"\n",
-        );
-        $api = new Api($machine->environment);
-
-        $all = $api->addresses('demo');
-        $web = $api->addresses('demo', web: true);
-
-        expect($all->status)
-            ->toBe(200)
-            ->and($all->document['data'])
-            ->toMatchArray(['type' => 'addresses', 'id' => 'demo'])
-            ->and($all->document['data']['attributes'])
-            ->toMatchArray([
-                'asset' => 'http://localhost:8003',
-                'currency' => 'https://play.example.org/helpers/currency.php',
-            ])
-            ->and($all->document['meta']['sources'])
-            ->toMatchArray(['asset' => 'provider', 'currency' => 'config'])
-            ->and($web->document['data']['attributes'])
-            ->toBe([
-                'currency' => 'https://play.example.org/helpers/currency.php',
-                'landtool' => 'https://play.example.org/helpers/landtool.php',
-            ])
-            ->and($api->addresses('nowhere')->status)
-            ->toBe(404);
     });
 });
 

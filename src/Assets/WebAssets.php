@@ -10,6 +10,7 @@ use OpenSim\Models\Asset;
 use OpenSim\Models\Grid;
 use OpenSim\Models\Image;
 use OpenSim\Network\GridInfoReader;
+use OpenSim\Text\Uuid;
 
 /**
  * The assets of a grid for the web: asked by their id, as a picture in the format of a page when they are images, whatever the type (texture, TGA, JPEG: the grid keeps
@@ -56,17 +57,20 @@ final class WebAssets
      * The asset as a page shows it.
      *
      * @param string $format png, jpg...: for an image of any type, the other types are given as they are
+     * @param ?int $width the width in pixels an image is resized to, the height following; null keeps its size
      * @return array{data:string,mime:string,found:bool}
      */
-    public function get(string $id, string $format = Image::DEFAULT_FORMAT): array
+    public function get(string $id, string $format = Image::DEFAULT_FORMAT, ?int $width = null): array
     {
         $format = strtolower(ltrim($format, '.'));
         isset(Image::FORMATS[$format]) || ($format = Image::DEFAULT_FORMAT);
         $id = strtolower($id);
-        if (preg_match('/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/', $id) !== 1 || $id === Asset::NULL_KEY) {
+        $width = $width !== null && $width > 0 ? $width : null;
+        $name = $width !== null ? "$id-$width.$format" : "$id.$format";
+        if (preg_match('/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/', $id) !== 1 || Uuid::isNullKey($id)) {
             return $this->nothing();
         }
-        if (($done = $this->converted->get("$id.$format")) !== null) {
+        if (($done = $this->converted->get($name)) !== null) {
             return [
                 'data' => $done['data'],
                 'mime' => (string) ($done['meta']['mime'] ?? Image::FORMATS[$format]),
@@ -81,11 +85,11 @@ final class WebAssets
         if (!($asset instanceof Image)) {
             return ['data' => $data, 'mime' => $asset->mime(), 'found' => true];
         }
-        $picture = $asset->render($this->converter, $format);
+        $picture = $asset->render($this->converter, $format, $width);
         if ($picture === null) {
             return $this->nothing();
         }
-        $this->converted->put("$id.$format", $picture, ['mime' => Image::FORMATS[$format]]);
+        $this->converted->put($name, $picture, ['mime' => Image::FORMATS[$format]]);
 
         return ['data' => $picture, 'mime' => Image::FORMATS[$format], 'found' => true];
     }

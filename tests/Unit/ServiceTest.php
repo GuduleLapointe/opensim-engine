@@ -226,6 +226,24 @@ describe('web services of a grid', function () {
                 ->toBe('https://play.example.org/helpers/currency.php')
                 ->and($grid->address('nonsense'))
                 ->toBeNull()
+                ->and([
+                    $grid->economy(),
+                    $grid->helpersUri(),
+                    $grid->searchUri(),
+                    $grid->searchApi(),
+                    $grid->assetsUri(),
+                    $grid->gridStatusRss(),
+                    $grid->mapUri(),
+                ])
+                ->toBe([
+                    'https://play.example.org/helpers',
+                    'https://play.example.org/helpers',
+                    'https://play.example.org/websearch',
+                    'https://play.example.org/helpers/query.php',
+                    'https://assets.example.org/a',
+                    'https://play.example.org/live.rss',
+                    null,
+                ])
                 ->and(
                     array_map(fn(string $key): ?string => $grid->service($key)->source(), [
                         'currency',

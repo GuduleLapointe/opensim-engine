@@ -85,6 +85,10 @@ Robust. Whoever asks does not need to know which section of which file says it: 
 config (Robust, OpenSim, `Helpers.ini`), then where the helpers answer. `$grid->address('currency')` is one of them,
 `$grid->service('currency')->source()` says where it comes from (`provider`, `simulator`, `live`, `config`, `default`).
 
+The usual ones have a method of their own: `helpersUri()`, `economy()`, `searchUri()` (the web search), `searchApi()` (`query.php`),
+`registerUri()`, `offlineUri()`, `motdUri()`, `guideUri()`, `welcomeUri()`, `mapUri()`, `gridStatusUri()`, `gridStatusRss()`, `assetsUri()`.
+They are for the code that uses the engine, the HTTP API has `/services`.
+
 ## Assets
 
 `Asset::all($config)` and `Asset::find($config, $uuid)` give the records of the assets, the same for every type (`type()`: texture,
@@ -93,7 +97,7 @@ sound, notecard, script, object, mesh...; `data()`: the bytes of the grid). A ty
 grid, whatever it keeps it in.
 
 `WebAssets::for($grid)->get($uuid, 'png')` gives an asset for a web page: a texture as a picture (the grid keeps JPEG 2000, ImageMagick
-converts it), the other types as they are, the picture of nothing for what is not there. What the grid gave and what was converted are
+converts it, to a width when it is asked), the other types as they are, the picture of nothing for what is not there. What the grid gave and what was converted are
 kept for a day in the cache folder of the grid.
 
 ## Collection
