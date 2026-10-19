@@ -248,7 +248,7 @@ describe('quick setup, the names and the host', function () {
             ->and($first['setup']['simulators'][0]['regions'][0]['name'])
             ->toBe('Ile Noel')
             ->and($bad['problems'])
-            ->toBe(['name' => 'invalid (letters, digits, space -)'])
+            ->toBe(['name' => 'invalid (letters, digits, space)'])
             ->and($grid['corrected'])
             ->toBe(['name' => 'Ile Noel']);
     });
@@ -266,7 +266,7 @@ describe('quick setup, what separates and what is a space', function () {
 
     test('refuses the underscore in the name of a region: it is a space for Robust', function () {
         expect(QuickSetup::plan((new Machine())->environment, quick_answers(['type' => 'standalone', 'name' => 'My_Island']))['problems'])
-            ->toBe(['name' => 'invalid (letters, digits, space -)']);
+            ->toBe(['name' => 'invalid (letters, digits, space)']);
     });
 
     test('transliterates the names of every alphabet', function () {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Services;
 
+use OpenSim\Result;
 use OpenSim\Data\OSPDO;
 use OpenSim\Runtime\ClockInterface;
 use OpenSim\Text\Uuid;
@@ -503,7 +504,7 @@ final class SearchQuery
         // The other flags of the account (identified, transacted, age verified...) are not the user's choice here
         $flags =
             ((int) $found[0]['UserFlags'] & ~1) |
-            (filter_var($request['allow_publish'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0);
+            (Result::isTrue($request['allow_publish'] ?? false) ? 1 : 0);
         $this->accounts?->prepareAndExecute('UPDATE UserAccounts SET UserFlags = :flags WHERE PrincipalID = :id', [
             'flags' => $flags,
             'id' => $avatar,

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace OpenSim\Forms;
 
+use OpenSim\Result;
+
 /**
  * A set of field definitions, in the standard format every form of the project reads, whoever shows it (the terminal, a web
  * page, WordPress, Laravel): a list of
@@ -113,7 +115,7 @@ final class FieldSet
 
                 continue;
             }
-            if (($field['type'] ?? '') === 'boolean' && !is_bool($value) && filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) === null) {
+            if (($field['type'] ?? '') === 'boolean' && !Result::isTrue($value) && !Result::isFalse($value)) {
                 $problems[$name] = _('invalid');
 
                 continue;
@@ -162,14 +164,9 @@ final class FieldSet
     private static function same(mixed $answer, mixed $value): bool
     {
         if (is_bool($answer) || is_bool($value)) {
-            return self::flag($answer) === self::flag($value);
+            return Result::isTrue($answer) === Result::isTrue($value);
         }
 
         return (string) $answer === (string) $value;
-    }
-
-    private static function flag(mixed $value): bool
-    {
-        return is_bool($value) ? $value : in_array(strtolower(trim((string) $value)), ['1', 'true', 'yes', 'on'], true);
     }
 }

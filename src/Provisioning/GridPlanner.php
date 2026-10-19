@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Provisioning;
 
+use OpenSim\Result;
 use OpenSim\Config\ConfigReader;
 use OpenSim\Forms\FieldSet;
 use OpenSim\Runtime\Core;
@@ -179,14 +180,14 @@ final class GridPlanner
 
         // A standalone that exists has no Robust: its description says what Robust would
         $solo = $c['currentStandalone'] ? $c['currentGrid'] : null;
-        $standalone = self::flag($answers['standalone'] ?? $c['currentStandalone']);
+        $standalone = Result::isTrue($answers['standalone'] ?? $c['currentStandalone']);
 
         $name = $text(
             'name',
             $current?->gridName() ?? ($solo?->name() ?? ($modify ? Slug::nameOf($c['nick']) : $c['defaultName'])),
         );
         $nick = $modify ? $c['nick'] : $text('nick', Slug::nick($name));
-        $hypergrid = self::flag($answers['hypergrid'] ?? ($c['currentHypergrid'] ?? true));
+        $hypergrid = Result::isTrue($answers['hypergrid'] ?? ($c['currentHypergrid'] ?? true));
         $spacing = (int) ($answers['spacing'] ?? $c['savedSpacing']);
         $cores = $c['cores'];
         $core = $text('core', count($cores) > 1 ? $layout->coreDirectory() : '');
@@ -222,22 +223,22 @@ final class GridPlanner
             'console' => $text('console', $current === null || $current->consoleUser() !== null ? 'rest' : 'screen'),
             'console_port' => $consolePort,
             'web_url' => $web,
-            'helpers' => self::flag($answers['helpers'] ?? $c['helpersAvailable']),
+            'helpers' => Result::isTrue($answers['helpers'] ?? $c['helpersAvailable']),
             'helpers_path' => $text('helpers_path', $c['helpersPath']),
             // Without the helpers the grid has no search of its own
             'search' => self::choice(
                 $answers['search'] ?? null,
                 ['internal', 'shared', 'disabled'],
-                self::flag($answers['helpers'] ?? $c['helpersAvailable']) ? 'internal' : 'disabled',
+                Result::isTrue($answers['helpers'] ?? $c['helpersAvailable']) ? 'internal' : 'disabled',
             ),
             // Without the helpers, Robust keeps the messages
             'offline' => self::choice(
                 $answers['offline'] ?? null,
                 ['helpers', 'robust', 'both'],
-                self::flag($answers['helpers'] ?? $c['helpersAvailable']) ? 'helpers' : 'robust',
+                Result::isTrue($answers['helpers'] ?? $c['helpersAvailable']) ? 'helpers' : 'robust',
             ),
             'economy' => self::choice($answers['economy'] ?? null, ['beta', 'gloebit'], 'beta'),
-            'ossl' => self::flag($answers['ossl'] ?? false),
+            'ossl' => Result::isTrue($answers['ossl'] ?? false),
             'web_server' => self::choice($answers['web_server'] ?? null, ['caddy', 'apache', 'nginx'], $c['webServer']),
             'web_site' => self::choice($answers['web_site'] ?? null, ['helpers', 'website'], 'helpers'),
             'database_host' => $text(
@@ -391,10 +392,5 @@ final class GridPlanner
         $value = strtolower(trim((string) $value));
 
         return in_array($value, $choices, true) ? $value : $default;
-    }
-
-    private static function flag(mixed $value): bool
-    {
-        return is_bool($value) ? $value : in_array(strtolower(trim((string) $value)), ['1', 'true', 'yes', 'on'], true);
     }
 }

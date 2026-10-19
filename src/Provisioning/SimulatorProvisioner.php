@@ -235,7 +235,7 @@ final class SimulatorProvisioner
     private function initRegion(SimulatorPlan $plan, Environment $environment): void
     {
         $archive = $this->initArchive();
-        if ($archive === null || Region::nameProblem($plan->regionName) !== null) {
+        if ($archive === null || Region::validateName($plan->regionName) !== null) {
             return;
         }
         $shift = (int) ($plan->regionSize / 2) - 128;

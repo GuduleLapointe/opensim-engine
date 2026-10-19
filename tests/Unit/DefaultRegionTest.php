@@ -9,7 +9,6 @@ use OpenSim\Config\InstanceSettings;
 use OpenSim\Models\Grid;
 use OpenSim\Models\Region;
 use OpenSim\Provisioning\GridPlan;
-use OpenSim\Provisioning\RegionName;
 use OpenSim\Provisioning\RobustConfig;
 use OpenSim\Testing\EnvironmentFake;
 
@@ -35,26 +34,26 @@ function robust_generated(GridPlan $plan)
     return $ini;
 }
 
-describe('RegionName', function () {
+describe('Region name', function () {
     test('accepts what a region can be called and refuses the rest', function () {
-        expect(Region::nameProblem('Welcome'))->toBeNull();
-        expect(Region::nameProblem('Welcome Area 2'))->toBeNull();
-        expect(Region::nameProblem(''))->not->toBeNull();
-        expect(Region::nameProblem('Bad"name'))->not->toBeNull();
+        expect(Region::validateName('Welcome'))->toBeNull();
+        expect(Region::validateName('Welcome Area 2'))->toBeNull();
+        expect(Region::validateName(''))->not->toBeNull();
+        expect(Region::validateName('Bad"name'))->not->toBeNull();
     });
 
     test('is the key of the flags', function () {
-        expect(RegionName::configKey('Welcome'))->toBe('Region_Welcome');
-        expect(RegionName::configKey(' Welcome Area '))->toBe('Region_Welcome_Area');
-        expect(RegionName::fromConfigKey('Region_Welcome_Area'))->toBe('Welcome Area');
+        expect(Region::configKey('Welcome'))->toBe('Region_Welcome');
+        expect(Region::configKey(' Welcome Area '))->toBe('Region_Welcome_Area');
+        expect(Region::fromConfigKey('Region_Welcome_Area'))->toBe('Welcome Area');
     });
 
     test('is known among names the way Robust compares them', function () {
         $known = ['welcome area' => true, 'sandbox' => true];
 
-        expect(RegionName::isIn('Welcome Area', $known))->toBeTrue();
-        expect(RegionName::isIn('Welcome_Area', $known))->toBeTrue();
-        expect(RegionName::isIn('Welcome', $known))->toBeFalse();
+        expect(Region::nameIsIn('Welcome Area', $known))->toBeTrue();
+        expect(Region::nameIsIn('Welcome_Area', $known))->toBeTrue();
+        expect(Region::nameIsIn('Welcome', $known))->toBeFalse();
     });
 });
 
@@ -188,10 +187,10 @@ describe('landing region of a grid', function () {
 
 describe('A name to propose', function () {
     test('is an alliteration the caller accepts', function () {
-        $name = \OpenSim\Provisioning\RandomName::make(static fn(string $v): ?string => Region::nameProblem($v));
+        $name = \OpenSim\Provisioning\RandomName::make(static fn(string $v): ?string => Region::validateName($v));
 
         expect($name)->toMatch('/^(\S+) (\S+)$/');
-        expect(Region::nameProblem($name))->toBeNull();
+        expect(Region::validateName($name))->toBeNull();
         expect(strtolower($name[0]))->toBe(strtolower(explode(' ', $name)[1][0]));
     });
 

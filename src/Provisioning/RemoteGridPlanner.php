@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Provisioning;
 
+use OpenSim\Result;
 use OpenSim\Forms\FieldSet;
 use OpenSim\Hypergrid\Destination;
 use OpenSim\Models\Grid;
@@ -185,7 +186,7 @@ final class RemoteGridPlanner
             'name' => $name,
             'slug' => Slug::slug($name),
             'directory' => "$etcRoot/grids/$nick",
-            'hypergrid' => filter_var($v['hypergrid'], FILTER_VALIDATE_BOOLEAN),
+            'hypergrid' => Result::isTrue($v['hypergrid']),
             'baseHostname' => $host,
             'publicPort' => $public,
             'privatePort' => trim((string) $v['private_port']) !== '' ? (int) $v['private_port'] : $public + 1,

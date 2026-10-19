@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Provisioning;
 
+use OpenSim\Result;
 use OpenSim\Forms\FieldSet;
 use OpenSim\Models\Grid;
 use OpenSim\Models\Region;
@@ -163,7 +164,7 @@ final class RegionPlanner
         $place = fn(): string => implode(',', array_slice($this->freePlace(...$this->center()), 0, 2));
 
         return [
-            'create' => $this->flag($answers['create'] ?? true),
+            'create' => Result::isTrue($answers['create'] ?? true),
             'name' => trim((string) ($answers['name'] ?? $this->defaultName($problem))),
             // Checked at first: the default region and the one of the visitors, when the grid has none yet (and not the fallback)
             'roles' => array_values((array) ($answers['roles'] ?? $this->missingRoles())),
@@ -244,7 +245,7 @@ final class RegionPlanner
     private function nameProblem(string $name): ?string
     {
         $name = Slug::ascii($name);
-        if (($problem = Region::nameProblem($name)) !== null) {
+        if (($problem = Region::validateName($name)) !== null) {
             return $problem;
         }
         $grid = $this->context['grid'];
@@ -298,11 +299,6 @@ final class RegionPlanner
         $ports = new Ports($this->context['grid']->environment());
 
         return $ports->nextRegion($httpPort, $taken) ?? $ports->next($httpPort + 1, $taken);
-    }
-
-    private function flag(mixed $value): bool
-    {
-        return is_bool($value) ? $value : in_array(strtolower(trim((string) $value)), ['1', 'true', 'yes', 'on'], true);
     }
 
     /** A random UUID (version 4). */

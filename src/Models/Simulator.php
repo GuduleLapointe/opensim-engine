@@ -62,6 +62,7 @@ final class Simulator extends InstalledModel
                 'group' => 'simulator',
                 'label' => _('Simulator name'),
                 'callback' => [self::class, 'validateName'],
+                'normalize' => [self::class, 'normalizeName'],
                 'enable' => !($options['modify'] ?? false),
             ]),
             [
@@ -170,7 +171,19 @@ final class Simulator extends InstalledModel
     /** The name of a simulator. An accent is not refused, it is transliterated (Noël becomes Noel). */
     public static function validateName(mixed $value): ?string
     {
-        return (new NameRule('-'))->problem(Slug::ascii((string) $value));
+        return self::nameRule()->problem(Slug::ascii((string) $value));
+    }
+
+    /** The name in Latin letters without accents (the viewers lose the accents), every alphabet transliterated. */
+    public static function normalizeName(string $name): string
+    {
+        return self::nameRule()->normalize($name);
+    }
+
+    /** The rule of the name of a simulator: the one of the regions, the dot is out here too. */
+    private static function nameRule(): NameRule
+    {
+        return new NameRule('-');
     }
 
 

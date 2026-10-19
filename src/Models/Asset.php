@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Models;
 
+use OpenSim\Result;
 use OpenSim\Config\GridConfig;
 use OpenSim\Data\Collection;
 use OpenSim\Data\Connections;
@@ -122,13 +123,13 @@ class Asset extends Model
     /** Kept in the region that made it only. */
     public function isLocal(): bool
     {
-        return filter_var($this->row['local'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        return Result::isTrue($this->row['local'] ?? false);
     }
 
     /** Kept for a while only. */
     public function isTemporary(): bool
     {
-        return filter_var($this->row['temporary'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        return Result::isTrue($this->row['temporary'] ?? false);
     }
 
     public function created(): ?\DateTimeImmutable

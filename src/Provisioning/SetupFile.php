@@ -2,6 +2,7 @@
 
 namespace OpenSim\Provisioning;
 
+use OpenSim\Result;
 use OpenSim\Models\Avatar;
 use Symfony\Component\Yaml\Yaml;
 
@@ -141,7 +142,7 @@ final class SetupFile
             }
         }
         // A standalone is one simulator
-        $standalone = filter_var(self::get($data, 'grid.standalone'), FILTER_VALIDATE_BOOLEAN);
+        $standalone = Result::isTrue(self::get($data, 'grid.standalone'));
         if ($standalone && count($data['simulators'] ?? []) > 1) {
             $problems[] = 'a standalone has one simulator (grid.standalone is true)';
         }
@@ -254,8 +255,8 @@ final class SetupFile
     public static function gridPrompts(array $data): array
     {
         $answers = self::credentials($data['grid']['database'] ?? [], []);
-        $answers += ['Enable grid' => self::flag($data, 'grid.enable'), 'Apply this configuration' => true];
-        $answers += ['Start grid' => $answers['Enable grid'] && self::flag($data, 'grid.start')];
+        $answers += ['Enable grid' => self::yes($data, 'grid.enable'), 'Apply this configuration' => true];
+        $answers += ['Start grid' => $answers['Enable grid'] && self::yes($data, 'grid.start')];
 
         return $answers;
     }
@@ -270,10 +271,10 @@ final class SetupFile
     {
         $answers = self::credentials($data['simulators'][$i]['database'] ?? [], $data['grid']['database'] ?? []);
         $answers += [
-            'Enable simulator' => self::flag($data, "simulators.$i.enable"),
+            'Enable simulator' => self::yes($data, "simulators.$i.enable"),
             'Apply this configuration' => true,
         ];
-        $answers += ['Start simulator' => $answers['Enable simulator'] && self::flag($data, "simulators.$i.start")];
+        $answers += ['Start simulator' => $answers['Enable simulator'] && self::yes($data, "simulators.$i.start")];
 
         return $answers;
     }
@@ -288,7 +289,7 @@ final class SetupFile
     {
         return [
             'Add region' => true,
-            'Load it now' => self::flag($data, "simulators.$i.enable") && self::flag($data, "simulators.$i.start"),
+            'Load it now' => self::yes($data, "simulators.$i.enable") && self::yes($data, "simulators.$i.start"),
         ];
     }
 
@@ -306,14 +307,12 @@ final class SetupFile
         return $answers;
     }
 
-    /** A yes or no of the file; yes when it does not say. */
-    private static function flag(array $data, string $path): bool
+    /** A yes or no of the file; yes unless it says no. */
+    private static function yes(array $data, string $path): bool
     {
         $value = self::get($data, $path);
 
-        return $value === null ||
-            $value === '' ||
-            filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) !== false;
+        return $value === null || $value === '' || !Result::isFalse($value);
     }
 
     /**

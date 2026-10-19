@@ -122,6 +122,7 @@ final class Grid extends InstalledModel
                 'type' => 'string',
                 'required' => true,
                 'label' => _('Grid name'),
+                'callback' => [self::class, 'validateName'],
                 'normalize' => [self::class, 'normalizeName'],
             ],
             [
@@ -424,7 +425,26 @@ final class Grid extends InstalledModel
     /** The name of a grid in Latin letters without accents (the viewers lose the accents), every alphabet transliterated. */
     public static function normalizeName(string $name): string
     {
-        return (new NameRule('.-'))->normalize($name);
+        return self::nameRule()->normalize($name);
+    }
+
+    /** The rule of the name of a grid: the one of the regions, with the apostrophe (Olivier's grid). The dot is out here too. */
+    private static function nameRule(): NameRule
+    {
+        return new NameRule("'-");
+    }
+
+    /**
+     * The name of a grid, typed. An accent is not refused, it is transliterated. The grid of a standalone is its region: it has the name
+     * of a region.
+     *
+     * @param array<string,mixed> $answers
+     */
+    public static function validateName(mixed $value, array $answers = []): ?string
+    {
+        return \OpenSim\Result::isTrue($answers['standalone'] ?? false)
+            ? Region::validateName($value)
+            : self::nameRule()->problem(Slug::ascii((string) $value));
     }
 
     /** A host name or an IPv6 address in brackets: labels of letters (unicode too), digits and hyphens. */

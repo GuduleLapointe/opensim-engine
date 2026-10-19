@@ -63,14 +63,22 @@ describe('Avatar', function () {
 });
 
 describe('Region', function () {
-    test('has a name of letters, digits, space and hyphen, which is corrected when it has accents', function () {
-        expect(Region::nameProblem('Ma Region-2'))
+    test('has the name rule of Second Life: letters and digits, 3 to 25 characters, three words at most, corrected when it has accents', function () {
+        expect(Region::validateName('Ma Region 2'))
             ->toBeNull()
-            ->and(Region::nameProblem('Ma_Region'))
-            ->toBe('invalid (letters, digits, space -)')
-            ->and(Region::nameProblem('Ma.Region'))
-            ->toBe('invalid (letters, digits, space -)')
-            ->and(Region::nameProblem(''))
+            ->and(Region::validateName('Ma_Region'))
+            ->toBe('invalid (letters, digits, space)')
+            ->and(Region::validateName('Ma.Region'))
+            ->toBe('invalid (letters, digits, space)')
+            ->and(Region::validateName('Ma-Region'))
+            ->toBe('invalid (letters, digits, space)')
+            ->and(Region::validateName('Ab'))
+            ->toBe('too short (3 min)')
+            ->and(Region::validateName(str_repeat('a', 26)))
+            ->toBe('too long (25 max)')
+            ->and(Region::validateName('Aaa Bbb Ccc Ddd'))
+            ->toBe('too many words (3 max)')
+            ->and(Region::validateName(''))
             ->not->toBeNull()
             ->and(Region::normalizeName('Noël'))
             ->toBe('Noel');
@@ -103,7 +111,11 @@ describe('Grid', function () {
             ->and(Grid::validateWebUrl('www.example.org'))
             ->toBe('invalid (https://host)')
             ->and(Grid::normalizeName('Café Monde'))
-            ->toBe('Cafe Monde');
+            ->toBe('Cafe Monde')
+            ->and(Grid::validateName("Olivier's Grid"))
+            ->toBeNull()
+            ->and(Grid::validateName('Solo.World'))
+            ->toBe("invalid (letters, digits, space ' -)");
     });
 
     test('forces its rules through its fields, whoever shows them', function () {
@@ -122,12 +134,12 @@ describe('Grid', function () {
 
 describe('NameRule', function () {
     test('is written once: the check, the message and the correction come from the punctuation and the length', function () {
-        $rule = new NameRule('.-', 5);
+        $rule = new NameRule('.-', max: 5);
 
         expect($rule->problem('A.b-c'))
             ->toBeNull()
             ->and($rule->problem('Too long'))
-            ->toBe('invalid (letters, digits, space . -)')
+            ->toBe('too long (5 max)')
             ->and($rule->problem('a_b'))
             ->toBe('invalid (letters, digits, space . -)')
             ->and($rule->normalize('Café'))

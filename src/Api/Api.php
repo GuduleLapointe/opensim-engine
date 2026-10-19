@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Api;
 
+use OpenSim\Result;
 use OpenSim\Config\GridConfig;
 use OpenSim\Exceptions\ChannelUnavailable;
 use OpenSim\Exceptions\NotFound;
@@ -276,7 +277,7 @@ final class Api
                 return $model;
             }
             if (array_key_exists('enabled', $attributes)) {
-                filter_var($attributes['enabled'], FILTER_VALIDATE_BOOLEAN) ? $model->enable() : $model->disable();
+                Result::isTrue($attributes['enabled']) ? $model->enable() : $model->disable();
                 unset($attributes['enabled']);
             }
             $attributes !== [] && $model->update($attributes);
@@ -372,7 +373,7 @@ final class Api
         return Response::binary(
             $png,
             'image/png',
-            headers: filter_var($query['download'] ?? false, FILTER_VALIDATE_BOOLEAN)
+            headers: Result::isTrue($query['download'] ?? false)
                 ? ['Content-Disposition' => 'attachment; filename="' . ($name === '' ? 'text' : $name) . '.png"']
                 : [],
         );

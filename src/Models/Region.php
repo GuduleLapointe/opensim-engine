@@ -15,7 +15,6 @@ use OpenSim\Data\Connections;
 use OpenSim\Data\Database;
 use OpenSim\Data\OSPDO;
 use OpenSim\Exceptions\ChannelUnavailable;
-use OpenSim\Provisioning\RegionName;
 use OpenSim\Provisioning\Slug;
 
 /**
@@ -874,7 +873,7 @@ final class Region extends Model
     public static function giveRoles(string $robustIni, string $region, array $roles): void
     {
         $ini = IniEditor::load($robustIni);
-        $key = RegionName::configKey($region);
+        $key = self::configKey($region);
         $flags = array_filter(array_map('trim', explode(',', (string) $ini->get('GridService', $key))));
         $flags = array_values(array_unique([...$flags, ...$roles, self::flagName(self::PERSISTENT)]));
         $ini->set('GridService', $key, '"' . implode(', ', $flags) . '"', 'Region_');
@@ -996,29 +995,55 @@ final class Region extends Model
     }
 
     /**
-     * The rule of the name of a region. The dot is out: the viewer takes it for a host name. So is the underscore: Robust takes it
-     * for a space (Ma Region and Ma_Region would be the same Region_Ma_Region).
+     * The rule of the name of a region, the one of Second Life (Linden Lab, naming private regions): letters and digits, 3 to 25
+     * characters, three words at most. No punctuation: the viewer takes the dot for a host name, and Robust takes the underscore for
+     * a space (Ma Region and Ma_Region would be the same Region_Ma_Region).
      */
     private static function nameRule(): NameRule
     {
-        return new NameRule('-', 50);
-    }
-
-    /** The reason a name cannot be given to a region, null when it is fine. */
-    public static function nameProblem(string $name): ?string
-    {
-        return self::nameRule()->problem($name);
+        return new NameRule(min: 3, max: 25, words: 3);
     }
 
     /** The name of a region, typed. An accent is not refused, it is transliterated (Noël becomes Noel). */
     public static function validateName(mixed $value): ?string
     {
-        return self::nameProblem(Slug::ascii((string) $value));
+        return self::nameRule()->problem(Slug::ascii((string) $value));
     }
 
     /** The name in Latin letters without accents (the viewers lose the accents), every alphabet transliterated. */
     public static function normalizeName(string $name): string
     {
         return self::nameRule()->normalize($name);
+    }
+
+    /** The key of [GridService] giving the flags of a region: Robust looks for its name with the spaces replaced by underscores. */
+    public static function configKey(string $name): string
+    {
+        return 'Region_' . str_replace(' ', '_', trim($name));
+    }
+
+    /** The name a key of [GridService] stands for (an underscore of the key may be a space of the name). */
+    public static function fromConfigKey(string $key): string
+    {
+        return str_replace('_', ' ', (string) preg_replace('/^Region_/', '', $key));
+    }
+
+    /**
+     * Whether a region of this name is among those known, the way Robust compares them (a space and an underscore are the same
+     * character).
+     *
+     * @param array<string,mixed> $known the names as keys
+     */
+    public static function nameIsIn(string $name, array $known): bool
+    {
+        $same = static fn(string $value): string => strtolower(str_replace(' ', '_', trim($value)));
+        $wanted = $same($name);
+        foreach (array_keys($known) as $other) {
+            if ($same((string) $other) === $wanted) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
