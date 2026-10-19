@@ -50,7 +50,10 @@ final class HelpersConfig
         return $moved;
     }
 
-    /** The Robust config of a grid folder, empty when it has none. */
+    /**
+     * The config of the services of a grid folder, empty when it has none: its Robust config, or for a standalone the master of its
+     * simulator (the constants) and its StandaloneCommon.ini (what the viewers are told).
+     */
     private static function robust(string $gridDir): string
     {
         foreach (['Robust.HG.ini', 'Robust.ini'] as $file) {
@@ -58,8 +61,12 @@ final class HelpersConfig
                 return GridFileService::read("$gridDir/$file");
             }
         }
+        $text = '';
+        foreach (['OpenSimGridDefaults.ini', 'config-include/StandaloneCommon.ini'] as $file) {
+            is_file("$gridDir/$file") && ($text .= GridFileService::read("$gridDir/$file") . "\n");
+        }
 
-        return '';
+        return $text;
     }
 
     /** The setting of the Robust config of a grid (`WebURL`, `economy`...), empty when it has not. */

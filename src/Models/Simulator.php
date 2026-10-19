@@ -53,6 +53,8 @@ final class Simulator extends InstalledModel
         $cores = $options['cores'] ?? [];
         $accounts = $options['accounts'] ?? null;
         $fresh = static fn(array $field): array => $field + ['required' => true, 'type' => 'string'];
+        // The simulator of a standalone is the grid: it has its port and its database, which are not asked again
+        $own = ($options['standalone'] ?? false) ? ['enable' => false] : [];
 
         $fields = [
             $fresh([
@@ -76,7 +78,7 @@ final class Simulator extends InstalledModel
                 'type' => 'integer',
                 'label' => _('Simulator HTTP port'),
                 'callback' => [Grid::class, 'validatePort'],
-            ]),
+            ] + $own),
             $fresh([
                 'name' => 'external_host',
                 'group' => 'simulator',
@@ -102,10 +104,10 @@ final class Simulator extends InstalledModel
                 'callback' => [Grid::class, 'validatePort'],
                 'condition' => ['console' => 'rest'],
             ]),
-            $fresh(['name' => 'database_host', 'group' => 'database', 'label' => _('Database host')]),
-            $fresh(['name' => 'database_name', 'group' => 'database', 'label' => _('Database name')]),
-            $fresh(['name' => 'database_user', 'group' => 'database', 'label' => _('Database user')]),
-            $fresh(['name' => 'database_password', 'group' => 'database', 'label' => _('Database password')]),
+            $fresh(['name' => 'database_host', 'group' => 'database', 'label' => _('Database host')] + $own),
+            $fresh(['name' => 'database_name', 'group' => 'database', 'label' => _('Database name')] + $own),
+            $fresh(['name' => 'database_user', 'group' => 'database', 'label' => _('Database user')] + $own),
+            $fresh(['name' => 'database_password', 'group' => 'database', 'label' => _('Database password')] + $own),
             $fresh(['name' => 'estate_name', 'group' => 'estate', 'label' => _('Estate name')]),
         ];
 

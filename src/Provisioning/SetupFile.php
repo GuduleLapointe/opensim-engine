@@ -139,6 +139,11 @@ final class SetupFile
                 }
             }
         }
+        // A standalone is one simulator
+        $standalone = filter_var(self::get($data, 'grid.standalone'), FILTER_VALIDATE_BOOLEAN);
+        if ($standalone && count($data['simulators'] ?? []) > 1) {
+            $problems[] = 'a standalone has one simulator (grid.standalone is true)';
+        }
         foreach ($data['simulators'] ?? [] as $i => $simulator) {
             foreach (['user', 'password'] as $key) {
                 if (!$creates && trim((string) ($simulator['database'][$key] ?? '')) === '') {

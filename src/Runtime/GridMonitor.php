@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Runtime;
 
+use OpenSim\Config\ConfigReader;
 use OpenSim\Config\GridConfig;
 use OpenSim\Controllers\OpenSimController;
 use OpenSim\Data\Stats;
@@ -100,6 +101,17 @@ final class GridMonitor
                 'online' => $byServer[$match]['online'] ?? 0,
             ];
         }
+        // A standalone keeps no table of regions: its simulator loads the ones it describes, with it
+        if ($grid->isStandalone()) {
+            foreach ($simulators as &$simulator) {
+                $described = self::described($grid, $simulator['name']);
+                $simulator['regions'] = $described;
+                $simulator['online'] = $simulator['running'] ? $described : 0;
+                $regions['total'] += $described;
+                $regions['online'] += $simulator['online'];
+            }
+            unset($simulator);
+        }
         foreach ($byServer as $uri => $counts) {
             if ($uri === '' || isset($claimed[$uri])) {
                 continue;
@@ -155,6 +167,18 @@ final class GridMonitor
                 $totals['rss'],
             ),
         ];
+    }
+
+    /** The number of regions a simulator of the grid describes in its files. */
+    private static function described(Grid $grid, string $instance): int
+    {
+        $count = 0;
+        $folder = GridConfig::simulatorsDirectory($grid->directory()) . '/' . $instance . '/regions';
+        foreach (glob("$folder/*.ini") ?: [] as $file) {
+            $count += count(ConfigReader::file($file));
+        }
+
+        return $count;
     }
 
     /**

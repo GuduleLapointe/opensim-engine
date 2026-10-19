@@ -218,6 +218,19 @@ final class OpenSim
         };
         foreach ($targets as $target) {
             $found = self::instance($environment, (string) $target);
+            // A standalone has no Robust of its name: the grid is its simulator
+            $standalone = $found === null ? Grid::find($environment, (string) $target) : null;
+            if ($standalone?->isStandalone() === true) {
+                $own = $standalone->instances();
+                array_map($add, $own);
+                if ($own === []) {
+                    $message = "the standalone $target has no simulator enabled";
+                    $environment->reporter->error($message);
+                    $results[] = Result::failed((string) $target, $message);
+                }
+
+                continue;
+            }
             if ($found === null) {
                 $message = 'no ini file found for ' . $target;
                 $environment->reporter->error($message);

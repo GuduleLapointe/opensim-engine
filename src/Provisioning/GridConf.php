@@ -72,6 +72,7 @@ final class GridConf
                     'Standalone = true',
                     'Hypergrid = ' . ($plan->enableHypergrid ? 'true' : 'false'),
                     "BaseHostname = {$plan->baseHostname}",
+                    "WebUrl = {$plan->webUrl}",
                     "PublicPort = {$plan->publicPort}",
                     "DatabaseHost = {$plan->dbHost}",
                     "DatabaseName = {$plan->dbName}",

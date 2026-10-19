@@ -162,6 +162,9 @@ final class GridProvisioner
         $shared->merge($plan->etcDirectory, $plan->binDir, $plan->enableHypergrid, standalone: $plan->standalone);
         $shared->prepare($plan->etcDirectory, $plan->binDir, $plan->enableHypergrid, $plan->standalone);
         $this->ui->note(_('Copied config-include defaults.'));
+        if ($plan->standalone && ($services = (new GridServices())->writeStandalone($plan)) !== null) {
+            $this->ui->note(sprintf(_('Wrote %s'), $services));
+        }
     }
     /**
      * The options of a grid that is made, which the files do not carry by themselves: more OSSL (an ini file combined into the one of

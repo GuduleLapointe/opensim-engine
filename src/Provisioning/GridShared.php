@@ -2,7 +2,6 @@
 
 namespace OpenSim\Provisioning;
 
-use OpenSim\Config\ConfigReader;
 use OpenSim\Config\GridFileService;
 use OpenSim\Config\IniEditor;
 use OpenSim\Config\TextFileService;
@@ -136,34 +135,6 @@ final class GridShared
     }
 
     /**
-     * What a standalone is, in the common settings of the distribution: the names it gives itself in get_grid_info in place of those of
-     * the distribution, and its gatekeeper when it is a hypergrid (the distribution has it commented, to enable it).
-     *
-     * @return array<string,string> pattern => replacement
-     */
-    private static function standalonePatches(string $dir): array
-    {
-        $conf = ConfigReader::file("$dir/" . basename($dir) . '.conf')['Grid'] ?? [];
-        // A name in the config is a plain text: no quote, no backslash, no reference to a constant
-        $quote = static fn(string $value): string => '"' . str_replace(['\\', '$', '"'], '', $value) . '"';
-        $patches = [];
-        $defaults = [
-            'gridname' => ['GridName', 'the lost continent of hippo'],
-            'gridnick' => ['GridNick', 'hippogrid'],
-        ];
-        foreach ($defaults as $key => [$name, $default]) {
-            if (($value = trim((string) ($conf[$name] ?? ''))) !== '') {
-                $patches['/^(\s*' . $key . '\s*=\s*)"' . $default . '"/m'] = '$1' . $quote($value);
-            }
-        }
-        if (strtolower(trim((string) ($conf['Hypergrid'] ?? ''))) === 'true') {
-            $patches['/^(\s*);(\s*GatekeeperURI\s*=\s*"\$\{Const\|BaseURL\}:\$\{Const\|PublicPort\}")/m'] = '$1$2';
-        }
-
-        return $patches;
-    }
-
-    /**
      * @return array<string,string> pattern => replacement, for a file of the folder
      */
     private function patches(string $dir, string $file): array
@@ -181,8 +152,6 @@ final class GridShared
             'config-include/StandaloneCommon.ini' => [
                 // The database of the simulator is its own, not the SQLite file of the distribution
                 '/^(\s*Include-Storage\s*=.*)$/m' => ';$1',
-                // The grid says its name, where the distribution says its own
-                ...self::standalonePatches($dir),
                 '/^(\s*Include-FlotsamCache\s*=\s*)"?config-include\/FlotsamCache\.ini"?/m' =>
                     '$1"' . $include . '/FlotsamCache.ini"',
             ],

@@ -98,6 +98,8 @@ final class SimulatorMaster
         $private = (int) ($info['privatePort'] ?? ($conf['PrivatePort'] ?? 8003));
         $hypergrid = basename($robust) === 'Robust.HG.ini' || strtolower($conf['Hypergrid'] ?? '') === 'true';
         $standalone = strtolower($conf['Standalone'] ?? '') === 'true';
+        // The services of a standalone say where its web site is, as those of Robust do
+        $webUrl = $standalone && ($conf['WebUrl'] ?? '') !== '' ? ['WebURL = "' . $conf['WebUrl'] . '"'] : [];
 
         return implode("\n", [
             '[Const]',
@@ -108,6 +110,7 @@ final class SimulatorMaster
             "PrivatePort = $private",
             'PrivURL = "${Const|BaseURL}"',
             'EtcDirectory = "' . $gridDir . '"',
+            ...$webUrl,
             '',
             ';; OSSL is part of the standard config, as the grid sets it (its osslEnable.ini)',
             '[OSSL]',

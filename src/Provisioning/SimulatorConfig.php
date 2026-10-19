@@ -147,6 +147,7 @@ final class SimulatorConfig
         // A grid that does not say follows its helpers
         $module = $plan ? $from->offlineModule : $from->offlineModule();
         $module !== '' || ($module = $offline !== '' ? 'helpers' : '');
+        $standalone = $plan ? $from->standalone : $from->isStandalone();
 
         return [
             ...$search !== ''
@@ -171,10 +172,12 @@ final class SimulatorConfig
             '',
             ...match (true) {
                 $module === 'robust' => [
-                    ';; The offline messages are kept by Robust (module V2)',
+                    $standalone
+                        ? ';; The offline messages are kept by the simulator itself (module V2)'
+                        : ';; The offline messages are kept by Robust (module V2)',
                     '[Messaging]',
                     'OfflineMessageModule = "Offline Message Module V2"',
-                    'OfflineMessageURL = "${Const|PrivURL}:${Const|PrivatePort}"',
+                    ...$standalone ? [] : ['OfflineMessageURL = "${Const|PrivURL}:${Const|PrivatePort}"'],
                     '',
                 ],
                 $module === 'helpers' && $offline !== '' => [
@@ -199,7 +202,7 @@ final class SimulatorConfig
                 ]
                 : [],
             ...in_array('GroupsServiceConnector', $plan ? $from->connectors : $from->connectors(), true)
-                ? self::groupsLayer($from)
+                ? self::groupsLayer($from, $standalone)
                 : [],
         ];
     }
@@ -230,7 +233,7 @@ final class SimulatorConfig
      *
      * @return list<string>
      */
-    private static function groupsLayer(SimulatorPlan|Grid $from): array
+    private static function groupsLayer(SimulatorPlan|Grid $from, bool $standalone = false): array
     {
         $hypergrid = in_array(
             'HGGroupsServiceConnector',
@@ -239,17 +242,23 @@ final class SimulatorConfig
         );
 
         return [
-            ';; The groups are kept by Robust',
+            $standalone ? ';; The groups are kept by the simulator itself' : ';; The groups are kept by Robust',
             '[Groups]',
             'Enabled = true',
             'Module = "Groups Module V2"',
             'ServicesConnectorModule = "' .
-            ($hypergrid ? 'Groups HG Service Connector' : 'Groups Remote Service Connector') .
+            match (true) {
+                $hypergrid => 'Groups HG Service Connector',
+                $standalone => 'Groups Local Service Connector',
+                default => 'Groups Remote Service Connector',
+            } .
             '"',
-            ...$hypergrid ? ['LocalService = remote'] : [],
-            'GroupsServerURI = "${Const|PrivURL}:${Const|PrivatePort}"',
+            ...$hypergrid ? ['LocalService = ' . ($standalone ? 'local' : 'remote')] : [],
+            ...$standalone ? [] : ['GroupsServerURI = "${Const|PrivURL}:${Const|PrivatePort}"'],
             'MessagingEnabled = true',
             'MessagingModule = "Groups Messaging Module V2"',
+            // The module refuses to run without it (it logs an error and the messages of the groups are not delivered)
+            'MessageOnlineUsersOnly = true',
             'NoticesEnabled = true',
             '',
         ];

@@ -312,13 +312,14 @@ final class Features
      */
     private function offline(bool $on, string $mode, string $prefix, array $result): array
     {
-        $url =
-            $mode === 'helpers'
-                ? ($prefix !== ''
-                    ? "$prefix/offline.php"
-                    : $this->grid->helperUrl('offline'))
-                : '${Const|PrivURL}:${Const|PrivatePort}';
-        if ($on && $url === '') {
+        // The module V2 of a standalone keeps the messages in its own process, it is given no address
+        $local = $mode === 'robust' && $this->grid->isStandalone();
+        $url = match (true) {
+            $local => '',
+            $mode === 'helpers' => $prefix !== '' ? "$prefix/offline.php" : $this->grid->helperUrl('offline'),
+            default => '${Const|PrivURL}:${Const|PrivatePort}',
+        };
+        if ($on && $url === '' && !$local) {
             $result['error'] =
                 "the grid {$this->grid->nick()} has no helpers: the module V1 keeps its messages with them, " .
                 "opensim enable {$this->grid->nick()} offline --mode=robust uses the service of Robust";
@@ -328,7 +329,9 @@ final class Features
         $this->eachFile($result, function (IniEditor $ini, bool $grid) use ($on, $mode, $url): void {
             if ($on) {
                 $this->put($ini, $grid, 'Messaging', 'OfflineMessageModule', self::OFFLINE_MODULES[$mode]);
-                $this->put($ini, $grid, 'Messaging', 'OfflineMessageURL', $this->quote($url));
+                $url === ''
+                    ? $ini->comment('Messaging', 'OfflineMessageURL')
+                    : $this->put($ini, $grid, 'Messaging', 'OfflineMessageURL', $this->quote($url));
 
                 return;
             }
@@ -336,7 +339,7 @@ final class Features
             $ini->comment('Messaging', 'OfflineMessageURL');
         });
         // The service of Robust goes with the module V2: its connector and nothing else (the module is the simulators')
-        if ($mode === 'robust') {
+        if ($mode === 'robust' && !$local) {
             $result['robust'] =
                 $this->robust(function (IniEditor $ini) use ($on): void {
                     $on
@@ -363,7 +366,7 @@ final class Features
         });
         // The service is Robust's: its connector and its switch, and the page of the profiles the viewers open
         $result['robust'] = $this->robust(function (IniEditor $ini) use ($on): void {
-            if ($on) {
+            if ($on && !$this->grid->isStandalone()) {
                 $ini->uncomment('UserProfilesServiceConnector');
             }
             $ini->set('UserProfilesService', 'Enabled', $on ? 'true' : 'false');
@@ -425,7 +428,7 @@ final class Features
      */
     private function robust(callable $edit, array &$result): bool
     {
-        $ini = $this->grid->robustIni();
+        $ini = $this->servicesFile();
         if ($this->grid->isRemote() || $ini === null || !is_file($ini)) {
             $result[
                 'notes'
@@ -435,6 +438,14 @@ final class Features
         }
 
         return $this->edit($ini, $edit);
+    }
+
+    /** The config of the services of the grid: its Robust, or the StandaloneCommon.ini of the folder of a standalone, which has none. */
+    private function servicesFile(): ?string
+    {
+        return $this->grid->isStandalone()
+            ? $this->grid->directory() . '/config-include/StandaloneCommon.ini'
+            : $this->grid->robustIni();
     }
 
     /** Run an edit on an ini file and save it when it changed. */
@@ -454,7 +465,7 @@ final class Features
     /** The address of the economy the grid gives its viewers, else where its helpers are. */
     private function economyUrl(): string
     {
-        $ini = $this->grid->robustIni();
+        $ini = $this->servicesFile();
         $current = $ini !== null && is_file($ini) ? IniEditor::load($ini)->get('GridInfoService', 'economy') : null;
         if ($current !== null && $current !== '') {
             return $current;

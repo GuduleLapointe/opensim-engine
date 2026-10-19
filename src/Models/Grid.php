@@ -174,6 +174,8 @@ final class Grid extends InstalledModel
                 'required' => true,
                 'label' => _('Private port'),
                 'callback' => [self::class, 'validatePort'],
+                // A standalone answers on one port
+                'condition' => ['standalone' => false],
             ],
             [
                 'name' => 'center',
@@ -194,6 +196,8 @@ final class Grid extends InstalledModel
                     'rest' => _('Remote REST console (recommended)'),
                     'screen' => _('Screen session (on this machine)'),
                 ],
+                // The console of a standalone is the one of its simulator
+                'condition' => ['standalone' => false],
             ],
             [
                 'name' => 'console_port',
@@ -203,7 +207,7 @@ final class Grid extends InstalledModel
                 'required' => true,
                 'label' => _('Console port'),
                 'callback' => [self::class, 'validatePort'],
-                'condition' => ['console' => 'rest'],
+                'condition' => ['console' => 'rest', 'standalone' => false],
             ],
             [
                 'name' => 'web_url',
@@ -303,7 +307,7 @@ final class Grid extends InstalledModel
                 ),
                 'options' => [
                     'helpers' => _('Helpers (module V1): mailed on request, no limit'),
-                    'robust' => _('Robust (module V2): nothing to run, no mail, 25 messages per avatar'),
+                    'robust' => _('The grid itself (module V2): nothing to run, no mail, 25 messages per avatar'),
                     'both' => _('Both: V1 by default, the service of Robust ready for the simulators set to V2'),
                 ],
                 'callback' => static fn(mixed $value, array $answers): ?string => in_array(
@@ -312,7 +316,9 @@ final class Grid extends InstalledModel
                     true,
                 ) && !($answers['helpers'] ?? true)
                     ? _('The module V1 keeps its messages with opensim-helpers.')
-                    : null,
+                    : ($value === 'both' && ($answers['standalone'] ?? false)
+                        ? _('A standalone has no Robust service to keep ready: the helpers (V1) or itself (V2).')
+                        : null),
                 'enable' => $new,
             ],
             [
@@ -577,7 +583,16 @@ final class Grid extends InstalledModel
                 'logsDirectory' => $plan->logsDirectory,
                 // What its Robust serves: as written when it is, else as the setup will write it
                 'connectors' => $plan->standalone
-                    ? []
+                    ? array_values(
+                        array_intersect(
+                            \OpenSim\Provisioning\RobustConfig::connectors(
+                                $plan->helpers,
+                                $plan->enableHypergrid,
+                                $plan->offline,
+                            ),
+                            ['GroupsServiceConnector', 'HGGroupsServiceConnector'],
+                        ),
+                    )
                     : (is_file($robustIni)
                         ? RobustController::connectorsIn($robustIni)
                         : \OpenSim\Provisioning\RobustConfig::connectors(

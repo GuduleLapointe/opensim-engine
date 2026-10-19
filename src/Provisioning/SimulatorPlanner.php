@@ -161,6 +161,7 @@ final class SimulatorPlanner
                 'cores' => $this->context['cores'],
                 'modify' => $this->context['modify'],
                 'accounts' => $this->context['accounts'],
+                'standalone' => $this->context['grid']->isStandalone(),
             ]),
         );
     }

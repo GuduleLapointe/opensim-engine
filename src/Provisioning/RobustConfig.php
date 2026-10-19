@@ -3,7 +3,6 @@
 namespace OpenSim\Provisioning;
 
 use OpenSim\Config\IniEditor;
-use OpenSim\Provisioning\Web\Services;
 
 /**
  * Generates a grid's Robust.HG.ini by overlaying our settings onto the
@@ -84,62 +83,17 @@ final class RobustConfig
             'LibraryService' => [
                 'DefaultLibrary' => $this->q('${Const|EtcDirectory}/inventory/Libraries.xml'),
             ],
-            'LoginService' => [
-                'DestinationGuide' => $this->q('${Const|WebURL}/guide'),
-            ],
             'MapImageService' => [
                 'TilesStoragePath' => $this->q('${Const|DataDirectory}/maptiles'),
-            ],
-            'GridInfoService' => [
-                'gridname' => $this->q($plan->gridName),
-                'gridnick' => $this->q($plan->gridNick),
-                'welcome' => $this->q('${Const|WebURL}'),
             ],
             'BakedTextureService' => [
                 'BaseDirectory' => $this->q('${Const|CacheDirectory}/bakes'),
             ],
         ]);
 
-        // What the viewers are told of the services of the helpers: the official settings, which the helpers read back
-        if ($plan->helpers) {
-            $services = new Services($plan->helpersPath);
-            // The economy is the path of the helpers: the viewer adds the name of the script (currency.php...)
-            $ini->set('GridInfoService', 'economy', $this->q('${Const|WebURL}' . $services->base()));
-            // The splash page the viewer shows before the login
-            $ini->set('GridInfoService', 'welcome', $this->q('${Const|WebURL}' . $services->path('welcome')));
-            // The destination guide of the viewers is the one of the helpers
-            $ini->set('LoginService', 'DestinationGuide', $this->q('${Const|WebURL}' . $services->path('guide')));
-            // The profile page: the viewers replace [AGENT_NAME] by Firstname.Lastname (the helpers also take Firstname-Lastname)
-            $ini->set(
-                'GridInfoService',
-                'web_profile_url',
-                $this->q('${Const|WebURL}' . $services->path('profile') . '/[AGENT_NAME]'),
-            );
-            // The message of the day: the text of motd.php (WelcomeMessage), read when Robust starts
-            $ini->set('LoginService', 'MessageUrl', $this->q('${Const|WebURL}' . $services->path('motd')));
-            // The search of the web, when the grid has none of the two settings that say it (alignSearch() gives one to the other); not a
-            // grid that has no search
-            if (
-                $plan->search !== 'disabled' &&
-                ($ini->get('GridInfoService', 'search') ?? '') === '' &&
-                ($ini->get('LoginService', 'SearchURL') ?? '') === ''
-            ) {
-                $ini->set('GridInfoService', 'search', $this->q('${Const|WebURL}' . $services->path('search')));
-            }
-        }
-
-        if ($plan->enableHypergrid) {
-            $ini->merge([
-                'Hypergrid' => [
-                    'HomeURI' => $this->q('${Const|BaseURL}:${Const|PublicPort}'),
-                    'GatekeeperURI' => $this->q('${Const|BaseURL}:${Const|PublicPort}'),
-                ],
-            ]);
-            // The gatekeeper the viewers and the other grids read in get_grid_info, when the grid has not set another
-            if (($ini->get('GridInfoService', 'gatekeeper') ?? '') === '') {
-                $ini->set('GridInfoService', 'gatekeeper', '${Const|BaseURL}:${Const|PublicPort}');
-            }
-        }
+        $services = new GridServices();
+        $services->identity($ini, $plan);
+        $services->apply($ini, $plan, $existing);
 
         // The remote console, every right on Robust through its port
         if ($plan->consoleMode === 'rest' && $plan->consolePort > 0) {
@@ -153,44 +107,13 @@ final class RobustConfig
             ]);
         }
 
-        // What the setup proposes, which the operator may change: set when the grid has nothing for it, never over what it has
-        $proposed = [
-            // Shown to the user when logging in (<USERNAME> is replaced by the name of the avatar)
-            ['LoginService', 'WelcomeMessage', $this->q("Welcome to {$plan->gridName}, <USERNAME>!")],
-            ['LibraryService', 'LibraryName', $this->q("{$plan->gridName} Library")],
-            // User profiles (connector + service)
-            ['UserProfilesService', 'Enabled', 'true'],
-        ];
-        foreach ($proposed as [$section, $key, $value]) {
-            if ($existing?->get($section, $key) === null) {
-                $ini->set($section, $key, $value);
-            }
-        }
         if ($existing === null) {
             foreach (self::connectors($plan->helpers, $plan->enableHypergrid, $plan->offline) as $connector) {
                 $ini->uncomment($connector);
             }
         }
-        $this->alignSearch($ini);
 
         return $ini->toString();
-    }
-
-    /**
-     * The search of the web has two settings: `[LoginService] SearchURL` (documented since 0.7.1, sent to the viewer at login
-     * and as a feature of the grid) and `[GridInfoService] search` (what get_grid_info says, which the viewers read). Until it is
-     * known which one each viewer takes, a value given to one is given to the other when it has none; `search` is the real one,
-     * the one the helpers use. Two values that differ are the operator's.
-     */
-    private function alignSearch(IniEditor $ini): void
-    {
-        $search = $ini->get('GridInfoService', 'search') ?? '';
-        $url = $ini->get('LoginService', 'SearchURL') ?? '';
-        if ($search !== '' && $url === '') {
-            $ini->set('LoginService', 'SearchURL', $this->q($search));
-        } elseif ($url !== '' && $search === '') {
-            $ini->set('GridInfoService', 'search', $this->q($url));
-        }
     }
 
     private function q(string $value): string
