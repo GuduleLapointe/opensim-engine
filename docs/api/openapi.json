@@ -2,7 +2,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "OpenSim engine",
-        "version": "60a78d5",
+        "version": "62f7d99",
         "license": {
             "name": "AGPL-3.0-or-later",
             "identifier": "AGPL-3.0-or-later"
@@ -4329,6 +4329,10 @@
                                                     "login_uri": {
                                                         "type": "string",
                                                         "description": "http://login.example.org:8002"
+                                                    },
+                                                    "hypergrid": {
+                                                        "type": "boolean",
+                                                        "default": true
                                                     },
                                                     "avatar": {
                                                         "type": "string",

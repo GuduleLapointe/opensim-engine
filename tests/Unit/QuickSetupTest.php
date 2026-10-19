@@ -102,6 +102,19 @@ describe('quick setup, what is wrong', function () {
             ->toEqualCanonicalizing(['type', 'login_uri', 'avatar', 'password', 'email']);
     });
 
+    test('has the hypergrid unless it is said to be off', function () {
+        $environment = (new Machine())->environment;
+
+        expect(QuickSetup::plan($environment, quick_answers())['setup']['grid']['hypergrid'])
+            ->toBeTrue()
+            ->and(QuickSetup::plan($environment, quick_answers(['hypergrid' => false]))['setup']['grid']['hypergrid'])
+            ->toBeFalse()
+            ->and(QuickSetup::plan($environment, quick_answers(['hypergrid' => 'no']))['setup']['grid']['hypergrid'])
+            ->toBeFalse()
+            ->and(QuickSetup::plan($environment, quick_answers(['hypergrid' => 'maybe']))['problems'])
+            ->toHaveKey('hypergrid');
+    });
+
     test('keeps a login address that has no scheme or no port', function () {
         $grid = QuickSetup::plan((new Machine())->environment, quick_answers(['login_uri' => 'login.example.org']))['setup']['grid'];
 

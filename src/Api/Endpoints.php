@@ -482,6 +482,7 @@ final class Endpoints
                                                 'type' => ['type' => 'string', 'enum' => ['grid', 'standalone']],
                                                 'name' => ['type' => 'string', 'description' => 'Of the grid, and of the simulator and its region for a standalone'],
                                                 'login_uri' => ['type' => 'string', 'description' => 'http://login.example.org:8002'],
+                                                'hypergrid' => ['type' => 'boolean', 'default' => true],
                                                 'avatar' => ['type' => 'string', 'description' => 'First Last: the avatar that owns the estate, made with the grid'],
                                                 'password' => ['type' => 'string'],
                                                 'email' => ['type' => 'string'],

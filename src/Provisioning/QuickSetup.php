@@ -6,7 +6,7 @@ use OpenSim\Models\Grid;
 use OpenSim\Runtime\Environment;
 
 /**
- * The quick setup: a few answers (the type, the name, the login address, the avatar that owns it, its password and its email) and
+ * The quick setup: a few answers (the type, the name, the login address, the hypergrid, the avatar that owns it, its password and its email) and
  * the whole setup they stand for, with the proposals of the planners for everything else, in the format of the setup files
  * (see SetupFile). What is wrong or missing is told by the name of the question. Nothing is written: whoever asks shows the
  * setup, asks again what is wrong, and applies it.
@@ -29,7 +29,7 @@ final class QuickSetup
     ];
 
     /**
-     * @param array<string,mixed> $answers type, name, login_uri, avatar, password, email: all optional, a missing one is proposed
+     * @param array<string,mixed> $answers type, name, login_uri, hypergrid, avatar, password, email: all optional, a missing one is proposed
      *        or, when it cannot be, told in the problems
      * @return array{valid:bool,problems:array<string,string>,setup:array<string,mixed>}
      */
@@ -44,6 +44,11 @@ final class QuickSetup
 
         // The grid
         $gridAnswers = ['standalone' => $standalone];
+        // The hypergrid is on unless it is said to be off
+        $hypergrid = filter_var($answers['hypergrid'] ?? true, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        $hypergrid === null
+            ? ($problems['hypergrid'] = _('Yes or no.'))
+            : ($gridAnswers['hypergrid'] = $hypergrid);
         trim((string) ($answers['name'] ?? '')) !== '' && ($gridAnswers['name'] = trim((string) $answers['name']));
         [$uri, $uriProblem] = self::loginUri((string) ($answers['login_uri'] ?? ''));
         $uriProblem !== null && ($problems['login_uri'] = $uriProblem);
