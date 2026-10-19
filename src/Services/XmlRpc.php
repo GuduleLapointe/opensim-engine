@@ -77,6 +77,45 @@ final class XmlRpc
     }
 
     /**
+     * The XML of a call of a method, to send to a simulator.
+     *
+     * @param list<mixed> $params
+     */
+    public static function request(string $method, array $params): string
+    {
+        $encoder = new Encoder();
+
+        return (new Request(
+            $method,
+            array_map(static fn(mixed $param) => $encoder->encode($param), $params),
+        ))->serialize();
+    }
+
+    /**
+     * What a simulator answers to a call: the struct, or the fault (`faultCode`, `faultString`), false when it is not an answer.
+     */
+    public static function answerOf(string $xml): mixed
+    {
+        $previous = libxml_use_internal_errors(true);
+        try {
+            $encoder = new Encoder();
+            $response = $encoder->decodeXml($xml);
+            if (!($response instanceof RpcResponse)) {
+                return false;
+            }
+
+            return $response->faultCode() !== 0
+                ? ['faultCode' => $response->faultCode(), 'faultString' => $response->faultString()]
+                : $encoder->decode($response->value());
+        } catch (\Throwable) {
+            return false;
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous);
+        }
+    }
+
+    /**
      * A value as the parameters of an answer, the way the extension of PHP wrote it (what the simulators are used to).
      *
      * @param array<mixed>|scalar|null $value

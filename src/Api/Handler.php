@@ -88,7 +88,11 @@ final class Handler implements RequestHandlerInterface
             $grid === null &&
             $this->grid !== null &&
             (isset(Api::GRID_RESOURCES[$tail[0] ?? '']) ||
-                in_array($tail[0] ?? '', ['destinations', 'motd', 'search', 'offline-messages'], true))
+                in_array(
+                    $tail[0] ?? '',
+                    ['destinations', 'motd', 'search', 'offline-messages', 'currency.php', 'landtool.php'],
+                    true,
+                ))
         ) {
             $grid = $this->grid;
         }
@@ -112,6 +116,14 @@ final class Handler implements RequestHandlerInterface
             $routes = ['POST' => fn() => $this->api->searchQuery($grid, (string) $request->getBody(), $query)];
         } elseif ($grid !== null && count($tail) === 2 && $tail[0] === 'offline-messages') {
             $routes = ['POST' => fn() => $this->api->offline($grid, $tail[1], (string) $request->getBody())];
+        } elseif ($grid !== null && $tail === ['currency.php']) {
+            $routes = [
+                'POST' => fn() => $this->api->currency($grid, (string) $request->getBody(), $this->address($request)),
+            ];
+        } elseif ($grid !== null && $tail === ['landtool.php']) {
+            $routes = [
+                'POST' => fn() => $this->api->landTool($grid, (string) $request->getBody(), $this->address($request)),
+            ];
         } elseif ($grid !== null && $tail === ['motd']) {
             $routes = ['GET' => fn() => $this->api->motd($grid, (string) ($query['username'] ?? ''))];
         } elseif (count($tail) === 1 && $tail[0] !== '') {
@@ -148,6 +160,12 @@ final class Handler implements RequestHandlerInterface
         }
 
         return $routes[$method]();
+    }
+
+    /** The address of whoever sent the request. */
+    private function address(ServerRequestInterface $request): string
+    {
+        return (string) ($request->getServerParams()['REMOTE_ADDR'] ?? '');
     }
 
     /** The problem that says the body of a request is wrong, null when it is fine. */

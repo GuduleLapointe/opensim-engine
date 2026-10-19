@@ -24,6 +24,9 @@ use OpenSim\Runtime\Environment;
 use OpenSim\Data\Connections;
 use OpenSim\Data\Database;
 use OpenSim\Provisioning\Slug;
+use OpenSim\Economy\Currency;
+use OpenSim\Economy\CurrencySettings;
+use OpenSim\Services\CurrencyServer;
 use OpenSim\Services\Failure;
 use OpenSim\Services\MailerInterface;
 use OpenSim\Services\OfflineMessages;
@@ -456,6 +459,56 @@ final class Api
         $this->after[] = $service->finish(...);
 
         return $answer;
+    }
+
+    /**
+     * What the viewers and the simulators ask of the currency of a grid (`currency.php` of its economy): XML-RPC, the methods and
+     * the answers fixed by the viewers and the money modules.
+     *
+     * @param string $ip the address of whoever calls: a quote of currency is tied to it
+     */
+    public function currency(string $grid, string $body, string $ip = ''): Response
+    {
+        try {
+            return (new XmlRpc($this->economy($grid, $ip)->currencyMethods()))->call($body);
+        } catch (Failure $failure) {
+            return XmlRpc::failure($failure);
+        }
+    }
+
+    /** What the viewers ask of the land tools of a grid (`landtool.php` of its economy): XML-RPC, the answers fixed by the viewers. */
+    public function landTool(string $grid, string $body, string $ip = ''): Response
+    {
+        try {
+            return (new XmlRpc($this->economy($grid, $ip)->landMethods()))->call($body);
+        } catch (Failure $failure) {
+            return XmlRpc::failure($failure);
+        }
+    }
+
+    /**
+     * The currency of a grid, served.
+     *
+     * @throws Failure when the grid is not known, or has no database to keep the money
+     */
+    private function economy(string $nick, string $ip): CurrencyServer
+    {
+        $grid = Grid::find($this->environment, $nick) ?? throw new Failure("There is no grid called '$nick'", 404);
+        $config = ($this->config)($grid) ?? throw new Failure("There is no config for the grid '$nick'", 404);
+        $money = Connections::pdo($config, Database::Economy) ?? Connections::pdo($config, Database::Robust);
+        if ($money === null || !$money->connected) {
+            throw new Failure('Bad configuration: the database of the currency is not available', 503);
+        }
+        $settings = CurrencySettings::fromConfig($config, (string) $grid->address('currency'));
+
+        return new CurrencyServer(
+            new Currency(
+                $settings,
+                static fn(string $service): ?\OpenSim\Data\OSPDO => Connections::pdo($config, $service),
+                $money,
+            ),
+            $ip,
+        );
     }
 
     /**
