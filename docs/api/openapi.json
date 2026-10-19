@@ -2,7 +2,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "OpenSim engine",
-        "version": "4a1a340",
+        "version": "60a78d5",
         "license": {
             "name": "AGPL-3.0-or-later",
             "identifier": "AGPL-3.0-or-later"
@@ -112,6 +112,10 @@
         {
             "name": "Grid info",
             "description": "What Robust itself serves, which the engine reads."
+        },
+        {
+            "name": "Setup",
+            "description": "The rules of the setup, for the tools that make a grid: from a few answers, the whole setup they stand for and what is wrong with them. Nothing is written, the tool shows the setup, asks again what is wrong and applies it."
         }
     ],
     "x-tagGroups": [
@@ -148,7 +152,8 @@
                 "Tasks",
                 "Forms",
                 "Fonts",
-                "Text images"
+                "Text images",
+                "Setup"
             ]
         },
         {
@@ -4279,6 +4284,121 @@
                                     "example": {
                                         "value": "<?xml version=\"1.0\"?>\n<gridinfo><gridname>Demo World</gridname><gridnick>demo</gridnick><login>http://grid.example.org:8002/</login><economy>https://web.example.org/helpers</economy><search>https://web.example.org/search</search></gridinfo>"
                                     }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/setups/quick": {
+            "post": {
+                "operationId": "quickSetup",
+                "tags": [
+                    "Setup"
+                ],
+                "summary": "Quick setup",
+                "description": "The setup that a few answers stand for. A grid has its Robust and a first simulator, `Welcome`, with its region; a standalone is one simulator that is the whole grid, with the name that was given. Everything the answers do not say is what the planners propose (ports, database, folders, options), so an empty request gives the proposals. `setup` is in the format of the setup files (`opensim import`), the password of the avatar is kept hashed in it. `problems` names the questions that are wrong or missing.",
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/vnd.api+json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "data": {
+                                        "type": "object",
+                                        "properties": {
+                                            "type": {
+                                                "const": "setups"
+                                            },
+                                            "attributes": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "type": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "grid",
+                                                            "standalone"
+                                                        ]
+                                                    },
+                                                    "name": {
+                                                        "type": "string",
+                                                        "description": "Of the grid, and of the simulator and its region for a standalone"
+                                                    },
+                                                    "login_uri": {
+                                                        "type": "string",
+                                                        "description": "http://login.example.org:8002"
+                                                    },
+                                                    "avatar": {
+                                                        "type": "string",
+                                                        "description": "First Last: the avatar that owns the estate, made with the grid"
+                                                    },
+                                                    "password": {
+                                                        "type": "string"
+                                                    },
+                                                    "email": {
+                                                        "type": "string"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The setup, and what is wrong with the answers",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "const": "setups"
+                                                },
+                                                "id": {
+                                                    "type": "string"
+                                                },
+                                                "attributes": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "valid": {
+                                                            "type": "boolean",
+                                                            "description": "There is nothing wrong: the setup can be applied"
+                                                        },
+                                                        "problems": {
+                                                            "type": "object",
+                                                            "description": "What is wrong, by the name of the question",
+                                                            "additionalProperties": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "setup": {
+                                                            "type": "object",
+                                                            "description": "The grid, its simulator, its owner"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "The body is not a JSON document",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Problem"
                                 }
                             }
                         }

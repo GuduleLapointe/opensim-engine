@@ -2,6 +2,7 @@
 
 ### Unreleased
 
+- new: `POST /setups/quick` (`QuickSetup`): a few answers, the whole setup they stand for, and what is wrong with them
 - new: `lib/rc-helpers` (`read_rc`): the scripts run the commands of the `.env` and of `~/.opensimrc`
 - new: `bin/opensim-api`, the API on the command line, for tools that are not PHP
 - fix: `start|stop|restart <standalone>` name its simulator, the monitor counts the regions it describes

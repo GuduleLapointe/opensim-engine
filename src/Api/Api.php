@@ -17,6 +17,7 @@ use OpenSim\Models\Asset;
 use OpenSim\Models\Avatar;
 use OpenSim\Models\Estate;
 use OpenSim\Models\Grid;
+use OpenSim\Provisioning\QuickSetup;
 use OpenSim\Models\Parcel;
 use OpenSim\Models\Region;
 use OpenSim\Models\Service;
@@ -526,6 +527,25 @@ final class Api
             ),
             $ip,
         );
+    }
+
+    /**
+     * The setup the answers of the quick setup stand for, with the proposals for the rest, and what is wrong with the answers.
+     *
+     * @param array<string,mixed> $answers type, name, login_uri, avatar, password, email
+     */
+    public function quickSetup(array $answers): Response
+    {
+        try {
+            $result = QuickSetup::plan($this->environment, $answers);
+        } catch (\Throwable $error) {
+            return Response::problem(Problem::from($error, '/setups/quick'));
+        }
+
+        return Response::document([
+            'data' => ['type' => 'setups', 'id' => 'quick', 'attributes' => $result],
+            'links' => ['self' => '/setups/quick'],
+        ]);
     }
 
     /**

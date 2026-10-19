@@ -228,6 +228,12 @@ final class Router
         } elseif ($grid !== null && $tail === ['motd']) {
             $template = '/grids/{grid}/motd';
             $routes = ['GET' => fn() => $this->api->motd($grid, (string) ($query['username'] ?? ''))];
+        } elseif ($grid === null && $segments === ['setups', 'quick']) {
+            $template = '/setups/quick';
+            $routes = [
+                'POST' => fn() => $this->check($body, $parsed, $path, 'setups') ??
+                    $this->api->quickSetup($this->attributes($body, $parsed)),
+            ];
         } elseif (count($tail) === 1 && $tail[0] !== '') {
             $type = $tail[0];
             $template = ($grid !== null ? '/grids/{grid}' : '') . "/$type";
