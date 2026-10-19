@@ -128,6 +128,10 @@ final class Handler implements RequestHandlerInterface
             $routes = ['GET' => fn() => $this->api->motd($grid, (string) ($query['username'] ?? ''))];
         } elseif (count($tail) === 1 && $tail[0] !== '') {
             $type = $tail[0];
+            // The boards of the scripts ask the guide as the lines they read
+            $type === 'destinations' &&
+                str_contains($request->getHeaderLine('Accept'), 'text/plain') &&
+                ($query['format'] = 'list');
             $routes = [
                 'GET' => fn() => $this->api->list($type, $query, $grid),
                 'POST' => fn() => $this->body($request, $type) ??

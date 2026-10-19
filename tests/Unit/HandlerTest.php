@@ -510,3 +510,41 @@ describe('The API handler, for the search', function () {
             ->toContain('no XML-RPC request');
     });
 })->skip(fn() => test_pdo() === null, 'TEST_DATABASE is not set in tests/.env');
+
+describe('The API handler, for the default guide', function () {
+    test('gives the places the search knows as resources, or as the lines the boards read', function () {
+        $db = guide_database();
+        $machine = new Machine();
+        $gatekeeper = OpenSim\Hypergrid\Destination::loginUrl(
+            (string) Grid::find($machine->environment, 'demo')->uri(),
+        );
+        $db->exec(
+            "UPDATE parcels SET gatekeeperURL = '$gatekeeper' WHERE gatekeeperURL = 'http://grid.example.org:8002'",
+        );
+        $db->exec(
+            "UPDATE popularplaces SET gatekeeperURL = '$gatekeeper' WHERE gatekeeperURL = 'http://grid.example.org:8002'",
+        );
+        Connections::using(static fn($what) => $what === OpenSim\Data\Database::Search ? $db : null);
+        $handler = api_handler(machine: $machine);
+
+        $list = json_decode((string) api_ask($handler, 'GET', '/api/grids/demo/destinations')->getBody(), true);
+        $lines = api_ask($handler, 'GET', '/api/grids/demo/destinations?format=list');
+
+        expect(array_column(array_column($list['data'], 'attributes'), 'name'))
+            ->toBe(['Rose garden', 'Market', 'Library'])
+            ->and($list['meta']['categories'])
+            ->toBe(['Popular places', 'Places in the search'])
+            ->and($lines->getHeaderLine('Content-Type'))
+            ->toBe('text/plain; charset=utf-8')
+            ->and((string) $lines->getBody())
+            ->toStartWith("Popular places\nRose garden|")
+            ->toContain("\nPlaces in the search\nLibrary|");
+
+        $factory = new Psr17Factory();
+        $accepted = $handler->handle(
+            $factory->createServerRequest('GET', '/api/grids/demo/destinations')->withHeader('Accept', 'text/plain'),
+        );
+
+        expect((string) $accepted->getBody())->toBe((string) $lines->getBody());
+    });
+})->skip(fn() => test_pdo() === null, 'TEST_DATABASE is not set in tests/.env');

@@ -10,7 +10,9 @@ use OpenSim\Config\GridConfig;
 use OpenSim\Controllers\Controller;
 use OpenSim\Controllers\RobustController;
 use OpenSim\Data\Collection;
+use OpenSim\Data\Connections;
 use OpenSim\Data\Database;
+use OpenSim\Services\DefaultDestinations;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\LocationFinder;
 use OpenSim\Provisioning\Slug;
@@ -737,21 +739,39 @@ final class Grid extends InstalledModel
 
     /**
      * The destinations of the guide of the grid, by category: the file or the URL `GuideSource` of `[Helpers]` gives, "Name|Region URL"
-     * lines.
+     * lines. A grid that gives none has the places its search knows: the popular places and the places shown in search, ten of each.
      *
+     * @param ?GridConfig $config the config of the grid, to find its search database (default: its folder)
      * @return array<string,list<array{name:string,url:string}>> empty when the grid has no guide, or it cannot be read
      */
-    public function destinations(): array
+    public function destinations(?GridConfig $config = null): array
     {
-        $source = $this->setting('Helpers', 'GuideSource');
-
-        return DestinationList::parse(
+        $listed = DestinationList::parse(
             (string) DestinationList::read(
-                $source,
+                $this->setting('Helpers', 'GuideSource'),
                 $this->directory !== '' ? $this->directory : null,
                 $this->environment->http,
             ),
         );
+        if ($listed !== []) {
+            return $listed;
+        }
+        // No list of its own: the places the search knows
+        $config ??=
+            $this->directory !== '' && is_dir($this->directory)
+                ? GridConfig::fromFolder($this->directory, ['Helpers' => 'Helpers.ini'])
+                : null;
+        $search = $config === null ? null : Connections::pdo($config, Database::Search);
+        if ($search === null || !$search->connected) {
+            return [];
+        }
+
+        return (new DefaultDestinations(
+            $search,
+            Region::searchTable($search),
+            (string) $this->uri(),
+            $this->loginUrl(),
+        ))->lists();
     }
 
     /** A setting of the files of the grid (Robust, OpenSim.ini, Helpers.ini), the first that says it. */

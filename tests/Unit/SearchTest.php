@@ -36,6 +36,8 @@ function search_database(): OpenSim\Data\OSPDO
             'CREATE TABLE parcelsales (regionUUID CHAR(36), parcelname VARCHAR(255), parcelUUID CHAR(36), area INT, saleprice INT, landingpoint VARCHAR(255), infoUUID CHAR(36), dwell INT, parentestate INT, mature VARCHAR(10), gatekeeperURL VARCHAR(255), PRIMARY KEY (regionUUID, parcelUUID))',
             'CREATE TABLE popularplaces (parcelUUID CHAR(36) PRIMARY KEY, name VARCHAR(255), dwell FLOAT, infoUUID CHAR(36), has_picture INT, mature VARCHAR(10), gatekeeperURL VARCHAR(255))',
             'CREATE TABLE objects (objectuuid CHAR(36), parceluuid CHAR(36), location VARCHAR(255), name VARCHAR(255), description VARCHAR(255), regionuuid CHAR(36), gatekeeperURL VARCHAR(255), PRIMARY KEY (objectuuid, parceluuid))',
+            'CREATE TABLE oshelpers_cache (cache_key VARCHAR(255) PRIMARY KEY, cache_value BLOB, cache_expires INT)',
+            'CREATE TABLE classifieds (classifieduuid CHAR(36) PRIMARY KEY)',
             'CREATE TABLE events (owneruuid CHAR(36), name VARCHAR(255), eventid INTEGER PRIMARY KEY, creatoruuid CHAR(36), category INT, description TEXT, dateUTC INT, duration INT, covercharge INT, coveramount INT, simname VARCHAR(255), parcelUUID CHAR(36), globalPos VARCHAR(255), eventflags INT, gatekeeperURL VARCHAR(255))',
         ]
         as $sql
@@ -739,3 +741,112 @@ function rpc_xml(string $method, array $request): string
 {
     return (new Request($method, [(new Encoder())->encode($request)]))->serialize();
 }
+
+describe('The guide of a grid that has no list', function () {
+    /** The places of two grids in a search shared by both. */
+    function guide_database(): OpenSim\Data\OSPDO
+    {
+        $db = search_database();
+        $db->exec(
+            "INSERT INTO regionsregister VALUES ('Welcome', 'r1', '1', 'http://sim.example.org:9000/', 'Ada', 'o', 'http://grid.example.org:8002'), " .
+                "('Far', 'r2', '2', 'http://other.example.org:9000/', 'Bob', 'o', 'http://other.example.org:8002')",
+        );
+        $parcel = static fn(
+            string $uuid,
+            string $name,
+            string $region,
+            string $point,
+            int $dwell,
+            string $gk,
+        ): string => "('$uuid', '$region', '$name', '$point', '', '', 'true', 'true', 'true', $dwell, 'info', 'PG', '$gk', NULL)";
+        $db->exec(
+            'INSERT INTO parcels VALUES ' .
+                implode(', ', [
+                    $parcel('p1', 'Rose garden', 'r1', '128/128/25', 30, 'http://grid.example.org:8002'),
+                    $parcel('p2', 'Library', 'r1', '64,64,22', 5, 'http://grid.example.org:8002'),
+                    $parcel('p3', 'Market', 'r1', '10/10/30', 10, 'http://grid.example.org:8002'),
+                    $parcel('p4', 'Elsewhere', 'r2', '', 50, 'http://other.example.org:8002'),
+                ]),
+        );
+        $db->exec(
+            "INSERT INTO popularplaces VALUES ('p1', 'Rose garden', 30, 'info', 0, 'PG', 'http://grid.example.org:8002'), " .
+                "('p3', 'Market', 10, 'info', 0, 'PG', 'http://grid.example.org:8002'), " .
+                "('p4', 'Elsewhere', 50, 'info', 0, 'PG', 'http://other.example.org:8002')",
+        );
+
+        return $db;
+    }
+
+    test(
+        'lists the popular places and the places shown in search, the first ten of each, of the grid asked',
+        function () {
+            $db = guide_database();
+
+            $ours = (new OpenSim\Services\DefaultDestinations(
+                $db,
+                'regionsregister',
+                'grid.example.org:8002',
+                'http://grid.example.org:8002',
+            ))->lists();
+            $shared = (new OpenSim\Services\DefaultDestinations(
+                $db,
+                'regionsregister',
+                'grid.example.org:8002',
+            ))->lists();
+
+            expect($ours)
+                ->toBe([
+                    'Popular places' => [
+                        ['name' => 'Rose garden', 'url' => 'grid.example.org:8002/Welcome/128/128/25'],
+                        ['name' => 'Market', 'url' => 'grid.example.org:8002/Welcome/10/10/30'],
+                    ],
+                    'Places in the search' => [
+                        ['name' => 'Library', 'url' => 'grid.example.org:8002/Welcome/64/64/22'],
+                    ],
+                ])
+                ->and($shared['Popular places'][0])
+                ->toBe(['name' => 'Elsewhere', 'url' => 'other.example.org:8002/Far'])
+                ->and(count($shared['Popular places']))
+                ->toBe(3);
+        },
+    );
+
+    test('keep ten of each section', function () {
+        $db = search_database();
+        $db->exec("INSERT INTO regionsregister VALUES ('Welcome', 'r1', '1', 'http://sim:9000/', 'Ada', 'o', '')");
+        for ($i = 1; $i <= 25; $i++) {
+            $db->exec(
+                "INSERT INTO parcels VALUES ('p$i', 'r1', 'Place " .
+                    str_pad((string) $i, 2, '0', STR_PAD_LEFT) .
+                    "', '', '', '', 'true', 'true', 'true', $i, 'info', 'PG', '', NULL)",
+            );
+            $i <= 12 && $db->exec("INSERT INTO popularplaces VALUES ('p$i', 'Place $i', $i, 'info', 0, 'PG', '')");
+        }
+
+        $lists = (new OpenSim\Services\DefaultDestinations($db, 'regionsregister', 'grid.example.org:8002'))->lists();
+
+        expect(count($lists['Popular places']))
+            ->toBe(10)
+            ->and(count($lists['Places in the search']))
+            ->toBe(10)
+            ->and($lists['Popular places'][0]['name'])
+            ->toBe('Place 12')
+            ->and($lists['Places in the search'][0]['name'])
+            ->toBe('Place 01');
+    });
+
+    test('is nothing when the search knows nothing, or has no tables', function () {
+        $empty = (new OpenSim\Services\DefaultDestinations(
+            search_database(),
+            'regionsregister',
+            'grid.example.org:8002',
+        ))->lists();
+        $none = (new OpenSim\Services\DefaultDestinations(
+            test_pdo(),
+            'regionsregister',
+            'grid.example.org:8002',
+        ))->lists();
+
+        expect($empty)->toBe([])->and($none)->toBe([]);
+    });
+})->skip(fn() => test_pdo() === null, 'TEST_DATABASE is not set in tests/.env');

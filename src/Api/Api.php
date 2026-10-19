@@ -28,6 +28,7 @@ use OpenSim\Economy\Currency;
 use OpenSim\Economy\CurrencySettings;
 use OpenSim\Services\CurrencyServer;
 use OpenSim\Services\Failure;
+use OpenSim\Text\DestinationList;
 use OpenSim\Services\MailerInterface;
 use OpenSim\Services\OfflineMessages;
 use OpenSim\Services\PhpMailer;
@@ -132,6 +133,14 @@ final class Api
                     'meta' => ['total' => count($fonts)],
                     'links' => ['self' => $instance],
                 ]);
+            }
+            if ($type === 'destinations' && $grid !== null && ($query['format'] ?? '') === 'list') {
+                $found = Grid::find($this->environment, $grid) ?? throw NotFound::for("grid called '$grid'");
+
+                return Response::binary(
+                    DestinationList::format($found->destinations(($this->config)($found))),
+                    'text/plain; charset=utf-8',
+                );
             }
             if ($type === 'destinations' && $grid !== null) {
                 $destinations = $this->destinations($grid);
@@ -654,7 +663,7 @@ final class Api
     {
         $found = Grid::find($this->environment, $grid) ?? throw NotFound::for("grid called '$grid'");
         $resources = [];
-        foreach ($found->destinations() as $category => $destinations) {
+        foreach ($found->destinations(($this->config)($found)) as $category => $destinations) {
             foreach ($destinations as $destination) {
                 $id = $base = Slug::slug("$category " . $destination['name']);
                 for ($n = 2; isset($resources[$id]); $n++) {

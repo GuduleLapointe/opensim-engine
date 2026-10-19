@@ -132,7 +132,8 @@ final class SimulatorConfig
         $register = $plan ? $from->registerUrl : $from->helperUrl('register');
         $offline = $plan ? $from->offlineUrl : $from->helperUrl('offline');
         // A grid that does not say follows its helpers
-        $module = $plan ? $from->offlineModule : $from->offlineModule() ?: ($offline !== '' ? 'helpers' : '');
+        $module = $plan ? $from->offlineModule : $from->offlineModule();
+        $module !== '' || ($module = $offline !== '' ? 'helpers' : '');
 
         return [
             ...$search !== ''

@@ -71,4 +71,20 @@ describe('The destinations of a guide', function () {
             ->and($asked)
             ->toBe(['https://example.org/guide.txt', 'https://example.org/other.txt']);
     });
+
+    test('are written as the lines the boards of the scripts read, and read back', function () {
+        $list = [
+            'Popular places' => [['name' => 'Welcome', 'url' => 'grid.example.org:8002/Welcome/128/128/25']],
+            'Gardens' => [['name' => 'Roses', 'url' => 'grid.example.org:8002/Roses']],
+        ];
+
+        expect(DestinationList::format($list))
+            ->toBe(
+                "Popular places\nWelcome|grid.example.org:8002/Welcome/128/128/25\nGardens\nRoses|grid.example.org:8002/Roses\n",
+            )
+            ->and(DestinationList::parse(DestinationList::format($list)))
+            ->toBe($list)
+            ->and(DestinationList::format([]))
+            ->toBe('');
+    });
 });

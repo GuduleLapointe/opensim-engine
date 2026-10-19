@@ -36,6 +36,25 @@ final class DestinationList
     }
 
     /**
+     * The lines of a list of destinations: a category by its name alone, then its destinations as "Name|Region URL". What
+     * parse() reads back, and what the boards of the scripts read.
+     *
+     * @param array<string,list<array{name:string,url:string}>> $destinations
+     */
+    public static function format(array $destinations): string
+    {
+        $lines = [];
+        foreach ($destinations as $category => $places) {
+            $lines[] = $category;
+            foreach ($places as $place) {
+                $lines[] = $place['name'] . '|' . $place['url'];
+            }
+        }
+
+        return $lines === [] ? '' : implode("\n", $lines) . "\n";
+    }
+
+    /**
      * The destinations of a text, by category, in the order of the text.
      *
      * @param ?string $first the title of the destinations that come before any category
