@@ -2,7 +2,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "OpenSim engine",
-        "version": "abe98c0",
+        "version": "fd51d1d",
         "license": {
             "name": "AGPL-3.0-or-later",
             "identifier": "AGPL-3.0-or-later"
@@ -76,6 +76,10 @@
         {
             "name": "A grid: offline messages",
             "description": "The messages for the avatars who are not there, with the module V1 of the simulators (`OfflineMessageModule = OfflineMessageModule`, `OfflineMessageURL` of `[Messaging]`), which posts them here in XML. The messages are kept in the table of the offline messages of Robust, the one its module V2 uses; an avatar who asked for it in their viewer also gets them by email. The other choice is the module V2 and the service of Robust, which needs none of this: with the helpers, the messages are mailed on request and none is lost; with Robust, nothing more is run, no mail is sent and 25 messages are kept per avatar."
+        },
+        {
+            "name": "A grid: health",
+            "description": "Whether the grid and its web services answer as they should."
         },
         {
             "name": "Pages of the helpers",
@@ -2657,6 +2661,97 @@
                 }
             }
         },
+        "/grids/{grid}/health": {
+            "get": {
+                "operationId": "getHealth",
+                "tags": [
+                    "A grid: health"
+                ],
+                "summary": "Whether every address of the grid answers as it should",
+                "description": "The addresses the config of the grid gives (the services of Robust, the web services, the pages), what the grid says of itself at `get_grid_info`, and the ones that are expected and not given, asked now: a service that must refuse a call without data refuses it, and answers one that makes sense. The PHP extensions the engine needs and the files it reads come with them. `level` is `error` when something does not answer as it should, `ok` when all that is asked does, `none` when there is nothing to ask. The groups are the sections of the files of the grid; each row has the address, the status (the HTTP code, or the error), the time in milliseconds and its own level.",
+                "parameters": [
+                    {
+                        "name": "grid",
+                        "in": "path",
+                        "required": true,
+                        "description": "The nick of the grid",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The health of the grid",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "const": "health"
+                                                },
+                                                "id": {
+                                                    "type": "string"
+                                                },
+                                                "attributes": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "level": {
+                                                            "type": "string",
+                                                            "enum": [
+                                                                "ok",
+                                                                "error",
+                                                                "none"
+                                                            ]
+                                                        },
+                                                        "groups": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "object",
+                                                                "properties": {
+                                                                    "file": {
+                                                                        "type": "string",
+                                                                        "description": "The file the section is in"
+                                                                    },
+                                                                    "title": {
+                                                                        "type": "string",
+                                                                        "description": "The section"
+                                                                    },
+                                                                    "rows": {
+                                                                        "type": "array",
+                                                                        "items": {
+                                                                            "type": "object"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "The grid is not known here",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Problem"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/grids/{grid}/search/register": {
             "get": {
                 "operationId": "registerSimulator",
@@ -3136,14 +3231,14 @@
                 }
             }
         },
-        "/grids/{grid}/offline-messages/SaveMessage/": {
+        "/grids/{grid}/offline-messages/SaveMessage": {
             "post": {
                 "operationId": "offlineSaveMessage",
                 "tags": [
                     "A grid: offline messages"
                 ],
                 "summary": "A message for an avatar who is not there is kept",
-                "description": "What the module V1 of the simulators posts to `<OfflineMessageURL>/SaveMessage/`.\n\n**Request**: The `GridInstantMessage` of OpenSimulator, in XML (`fromAgentID`, `fromAgentName`, `toAgentID`, `dialog`, `message`, ...).\n\n**Answer**: `<boolean>true</boolean>` when it was kept, `<error>` when it was not.",
+                "description": "What the module V1 of the simulators posts to `<OfflineMessageURL>/SaveMessage/` (the last slash is theirs, it is accepted with or without).\n\n**Request**: The `GridInstantMessage` of OpenSimulator, in XML (`fromAgentID`, `fromAgentName`, `toAgentID`, `dialog`, `message`, ...).\n\n**Answer**: `<boolean>true</boolean>` when it was kept, `<error>` when it was not.",
                 "parameters": [
                     {
                         "name": "grid",
@@ -3215,14 +3310,14 @@
                 }
             }
         },
-        "/grids/{grid}/offline-messages/RetrieveMessages/": {
+        "/grids/{grid}/offline-messages/RetrieveMessages": {
             "post": {
                 "operationId": "offlineRetrieveMessages",
                 "tags": [
                     "A grid: offline messages"
                 ],
                 "summary": "The messages kept for an avatar who comes back are given, and forgotten",
-                "description": "What the module V1 of the simulators posts to `<OfflineMessageURL>/RetrieveMessages/`.\n\n**Request**: The UUID of the avatar: `<UUID><Guid>...</Guid></UUID>`.\n\n**Answer**: An `ArrayOfGridInstantMessage` with the messages, in the XML they were kept in.",
+                "description": "What the module V1 of the simulators posts to `<OfflineMessageURL>/RetrieveMessages/` (the last slash is theirs, it is accepted with or without).\n\n**Request**: The UUID of the avatar: `<UUID><Guid>...</Guid></UUID>`.\n\n**Answer**: An `ArrayOfGridInstantMessage` with the messages, in the XML they were kept in.",
                 "parameters": [
                     {
                         "name": "grid",
@@ -3313,6 +3408,9 @@
                                 }
                             }
                         }
+                    },
+                    "404": {
+                        "description": "The grid does not serve this page"
                     }
                 }
             }
@@ -3336,6 +3434,9 @@
                                 }
                             }
                         }
+                    },
+                    "404": {
+                        "description": "The grid does not serve this page"
                     }
                 }
             }
@@ -3359,6 +3460,9 @@
                                 }
                             }
                         }
+                    },
+                    "404": {
+                        "description": "The grid does not serve this page"
                     }
                 }
             }
@@ -3392,6 +3496,35 @@
                                 }
                             }
                         }
+                    },
+                    "404": {
+                        "description": "The grid does not serve this page"
+                    }
+                }
+            }
+        },
+        "/health": {
+            "get": {
+                "operationId": "pageHealth",
+                "tags": [
+                    "Pages of the helpers"
+                ],
+                "summary": "The health page",
+                "description": "A management page: the same checks as `/grids/{grid}/health`, for a person to read. It is not a page of the viewers, and not public.",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "The page",
+                        "content": {
+                            "text/html": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "The grid does not serve this page"
                     }
                 }
             }
@@ -3415,6 +3548,9 @@
                                 }
                             }
                         }
+                    },
+                    "404": {
+                        "description": "The grid does not serve this page"
                     }
                 }
             }
@@ -3437,6 +3573,9 @@
                                 }
                             }
                         }
+                    },
+                    "404": {
+                        "description": "The grid has no feed"
                     }
                 }
             }
@@ -3461,6 +3600,9 @@
                     }
                 ],
                 "responses": {
+                    "404": {
+                        "description": "The address is not the login of a grid"
+                    },
                     "200": {
                         "description": "The elements of `[GridInfoService]`",
                         "content": {

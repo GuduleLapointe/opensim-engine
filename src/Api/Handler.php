@@ -90,7 +90,7 @@ final class Handler implements RequestHandlerInterface
             (isset(Api::GRID_RESOURCES[$tail[0] ?? '']) ||
                 in_array(
                     $tail[0] ?? '',
-                    ['destinations', 'motd', 'search', 'offline-messages', 'currency.php', 'landtool.php'],
+                    ['destinations', 'motd', 'search', 'offline-messages', 'currency.php', 'landtool.php', 'health'],
                     true,
                 ))
         ) {
@@ -124,6 +124,8 @@ final class Handler implements RequestHandlerInterface
             $routes = [
                 'POST' => fn() => $this->api->landTool($grid, (string) $request->getBody(), $this->address($request)),
             ];
+        } elseif ($grid !== null && $tail === ['health']) {
+            $routes = ['GET' => fn() => $this->api->health($grid)];
         } elseif ($grid !== null && $tail === ['motd']) {
             $routes = ['GET' => fn() => $this->api->motd($grid, (string) ($query['username'] ?? ''))];
         } elseif (count($tail) === 1 && $tail[0] !== '') {

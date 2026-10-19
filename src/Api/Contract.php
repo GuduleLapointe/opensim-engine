@@ -842,7 +842,7 @@ final class Contract
     }
 
     /** @return array<string,mixed> */
-    private static function problem(string $description): array
+    public static function problem(string $description): array
     {
         return [
             'description' => $description,

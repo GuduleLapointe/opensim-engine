@@ -25,6 +25,7 @@ use OpenSim\Data\Connections;
 use OpenSim\Data\Database;
 use OpenSim\Provisioning\Slug;
 use OpenSim\Economy\Currency;
+use OpenSim\Health\Health;
 use OpenSim\Economy\CurrencySettings;
 use OpenSim\Services\CurrencyServer;
 use OpenSim\Services\Failure;
@@ -518,6 +519,50 @@ final class Api
             ),
             $ip,
         );
+    }
+
+    /**
+     * The health of a grid: every address its config gives and what the grid says of itself, asked (and the ones that are expected
+     * and not given, told), the PHP extensions it needs, the files it reads. `level` is `error` when something does not answer as it
+     * should, `ok` when all that is asked does, `none` when there is nothing to ask. A check is asked at the moment of the request, it
+     * takes the time of the slowest address.
+     */
+    public function health(string $grid): Response
+    {
+        $instance = self::path('health', null, $grid);
+        try {
+            $found = Grid::find($this->environment, $grid) ?? throw NotFound::for("grid called '$grid'");
+            $config = ($this->config)($found);
+            $groups = Health::answers(
+                Health::grid([
+                    'config' => $config,
+                    'live' => $found->gridInfo(),
+                    'login' => (string) $found->loginUrl(),
+                ]),
+            );
+            $groups[] = ['file' => 'PHP', 'title' => '', 'rows' => Health::extensions()];
+            $files = Health::files($config?->files() ?? []);
+            $files === [] || ($groups[] = ['file' => 'files', 'title' => '', 'rows' => $files]);
+        } catch (\Throwable $error) {
+            return Response::problem(Problem::from($error, $instance));
+        }
+        $levels = array_column(array_merge(...array_column($groups, 'rows') ?: [[]]), 'level');
+
+        return Response::document([
+            'data' => [
+                'type' => 'health',
+                'id' => $found->nick(),
+                'attributes' => [
+                    'level' => in_array('error', $levels, true)
+                        ? 'error'
+                        : (in_array('ok', $levels, true)
+                            ? 'ok'
+                            : 'none'),
+                    'groups' => $groups,
+                ],
+                'links' => ['self' => $instance],
+            ],
+        ]);
     }
 
     /**

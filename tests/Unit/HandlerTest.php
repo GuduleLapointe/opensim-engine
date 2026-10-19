@@ -600,3 +600,25 @@ describe('The old scripts', function () {
             ->toBe("Impact\nDejaVu-Sans");
     });
 });
+
+describe('The API handler, for the health of a grid', function () {
+    test('tells what the config of the grid gives and whether it answers, with the PHP it needs', function () {
+        $handler = api_handler();
+
+        $answer = api_ask($handler, 'GET', '/api/grids/demo/health');
+        $document = json_decode((string) $answer->getBody(), true);
+
+        expect($answer->getStatusCode())
+            ->toBe(200)
+            ->and($document['data'])
+            ->toMatchArray(['type' => 'health', 'id' => 'demo', 'links' => ['self' => '/grids/demo/health']])
+            ->and($document['data']['attributes']['level'])
+            ->toBeIn(['ok', 'error', 'none'])
+            ->and(array_column($document['data']['attributes']['groups'], 'file'))
+            ->toContain('PHP')
+            ->and(api_ask($handler, 'GET', '/api/grids/nowhere/health')->getStatusCode())
+            ->toBe(404)
+            ->and(api_ask($handler, 'POST', '/api/grids/demo/health')->getHeaderLine('Allow'))
+            ->toBe('GET');
+    });
+});

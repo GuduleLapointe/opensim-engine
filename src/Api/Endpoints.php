@@ -39,6 +39,10 @@ final class Endpoints
                     'The messages for the avatars who are not there, with the module V1 of the simulators (`OfflineMessageModule = OfflineMessageModule`, `OfflineMessageURL` of `[Messaging]`), which posts them here in XML. The messages are kept in the table of the offline messages of Robust, the one its module V2 uses; an avatar who asked for it in their viewer also gets them by email. The other choice is the module V2 and the service of Robust, which needs none of this: with the helpers, the messages are mailed on request and none is lost; with Robust, nothing more is run, no mail is sent and 25 messages are kept per avatar.',
             ],
             [
+                'name' => "$grid: health",
+                'description' => 'Whether the grid and its web services answer as they should.',
+            ],
+            [
                 'name' => 'Pages of the helpers',
                 'description' =>
                     'The pages the helpers show to the people, in HTML, at the addresses the grid gives (`GridInfoService` and `LoginService` in Robust.ini). They are made from the resources of this API: the guide shows `/grids/{grid}/destinations`, the profile an avatar.',
@@ -49,6 +53,62 @@ final class Endpoints
             ],
         ];
 
+        $paths['/grids/{grid}/health']['get'] = [
+            'operationId' => 'getHealth',
+            'tags' => ["$grid: health"],
+            'summary' => 'Whether every address of the grid answers as it should',
+            'description' =>
+                'The addresses the config of the grid gives (the services of Robust, the web services, the pages), what the grid says of itself at `get_grid_info`, and the ones that are expected and not given, asked now: a service that must refuse a call without data refuses it, and answers one that makes sense. The PHP extensions the engine needs and the files it reads come with them. `level` is `error` when something does not answer as it should, `ok` when all that is asked does, `none` when there is nothing to ask. The groups are the sections of the files of the grid; each row has the address, the status (the HTTP code, or the error), the time in milliseconds and its own level.',
+            'parameters' => [Contract::gridParameter()],
+            'responses' => [
+                '200' => [
+                    'description' => 'The health of the grid',
+                    'content' => [
+                        Response::JSON_API => [
+                            'schema' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'data' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'type' => ['const' => 'health'],
+                                            'id' => ['type' => 'string'],
+                                            'attributes' => [
+                                                'type' => 'object',
+                                                'properties' => [
+                                                    'level' => ['type' => 'string', 'enum' => ['ok', 'error', 'none']],
+                                                    'groups' => [
+                                                        'type' => 'array',
+                                                        'items' => [
+                                                            'type' => 'object',
+                                                            'properties' => [
+                                                                'file' => [
+                                                                    'type' => 'string',
+                                                                    'description' => 'The file the section is in',
+                                                                ],
+                                                                'title' => [
+                                                                    'type' => 'string',
+                                                                    'description' => 'The section',
+                                                                ],
+                                                                'rows' => [
+                                                                    'type' => 'array',
+                                                                    'items' => ['type' => 'object'],
+                                                                ],
+                                                            ],
+                                                        ],
+                                                    ],
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                '404' => Contract::problem('The grid is not known here'),
+            ],
+        ];
         $paths['/grids/{grid}/search/register']['get'] = [
             'operationId' => 'registerSimulator',
             'tags' => ["$grid: search"],
@@ -93,11 +153,11 @@ final class Endpoints
         );
 
         foreach (Formats::OFFLINE as $method => $format) {
-            $paths["/grids/{grid}/offline-messages/$method/"]['post'] = [
+            $paths["/grids/{grid}/offline-messages/$method"]['post'] = [
                 'operationId' => "offline$method",
                 'tags' => ["$grid: offline messages"],
                 'summary' => $format['summary'],
-                'description' => "What the module V1 of the simulators posts to `<OfflineMessageURL>/$method/`.\n\n**Request**: {$format['request']}.\n\n**Answer**: {$format['answer']}.",
+                'description' => "What the module V1 of the simulators posts to `<OfflineMessageURL>/$method/` (the last slash is theirs, it is accepted with or without).\n\n**Request**: {$format['request']}.\n\n**Answer**: {$format['answer']}.",
                 'parameters' => [Contract::gridParameter()],
                 'requestBody' => [
                     'required' => true,
@@ -133,6 +193,7 @@ final class Endpoints
                     'description' => 'The page',
                     'content' => ['text/html' => ['schema' => ['type' => 'string']]],
                 ],
+                '404' => ['description' => 'The grid does not serve this page'],
             ],
         ];
         $paths['/search']['get'] = $page(
@@ -164,6 +225,11 @@ final class Endpoints
                 ],
             ],
         );
+        $paths['/health']['get'] = $page(
+            'pageHealth',
+            'The health page',
+            'A management page: the same checks as `/grids/{grid}/health`, for a person to read. It is not a page of the viewers, and not public.',
+        );
         $paths['/grid_status']['get'] = $page(
             'pageGridStatus',
             'The status of the grid',
@@ -180,6 +246,7 @@ final class Endpoints
                     'description' => 'The feed',
                     'content' => ['application/rss+xml' => ['schema' => ['type' => 'string']]],
                 ],
+                '404' => ['description' => 'The grid has no feed'],
             ],
         ];
         $paths['/get_grid_info']['get'] = [
@@ -196,6 +263,7 @@ final class Endpoints
                 ],
             ],
             'responses' => [
+                '404' => ['description' => 'The address is not the login of a grid'],
                 '200' => [
                     'description' => 'The elements of `[GridInfoService]`',
                     'content' => [
