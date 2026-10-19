@@ -1,0 +1,15 @@
+# Sourced by the scripts of the ecosystem, never run. read_rc runs the commands of the files that exist, to set the environment of the
+# tools once (PATH, which php...): the .env of the project given, then ~/.opensimrc (or the file OPENSIM_RC names). They are bash files,
+# what they say is executed as it is, e.g. in ~/.opensimrc:
+#
+#   export PATH="$(echo "$PATH" | sed "s#:[^:]*/lerd/[^:]*:#:#"):/opt/magic/bin"
+
+# read_rc [PROJECT_DIR]
+read_rc() {
+    local file
+    for file in "${1:+$1/.env}" "${OPENSIM_RC:-${HOME:-}/.opensimrc}"; do
+        # shellcheck disable=SC1090
+        [[ -n "$file" && -r "$file" ]] && source "$file"
+    done
+    return 0
+}

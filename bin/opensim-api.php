@@ -1,7 +1,7 @@
 <?php
 
 /**
- * opensim-api: the API of the engine on the command line (run by the script opensim-api, which reads the rc files first), the same addresses and answers as the web (see the contract, docs/api/).
+ * opensim-api: the API of the engine on the command line (run by the script opensim-api), the same addresses and answers as the web (see the contract, docs/api/).
  *
  *   opensim-api [GET|POST|PATCH|DELETE] PATH [key=value...] [--data=JSON|@FILE|-] [--grid=NICK]
  *
@@ -35,20 +35,15 @@ if (!class_exists(Router::class)) {
 
 $args = array_slice($_SERVER['argv'], 1);
 $grid = null;
-$variables = (array) getenv();
 foreach ($args as $index => $arg) {
     if (str_starts_with($arg, '--grid=')) {
         $grid = substr($arg, 7);
-        unset($args[$index]);
-    } elseif (preg_match('/^--env=([A-Z_][A-Z0-9_]*)=(.*)$/s', $arg, $m) === 1) {
-        // Given by the script that runs this one, which has read the rc files
-        $variables[$m[1]] = $m[2];
         unset($args[$index]);
     }
 }
 
 try {
-    $environment = Environment::system(Layout::resolve($variables));
+    $environment = Environment::system(Layout::resolve());
 } catch (\RuntimeException $e) {
     fwrite(STDERR, 'opensim-api: ' . $e->getMessage() . "\n");
     exit(2);

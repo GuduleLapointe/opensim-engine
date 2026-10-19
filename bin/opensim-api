@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# opensim-api: the API of the engine on the command line (see opensim-api.php). The rc files are read first (see opensim-env), PHP is
-# the one they name (PHP=...), else the first one of the PATH.
+# opensim-api: the API of the engine on the command line (see opensim-api.php). The .env of the engine and ~/.opensimrc are read first
+# (see lib/rc-helpers), so the php it runs is the one they set the PATH for.
 
 self="${BASH_SOURCE[0]}"
 while [[ -L "$self" ]]; do
@@ -9,14 +9,8 @@ while [[ -L "$self" ]]; do
 done
 dir="$(cd "$(dirname "$self")" && pwd -P)"
 
-# shellcheck source=opensim-env
-source "$dir/opensim-env"
+# shellcheck source=../lib/rc-helpers
+source "$dir/../lib/rc-helpers"
+read_rc "$dir/.."
 
-# The OPENSIM_* variables are given as arguments: a php that does not pass the environment on (a shim that runs php in a container,
-# sudo) would lose them
-env_args=()
-for name in "${!OPENSIM_@}"; do
-    env_args+=("--env=$name=${!name}")
-done
-
-exec "${PHP:-php}" "$dir/opensim-api.php" "${env_args[@]}" "$@"
+exec php "$dir/opensim-api.php" "$@"

@@ -16,7 +16,7 @@ function api_script(array $words, array $env = [], ?string $home = null): array
         [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
         $pipes,
         $home,
-        $env + ['HOME' => $home, 'PATH' => (string) getenv('PATH'), 'PHP' => PHP_BINARY],
+        $env + ['HOME' => $home, 'PATH' => (string) getenv('PATH')],
     );
     $out = (string) stream_get_contents($pipes[1]);
     $err = (string) stream_get_contents($pipes[2]);
@@ -52,17 +52,15 @@ describe('script opensim-api', function () {
         expect($status)->toBe(2)->and($error)->toContain('opensim-api:');
     });
 
-    test('reads the rc files first: what they set reaches the engine, even through a php that drops the environment', function () {
+    test('reads ~/.opensimrc first: its PATH decides which php runs', function () {
         $home = test_tmp() . '/api-script-rc-' . bin2hex(random_bytes(4));
-        mkdir($home);
-        // A php that loses the environment, as a shim that runs it in a container does
-        file_put_contents("$home/php", "#!/bin/sh\nexec env -i PATH=\"\$PATH\" HOME=\"\$HOME\" " . PHP_BINARY . " \"\$@\"\n");
-        chmod("$home/php", 0o755);
-        file_put_contents("$home/.opensimrc", "PHP=$home/php\nOPENSIM_CONF=/nowhere/opensim.conf\n");
+        mkdir("$home/bin", 0o755, true);
+        file_put_contents("$home/bin/php", "#!/bin/sh\necho 'the php of the rc'\n");
+        chmod("$home/bin/php", 0o755);
+        file_put_contents("$home/.opensimrc", "export PATH=\"$home/bin:\$PATH\"\n");
 
-        [$status, , $error] = api_script(['GET', '/forms/grid'], ['PHP' => 'php'], $home);
+        [$status, $out] = api_script(['GET', '/forms/grid'], [], $home);
 
-        expect($status)->toBe(2)->and($error)->toContain('/nowhere/opensim.conf');
+        expect($status)->toBe(0)->and($out)->toContain('the php of the rc');
     });
 });
-
