@@ -142,6 +142,48 @@ final class Destination
     }
 
     /**
+     * The login address of a grid as its people write it (`play.example.org`, `http://play.example.org:8002/`) in its parts. The
+     * scheme is `http` and the port 8002 when none is given (OSGrid answers on 80).
+     *
+     * @return ?array{scheme:string,host:string,port:int} null when it is no address
+     */
+    public static function loginParts(string $address): ?array
+    {
+        $address = trim($address);
+        if ($address === '') {
+            return null;
+        }
+        $address = preg_match('#^https?://#i', $address) === 1 ? $address : 'http://' . $address;
+        $parts = parse_url($address);
+        if ($parts === false || empty($parts['host'])) {
+            return null;
+        }
+
+        return [
+            'scheme' => strtolower($parts['scheme'] ?? 'http'),
+            'host' => $parts['host'],
+            'port' => (int) ($parts['port'] ?? (preg_match('/osgrid\.org/i', $address) === 1 ? 80 : 8002)),
+        ];
+    }
+
+    /** The login URL of a grid, `scheme://host:port`, from the address its people write; null when it is no address. */
+    public static function loginUrl(string $address): ?string
+    {
+        $parts = self::loginParts($address);
+
+        return $parts === null ? null : "{$parts['scheme']}://{$parts['host']}:{$parts['port']}";
+    }
+
+    /**
+     * A link with its spaces as pluses, for the formats that take neither `%20` nor `_` (`host:port+Region+Name`), the characters
+     * a URL cannot have removed.
+     */
+    public static function sanitizePlus(string $url): string
+    {
+        return (string) filter_var(str_replace(' ', '+', trim($url)), FILTER_SANITIZE_URL);
+    }
+
+    /**
      * Format destination uri as a valid local or hypergrid link url
      *
      * @param  string  $destination      Destination uri, as "host:port:Region Name" or already formatted URL

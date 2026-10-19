@@ -201,3 +201,37 @@ describe('Region urls', function () {
             ->toBeFalse();
     });
 });
+
+describe('Login addresses', function () {
+    test('are read in their parts, with the http scheme and the port 8002 when they have none', function (
+        string $address,
+        ?string $url,
+    ) {
+        expect(Destination::loginUrl($address))->toBe($url);
+    })->with([
+        'a host' => ['play.example.org', 'http://play.example.org:8002'],
+        'a host and a port' => ['play.example.org:9000', 'http://play.example.org:9000'],
+        'with a scheme and a slash' => ['https://play.example.org:8002/', 'https://play.example.org:8002'],
+        'with spaces around' => ['  play.example.org  ', 'http://play.example.org:8002'],
+        'osgrid' => ['login.osgrid.org', 'http://login.osgrid.org:80'],
+        'nothing' => ['', null],
+        'no address' => ['http://', null],
+    ]);
+
+    test('have their parts as numbers and words', function () {
+        expect(Destination::loginParts('HTTPS://Play.example.org:8002/x'))->toBe([
+            'scheme' => 'https',
+            'host' => 'Play.example.org',
+            'port' => 8002,
+        ]);
+    });
+});
+
+describe('Links with pluses', function () {
+    test('have the pluses of the spaces and nothing a URL cannot have', function () {
+        expect(Destination::sanitizePlus(' grid.example:8002 My Region '))
+            ->toBe('grid.example:8002+My+Region')
+            ->and(Destination::sanitizePlus("hop://grid.example:8002/My Region/1/2/3\n"))
+            ->toBe('hop://grid.example:8002/My+Region/1/2/3');
+    });
+});

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Data;
 
+use OpenSim\Config\ConnectionString;
 use OpenSim\Config\GridConfig;
 use OpenSim\Provisioning\SqlRunner;
 
@@ -44,6 +45,28 @@ final class Connections
         }
 
         return $pdo;
+    }
+
+    /**
+     * Whether credentials connect, and why not: for a form that asks them and a page that shows the state of the databases.
+     *
+     * @param ConnectionString|array{host?:string,port?:?int,name?:string,user?:string,pass?:string,driver?:string} $credentials
+     * @return ?string null when it connects, else what is missing or what the server answers
+     */
+    public static function test(ConnectionString|array $credentials): ?string
+    {
+        $given = $credentials instanceof ConnectionString ? $credentials->credentials() : $credentials;
+        $driver = (string) ($given['driver'] ?? 'mysql');
+        $missing = [];
+        foreach (['host' => $driver === 'mysql', 'name' => true, 'user' => $driver === 'mysql'] as $part => $needed) {
+            $needed && trim((string) ($given[$part] ?? '')) === '' && ($missing[] = $part);
+        }
+        if ($missing !== []) {
+            return 'missing: ' . implode(', ', $missing);
+        }
+        $pdo = new OSPDO($given + ['log' => false]);
+
+        return $pdo->connected ? null : SqlRunner::describe($pdo->error ?? new \RuntimeException('cannot connect'));
     }
 
     /** Why a database could not be reached, null when it could or was not asked for. */

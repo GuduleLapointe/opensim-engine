@@ -155,6 +155,20 @@ The web services of a grid (search, currency, land purchase, registration, offli
 Dropped on purpose: `do_not_sanitize()` (a no-op), `escape_url()` (a `htmlspecialchars()`: use `OpenSim\Security\Escape::attr()`),
 `pascal_case()` (it never worked).
 
+## The small functions of the old `OpenSim` class
+
+| Before | Now |
+| --- | --- |
+| `OpenSim::is_true($value)` | `Result::isTrue($value)`, and `Result::isFalse($value)`: a no, which null is not |
+| `isSuccess()`, `isError()` | `Result::isSuccess()`, `Result::isError()`: not the contrary of one another, null and an answer that says nothing are neither |
+| `OpenSim::is_null_key($uuid)` | `Text\Uuid::isNullKey($uuid)` (the two keys for nobody) |
+| `OpenSim::empty($value)` | `Text\Uuid::isEmpty($value)` |
+| `w4os_demask($mask, $labels, $text)` | `Support\Bitmask::labels($mask, $labels)`; for a profile `Avatar::detail()['wantsList']` and `['skillsList']` |
+| `OpenSim::validate_db_credentials($credentials)` | `Data\Connections::test($credentials)`: null when it connects, else why not |
+| `OpenSim::sanitize_login_uri($address)` | `Hypergrid\Destination::loginUrl($address)`, `loginParts()` |
+| `OpenSim::sanitize_uri_plus($url)` | `Hypergrid\Destination::sanitizePlus($url)` |
+| `OpenSim::grid_info($gateway)` | `Grid::gridInfo()` |
+
 ## Constants
 
 `NULL_KEY` and the `TPLINK_*` flags are still global (`includes/constants.php`, loaded by the autoloader); the flags are also

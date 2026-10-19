@@ -12,6 +12,7 @@ use OpenSim\Exceptions\ChannelUnavailable;
 use OpenSim\Provisioning\AccountWriter;
 use OpenSim\Provisioning\GridAccounts;
 use OpenSim\Provisioning\Slug;
+use OpenSim\Support\Bitmask;
 
 /**
  * An avatar of the grid: its account (UserAccounts of the user account service), where it was (GridUser of the grid user service)
@@ -29,7 +30,7 @@ final class Avatar extends Model
     /** What is read of an account, a visit and a profile. */
     private const ACCOUNT_COLUMNS = 'u.PrincipalID, u.FirstName, u.LastName, u.Email, u.Created, u.UserLevel, u.UserFlags, u.UserTitle, u.active';
     private const VISIT_COLUMNS = 'g.HomeRegionID, g.LastRegionID, g.Online, g.Login, g.Logout';
-    private const PROFILE_COLUMNS = 'p.profileImage, p.profileAboutText, p.profileURL, p.profilePartner, p.profileWantToText, p.profileSkillsText, p.profileLanguages, p.profileFirstImage, p.profileFirstText';
+    private const PROFILE_COLUMNS = 'p.profileImage, p.profileAboutText, p.profileURL, p.profilePartner, p.profileWantToMask, p.profileWantToText, p.profileSkillsMask, p.profileSkillsText, p.profileLanguages, p.profileFirstImage, p.profileFirstText';
 
     /** The account the services of the grid have, which is not a person: Robust makes it for itself. */
     private const TECHNICAL = ['GRID', 'SERVICES'];
@@ -222,6 +223,33 @@ final class Avatar extends Model
         return self::date($this->lastSeenTime());
     }
 
+    /**
+     * What a profile can say its avatar wants, the bit 0 first (`profileWantToMask`).
+     *
+     * @return list<string>
+     */
+    public static function wantLabels(): array
+    {
+        return [_('Build'), _('Explore'), _('Meet'), _('Group'), _('Buy'), _('Sell'), _('Be Hired'), _('Hire')];
+    }
+
+    /**
+     * What a profile can say its avatar is good at, the bit 0 first (`profileSkillsMask`).
+     *
+     * @return list<string>
+     */
+    public static function skillLabels(): array
+    {
+        return [
+            _('Textures'),
+            _('Architecture'),
+            _('Event Planning'),
+            _('Modeling'),
+            _('Scripting'),
+            _('Custom Characters'),
+        ];
+    }
+
     public function detail(): array
     {
         $row = $this->row;
@@ -253,7 +281,9 @@ final class Avatar extends Model
             'profileUrl' => $row['profileURL'] ?? null,
             'partner' => self::uuidOrNull($row['profilePartner'] ?? null),
             'wants' => $row['profileWantToText'] ?? null,
+            'wantsList' => Bitmask::labels((int) ($row['profileWantToMask'] ?? 0), self::wantLabels()),
             'skills' => $row['profileSkillsText'] ?? null,
+            'skillsList' => Bitmask::labels((int) ($row['profileSkillsMask'] ?? 0), self::skillLabels()),
             'languages' => $row['profileLanguages'] ?? null,
             'firstImage' => self::uuidOrNull($row['profileFirstImage'] ?? null),
             'firstLife' => $row['profileFirstText'] ?? null,
@@ -929,7 +959,7 @@ final class Avatar extends Model
         if ($pdo = Connections::pdo($config, Database::Profiles)) {
             foreach (
                 $pdo->get_results(
-                    "SELECT useruuid, profileImage, profileAboutText, profileURL, profilePartner, profileWantToText, profileSkillsText, profileLanguages, profileFirstImage, profileFirstText FROM userprofile WHERE useruuid IN ($marks)",
+                    "SELECT useruuid, profileImage, profileAboutText, profileURL, profilePartner, profileWantToMask, profileWantToText, profileSkillsMask, profileSkillsText, profileLanguages, profileFirstImage, profileFirstText FROM userprofile WHERE useruuid IN ($marks)",
                     $ids,
                     \PDO::FETCH_ASSOC,
                 )

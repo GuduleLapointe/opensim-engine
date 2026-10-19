@@ -2,7 +2,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "OpenSim engine",
-        "version": "56da752",
+        "version": "dbf71f8",
         "license": {
             "name": "AGPL-3.0-or-later",
             "identifier": "AGPL-3.0-or-later"
@@ -2856,13 +2856,23 @@
                                 "type": [
                                     "string",
                                     "null"
-                                ]
+                                ],
+                                "description": "The free text of the wants"
+                            },
+                            "wantsList": {
+                                "type": "array",
+                                "description": "What it wants: Build, Explore, Meet, Group, Buy, Sell, Be Hired, Hire"
                             },
                             "skills": {
                                 "type": [
                                     "string",
                                     "null"
-                                ]
+                                ],
+                                "description": "The free text of the skills"
+                            },
+                            "skillsList": {
+                                "type": "array",
+                                "description": "What it is good at: Textures, Architecture, Event Planning, Modeling, Scripting, Custom Characters"
                             },
                             "languages": {
                                 "type": [

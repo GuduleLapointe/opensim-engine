@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OpenSim\Provisioning;
 
 use OpenSim\Forms\FieldSet;
+use OpenSim\Hypergrid\Destination;
 use OpenSim\Models\Grid;
 use OpenSim\Runtime\Environment;
 
@@ -126,9 +127,9 @@ final class RemoteGridPlanner
         $result = ['grid' => null, 'error' => null, 'notes' => [], 'warnings' => []];
 
         $address = trim((string) $v['address']);
-        $parts = parse_url(preg_match('#^https?://#', $address) ? $address : "http://$address") ?: [];
-        $host = (string) ($parts['host'] ?? $address);
-        $public = (int) ($parts['port'] ?? 8002);
+        $login = Destination::loginParts($address);
+        $host = $login['host'] ?? $address;
+        $public = $login['port'] ?? 8002;
 
         // A preset says all that is needed, the grid is not asked
         $said = $preset !== '' ? [] : $this->says($environment, $host, $public);

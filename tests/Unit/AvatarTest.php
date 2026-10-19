@@ -40,7 +40,7 @@ function avatar_database(): OSPDO
         'CREATE TABLE GridUser (UserID VARCHAR(255) PRIMARY KEY, HomeRegionID CHAR(36), LastRegionID CHAR(36), Online CHAR(5) DEFAULT \'false\', Login CHAR(16) DEFAULT \'0\', Logout CHAR(16) DEFAULT \'0\')',
     );
     $pdo->exec(
-        'CREATE TABLE userprofile (useruuid CHAR(36) PRIMARY KEY, profileImage CHAR(36), profileAboutText TEXT, profileURL VARCHAR(255), profilePartner CHAR(36), profileWantToText TEXT, profileSkillsText TEXT, profileLanguages TEXT, profileFirstImage CHAR(36), profileFirstText TEXT)',
+        'CREATE TABLE userprofile (useruuid CHAR(36) PRIMARY KEY, profileImage CHAR(36), profileAboutText TEXT, profileURL VARCHAR(255), profilePartner CHAR(36), profileWantToText TEXT, profileSkillsText TEXT, profileLanguages TEXT, profileFirstImage CHAR(36), profileFirstText TEXT, profileWantToMask INT DEFAULT 0, profileSkillsMask INT DEFAULT 0)',
     );
     $pdo->exec(
         'CREATE TABLE userpicks (pickuuid CHAR(36), creatoruuid CHAR(36), name VARCHAR(255), description TEXT, simname VARCHAR(255), posglobal VARCHAR(255), sortorder INT, enabled VARCHAR(5), gatekeeper VARCHAR(255))',
@@ -56,7 +56,7 @@ function avatar_database(): OSPDO
         ('11111111-1111-1111-1111-111111111111', 'aaaa', 'bbbb', 'true', '1700005000', '1700001000'),
         ('22222222-2222-2222-2222-222222222222', 'aaaa', 'aaaa', 'false', '1690000000', '1695000000')");
     $pdo->exec(
-        "INSERT INTO userprofile VALUES ('11111111-1111-1111-1111-111111111111', 'img-ada', 'Hello', 'https://ada.example.org', '22222222-2222-2222-2222-222222222222', 'to build', 'scripting', 'en, fr', '00000000-0000-0000-0000-000000000000', 'a mathematician')",
+        "INSERT INTO userprofile (useruuid, profileImage, profileAboutText, profileURL, profilePartner, profileWantToText, profileSkillsText, profileLanguages, profileFirstImage, profileFirstText, profileWantToMask, profileSkillsMask) VALUES ('11111111-1111-1111-1111-111111111111', 'img-ada', 'Hello', 'https://ada.example.org', '22222222-2222-2222-2222-222222222222', 'to build', 'scripting', 'en, fr', '00000000-0000-0000-0000-000000000000', 'a mathematician', 5, 18)",
     );
     $pdo->exec(
         "INSERT INTO userpicks VALUES ('k1', '11111111-1111-1111-1111-111111111111', 'The Garden', 'roses', 'Welcome', '<256010,256020,30>', 2, 'true', ''), ('k2', '11111111-1111-1111-1111-111111111111', 'Hidden', 'x', 'Welcome', '<1,1,1>', 1, 'false', ''), ('k3', '11111111-1111-1111-1111-111111111111', 'Alpha pick', 'y', 'Harbour', '<256500,256020,30>', 1, 'true', 'other.example.org:8002')",
@@ -138,6 +138,10 @@ describe('avatars', function () {
             ->toBe('22222222-2222-2222-2222-222222222222')
             ->and($ada['wants'])
             ->toBe('to build')
+            ->and($ada['wantsList'])
+            ->toBe(['Build', 'Meet'])
+            ->and($ada['skillsList'])
+            ->toBe(['Architecture', 'Scripting'])
             ->and($ada['languages'])
             ->toBe('en, fr')
             ->and($ada['firstImage'])
@@ -620,7 +624,7 @@ describe('avatars of a grid whose services have their own databases', function (
         );
         $profiles = new OSPDO(['driver' => 'sqlite', 'name' => ':memory:']);
         $profiles->exec(
-            'CREATE TABLE userprofile (useruuid CHAR(36), profileImage CHAR(36), profileAboutText TEXT, profileURL VARCHAR(255), profilePartner CHAR(36), profileWantToText TEXT, profileSkillsText TEXT, profileLanguages TEXT, profileFirstImage CHAR(36), profileFirstText TEXT)',
+            'CREATE TABLE userprofile (useruuid CHAR(36), profileImage CHAR(36), profileAboutText TEXT, profileURL VARCHAR(255), profilePartner CHAR(36), profileWantToText TEXT, profileSkillsText TEXT, profileLanguages TEXT, profileFirstImage CHAR(36), profileFirstText TEXT, profileWantToMask INT DEFAULT 0, profileSkillsMask INT DEFAULT 0)',
         );
         $profiles->exec(
             "INSERT INTO userprofile (useruuid, profileImage, profileAboutText) VALUES ('22222222-2222-2222-2222-222222222222', 'img-bob', 'Root')",

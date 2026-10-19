@@ -836,14 +836,7 @@ final class Region extends Model
      */
     public static function flagNames(int $flags): array
     {
-        $names = [];
-        foreach (self::NAMES as $flag => $name) {
-            if (($flags & $flag) !== 0) {
-                $names[] = $name;
-            }
-        }
-
-        return $names;
+        return \OpenSim\Support\Bitmask::names($flags, self::NAMES);
     }
 
     /**

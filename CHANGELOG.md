@@ -2,6 +2,7 @@
 
 ### Unreleased
 
+- new: `Result::isTrue()`, `isFalse()`; `isSuccess()` and `isError()` are no more contraries (null is neither); `Support\Bitmask`; `Connections::test()`; `Destination::loginUrl()`, `sanitizePlus()`; `wantsList` and `skillsList` of an avatar
 - new: `Text\Uuid::isNullKey()` (the two keys for nobody) and `isEmpty()`
 - new: `Grid::addresses()`, `address()` and `helpersUrl()`, `economy()`, `searchUrl()`, `searchApi()`...: every address of the grid, wherever it is said; the web services of the catalog are `query`, `search`, `welcome`, `web-profile`, `currency`, `landtool`, `register`, `offline`, `motd`, `guide`, `grid-status`, `grid-status-rss`, `parser`, `events-parser`, `text-images`, `assets`, `map`
 - new: `Models\Asset` (every type, `Image` for the pictures), `Assets\WebAssets`: pictures converted for the web, resized when asked, and cached; `php-imagick` is required
