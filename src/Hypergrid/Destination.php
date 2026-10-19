@@ -142,10 +142,11 @@ final class Destination
     }
 
     /**
-     * The login address of a grid as its people write it (`play.example.org`, `http://play.example.org:8002/`) in its parts. The
-     * scheme is `http` and the port 8002 when none is given (OSGrid answers on 80).
+     * The login address of a grid as its people write it (`play.example.org:8002`, `http://play.example.org:3405/`) in its parts. The
+     * port is the one the address gives and nothing else: each grid chooses its own, the engine does not. An address without one has
+     * the port of its scheme, as every URL does (80 for http, 443 for https), which is for the one who connects to say.
      *
-     * @return ?array{scheme:string,host:string,port:int} null when it is no address
+     * @return ?array{scheme:string,host:string,port:?int} null when it is no address
      */
     public static function loginParts(string $address): ?array
     {
@@ -153,8 +154,7 @@ final class Destination
         if ($address === '') {
             return null;
         }
-        $address = preg_match('#^https?://#i', $address) === 1 ? $address : 'http://' . $address;
-        $parts = parse_url($address);
+        $parts = parse_url(preg_match('#^https?://#i', $address) === 1 ? $address : 'http://' . $address);
         if ($parts === false || empty($parts['host'])) {
             return null;
         }
@@ -162,16 +162,18 @@ final class Destination
         return [
             'scheme' => strtolower($parts['scheme'] ?? 'http'),
             'host' => $parts['host'],
-            'port' => (int) ($parts['port'] ?? (preg_match('/osgrid\.org/i', $address) === 1 ? 80 : 8002)),
+            'port' => isset($parts['port']) ? (int) $parts['port'] : null,
         ];
     }
 
-    /** The login URL of a grid, `scheme://host:port`, from the address its people write; null when it is no address. */
+    /** The login URL of a grid from the address its people write, `scheme://host[:port]` as it gives them; null when it is no address. */
     public static function loginUrl(string $address): ?string
     {
         $parts = self::loginParts($address);
 
-        return $parts === null ? null : "{$parts['scheme']}://{$parts['host']}:{$parts['port']}";
+        return $parts === null
+            ? null
+            : "{$parts['scheme']}://{$parts['host']}" . ($parts['port'] !== null ? ":{$parts['port']}" : '');
     }
 
     /**

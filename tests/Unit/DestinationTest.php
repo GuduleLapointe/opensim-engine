@@ -203,17 +203,18 @@ describe('Region urls', function () {
 });
 
 describe('Login addresses', function () {
-    test('are read in their parts, with the http scheme and the port 8002 when they have none', function (
+    test('are read in their parts, the port being the one the address gives, none when it gives none', function (
         string $address,
         ?string $url,
     ) {
         expect(Destination::loginUrl($address))->toBe($url);
     })->with([
-        'a host' => ['play.example.org', 'http://play.example.org:8002'],
-        'a host and a port' => ['play.example.org:9000', 'http://play.example.org:9000'],
+        'a host' => ['play.example.org', 'http://play.example.org'],
+        'a host and the usual port' => ['play.example.org:8002', 'http://play.example.org:8002'],
+        'a host and a port of its own' => ['w4os.org:3405', 'http://w4os.org:3405'],
+        'the port of the web' => ['login.osgrid.org:80', 'http://login.osgrid.org:80'],
         'with a scheme and a slash' => ['https://play.example.org:8002/', 'https://play.example.org:8002'],
-        'with spaces around' => ['  play.example.org  ', 'http://play.example.org:8002'],
-        'osgrid' => ['login.osgrid.org', 'http://login.osgrid.org:80'],
+        'with spaces around' => ['  play.example.org:9000  ', 'http://play.example.org:9000'],
         'nothing' => ['', null],
         'no address' => ['http://', null],
     ]);

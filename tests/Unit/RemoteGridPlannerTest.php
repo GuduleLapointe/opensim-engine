@@ -64,13 +64,17 @@ describe('A grid on another machine', function () {
             ->toBe(['/data/far', '/cache/far', '/logs']);
     });
 
-    test('takes the scheme and the port of the address, or the usual port', function () {
+    test('takes the scheme and the port of the address, or the port of the scheme', function () {
         [$planner] = remote_planner(['gridname' => 'X']);
 
         expect($planner->plan(['address' => 'https://play.example.org:9000/'])['grid']->publicPort())
             ->toBe(9000)
+            ->and($planner->plan(['address' => 'w4os.org:3405'])['grid']->publicPort())
+            ->toBe(3405)
             ->and($planner->plan(['address' => 'play.example.org'])['grid']->publicPort())
-            ->toBe(8002);
+            ->toBe(80)
+            ->and($planner->plan(['address' => 'https://play.example.org'])['grid']->publicPort())
+            ->toBe(443);
     });
 
     test('keeps what was answered over what the grid says, the private port included', function () {

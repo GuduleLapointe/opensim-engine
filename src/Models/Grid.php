@@ -335,6 +335,7 @@ final class Grid extends InstalledModel
                 'type' => 'string',
                 'required' => true,
                 'label' => _('Address of the grid (host:port)'),
+                'description' => _('Its public port, the one its viewers log in to'),
             ],
             [
                 'name' => 'name',

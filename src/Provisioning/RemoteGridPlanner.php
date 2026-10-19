@@ -129,7 +129,8 @@ final class RemoteGridPlanner
         $address = trim((string) $v['address']);
         $login = Destination::loginParts($address);
         $host = $login['host'] ?? $address;
-        $public = $login['port'] ?? 8002;
+        // A port that is not given is the one of the scheme, as in any URL: the grid chooses its own
+        $public = $login['port'] ?? (($login['scheme'] ?? 'http') === 'https' ? 443 : 80);
 
         // A preset says all that is needed, the grid is not asked
         $said = $preset !== '' ? [] : $this->says($environment, $host, $public);
