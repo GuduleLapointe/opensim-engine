@@ -294,16 +294,22 @@ describe('quick setup, the alphabets', function () {
     });
 
     test('leaves an error when what comes out is not what a name must be: three words are not First Last', function () {
-        $chinese = QuickSetup::plan((new Machine())->environment, quick_answers(['avatar' => '早安 Lapointe']));
-        $short = QuickSetup::plan((new Machine())->environment, quick_answers(['avatar' => '早安']));
+        $three = QuickSetup::plan((new Machine())->environment, quick_answers(['avatar' => '你好嗎']));
+        $mixed = QuickSetup::plan((new Machine())->environment, quick_answers(['avatar' => '早安 Lapointe']));
+        $two = QuickSetup::plan((new Machine())->environment, quick_answers(['avatar' => '你好']));
 
-        expect($chinese['corrected'])
-            ->toBe(['avatar' => 'zao an Lapointe'])
-            ->and($chinese['problems'])
+        expect($three['corrected'])
+            ->toBe(['avatar' => 'ni hao ma'])
+            ->and($three['problems'])
             ->toBe(['avatar' => 'invalid (First Last)'])
-            ->and($short['corrected'])
-            ->toBe(['avatar' => 'zao an'])
-            ->and($short['problems'])
+            ->and($mixed['corrected'])
+            ->toBe(['avatar' => 'zao an Lapointe'])
+            ->and($mixed['problems'])
+            ->toBe(['avatar' => 'invalid (First Last)'])
+            // Two words come out: right, but the person sees the change and validates it
+            ->and($two['corrected'])
+            ->toBe(['avatar' => 'ni hao'])
+            ->and($two['problems'])
             ->toBe(['avatar' => 'transliterated']);
     });
 
