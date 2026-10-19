@@ -249,8 +249,8 @@ describe('quick setup, the names and the host', function () {
             ->toBe('Ile Noel')
             ->and($bad['problems'])
             ->toBe(['name' => 'invalid (letters, digits, space . -)'])
-            ->and($grid['valid'])
-            ->toBeTrue();
+            ->and($grid['corrected'])
+            ->toBe(['name' => 'Ile Noel']);
     });
 });
 
@@ -278,6 +278,39 @@ describe('quick setup, what separates and what is a space', function () {
         $grid = QuickSetup::plan((new Machine())->environment, quick_answers(['login_uri' => 'Bücher.Example:8102']))['setup']['grid'];
 
         expect($grid['hostname'])->toBe('bücher.example')->and($grid['public_port'])->toBe(8102);
+    });
+});
+
+describe('quick setup, the alphabets', function () {
+    test('transliterates the grid name and the avatar name, and removes what a name cannot have after that', function () {
+        $arabic = QuickSetup::plan((new Machine())->environment, quick_answers(['name' => 'مرحباً', 'avatar' => 'مرحباً Lapointe']));
+
+        expect($arabic['corrected'])
+            ->toBe(['name' => 'mrhbaan', 'avatar' => 'mrhbaan Lapointe'])
+            ->and($arabic['problems'])
+            ->toBe(['name' => 'transliterated', 'avatar' => 'transliterated'])
+            ->and($arabic['setup']['grid']['name'])
+            ->toBe('mrhbaan');
+    });
+
+    test('leaves an error when what comes out is not what a name must be: three words are not First Last', function () {
+        $chinese = QuickSetup::plan((new Machine())->environment, quick_answers(['avatar' => '早安 Lapointe']));
+        $short = QuickSetup::plan((new Machine())->environment, quick_answers(['avatar' => '早安']));
+
+        expect($chinese['corrected'])
+            ->toBe(['avatar' => 'zao an Lapointe'])
+            ->and($chinese['problems'])
+            ->toBe(['avatar' => 'invalid (First Last)'])
+            ->and($short['corrected'])
+            ->toBe(['avatar' => 'zao an'])
+            ->and($short['problems'])
+            ->toBe(['avatar' => 'transliterated']);
+    });
+
+    test('does not touch a Latin name, even with an apostrophe: the validation says what is wrong', function () {
+        $grid = QuickSetup::plan((new Machine())->environment, quick_answers(['name' => "Olivier's Grid"]));
+
+        expect($grid['corrected'])->toBe([])->and($grid['problems'])->toBe([]);
     });
 });
 

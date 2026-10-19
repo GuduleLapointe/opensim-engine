@@ -42,15 +42,14 @@ final class QuickSetup
         }
         $standalone = $type === 'standalone';
 
-        // A name is Latin letters without accents: what is not is replaced, and the person validates the change by sending the form
-        // again (the value that comes back is the replaced one)
+        // A name is Latin letters without accents, in every alphabet: what is not is replaced, and the person validates the change by
+        // sending the form again (the value that comes back is the replaced one). What is not right after that stays an error.
         $corrected = [];
-        foreach ($standalone ? ['name', 'avatar'] : ['avatar'] as $key) {
+        foreach (['name' => '.-', 'avatar' => ''] as $key => $kept) {
             $given = trim((string) ($answers[$key] ?? ''));
-            $latin = trim(Slug::ascii($given));
-            if ($given !== '' && $latin !== $given && $latin !== '') {
+            $latin = self::latin($given, $kept);
+            if ($latin !== $given) {
                 $corrected[$key] = $answers[$key] = $latin;
-                $problems[$key] = _('transliterated');
             }
         }
 
@@ -94,6 +93,11 @@ final class QuickSetup
         }
         $regions->apply($simulator, ['name' => $region]);
 
+        // What was replaced is told, unless it is wrong all the same (then it is the error that is)
+        foreach (array_keys($corrected) as $key) {
+            $problems[$key] ??= _('transliterated');
+        }
+
         return [
             'valid' => $problems === [],
             'problems' => $problems,
@@ -101,6 +105,25 @@ final class QuickSetup
             'setup' => SetupFile::withSimulator(SetupFile::withGrid([], $plan), $simulator),
             'rows' => self::rows($plan, $simulator, $standalone, trim((string) ($answers['email'] ?? ''))),
         ];
+    }
+
+    /**
+     * A name in Latin letters: every alphabet transliterated, then what a name cannot have removed (the words kept apart by one space).
+     * A name that is Latin already is left as it is, for the validation to say what is wrong with it.
+     *
+     * @param string $kept the punctuation a name may have besides letters, digits and the space
+     */
+    private static function latin(string $value, string $kept): string
+    {
+        if ($value === '' || preg_match('/[^\x00-\x7F]/', $value) !== 1) {
+            return $value;
+        }
+        $ascii = Slug::ascii($value);
+        // The compatibility forms (a superscript n) become letters
+        class_exists(\Normalizer::class) && ($ascii = \Normalizer::normalize($ascii, \Normalizer::FORM_KD) ?: $ascii);
+        $clean = trim((string) preg_replace('/ +/', ' ', (string) preg_replace('/[^A-Za-z0-9 ' . preg_quote($kept, '/') . ']/', '', $ascii)));
+
+        return $clean !== '' ? $clean : $value;
     }
 
     /**
