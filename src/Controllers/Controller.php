@@ -16,7 +16,7 @@ use OpenSim\Runtime\Core;
 use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\LogFile;
 use OpenSim\Runtime\Process;
-use OpenSim\Runtime\Result;
+use OpenSim\Runtime\InstanceResult;
 use OpenSim\Runtime\StartService;
 use OpenSim\Runtime\StopService;
 use OpenSim\Config\GridConfig;
@@ -388,19 +388,19 @@ abstract class Controller implements Enablable
         return $this->environment->consoles->sessionExists($this->name) || $this->process() !== null;
     }
 
-    public function start(): Result
+    public function start(): InstanceResult
     {
         return (new StartService($this->environment))->start($this);
     }
 
     /** @param bool $now stop without warning the users */
-    public function stop(bool $now = false): Result
+    public function stop(bool $now = false): InstanceResult
     {
         return (new StopService($this->environment))->stop($this, $now);
     }
 
     /** @param bool $now stop without warning the users */
-    public function restart(bool $now = false): Result
+    public function restart(bool $now = false): InstanceResult
     {
         $this->stop($now);
 

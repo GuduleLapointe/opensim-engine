@@ -28,7 +28,7 @@ final class StartService
 
     public function __construct(private readonly Environment $environment) {}
 
-    public function start(Controller $instance): Result
+    public function start(Controller $instance): InstanceResult
     {
         $env = $this->environment;
         $name = $instance->name();
@@ -47,7 +47,7 @@ final class StartService
         if ($instance->isRunning()) {
             $env->reporter->debug("$name is already running");
 
-            return new Result($name, Outcome::Running);
+            return new InstanceResult($name, Outcome::Running);
         }
         $env->reporter->info("starting $name");
 
@@ -186,7 +186,7 @@ final class StartService
         int $mark,
         string $output,
         bool $remote,
-    ): Result {
+    ): InstanceResult {
         $env = $this->environment;
         $name = $instance->name();
         $failed = [];
@@ -219,7 +219,7 @@ final class StartService
             case 0:
                 $env->reporter->info("$name started");
 
-                return new Result($name, Outcome::Started);
+                return new InstanceResult($name, Outcome::Started);
             case 4:
                 return $this->fail(
                     $name,
@@ -233,7 +233,7 @@ final class StartService
             default:
                 $env->reporter->info("$name still starting, let it run and check status later");
 
-                return new Result($name, Outcome::Starting);
+                return new InstanceResult($name, Outcome::Starting);
         }
     }
 
@@ -406,12 +406,12 @@ final class StartService
         $this->environment->reporter->error(implode("\n", $last > 0 ? array_slice($lines, -$last) : $lines));
     }
 
-    private function fail(string $name, string $message, string $debug = ''): Result
+    private function fail(string $name, string $message, string $debug = ''): InstanceResult
     {
         $this->environment->reporter->stepEnd();
         $this->environment->reporter->error($message);
         $debug !== '' && $this->environment->reporter->debug($debug);
 
-        return Result::failed($name, $message);
+        return InstanceResult::failed($name, $message);
     }
 }

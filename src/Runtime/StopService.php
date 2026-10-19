@@ -29,7 +29,7 @@ final class StopService
     }
 
     /** @param bool $now stop without warning the users */
-    public function stop(Controller $instance, bool $now = false): Result
+    public function stop(Controller $instance, bool $now = false): InstanceResult
     {
         $env = $this->environment;
         $name = $instance->name();
@@ -66,9 +66,9 @@ final class StopService
         $env->portMapping?->stop($name, $instance->ini());
 
         return match (true) {
-            !$stopped => Result::failed($name, "$name still running after being killed"),
-            $process !== null => new Result($name, Outcome::Stopped),
-            default => new Result($name, Outcome::NotRunning),
+            !$stopped => InstanceResult::failed($name, "$name still running after being killed"),
+            $process !== null => new InstanceResult($name, Outcome::Stopped),
+            default => new InstanceResult($name, Outcome::NotRunning),
         };
     }
 

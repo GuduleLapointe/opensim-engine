@@ -12,7 +12,7 @@ use OpenSim\Controllers\RobustController;
 use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\InstanceStatus;
 use OpenSim\Runtime\ReporterInterface;
-use OpenSim\Runtime\Result;
+use OpenSim\Runtime\InstanceResult;
 use OpenSim\Runtime\Status;
 
 /**
@@ -41,7 +41,7 @@ final class OpenSim
      *
      * @param string|list<string>|null $targets none for every enabled instance
      * @param bool $simulators the enabled simulators of the grids named are started too
-     * @return list<Result>
+     * @return list<InstanceResult>
      */
     public static function start(
         string|array|null $targets = null,
@@ -64,7 +64,7 @@ final class OpenSim
      * @param string|list<string>|null $targets none for every enabled instance
      * @param bool $now stop without warning the users
      * @param bool $simulators the enabled simulators of the grids named are stopped too
-     * @return list<Result>
+     * @return list<InstanceResult>
      */
     public static function stop(
         string|array|null $targets = null,
@@ -87,7 +87,7 @@ final class OpenSim
      * @param string|list<string>|null $targets none for every enabled instance
      * @param bool $now stop without warning the users
      * @param bool $simulators the enabled simulators of the grids named restart too
-     * @return list<Result>
+     * @return list<InstanceResult>
      */
     public static function restart(
         string|array|null $targets = null,
@@ -194,7 +194,7 @@ final class OpenSim
      * The instances to act on: what the targets name, or every enabled instance. A target that names nothing is a failed result.
      *
      * @param string|list<string>|null $targets
-     * @param list<Result> $results where the targets that name nothing are told
+     * @param list<InstanceResult> $results where the targets that name nothing are told
      * @param bool $simulators the enabled simulators of the grids named come after their Robust
      * @return list<Controller>
      */
@@ -226,7 +226,7 @@ final class OpenSim
                 if ($own === []) {
                     $message = "the standalone $target has no simulator enabled";
                     $environment->reporter->error($message);
-                    $results[] = Result::failed((string) $target, $message);
+                    $results[] = InstanceResult::failed((string) $target, $message);
                 }
 
                 continue;
@@ -234,7 +234,7 @@ final class OpenSim
             if ($found === null) {
                 $message = 'no ini file found for ' . $target;
                 $environment->reporter->error($message);
-                $results[] = Result::failed((string) $target, $message);
+                $results[] = InstanceResult::failed((string) $target, $message);
 
                 continue;
             }

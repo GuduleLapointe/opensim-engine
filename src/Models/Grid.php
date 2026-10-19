@@ -21,7 +21,8 @@ use OpenSim\Hypergrid\Destination;
 use OpenSim\Network\GridInfoCache;
 use OpenSim\Text\DestinationList;
 use OpenSim\Runtime\Environment;
-use OpenSim\Runtime\Result;
+use OpenSim\Result;
+use OpenSim\Runtime\InstanceResult;
 
 /**
  * A grid: the folder `<etc>/grids/<nick>` that holds its Robust config, its description (`<nick>.conf`) and the configs of
@@ -442,7 +443,7 @@ final class Grid extends InstalledModel
      */
     public static function validateName(mixed $value, array $answers = []): ?string
     {
-        return \OpenSim\Result::isTrue($answers['standalone'] ?? false)
+        return Result::isTrue($answers['standalone'] ?? false)
             ? Region::validateName($value)
             : self::nameRule()->problem(Slug::ascii((string) $value));
     }
@@ -1769,7 +1770,7 @@ final class Grid extends InstalledModel
     /**
      * Start the services of the grid, then its simulators when asked. A simulator is not started when Robust did not come up.
      *
-     * @return list<Result>
+     * @return list<InstanceResult>
      */
     public function start(bool $simulators = false): array
     {
@@ -1792,12 +1793,12 @@ final class Grid extends InstalledModel
     /**
      * Stop the services of the grid, its simulators first when asked.
      *
-     * @return list<Result>
+     * @return list<InstanceResult>
      */
     public function stop(bool $now = false, bool $simulators = false): array
     {
         return array_map(
-            static fn(Controller $i): Result => $i->stop($now),
+            static fn(Controller $i): InstanceResult => $i->stop($now),
             array_reverse($this->instances($simulators)),
         );
     }
@@ -1805,7 +1806,7 @@ final class Grid extends InstalledModel
     /**
      * Restart the services of the grid, and its simulators when asked: everything stops, then everything starts.
      *
-     * @return list<Result>
+     * @return list<InstanceResult>
      */
     public function restart(bool $now = false, bool $simulators = false): array
     {

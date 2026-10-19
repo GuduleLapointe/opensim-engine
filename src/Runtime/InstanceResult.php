@@ -7,7 +7,7 @@ namespace OpenSim\Runtime;
 /**
  * The result of starting or stopping an instance: what became of it, and why when it failed.
  */
-final class Result
+final class InstanceResult
 {
     public function __construct(
         public readonly string $instance,
