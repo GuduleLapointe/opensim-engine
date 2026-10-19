@@ -55,7 +55,7 @@ The profile arrays (`['EtcRoot' => ..., 'DataRoot' => ...]`) are gone: whatever 
 | Before | Now |
 | --- | --- |
 | the role `sims/<name>` and the key `sims` of `GridConfig::tree()` | `simulators/<name>`, `simulators` |
-| the folder `sims` written in paths | `GridConfig::SIMULATORS`, `GridConfig::simulatorsDirectory($gridDirectory)` (the folder on disk is still `sims`) |
+| the folder `sims` written in paths | `GridConfig::SIMULATORS`, `GridConfig::simulatorsDirectory($gridDirectory)` (the folder on disk is still `sims`, as in the first packages of opensim-debian) |
 | the `sim` field of the region form | `simulator` |
 
 ## Accounts
