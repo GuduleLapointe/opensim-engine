@@ -10,6 +10,7 @@ declare(strict_types=1);
 use Nyholm\Psr7\Factory\Psr17Factory;
 use OpenSim\Api\Api;
 use OpenSim\Api\Handler;
+use OpenSim\Assets\TextRendererInterface;
 use OpenSim\Config\GridConfig;
 use OpenSim\Data\Connections;
 use OpenSim\Models\Grid;
@@ -20,8 +21,13 @@ use OpenSim\Testing\Machine;
 use Psr\Http\Message\ResponseInterface;
 
 /** A handler over the test machine, mounted under `/api`. */
-function api_handler(?Scheduler $scheduler = null, ?Machine $machine = null, ?GridConfig $config = null): Handler
-{
+function api_handler(
+    ?Scheduler $scheduler = null,
+    ?Machine $machine = null,
+    ?GridConfig $config = null,
+    ?TextRendererInterface $texts = null,
+    ?string $grid = null,
+): Handler {
     $factory = new Psr17Factory();
     $machine ??= new Machine();
     $calls = [];
@@ -30,12 +36,14 @@ function api_handler(?Scheduler $scheduler = null, ?Machine $machine = null, ?Gr
         new Api(
             $machine->environment,
             $scheduler,
-            $config === null ? null : static fn(Grid $grid): GridConfig => $config,
+            $config === null ? null : static fn(Grid $found): GridConfig => $config,
+            $texts,
         ),
         $factory,
         $factory,
         '/api',
         asset_converter($calls),
+        $grid,
     );
 }
 
@@ -216,4 +224,179 @@ describe('The API handler', function () {
                 ->toBe('image/png');
         },
     );
+});
+
+/** A renderer that makes a text of the picture, and has two fonts. */
+function text_renderer(array &$drawn): TextRendererInterface
+{
+    return new class ($drawn) implements TextRendererInterface {
+        public function __construct(private array &$drawn) {}
+
+        public function render(string $text, string $font, int $size, string $color, string $background): ?string
+        {
+            if ($color === 'nocolor') {
+                throw new InvalidArgumentException("the text cannot be drawn with the color '$color'");
+            }
+            $this->drawn[] = [$text, $font, $size, $color, $background];
+
+            return $text === '' ? null : "png:$text";
+        }
+
+        public function fonts(): array
+        {
+            return ['Impact', 'DejaVu-Sans'];
+        }
+    };
+}
+
+/** The test machine with the files of a guide and a message of the day in the folder of its grid. */
+function guided_machine(): Machine
+{
+    $machine = new Machine();
+    $machine->write(
+        $machine->grid . '/Helpers.ini',
+        "[Helpers]\nGuideSource = \"destinations.txt\"\n[LoginService]\nWelcomeMessage = \"Hello <USERNAME>, welcome\"\n",
+    );
+    $machine->write(
+        $machine->grid . '/destinations.txt',
+        "Welcome|grid.example.org:8002/Welcome\nGardens\nRose garden|grid.example.org:8002/Roses|128,64,30\nWelcome|grid.example.org:8002/Another\n",
+    );
+
+    return $machine;
+}
+
+describe('The API handler, for the pages of a grid', function () {
+    test('gives the message of the day as text, with the name of the avatar when it is given', function () {
+        $handler = api_handler(machine: guided_machine());
+
+        $text = api_ask($handler, 'GET', '/api/grids/demo/motd');
+        $named = api_ask($handler, 'GET', '/api/grids/demo/motd?username=Ada%20Love');
+
+        expect($text->getStatusCode())
+            ->toBe(200)
+            ->and($text->getHeaderLine('Content-Type'))
+            ->toBe('text/plain; charset=utf-8')
+            ->and((string) $text->getBody())
+            ->toBe('Hello <USERNAME>, welcome')
+            ->and((string) $named->getBody())
+            ->toBe('Hello Ada Love, welcome')
+            ->and(api_ask($handler, 'GET', '/api/grids/nowhere/motd')->getStatusCode())
+            ->toBe(404)
+            ->and((string) api_ask(api_handler(), 'GET', '/api/grids/demo/motd?username=Ada')->getBody())
+            ->toBe('Welcome to Demo, Ada!');
+    });
+
+    test('lists the destinations of the guide as resources, by category, each with an id of its own', function () {
+        $handler = api_handler(machine: guided_machine());
+
+        $list = json_decode((string) api_ask($handler, 'GET', '/api/grids/demo/destinations')->getBody(), true);
+        $one = api_ask($handler, 'GET', '/api/grids/demo/destinations/gardens-rose-garden');
+
+        expect(array_column($list['data'], 'id'))
+            ->toBe(['destinations-guide-welcome', 'gardens-rose-garden', 'gardens-welcome'])
+            ->and($list['data'][1]['attributes'])
+            ->toBe(['name' => 'Rose garden', 'category' => 'Gardens', 'url' => 'grid.example.org:8002/Roses/128/64/30'])
+            ->and($list['meta']['categories'])
+            ->toBe(['Destinations Guide', 'Gardens'])
+            ->and($list['data'][1]['links']['self'])
+            ->toBe('/grids/demo/destinations/gardens-rose-garden')
+            ->and($one->getStatusCode())
+            ->toBe(200)
+            ->and(api_ask($handler, 'GET', '/api/grids/demo/destinations/nothing')->getStatusCode())
+            ->toBe(404)
+            ->and(api_ask($handler, 'GET', '/api/grids/nowhere/destinations')->getStatusCode())
+            ->toBe(404)
+            ->and(
+                json_decode((string) api_ask(api_handler(), 'GET', '/api/grids/demo/destinations')->getBody(), true)[
+                    'data'
+                ],
+            )
+            ->toBe([]);
+    });
+
+    test('answers without the grid on a host that serves one', function () {
+        $handler = api_handler(machine: guided_machine(), grid: 'demo');
+
+        expect((string) api_ask($handler, 'GET', '/api/motd?username=Ada')->getBody())
+            ->toBe('Hello Ada, welcome')
+            ->and(json_decode((string) api_ask($handler, 'GET', '/api/destinations')->getBody(), true)['meta']['total'])
+            ->toBe(3)
+            ->and(api_ask($handler, 'GET', '/api/destinations/gardens-welcome')->getStatusCode())
+            ->toBe(200)
+            ->and(api_ask(api_handler(machine: guided_machine()), 'GET', '/api/motd')->getStatusCode())
+            ->toBe(404);
+    });
+});
+
+describe('The API handler, for the images of a text', function () {
+    test('draws a text as a picture, with the font, the size and the colors asked, and the limits', function () {
+        $drawn = [];
+        $handler = api_handler(texts: text_renderer($drawn));
+
+        $plain = api_ask($handler, 'GET', '/api/text-images?text=Hello%20World');
+        $styled = api_ask(
+            $handler,
+            'GET',
+            '/api/text-images?text=Hi&font=DejaVu-Sans&size=5000&color=%23ff0000&background=blue&download=true',
+        );
+        $default = api_ask($handler, 'GET', '/api/text-images?size=-3');
+        $long = api_ask($handler, 'GET', '/api/text-images?text=' . str_repeat('x', 600));
+
+        expect($plain->getStatusCode())
+            ->toBe(200)
+            ->and($plain->getHeaderLine('Content-Type'))
+            ->toBe('image/png')
+            ->and((string) $plain->getBody())
+            ->toBe('png:Hello World')
+            ->and($plain->hasHeader('Content-Disposition'))
+            ->toBeFalse()
+            ->and($styled->getHeaderLine('Content-Disposition'))
+            ->toBe('attachment; filename="Hi.png"')
+            ->and($drawn[0])
+            ->toBe(['Hello World', 'Impact', 120, 'white', 'black'])
+            ->and($drawn[1])
+            ->toBe(['Hi', 'DejaVu-Sans', 1000, '#ff0000', 'blue'])
+            ->and((string) $default->getBody())
+            ->toBe('png:Impact')
+            ->and($drawn[2][2])
+            ->toBe(120)
+            ->and(strlen((string) $long->getBody()))
+            ->toBe(strlen('png:') + 500);
+    });
+
+    test(
+        'says why it cannot: a color that is not one is a bad request, a machine that cannot draw is not available',
+        function () {
+            $drawn = [];
+            $handler = api_handler(texts: text_renderer($drawn));
+
+            $bad = api_ask($handler, 'GET', '/api/text-images?text=x&color=nocolor');
+            $blind = api_ask($handler, 'GET', '/api/text-images?text=');
+
+            expect($bad->getStatusCode())
+                ->toBe(400)
+                ->and(json_decode((string) $bad->getBody(), true)['detail'])
+                ->toContain('nocolor')
+                ->and($blind->getStatusCode())
+                ->toBe(503)
+                ->and(api_ask($handler, 'POST', '/api/text-images')->getHeaderLine('Allow'))
+                ->toBe('GET');
+        },
+    );
+
+    test('lists the fonts the machine has, each one by its name', function () {
+        $drawn = [];
+        $handler = api_handler(texts: text_renderer($drawn));
+
+        $list = json_decode((string) api_ask($handler, 'GET', '/api/fonts')->getBody(), true);
+
+        expect(array_column($list['data'], 'id'))
+            ->toBe(['Impact', 'DejaVu-Sans'])
+            ->and($list['data'][0])
+            ->toMatchArray(['type' => 'fonts', 'attributes' => ['name' => 'Impact']])
+            ->and(api_ask($handler, 'GET', '/api/fonts/Impact')->getStatusCode())
+            ->toBe(200)
+            ->and(api_ask($handler, 'GET', '/api/fonts/Comic')->getStatusCode())
+            ->toBe(404);
+    });
 });

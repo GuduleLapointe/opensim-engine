@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace OpenSim\Api;
 
 use OpenSim\Config\GridConfig;
+use OpenSim\Exceptions\ChannelUnavailable;
 use OpenSim\Exceptions\NotFound;
 use OpenSim\Interfaces\ModelInterface;
 use OpenSim\Assets\ConverterInterface;
+use OpenSim\Assets\ImagickTextRenderer;
+use OpenSim\Assets\TextRendererInterface;
 use OpenSim\Assets\WebAssets;
 use OpenSim\Models\Asset;
 use OpenSim\Models\Avatar;
@@ -18,6 +21,7 @@ use OpenSim\Models\Region;
 use OpenSim\Models\Service;
 use OpenSim\Models\Simulator;
 use OpenSim\Runtime\Environment;
+use OpenSim\Provisioning\Slug;
 use OpenSim\Scheduling\Scheduler;
 
 /**
@@ -58,11 +62,13 @@ final class Api
     /**
      * @param ?Scheduler $scheduler the tasks of the application, none when it has none
      * @param ?\Closure(Grid):?GridConfig $config the config of a grid (default: its folder)
+     * @param ?TextRendererInterface $texts draws the images of a text (default: ImageMagick)
      */
     public function __construct(
         private readonly Environment $environment,
         private readonly ?Scheduler $scheduler = null,
         ?\Closure $config = null,
+        private readonly ?TextRendererInterface $texts = null,
     ) {
         $this->config =
             $config ??
@@ -87,6 +93,32 @@ final class Api
             if ($type === 'forms') {
                 return Response::document([
                     'data' => array_map(fn(string $name): array => $this->form($name), self::FORMS),
+                    'links' => ['self' => $instance],
+                ]);
+            }
+            if ($type === 'fonts') {
+                $fonts = array_map(
+                    static fn(string $name): array => self::fontResource($name),
+                    $this->renderer()->fonts(),
+                );
+
+                return Response::document([
+                    'data' => $fonts,
+                    'meta' => ['total' => count($fonts)],
+                    'links' => ['self' => $instance],
+                ]);
+            }
+            if ($type === 'destinations' && $grid !== null) {
+                $destinations = $this->destinations($grid);
+
+                return Response::document([
+                    'data' => array_values($destinations),
+                    'meta' => [
+                        'total' => count($destinations),
+                        'categories' => array_values(
+                            array_unique(array_column(array_column($destinations, 'attributes'), 'category')),
+                        ),
+                    ],
                     'links' => ['self' => $instance],
                 ]);
             }
@@ -131,6 +163,18 @@ final class Api
         try {
             if ($type === 'tasks') {
                 return $this->task($id, $instance);
+            }
+            if ($type === 'fonts') {
+                return in_array($id, $this->renderer()->fonts(), true)
+                    ? Response::document(['data' => self::fontResource($id), 'links' => ['self' => $instance]])
+                    : Response::problem(Problem::notFound("font called '$id'", $instance));
+            }
+            if ($type === 'destinations' && $grid !== null) {
+                $found = $this->destinations($grid)[$id] ?? null;
+
+                return $found !== null
+                    ? Response::document(['data' => $found, 'links' => ['self' => $instance]])
+                    : Response::problem(Problem::notFound("destination called '$id'", $instance));
             }
             if ($type === 'forms') {
                 return in_array($id, self::FORMS, true)
@@ -243,6 +287,54 @@ final class Api
         return Response::binary($picture['data'], $picture['mime'], $picture['found'] ? 200 : 404);
     }
 
+    /**
+     * The message of the day of a grid, as plain text: what its viewers show at login, `<USERNAME>` replaced when a name is given.
+     */
+    public function motd(string $grid, string $username = ''): Response
+    {
+        try {
+            $found = Grid::find($this->environment, $grid) ?? throw NotFound::for("grid called '$grid'");
+        } catch (\Throwable $error) {
+            return Response::problem(Problem::from($error, self::path('motd', null, $grid)));
+        }
+
+        return Response::binary($found->motd($username), 'text/plain; charset=utf-8');
+    }
+
+    /**
+     * The picture of a text, the texture of a prim: square, the text centered.
+     *
+     * @param array<string,mixed> $query `text` (the name of the font when there is none), `font`, `size` (1 to 1000), `color`,
+     *        `background`, `download` (offer it as a file)
+     */
+    public function textImage(array $query = []): Response
+    {
+        try {
+            $font = (string) ($query['font'] ?? 'Impact');
+            $size = (int) ($query['size'] ?? 120);
+            $text = mb_substr((string) ($query['text'] ?? $font), 0, 500);
+            $png =
+                $this->renderer()->render(
+                    $text,
+                    $font,
+                    $size > 0 ? min($size, 1000) : 120,
+                    (string) ($query['color'] ?? 'white'),
+                    (string) ($query['background'] ?? 'black'),
+                ) ?? throw ChannelUnavailable::for('draw the text', 'this server has no Imagick (php-imagick)');
+        } catch (\Throwable $error) {
+            return Response::problem(Problem::from($error, '/text-images'));
+        }
+        $name = mb_substr(trim((string) preg_replace('/[^\w\- .]+/u', '', $text)), 0, 60);
+
+        return Response::binary(
+            $png,
+            'image/png',
+            headers: filter_var($query['download'] ?? false, FILTER_VALIDATE_BOOLEAN)
+                ? ['Content-Disposition' => 'attachment; filename="' . ($name === '' ? 'text' : $name) . '.png"']
+                : [],
+        );
+    }
+
     /** Run a task now, whether it is due or not. */
     public function run(string $name): Response
     {
@@ -335,6 +427,53 @@ final class Api
     private static function classOf(string $type, ?string $grid): ?string
     {
         return $grid === null ? self::RESOURCES[$type] ?? null : self::GRID_RESOURCES[$type] ?? null;
+    }
+
+    private function renderer(): TextRendererInterface
+    {
+        return $this->texts ?? new ImagickTextRenderer();
+    }
+
+    /**
+     * The destinations of the guide of a grid as resources, by id.
+     *
+     * @return array<string,array<string,mixed>>
+     */
+    private function destinations(string $grid): array
+    {
+        $found = Grid::find($this->environment, $grid) ?? throw NotFound::for("grid called '$grid'");
+        $resources = [];
+        foreach ($found->destinations() as $category => $destinations) {
+            foreach ($destinations as $destination) {
+                $id = $base = Slug::slug("$category " . $destination['name']);
+                for ($n = 2; isset($resources[$id]); $n++) {
+                    $id = "$base-$n";
+                }
+                $resources[$id] = [
+                    'type' => 'destinations',
+                    'id' => $id,
+                    'attributes' => [
+                        'name' => $destination['name'],
+                        'category' => (string) $category,
+                        'url' => $destination['url'],
+                    ],
+                    'links' => ['self' => self::path('destinations', $id, $grid)],
+                ];
+            }
+        }
+
+        return $resources;
+    }
+
+    /** @return array{type:string,id:string,attributes:array<string,mixed>,links:array{self:string}} */
+    private static function fontResource(string $name): array
+    {
+        return [
+            'type' => 'fonts',
+            'id' => $name,
+            'attributes' => ['name' => $name],
+            'links' => ['self' => self::path('fonts', $name)],
+        ];
     }
 
     private function tasks(string $instance): Response

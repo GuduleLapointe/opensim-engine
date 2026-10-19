@@ -34,10 +34,18 @@ final class Response
         return new self($problem->status, ['Content-Type' => Problem::CONTENT_TYPE], $problem->toArray());
     }
 
-    /** An answer that is a file, a picture: the bytes and their content type. */
-    public static function binary(string $data, string $mime, int $status = 200): self
+    /**
+     * An answer that is a file, a picture, a text: the bytes and their content type.
+     *
+     * @param array<string,string> $headers more headers than the type and the length
+     */
+    public static function binary(string $data, string $mime, int $status = 200, array $headers = []): self
     {
-        $response = new self($status, ['Content-Type' => $mime, 'Content-Length' => (string) strlen($data)], []);
+        $response = new self(
+            $status,
+            ['Content-Type' => $mime, 'Content-Length' => (string) strlen($data)] + $headers,
+            [],
+        );
         $response->raw = $data;
 
         return $response;

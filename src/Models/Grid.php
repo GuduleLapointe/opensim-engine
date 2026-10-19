@@ -16,6 +16,7 @@ use OpenSim\Provisioning\LocationFinder;
 use OpenSim\Provisioning\Slug;
 use OpenSim\Hypergrid\Destination;
 use OpenSim\Network\GridInfoCache;
+use OpenSim\Text\DestinationList;
 use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\Result;
 
@@ -692,6 +693,45 @@ final class Grid extends InstalledModel
     private function infoAddress(): string
     {
         return $this->service('get-grid-info')?->url() ?? "http://{$this->baseHostname()}:{$this->publicPort()}";
+    }
+
+    /**
+     * The message of the day the viewers show at login: `WelcomeMessage` of `[LoginService]`, else a welcome to the grid; `<USERNAME>`
+     * stands for the name of the avatar, replaced when it is given.
+     */
+    public function motd(string $username = ''): string
+    {
+        $text =
+            $this->setting('LoginService', 'WelcomeMessage') ?? sprintf(_('Welcome to %s, <USERNAME>!'), $this->name());
+
+        return $username === '' ? $text : str_replace('<USERNAME>', $username, $text);
+    }
+
+    /**
+     * The destinations of the guide of the grid, by category: the file or the URL `GuideSource` of `[Helpers]` gives, "Name|Region URL"
+     * lines.
+     *
+     * @return array<string,list<array{name:string,url:string}>> empty when the grid has no guide, or it cannot be read
+     */
+    public function destinations(): array
+    {
+        $source = $this->setting('Helpers', 'GuideSource');
+
+        return DestinationList::parse(
+            (string) DestinationList::read(
+                $source,
+                $this->directory !== '' ? $this->directory : null,
+                $this->environment->http,
+            ),
+        );
+    }
+
+    /** A setting of the files of the grid (Robust, OpenSim.ini, Helpers.ini), the first that says it. */
+    private function setting(string $section, string $key): ?string
+    {
+        return $this->directory !== '' && is_dir($this->directory)
+            ? GridConfig::fromFolder($this->directory, ['Helpers' => 'Helpers.ini'])->find($section, $key)
+            : null;
     }
 
     /** Whether the grid is there: a Robust config, or the description of a remote grid. */

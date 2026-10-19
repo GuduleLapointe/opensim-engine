@@ -22,6 +22,9 @@ final class Contract
      * `scope` is `grid` for the resources of a grid (`/grids/{grid}/<type>`), `machine` for the ones of the machine, `application`
      * for what the application that uses the engine provides (its tasks, the forms of its setup).
      */
+    /** The resources whose list is whole: not searched, sorted or paged. */
+    private const UNPAGED = ['tasks', 'forms', 'destinations', 'fonts'];
+
     public const RESOURCES = [
         'grids' => [
             'scope' => 'machine',
@@ -352,6 +355,22 @@ final class Contract
             ],
             'writable' => [],
         ],
+        'destinations' => [
+            'scope' => 'grid',
+            'summary' => 'The destinations of the guide of a grid',
+            'description' =>
+                'The places the guide of the grid shows, by category, in the order of its source (`GuideSource` of `[Helpers]`: a file or a URL of "Name|Region URL" lines). The same list feeds the page of the guide and the boards of the scripts.',
+            'attributes' => [
+                'name' => ['string', 'What the guide shows'],
+                'category' => ['string', 'The group it is listed in'],
+                'url' => [
+                    'string',
+                    'The region address it leads to, as the source gives it (grid and region, with the place when there is one)',
+                ],
+            ],
+            'filters' => [],
+            'writable' => [],
+        ],
         'tasks' => [
             'scope' => 'application',
             'summary' => 'The tasks the application runs now and then',
@@ -379,6 +398,14 @@ final class Contract
             'attributes' => [
                 'fields' => ['array', 'The fields, in the order they are asked'],
             ],
+            'filters' => [],
+            'writable' => [],
+        ],
+        'fonts' => [
+            'scope' => 'application',
+            'summary' => 'The fonts the machine has to draw a text',
+            'description' => 'The names to give as `font` of a text image (`/text-images`).',
+            'attributes' => ['name' => ['string', 'The name of the font']],
             'filters' => [],
             'writable' => [],
         ],
@@ -418,7 +445,7 @@ final class Contract
             $schemas[$schema] = self::schema($type);
             $base = $resource['scope'] === 'grid' ? "/grids/{grid}/$type" : "/$type";
             $parameters = $resource['scope'] === 'grid' ? [self::gridParameter()] : [];
-            if ($type !== 'tasks' && $type !== 'forms') {
+            if (!in_array($type, self::UNPAGED, true)) {
                 $paths[$base]['get'] = [
                     'operationId' => "list$schema",
                     'tags' => [$tag],
@@ -435,9 +462,10 @@ final class Contract
                     'operationId' => "list$schema",
                     'tags' => [$tag],
                     'summary' => $resource['summary'],
+                    'parameters' => $parameters,
                     'responses' => [
                         '200' => self::documentResponse("The $type", $schema, true),
-                        '404' => self::problem('The application has none'),
+                        '404' => self::problem('The application has none, or the grid is not known here'),
                     ],
                 ];
             }
@@ -532,6 +560,88 @@ final class Contract
                     'description' => 'There is no such asset, or it cannot be converted: the picture of nothing',
                     'content' => ['image/png' => ['schema' => ['type' => 'string', 'format' => 'binary']]],
                 ],
+            ],
+        ];
+        $paths['/grids/{grid}/motd']['get'] = [
+            'operationId' => 'getMotd',
+            'tags' => [$scopes['grid'] . ': motd'],
+            'summary' => 'The message of the day the viewers show at login',
+            'description' =>
+                'Plain text: `WelcomeMessage` of `[LoginService]`, else a welcome to the grid. `<USERNAME>` stands for the name of the avatar, replaced when `username` is given. This is what `MessageUrl` of the Robust config can point to.',
+            'parameters' => [
+                self::gridParameter(),
+                [
+                    'name' => 'username',
+                    'in' => 'query',
+                    'required' => false,
+                    'description' => 'The name that replaces `<USERNAME>`',
+                    'schema' => ['type' => 'string'],
+                ],
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'The message',
+                    'content' => ['text/plain' => ['schema' => ['type' => 'string']]],
+                ],
+                '404' => self::problem('The grid is not known here'),
+            ],
+        ];
+        $paths['/text-images']['get'] = [
+            'operationId' => 'getTextImage',
+            'tags' => [$scopes['application'] . ': text images'],
+            'summary' => 'The picture of a text, the texture of a prim',
+            'description' =>
+                'A 1024 pixels square PNG with the text centered, to put on a prim where dynamic textures are not allowed, or to lighten the simulator. The fonts the machine has are listed at `/fonts`; one it does not have is replaced by DejaVu-Sans.',
+            'parameters' => [
+                [
+                    'name' => 'text',
+                    'in' => 'query',
+                    'required' => false,
+                    'description' => 'The text (500 characters at most); the name of the font when there is none',
+                    'schema' => ['type' => 'string'],
+                ],
+                [
+                    'name' => 'font',
+                    'in' => 'query',
+                    'required' => false,
+                    'schema' => ['type' => 'string', 'default' => 'Impact'],
+                ],
+                [
+                    'name' => 'size',
+                    'in' => 'query',
+                    'required' => false,
+                    'description' => 'The size of the font, up to 1000',
+                    'schema' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 1000, 'default' => 120],
+                ],
+                [
+                    'name' => 'color',
+                    'in' => 'query',
+                    'required' => false,
+                    'description' => 'The color of the text: a name or #rrggbb',
+                    'schema' => ['type' => 'string', 'default' => 'white'],
+                ],
+                [
+                    'name' => 'background',
+                    'in' => 'query',
+                    'required' => false,
+                    'description' => 'The color of the background: a name or #rrggbb',
+                    'schema' => ['type' => 'string', 'default' => 'black'],
+                ],
+                [
+                    'name' => 'download',
+                    'in' => 'query',
+                    'required' => false,
+                    'description' => 'Offer the picture as a file instead of showing it',
+                    'schema' => ['type' => 'boolean', 'default' => false],
+                ],
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'The picture',
+                    'content' => ['image/png' => ['schema' => ['type' => 'string', 'format' => 'binary']]],
+                ],
+                '400' => self::problem('The color or the background is not one'),
+                '503' => self::problem('The machine cannot draw: php-imagick is missing'),
             ],
         ];
         $paths['/tasks/{id}/runs']['post'] = [

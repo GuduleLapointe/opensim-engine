@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 'OpenSim engine'
-  version: 32883d0
+  version: 8db4b12
   license:
     name: AGPL-3.0-or-later
     identifier: AGPL-3.0-or-later
@@ -45,11 +45,17 @@ tags:
     name: 'A grid: assets'
     description: 'What the grid keeps in its asset service: textures, sounds, notecards, scripts, objects... A record never carries its data: an image of any type (texture, TGA, JPEG) is asked as a picture (`/grids/{grid}/assets/{id}.{format}`, the grid keeps textures as JPEG 2000 and the engine converts them and keeps the result for a day), the other types as they are.'
   -
+    name: 'A grid: destinations'
+    description: 'The places the guide of the grid shows, by category, in the order of its source (`GuideSource` of `[Helpers]`: a file or a URL of "Name|Region URL" lines). The same list feeds the page of the guide and the boards of the scripts.'
+  -
     name: 'The application: tasks'
     description: 'Cron and pseudo cron: each task has a name and an interval, runs when due, never twice at once, and a failure waits for its next turn. Asked to run, a task runs now.'
   -
     name: 'The application: forms'
     description: 'The fields of the forms (grid, remote-grid, simulator, region), in the standard format of the forms: name, label, type, default, options, condition, follows, group. Whoever shows a form (the terminal, a web page) reads them from here; the engine itself uses them to work out what is not answered.'
+  -
+    name: 'The application: fonts'
+    description: 'The names to give as `font` of a text image (`/text-images`).'
 paths:
   /grids:
     get:
@@ -1234,12 +1240,83 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+  '/grids/{grid}/destinations':
+    get:
+      operationId: listDestinations
+      tags:
+        - 'A grid: destinations'
+      summary: 'The destinations of the guide of a grid'
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+      responses:
+        200:
+          description: 'The destinations'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Destinations'
+                  meta:
+                    type: object
+        404:
+          description: 'The application has none, or the grid is not known here'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  '/grids/{grid}/destinations/{id}':
+    get:
+      operationId: getDestination
+      tags:
+        - 'A grid: destinations'
+      summary: 'One of the destinations by its id'
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: 'The resource'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Destinations'
+        404:
+          description: 'There is none with this id'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
   /tasks:
     get:
       operationId: listTasks
       tags:
         - 'The application: tasks'
       summary: 'The tasks the application runs now and then'
+      parameters: []
       responses:
         200:
           description: 'The tasks'
@@ -1255,7 +1332,7 @@ paths:
                   meta:
                     type: object
         404:
-          description: 'The application has none'
+          description: 'The application has none, or the grid is not known here'
           content:
             application/problem+json:
               schema:
@@ -1295,6 +1372,7 @@ paths:
       tags:
         - 'The application: forms'
       summary: 'What a setup asks'
+      parameters: []
       responses:
         200:
           description: 'The forms'
@@ -1310,7 +1388,7 @@ paths:
                   meta:
                     type: object
         404:
-          description: 'The application has none'
+          description: 'The application has none, or the grid is not known here'
           content:
             application/problem+json:
               schema:
@@ -1338,6 +1416,62 @@ paths:
                 properties:
                   data:
                     $ref: '#/components/schemas/Forms'
+        404:
+          description: 'There is none with this id'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /fonts:
+    get:
+      operationId: listFonts
+      tags:
+        - 'The application: fonts'
+      summary: 'The fonts the machine has to draw a text'
+      parameters: []
+      responses:
+        200:
+          description: 'The fonts'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Fonts'
+                  meta:
+                    type: object
+        404:
+          description: 'The application has none, or the grid is not known here'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  '/fonts/{id}':
+    get:
+      operationId: getFont
+      tags:
+        - 'The application: fonts'
+      summary: 'One of the fonts by its id'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: 'The resource'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Fonts'
         404:
           description: 'There is none with this id'
           content:
@@ -1398,6 +1532,117 @@ paths:
               schema:
                 type: string
                 format: binary
+  '/grids/{grid}/motd':
+    get:
+      operationId: getMotd
+      tags:
+        - 'A grid: motd'
+      summary: 'The message of the day the viewers show at login'
+      description: 'Plain text: `WelcomeMessage` of `[LoginService]`, else a welcome to the grid. `<USERNAME>` stands for the name of the avatar, replaced when `username` is given. This is what `MessageUrl` of the Robust config can point to.'
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+        -
+          name: username
+          in: query
+          required: false
+          description: 'The name that replaces `<USERNAME>`'
+          schema:
+            type: string
+      responses:
+        200:
+          description: 'The message'
+          content:
+            text/plain:
+              schema:
+                type: string
+        404:
+          description: 'The grid is not known here'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /text-images:
+    get:
+      operationId: getTextImage
+      tags:
+        - 'The application: text images'
+      summary: 'The picture of a text, the texture of a prim'
+      description: 'A 1024 pixels square PNG with the text centered, to put on a prim where dynamic textures are not allowed, or to lighten the simulator. The fonts the machine has are listed at `/fonts`; one it does not have is replaced by DejaVu-Sans.'
+      parameters:
+        -
+          name: text
+          in: query
+          required: false
+          description: 'The text (500 characters at most); the name of the font when there is none'
+          schema:
+            type: string
+        -
+          name: font
+          in: query
+          required: false
+          schema:
+            type: string
+            default: Impact
+        -
+          name: size
+          in: query
+          required: false
+          description: 'The size of the font, up to 1000'
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 120
+        -
+          name: color
+          in: query
+          required: false
+          description: 'The color of the text: a name or #rrggbb'
+          schema:
+            type: string
+            default: white
+        -
+          name: background
+          in: query
+          required: false
+          description: 'The color of the background: a name or #rrggbb'
+          schema:
+            type: string
+            default: black
+        -
+          name: download
+          in: query
+          required: false
+          description: 'Offer the picture as a file instead of showing it'
+          schema:
+            type: boolean
+            default: false
+      responses:
+        200:
+          description: 'The picture'
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        400:
+          description: 'The color or the background is not one'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        503:
+          description: 'The machine cannot draw: php-imagick is missing'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
   '/tasks/{id}/runs':
     post:
       operationId: runTask
@@ -2289,6 +2534,35 @@ components:
           properties:
             self:
               type: string
+    Destinations:
+      type: object
+      description: 'The destinations of the guide of a grid'
+      required:
+        - type
+        - id
+        - attributes
+      properties:
+        type:
+          const: destinations
+        id:
+          type: string
+        attributes:
+          type: object
+          properties:
+            name:
+              type: string
+              description: 'What the guide shows'
+            category:
+              type: string
+              description: 'The group it is listed in'
+            url:
+              type: string
+              description: 'The region address it leads to, as the source gives it (grid and region, with the place when there is one)'
+        links:
+          type: object
+          properties:
+            self:
+              type: string
     Tasks:
       type: object
       description: 'The tasks the application runs now and then'
@@ -2362,6 +2636,29 @@ components:
             fields:
               type: array
               description: 'The fields, in the order they are asked'
+        links:
+          type: object
+          properties:
+            self:
+              type: string
+    Fonts:
+      type: object
+      description: 'The fonts the machine has to draw a text'
+      required:
+        - type
+        - id
+        - attributes
+      properties:
+        type:
+          const: fonts
+        id:
+          type: string
+        attributes:
+          type: object
+          properties:
+            name:
+              type: string
+              description: 'The name of the font'
         links:
           type: object
           properties:

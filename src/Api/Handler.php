@@ -21,7 +21,8 @@ use Psr\Http\Server\RequestHandlerInterface;
  *
  * The addresses are the ones of the contract (see Contract::document()): `/{type}` and `/{type}/{id}` for the resources of the
  * machine, `/grids/{grid}/{type}` and `/grids/{grid}/{type}/{id}` for the ones of a grid, `/grids/{grid}/assets/{id}.{format}`
- * for a picture, `POST /tasks/{id}/runs`, and the contract itself at `/openapi.json`. The body of a creation or a change is a
+ * for a picture, `/grids/{grid}/motd`, `/text-images`, `POST /tasks/{id}/runs`, and the contract itself at `/openapi.json`. A host that
+ * serves one grid says so (`grid:`) and asks for its resources without it (`/motd`, `/destinations`, `/avatars`). The body of a creation or a change is a
  * JSON:API document, the errors are problems (RFC 9457).
  */
 final class Handler implements RequestHandlerInterface
@@ -32,6 +33,8 @@ final class Handler implements RequestHandlerInterface
     /**
      * @param string $base where the application mounts the API (`/api`): the beginning of the paths it does not answer for
      * @param ?ConverterInterface $converter converts the pictures of the grid (default: the one of the machine)
+     * @param ?string $grid the grid a web host serves: what is asked of a grid without saying which (`/motd`, `/destinations`,
+     *        `/avatars`, `/assets/{id}.png`) is asked of this one
      */
     public function __construct(
         private readonly Api $api,
@@ -39,6 +42,7 @@ final class Handler implements RequestHandlerInterface
         private readonly StreamFactoryInterface $streams,
         private readonly string $base = '',
         private readonly ?ConverterInterface $converter = null,
+        private readonly ?string $grid = null,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -74,6 +78,13 @@ final class Handler implements RequestHandlerInterface
         $count = count($segments);
         $grid = ($segments[0] ?? '') === 'grids' && $count >= 3 ? $segments[1] : null;
         $tail = $grid === null ? $segments : array_slice($segments, 2);
+        if (
+            $grid === null &&
+            $this->grid !== null &&
+            (isset(Api::GRID_RESOURCES[$tail[0] ?? '']) || in_array($tail[0] ?? '', ['destinations', 'motd'], true))
+        ) {
+            $grid = $this->grid;
+        }
         if ($segments === ['openapi.json']) {
             $routes = ['GET' => fn() => new Response(200, ['Content-Type' => self::OPENAPI], Contract::document())];
         } elseif (count($segments) === 3 && $segments[0] === 'tasks' && $segments[2] === 'runs') {
@@ -86,6 +97,10 @@ final class Handler implements RequestHandlerInterface
         ) {
             $width = isset($query['width']) ? (int) $query['width'] : null;
             $routes = ['GET' => fn() => $this->api->media($grid, $m[1], $m[2], $this->converter, $width)];
+        } elseif ($tail === ['text-images']) {
+            $routes = ['GET' => fn() => $this->api->textImage($query)];
+        } elseif ($grid !== null && $tail === ['motd']) {
+            $routes = ['GET' => fn() => $this->api->motd($grid, (string) ($query['username'] ?? ''))];
         } elseif (count($tail) === 1 && $tail[0] !== '') {
             $type = $tail[0];
             $routes = [

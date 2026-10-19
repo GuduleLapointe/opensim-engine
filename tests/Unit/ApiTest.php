@@ -334,6 +334,10 @@ describe('The contract', function () {
                     '/grids/{grid}/avatars',
                     '/grids/{grid}/avatars/{id}',
                     '/grids/{grid}/estates',
+                    '/grids/{grid}/destinations',
+                    '/grids/{grid}/motd',
+                    '/text-images',
+                    '/fonts',
                     '/tasks',
                     '/tasks/{id}/runs',
                     '/forms/{id}',
@@ -349,8 +353,10 @@ describe('The contract', function () {
                     'Parcels',
                     'Estates',
                     'Assets',
+                    'Destinations',
                     'Tasks',
                     'Forms',
+                    'Fonts',
                 ])
                 ->and($paths['/services']['get']['parameters'])
                 ->toContain([
@@ -404,8 +410,16 @@ describe('The contract', function () {
         $scheduler->add(new Task('count', 60, fn() => null));
         $details['tasks'] = first_attributes(machine_api(scheduler: $scheduler)->list('tasks'));
         $details['forms'] = first_attributes(machine_api()->list('forms'));
+        $drawn = [];
+        $guided = guided_machine();
+        $details['destinations'] = first_attributes(
+            (new Api($guided->environment))->list('destinations', [], grid: 'demo'),
+        );
+        $details['fonts'] = first_attributes(
+            (new Api($guided->environment, texts: text_renderer($drawn)))->list('fonts'),
+        );
 
-        expect(array_keys($details))->toBe(array_keys(Contract::RESOURCES));
+        expect(array_keys($details))->toEqualCanonicalizing(array_keys(Contract::RESOURCES));
         foreach ($details as $type => $detail) {
             unset($detail['id']);
             $known = array_keys(Contract::attributes($type));

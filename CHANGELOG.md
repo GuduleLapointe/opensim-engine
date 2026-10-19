@@ -2,6 +2,7 @@
 
 ### Unreleased
 
+- new: standard endpoints `/grids/{grid}/motd`, `/grids/{grid}/destinations` (the guide), `/text-images`, `/fonts`; `Grid::motd()`, `destinations()`, `Text\DestinationList`, `Assets\ImagickTextRenderer`; `Handler` takes `grid:` for a host that serves one grid
 - new: `Api\Handler`: the API as a PSR-15 handler (PSR-7 messages, PSR-17 factories given by the application), the contract at `/openapi.json`; `width` of the pictures in the contract
 - new: `Data\Cache`: what takes a search to know is searched once per session (memory), and kept for a while when given a time to live, in the `oshelpers_cache` table of the search database or in files; `GridInfoCache` is built on it
 - new: `Network\GridInfoCache`: what a grid said when it was verified (joining it, starting it, `Grid::refreshInfo()`) is kept for a day and read from there, nothing is asked at each call; `Grid::loginUrl()` and `regionUri()`: the login the grid said is the one, whatever address it was reached at, none for a grid that runs elsewhere and was not verified; the address of a visitor follows it
