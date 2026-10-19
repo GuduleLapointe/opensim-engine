@@ -135,3 +135,78 @@ describe('services as a simulator reaches them', function () {
         },
     );
 });
+
+describe('web services of a grid', function () {
+    /** The grid `demo` with the addresses its config gives to the web services. */
+    function web_grid(): Grid
+    {
+        $machine = new Machine();
+        $machine->write(
+            $machine->grid . '/Robust.HG.ini',
+            file_get_contents($machine->grid . '/Robust.HG.ini') .
+                "\n[GridInfoService]\n    economy = \"https://play.example.org/helpers/\"\n[LoginService]\n    MessageUrl = \"https://play.example.org/helpers/motd.php\"\n    DestinationGuide = \"https://play.example.org/guide\"\n",
+        );
+        $machine->write(
+            $machine->grid . '/OpenSim.ini',
+            "[Search]\n    SearchURL = \"https://play.example.org/helpers/query.php\"\n[DataSnapshot]\n    DATA_SRV_demo = \"https://play.example.org/helpers/register.php\"\n[Messaging]\n    OfflineMessageURL = \"https://play.example.org/helpers/offline.php\"\n",
+        );
+
+        return Grid::find($machine->environment, 'demo');
+    }
+
+    test(
+        'are the addresses the config of the grid gives them, with the format that is fixed or the engine\'s',
+        function () {
+            $grid = web_grid();
+            $uris = [];
+            foreach (['search', 'currency', 'landtool', 'register', 'offline', 'motd', 'guide'] as $key) {
+                $uris[$key] = [
+                    $grid->service($key)?->uri(),
+                    $grid->service($key)?->kind(),
+                    $grid->service($key)?->legacy(),
+                ];
+            }
+
+            expect($uris)->toBe([
+                'search' => ['https://play.example.org/helpers/query.php', Service::FIXED, 'query'],
+                'currency' => ['https://play.example.org/helpers/currency.php', Service::FIXED, 'currency'],
+                'landtool' => ['https://play.example.org/helpers/landtool.php', Service::FIXED, 'landtool'],
+                'register' => ['https://play.example.org/helpers/register.php', Service::STANDARD, 'register'],
+                'offline' => ['https://play.example.org/helpers/offline.php', Service::STANDARD, 'offline'],
+                'motd' => ['https://play.example.org/helpers/motd.php', Service::STANDARD, 'motd'],
+                'guide' => ['https://play.example.org/guide', Service::STANDARD, 'guide'],
+            ]);
+        },
+    );
+
+    test(
+        'say where the engine has them in its own terms: the port, the standard address, whether it is served by Robust',
+        function () {
+            $motd = web_grid()->service('motd');
+
+            expect($motd->port())
+                ->toBe(Service::WEB)
+                ->and($motd->isWeb())
+                ->toBeTrue()
+                ->and($motd->isServed())
+                ->toBeFalse()
+                ->and($motd->standard())
+                ->toBe('GET /motd')
+                ->and($motd->detail())
+                ->toMatchArray(['web' => true, 'kind' => 'standard', 'legacy' => 'motd', 'standard' => 'GET /motd'])
+                ->and(web_grid()->service('search')->standard())
+                ->toBeNull();
+        },
+    );
+
+    test('are not the grid\'s when its config does not give them', function () {
+        $grid = service_grid(new Machine());
+
+        expect($grid->service('search'))
+            ->toBeNull()
+            ->and($grid->service('currency'))
+            ->toBeNull()
+            ->and($grid->service('text-images'))
+            ->toBeNull();
+    });
+});

@@ -70,6 +70,8 @@ The profile arrays (`['EtcRoot' => ..., 'DataRoot' => ...]`) are gone: whatever 
 
 `Scheduling\Scheduler` and `Task` (cron and pseudo cron), `Api\Api`, `Contract`, `Problem` (JSON:API, OpenAPI, RFC 9457).
 
+The web services of a grid (search, currency, land purchase, registration, offline messages, message of the day, guide, images of a text) are in the catalog of `Models\Service`: where the config of the grid puts each, whether its format is fixed by OpenSimulator and the viewers (`query`, `currency`, `landtool`: only the address is free) or the engine's (`standard`: the old script is its `legacy` name).
+
 ## Functions
 
 | Before | Now |

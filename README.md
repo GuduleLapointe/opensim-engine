@@ -117,6 +117,7 @@ require 'vendor/autoload.php';   // PSR-4: OpenSim\ is src/; the gettext stand-i
 
 - **[Developer Guide](DEVELOPERS.md)** - Architecture rules and patterns
 - **[The data of a grid](docs/data.md)** - the models (avatars, regions, parcels), the collections and the databases
+- **[The API](docs/api/index.html)** - the resources, their attributes and what can be written, from the contract (`docs/api/openapi.yaml`); `composer docs` makes it again, the descriptions are written in `src/Api/Contract.php`
 - **[Migration of the consumers](docs/MIGRATION.md)** - what was renamed, moved or removed
 
 ## 🤝 Contributing

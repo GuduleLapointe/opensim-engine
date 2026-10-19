@@ -34,6 +34,15 @@ final class Service extends InstalledModel
     /** Reached by the viewers and by the other grids, on its public port. */
     public const PUBLIC = 'public';
 
+    /** A web service: an address on a web site, not a port of Robust. */
+    public const WEB = 'web';
+
+    /** The format of its requests and answers is fixed by OpenSimulator or by the viewers: the address is the grid's to choose. */
+    public const FIXED = 'fixed';
+
+    /** The format is the engine's own (see Contract): the old scripts that answered in their own are adapted. */
+    public const STANDARD = 'standard';
+
     /**
      * The services OpenSimulator has, by key: the connectors of `[ServiceList]` that serve it, the port they are on, and the setting a
      * simulator is given its address in (section, key), when it has one.
@@ -134,6 +143,9 @@ final class Service extends InstalledModel
             'port' => self::PRIVATE,
             'setting' => ['Messaging', 'OfflineMessageURL'],
             'database' => Database::Offline,
+            'kind' => self::STANDARD,
+            'legacy' => 'offline',
+            'standard' => 'POST /offline-messages',
         ],
         'profile' => [
             'connectors' => ['UserProfilesServiceConnector'],
@@ -188,6 +200,72 @@ final class Service extends InstalledModel
             'port' => self::PUBLIC,
             'setting' => null,
             'database' => null,
+        ],
+        'search' => [
+            'connectors' => [],
+            'port' => self::WEB,
+            'setting' => ['Search', 'SearchURL'],
+            'database' => Database::Search,
+            'kind' => self::FIXED,
+            'legacy' => 'query',
+        ],
+        'currency' => [
+            'connectors' => [],
+            'port' => self::WEB,
+            'setting' => ['GridInfoService', 'economy'],
+            'role' => 'Robust',
+            'append' => 'currency.php',
+            'database' => Database::Economy,
+            'kind' => self::FIXED,
+            'legacy' => 'currency',
+        ],
+        'landtool' => [
+            'connectors' => [],
+            'port' => self::WEB,
+            'setting' => ['GridInfoService', 'economy'],
+            'role' => 'Robust',
+            'append' => 'landtool.php',
+            'database' => null,
+            'kind' => self::FIXED,
+            'legacy' => 'landtool',
+        ],
+        'register' => [
+            'connectors' => [],
+            'port' => self::WEB,
+            'setting' => ['DataSnapshot', 'DATA_SRV_*'],
+            'database' => Database::Search,
+            'kind' => self::STANDARD,
+            'legacy' => 'register',
+            'standard' => 'POST /search/hosts',
+        ],
+        'motd' => [
+            'connectors' => [],
+            'port' => self::WEB,
+            'setting' => ['LoginService', 'MessageUrl'],
+            'role' => 'Robust',
+            'database' => null,
+            'kind' => self::STANDARD,
+            'legacy' => 'motd',
+            'standard' => 'GET /motd',
+        ],
+        'guide' => [
+            'connectors' => [],
+            'port' => self::WEB,
+            'setting' => ['LoginService', 'DestinationGuide'],
+            'role' => 'Robust',
+            'database' => null,
+            'kind' => self::STANDARD,
+            'legacy' => 'guide',
+            'standard' => 'GET /destinations',
+        ],
+        'text-images' => [
+            'connectors' => [],
+            'port' => self::WEB,
+            'setting' => null,
+            'database' => null,
+            'kind' => self::STANDARD,
+            'legacy' => 'textgen',
+            'standard' => 'GET /text-images',
         ],
         'instant-message' => [
             'connectors' => ['InstantMessageServerConnector'],
@@ -283,6 +361,13 @@ final class Service extends InstalledModel
             'hg-inventory' => _('Hypergrid inventories'),
             'hg-groups' => _('Hypergrid groups'),
             'instant-message' => _('Instant messages between grids'),
+            'search' => _('Search'),
+            'currency' => _('Currency'),
+            'landtool' => _('Land purchase'),
+            'register' => _('Registration of the simulators in the search'),
+            'motd' => _('Message of the day'),
+            'guide' => _('Destination guide'),
+            'text-images' => _('Images of a text'),
         ];
     }
 
@@ -399,6 +484,30 @@ final class Service extends InstalledModel
         return $this->viewer;
     }
 
+    /** Whether it is a web service: an address on a web site (the helpers), not a port of Robust. */
+    public function isWeb(): bool
+    {
+        return $this->port() === self::WEB;
+    }
+
+    /** Whether its format is fixed by OpenSimulator or the viewers (self::FIXED), or the engine's own (self::STANDARD); null for a service of Robust. */
+    public function kind(): ?string
+    {
+        return self::CATALOG[$this->key]['kind'] ?? null;
+    }
+
+    /** The name of the script that answered it before the engine had a standard for it (`query`, `register`...). */
+    public function legacy(): ?string
+    {
+        return self::CATALOG[$this->key]['legacy'] ?? null;
+    }
+
+    /** The standard address of a service whose format is the engine's own (`GET /motd`), null when it has none. */
+    public function standard(): ?string
+    {
+        return self::CATALOG[$this->key]['standard'] ?? null;
+    }
+
     /** The port it is reached on: self::PRIVATE or self::PUBLIC. */
     public function port(): string
     {
@@ -469,7 +578,8 @@ final class Service extends InstalledModel
     /** Whether the grid has it: served by a Robust, or declared for its simulators. */
     public function exists(): bool
     {
-        return $this->isServed() || $this->declared() !== null;
+        // A service with no setting for it that the helpers answer by themselves is the grid's when it has helpers
+        return $this->isServed() || $this->declared() !== null || $this->helperAddress() !== null;
     }
 
     /**
@@ -495,7 +605,14 @@ final class Service extends InstalledModel
                 $this->grid->publicPort();
         }
 
-        return $this->declared();
+        $declared = $this->declared();
+        if ($declared !== null) {
+            $append = self::CATALOG[$this->key]['append'] ?? '';
+
+            return $append !== '' ? rtrim($declared, '/') . '/' . $append : $declared;
+        }
+
+        return $this->helperAddress();
     }
 
     /** Served by a Robust that is enabled, or declared (a server somewhere else is the business of whoever runs it). */
@@ -540,7 +657,21 @@ final class Service extends InstalledModel
             'section' => $setting[0] ?? null,
             'setting' => $setting[1] ?? null,
             'database' => $this->database()?->value,
+            'web' => $this->isWeb(),
+            'kind' => $this->kind(),
+            'legacy' => $this->legacy(),
+            'standard' => $this->standard(),
         ];
+    }
+
+    /** Where the helpers of the grid answer a web service no setting names (the images of a text), null when they do not. */
+    private function helperAddress(): ?string
+    {
+        if (!$this->isWeb() || $this->setting() !== null || $this->legacy() === null) {
+            return null;
+        }
+
+        return $this->grid->helperUrl($this->legacy()) ?: null;
     }
 
     /** The address the config of the simulators of the grid gives for it, null when it gives none. */
@@ -560,22 +691,44 @@ final class Service extends InstalledModel
             return null;
         }
         if ($this->declaration === null) {
-            // What the grid says for all its simulators: the OpenSim.ini of its folder
-            $value =
+            // What the grid says: the OpenSim.ini of its folder for the simulators, the Robust config for what Robust tells
+            $section =
                 $this->grid->directory() !== '' && is_dir($this->grid->directory())
-                    ? GridConfig::fromFolder($this->grid->directory())->get("OpenSim.$setting[0].$setting[1]")
-                    : null;
-            $this->declaration = [is_string($value) && $value !== '' ? $value : null];
+                    ? GridConfig::fromFolder($this->grid->directory())->tree()[
+                            self::CATALOG[$this->key]['role'] ?? 'OpenSim'
+                        ][$setting[0]] ?? []
+                    : [];
+            $this->declaration = [self::valueOf(is_array($section) ? $section : [], $setting[1])];
         }
 
         return $this->declaration[0];
     }
 
+    /** The value of a setting in a section; a key ending with `*` is the first key that starts so. */
+    private static function valueOf(array $section, string $key): ?string
+    {
+        if (str_ends_with($key, '*')) {
+            foreach ($section as $name => $value) {
+                if (str_starts_with((string) $name, rtrim($key, '*')) && is_string($value) && $value !== '') {
+                    return $value;
+                }
+            }
+
+            return null;
+        }
+        $value = $section[$key] ?? null;
+
+        return is_string($value) && $value !== '' ? $value : null;
+    }
+
     private function declaredBy(Simulator $simulator): ?string
     {
         $setting = $this->setting();
-        $value = $setting !== null ? $simulator->setting($setting[0], $setting[1]) : '';
+        // What Robust tells is not in the config of a simulator
+        if ($setting === null || (self::CATALOG[$this->key]['role'] ?? 'OpenSim') !== 'OpenSim') {
+            return null;
+        }
 
-        return $value !== '' ? $value : null;
+        return self::valueOf($simulator->settings()[$setting[0]] ?? [], $setting[1]);
     }
 }

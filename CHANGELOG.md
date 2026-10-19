@@ -2,6 +2,8 @@
 
 ### Unreleased
 
+- new: the API of the avatars, regions, parcels and estates of a grid, the tasks, the forms, the writes; `composer docs` makes its documentation
+- new: the web services (search, currency, registration, offline, motd, guide) in the catalog of `Service`, fixed or standard
 - new: `Api`, `Contract`, `Problem`: JSON:API documents, an OpenAPI 3.1 contract checked by the tests, RFC 9457 errors
 - new: `Scheduling\Scheduler` and `Task`: cron and pseudo cron, locked, last run kept
 - new: `Avatar::create()` and a fuller `update()`; `AccountImporter::forModels()`

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OpenSim\Api;
 
 use OpenSim\Exceptions\ChannelUnavailable;
+use OpenSim\Exceptions\NotFound;
 
 /**
  * What went wrong, told as RFC 9457 asks (`application/problem+json`): a status, a title, what happened, and where. The same
@@ -36,6 +37,13 @@ final class Problem
     public static function from(\Throwable $error, ?string $instance = null): self
     {
         return match (true) {
+            $error instanceof NotFound => new self(
+                404,
+                'Not found',
+                $error->getMessage(),
+                'urn:opensim:problem:not-found',
+                $instance,
+            ),
             $error instanceof \InvalidArgumentException => new self(
                 400,
                 'Invalid request',

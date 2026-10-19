@@ -1,0 +1,2105 @@
+openapi: 3.1.0
+info:
+  title: 'OpenSim engine'
+  version: fc0ad36
+  license:
+    name: AGPL-3.0-or-later
+    identifier: AGPL-3.0-or-later
+  description: |-
+    The grids, the simulators and the services of an install, and what is in the databases of a grid, as JSON:API resources; the errors are problem details (RFC 9457).
+
+    A list takes `search`, `sort` (`-` before a column for the descending order), `filter[<name>]`, `page[number]` and `page[size]`.
+servers:
+  -
+    url: /
+    description: 'Where the application that uses the engine mounts the API'
+security: []
+tags:
+  -
+    name: 'The machine: grids'
+    description: 'A grid run from this machine, only described here (a grid joined on another machine), or a standalone (one simulator that serves it all).'
+  -
+    name: 'The machine: simulators'
+    description: 'A simulator is identified by its address (host:port); its slug has its grid (`vonda_welcome`).'
+  -
+    name: 'The machine: services'
+    description: |-
+      What the simulators and the users of a grid ask for: the assets, the profiles, the login, the search. A service is served by a Robust of the grid, by the simulator of a standalone, or by a web site (the helpers) at an address the config of the grid gives.
+
+      `kind` says who fixes the format of a web service: `fixed` (OpenSimulator or the viewers: only the address is the grid's to choose) or `standard` (the engine's own; `standard` is its address, `legacy` the script that answered it before).
+  -
+    name: 'A grid: avatars'
+    description: 'Read from the databases of the grid, each in the one of its service. An avatar is made with its account, its password, its inventory and its default outfit. Its name does not change.'
+  -
+    name: 'A grid: regions'
+    description: 'The regions the grid knows (its table of regions) and the ones its simulators describe.'
+  -
+    name: 'A grid: parcels'
+    description: 'The land of every simulator of the grid, read in the database of each.'
+  -
+    name: 'A grid: estates'
+    description: 'The estates of the grid when its Robust serves them, else the ones of each simulator.'
+  -
+    name: 'The application: tasks'
+    description: 'Cron and pseudo cron: each task has a name and an interval, runs when due, never twice at once, and a failure waits for its next turn. Asked to run, a task runs now.'
+  -
+    name: 'The application: forms'
+    description: 'The fields of the forms (grid, remote-grid, simulator, region), in the standard format of the forms: name, label, type, default, options, condition, follows, group. Whoever shows a form (the terminal, a web page) reads them from here; the engine itself uses them to work out what is not answered.'
+paths:
+  /grids:
+    get:
+      operationId: listGrids
+      tags:
+        - 'The machine: grids'
+      summary: 'The grids of this machine, searched, filtered, sorted and paged'
+      parameters:
+        -
+          name: search
+          in: query
+          schema:
+            type: string
+        -
+          name: sort
+          in: query
+          description: 'A column, `-` before it for the descending order'
+          schema:
+            type: string
+        -
+          name: 'page[number]'
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        -
+          name: 'page[size]'
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+        -
+          name: 'filter[remote]'
+          in: query
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+        -
+          name: 'filter[enabled]'
+          in: query
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+        -
+          name: 'filter[hypergrid]'
+          in: query
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+      responses:
+        200:
+          description: 'A page of the grids'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Grids'
+                  meta:
+                    type: object
+        404:
+          description: 'The grid is not known here'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        503:
+          description: 'What the list is read from is not available'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  '/grids/{id}':
+    get:
+      operationId: getGrid
+      tags:
+        - 'The machine: grids'
+      summary: 'One of the grids by its id'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: 'The resource'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Grids'
+        404:
+          description: 'There is none with this id'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    patch:
+      operationId: updateGrid
+      tags:
+        - 'The machine: grids'
+      summary: 'Change one'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: object
+                  properties:
+                    attributes:
+                      type: object
+                      properties: { enabled: { type: boolean, description: 'Enable or disable the grid (its Robust); a running grid is not stopped' } }
+      responses:
+        200:
+          description: Changed
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Grids'
+        400:
+          description: 'A value is wrong'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        404:
+          description: 'There is none with this id'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        503:
+          description: 'No channel can change it now'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /simulators:
+    get:
+      operationId: listSimulators
+      tags:
+        - 'The machine: simulators'
+      summary: 'The simulators of this machine, searched, filtered, sorted and paged'
+      parameters:
+        -
+          name: search
+          in: query
+          schema:
+            type: string
+        -
+          name: sort
+          in: query
+          description: 'A column, `-` before it for the descending order'
+          schema:
+            type: string
+        -
+          name: 'page[number]'
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        -
+          name: 'page[size]'
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+      responses:
+        200:
+          description: 'A page of the simulators'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Simulators'
+                  meta:
+                    type: object
+        404:
+          description: 'The grid is not known here'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        503:
+          description: 'What the list is read from is not available'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  '/simulators/{id}':
+    get:
+      operationId: getSimulator
+      tags:
+        - 'The machine: simulators'
+      summary: 'One of the simulators by its id'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: 'The resource'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Simulators'
+        404:
+          description: 'There is none with this id'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    patch:
+      operationId: updateSimulator
+      tags:
+        - 'The machine: simulators'
+      summary: 'Change one'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: object
+                  properties:
+                    attributes:
+                      type: object
+                      properties: { enabled: { type: boolean, description: 'Enable or disable the simulator; a running simulator is not stopped' } }
+      responses:
+        200:
+          description: Changed
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Simulators'
+        400:
+          description: 'A value is wrong'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        404:
+          description: 'There is none with this id'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        503:
+          description: 'No channel can change it now'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /services:
+    get:
+      operationId: listServices
+      tags:
+        - 'The machine: services'
+      summary: 'The services of the grids of this machine, searched, filtered, sorted and paged'
+      parameters:
+        -
+          name: search
+          in: query
+          schema:
+            type: string
+        -
+          name: sort
+          in: query
+          description: 'A column, `-` before it for the descending order'
+          schema:
+            type: string
+        -
+          name: 'page[number]'
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        -
+          name: 'page[size]'
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+        -
+          name: 'filter[served]'
+          in: query
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+        -
+          name: 'filter[port]'
+          in: query
+          schema:
+            type: string
+            enum:
+              - private
+              - public
+              - web
+      responses:
+        200:
+          description: 'A page of the services'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Services'
+                  meta:
+                    type: object
+        404:
+          description: 'The grid is not known here'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        503:
+          description: 'What the list is read from is not available'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  '/services/{id}':
+    get:
+      operationId: getService
+      tags:
+        - 'The machine: services'
+      summary: 'One of the services by its id'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: 'The resource'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Services'
+        404:
+          description: 'There is none with this id'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  '/grids/{grid}/avatars':
+    get:
+      operationId: listAvatars
+      tags:
+        - 'A grid: avatars'
+      summary: 'The avatars of a grid, searched, filtered, sorted and paged'
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+        -
+          name: search
+          in: query
+          schema:
+            type: string
+        -
+          name: sort
+          in: query
+          description: 'A column, `-` before it for the descending order'
+          schema:
+            type: string
+        -
+          name: 'page[number]'
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        -
+          name: 'page[size]'
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+        -
+          name: 'filter[active]'
+          in: query
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+        -
+          name: 'filter[online]'
+          in: query
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+        -
+          name: 'filter[god]'
+          in: query
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+        -
+          name: 'filter[technical]'
+          in: query
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+      responses:
+        200:
+          description: 'A page of the avatars'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Avatars'
+                  meta:
+                    type: object
+        404:
+          description: 'The grid is not known here'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        503:
+          description: 'What the list is read from is not available'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    post:
+      operationId: createAvatar
+      tags:
+        - 'A grid: avatars'
+      summary: 'Make one'
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: object
+                  properties:
+                    attributes:
+                      type: object
+                      properties: { name: { type: string, description: 'First Last (or firstName and lastName)' }, email: { type: string }, password: { type: string, description: 'The password (or passwordHash)' }, passwordHash: { type: object, description: 'hash and salt of a password that is moved' }, uuid: { type: string, description: 'The UUID of an account that is moved' }, home: { type: string, description: 'The UUID of the home region' } }
+      responses:
+        201:
+          description: 'Made; its address is in the Location header'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Avatars'
+        400:
+          description: 'A value is wrong: a name that is not one, one that is taken, no password'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        503:
+          description: 'A database cannot be reached'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  '/grids/{grid}/avatars/{id}':
+    get:
+      operationId: getAvatar
+      tags:
+        - 'A grid: avatars'
+      summary: 'One of the avatars by its id'
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: 'The resource'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Avatars'
+        404:
+          description: 'There is none with this id'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    patch:
+      operationId: updateAvatar
+      tags:
+        - 'A grid: avatars'
+      summary: 'Change one'
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: object
+                  properties:
+                    attributes:
+                      type: object
+                      properties: { email: { type: string }, title: { type: string }, level: { type: integer }, active: { type: boolean }, password: { type: string, description: 'A new password' }, home: { type: string, description: 'The UUID of the home region' }, about: { type: string, description: 'Of the profile the avatar has' }, profileUrl: { type: string }, wants: { type: string }, skills: { type: string }, languages: { type: string }, firstLife: { type: string } }
+      responses:
+        200:
+          description: Changed
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Avatars'
+        400:
+          description: 'A value is wrong'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        404:
+          description: 'There is none with this id'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        503:
+          description: 'No channel can change it now'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    delete:
+      operationId: deleteAvatar
+      tags:
+        - 'A grid: avatars'
+      summary: 'Delete one'
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        204:
+          description: Deleted
+        404:
+          description: 'There is none with this id'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        503:
+          description: 'No channel can delete it now'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  '/grids/{grid}/regions':
+    get:
+      operationId: listRegions
+      tags:
+        - 'A grid: regions'
+      summary: 'The regions of a grid, searched, filtered, sorted and paged'
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+        -
+          name: search
+          in: query
+          schema:
+            type: string
+        -
+          name: sort
+          in: query
+          description: 'A column, `-` before it for the descending order'
+          schema:
+            type: string
+        -
+          name: 'page[number]'
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        -
+          name: 'page[size]'
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+        -
+          name: 'filter[online]'
+          in: query
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+        -
+          name: 'filter[hyperlink]'
+          in: query
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+      responses:
+        200:
+          description: 'A page of the regions'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Regions'
+                  meta:
+                    type: object
+        404:
+          description: 'The grid is not known here'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        503:
+          description: 'What the list is read from is not available'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  '/grids/{grid}/regions/{id}':
+    get:
+      operationId: getRegion
+      tags:
+        - 'A grid: regions'
+      summary: 'One of the regions by its id'
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: 'The resource'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Regions'
+        404:
+          description: 'There is none with this id'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    patch:
+      operationId: updateRegion
+      tags:
+        - 'A grid: regions'
+      summary: 'Change one'
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/vnd.api+json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: object
+                  properties:
+                    attributes:
+                      type: object
+                      properties: { enabled: { type: boolean, description: 'Enable or disable the region (its file); the simulator has to restart' } }
+      responses:
+        200:
+          description: Changed
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Regions'
+        400:
+          description: 'A value is wrong'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        404:
+          description: 'There is none with this id'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        503:
+          description: 'No channel can change it now'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  '/grids/{grid}/parcels':
+    get:
+      operationId: listParcels
+      tags:
+        - 'A grid: parcels'
+      summary: 'The parcels of a grid, searched, filtered, sorted and paged'
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+        -
+          name: search
+          in: query
+          schema:
+            type: string
+        -
+          name: sort
+          in: query
+          description: 'A column, `-` before it for the descending order'
+          schema:
+            type: string
+        -
+          name: 'page[number]'
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        -
+          name: 'page[size]'
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+        -
+          name: 'filter[shown]'
+          in: query
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+      responses:
+        200:
+          description: 'A page of the parcels'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Parcels'
+                  meta:
+                    type: object
+        404:
+          description: 'The grid is not known here'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        503:
+          description: 'What the list is read from is not available'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  '/grids/{grid}/parcels/{id}':
+    get:
+      operationId: getParcel
+      tags:
+        - 'A grid: parcels'
+      summary: 'One of the parcels by its id'
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: 'The resource'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Parcels'
+        404:
+          description: 'There is none with this id'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  '/grids/{grid}/estates':
+    get:
+      operationId: listEstates
+      tags:
+        - 'A grid: estates'
+      summary: 'The estates of a grid, searched, filtered, sorted and paged'
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+        -
+          name: search
+          in: query
+          schema:
+            type: string
+        -
+          name: sort
+          in: query
+          description: 'A column, `-` before it for the descending order'
+          schema:
+            type: string
+        -
+          name: 'page[number]'
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        -
+          name: 'page[size]'
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+      responses:
+        200:
+          description: 'A page of the estates'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Estates'
+                  meta:
+                    type: object
+        404:
+          description: 'The grid is not known here'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        503:
+          description: 'What the list is read from is not available'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  '/grids/{grid}/estates/{id}':
+    get:
+      operationId: getEstate
+      tags:
+        - 'A grid: estates'
+      summary: 'One of the estates by its id'
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: 'The resource'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Estates'
+        404:
+          description: 'There is none with this id'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /tasks:
+    get:
+      operationId: listTasks
+      tags:
+        - 'The application: tasks'
+      summary: 'The tasks the application runs now and then'
+      responses:
+        200:
+          description: 'The tasks'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tasks'
+                  meta:
+                    type: object
+        404:
+          description: 'The application has none'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  '/tasks/{id}':
+    get:
+      operationId: getTask
+      tags:
+        - 'The application: tasks'
+      summary: 'One of the tasks by its id'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: 'The resource'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Tasks'
+        404:
+          description: 'There is none with this id'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /forms:
+    get:
+      operationId: listForms
+      tags:
+        - 'The application: forms'
+      summary: 'What a setup asks'
+      responses:
+        200:
+          description: 'The forms'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Forms'
+                  meta:
+                    type: object
+        404:
+          description: 'The application has none'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  '/forms/{id}':
+    get:
+      operationId: getForm
+      tags:
+        - 'The application: forms'
+      summary: 'One of the forms by its id'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: 'The resource'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Forms'
+        404:
+          description: 'There is none with this id'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  '/tasks/{id}/runs':
+    post:
+      operationId: runTask
+      tags:
+        - 'The application: tasks'
+      summary: 'Run a task now, whether it is due or not'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: 'The task ran'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      status: { type: string }
+                      message: { type: string }
+                      duration: { type: number }
+        404:
+          description: 'There is no task with this name'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        500:
+          description: 'The task failed: the message says why'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+components:
+  schemas:
+    Problem:
+      type: object
+      description: 'RFC 9457 problem details'
+      required:
+        - title
+        - status
+      properties:
+        type:
+          type: string
+          description: 'A URN that names the kind of problem'
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          description: 'The address that was asked'
+    Grids:
+      type: object
+      description: 'The grids of this machine'
+      required:
+        - type
+        - id
+        - attributes
+      properties:
+        type:
+          const: grids
+        id:
+          type: string
+        attributes:
+          type: object
+          properties:
+            nick:
+              type: string
+              description: 'What names its folder, its databases and its instances (snake_case)'
+            name:
+              type: string
+              description: 'The name shown'
+            slug:
+              type: string
+              description: 'The name made for an address (kebab-case)'
+            sources:
+              type: array
+              description: 'Where it is known from: folder, plan, described, announced'
+            directory:
+              type:
+                - string
+                - 'null'
+              description: 'Its folder'
+            remote:
+              type: boolean
+              description: 'Its Robust is on another machine'
+            standalone:
+              type: boolean
+              description: 'One simulator serves the grid itself, no Robust runs'
+            planned:
+              type: boolean
+              description: 'Not made yet'
+            enabled:
+              type:
+                - boolean
+                - 'null'
+              description: 'Its Robust (or its simulator, for a standalone) is enabled: null when it is not on this machine'
+            hypergrid:
+              type: boolean
+              description: 'Open to the other grids'
+            baseHostname:
+              type: string
+              description: 'The host its viewers log in to'
+            publicPort:
+              type: integer
+              description: 'The port of the viewers and of the other grids'
+            privatePort:
+              type: integer
+              description: 'The port of its simulators'
+            center:
+              type:
+                - string
+                - 'null'
+              description: 'The center of its map (x,y)'
+            regionSpacing:
+              type: integer
+              description: 'The free blocks its regions leave between them'
+            preset:
+              type:
+                - string
+                - 'null'
+              description: 'The preset of the grid it joins (OSGrid...)'
+            coreDirectory:
+              type:
+                - string
+                - 'null'
+              description: 'The OpenSimulator release it runs'
+            robustIni:
+              type:
+                - string
+                - 'null'
+              description: 'The config of its Robust'
+            connectors:
+              type: array
+              description: 'The services its Robust serves (the keys of [ServiceList])'
+            regionFlags:
+              type: array
+              description: 'The roles its Robust gives to regions'
+            roles:
+              type: array
+              description: 'The roles a region of the grid can have'
+            missingRoles:
+              type: array
+              description: 'The roles no region has yet'
+            databaseHost:
+              type: string
+              description: 'The host of its database'
+            databaseName:
+              type: string
+              description: 'The name of its database'
+            databaseUser:
+              type: string
+              description: 'The user of its database'
+            webUrl:
+              type:
+                - string
+                - 'null'
+              description: 'The web site of its helpers'
+            helpers:
+              type: boolean
+              description: 'Its helpers are installed'
+            simulators:
+              type:
+                - array
+                - 'null'
+              description: 'The names of its simulators'
+            announcement:
+              type:
+                - object
+                - 'null'
+              description: 'What the grid says of itself at get_grid_info'
+        links:
+          type: object
+          properties:
+            self:
+              type: string
+    Simulators:
+      type: object
+      description: 'The simulators of this machine'
+      required:
+        - type
+        - id
+        - attributes
+      properties:
+        type:
+          const: simulators
+        id:
+          type: string
+        attributes:
+          type: object
+          properties:
+            uri:
+              type: string
+              description: 'Its address, host:port of its HTTP port: what identifies it'
+            name:
+              type: string
+              description: 'The name shown'
+            slug:
+              type: string
+              description: 'Its grid, an underscore, its own slug'
+            grid:
+              type:
+                - string
+                - 'null'
+              description: 'The nick of its grid'
+            ini:
+              type: string
+              description: 'Its config'
+            link:
+              type: string
+              description: 'The link that enables it'
+            enabled:
+              type: boolean
+              description: 'Its link is there'
+            running:
+              type: boolean
+              description: 'Its process is running'
+            httpPort:
+              type: integer
+              description: 'Its HTTP port, the first of its block of ten'
+            consolePort:
+              type: integer
+              description: 'The port of its console (x4 of the block)'
+            console:
+              type: string
+              description: 'How its console is reached: rest or screen'
+            databaseHost:
+              type:
+                - string
+                - 'null'
+              description: 'The host of its database'
+            databaseName:
+              type:
+                - string
+                - 'null'
+              description: 'The name of its database'
+            databaseUser:
+              type:
+                - string
+                - 'null'
+              description: 'The user of its database'
+            estateDatabaseName:
+              type:
+                - string
+                - 'null'
+              description: 'The database of its estates, when it has its own'
+            estateName:
+              type:
+                - string
+                - 'null'
+              description: 'The name of its estate'
+            estateOwner:
+              type:
+                - string
+                - 'null'
+              description: 'The owner of its estate'
+            regionsDirectory:
+              type:
+                - string
+                - 'null'
+              description: 'The folder of its regions'
+            core:
+              type:
+                - string
+                - 'null'
+              description: 'The OpenSimulator release it runs'
+        links:
+          type: object
+          properties:
+            self:
+              type: string
+    Services:
+      type: object
+      description: 'The services of the grids of this machine'
+      required:
+        - type
+        - id
+        - attributes
+      properties:
+        type:
+          const: services
+        id:
+          type: string
+        attributes:
+          type: object
+          properties:
+            key:
+              type: string
+              description: 'What it is for: asset, inventory, profile, search...'
+            name:
+              type: string
+              description: 'The name shown'
+            slug:
+              type: string
+              description: 'Its grid, an underscore, its key'
+            grid:
+              type: string
+              description: 'The nick of its grid'
+            simulator:
+              type:
+                - string
+                - 'null'
+              description: 'The simulator that asks, when the service is shown as that simulator reaches it'
+            uri:
+              type:
+                - string
+                - 'null'
+              description: 'Where it is reached'
+            port:
+              type: string
+              description: 'private (the simulators), public (the viewers and other grids) or web (an address on a web site)'
+            provider:
+              type:
+                - string
+                - 'null'
+              description: 'The instance that serves it, null when none of this machine does'
+            served:
+              type: boolean
+              description: 'A Robust of the grid, or the simulator of a standalone, serves it'
+            external:
+              type: boolean
+              description: 'Declared for the simulators, served somewhere else'
+            connectors:
+              type: array
+              description: 'The connectors of Robust that serve it'
+            section:
+              type:
+                - string
+                - 'null'
+              description: 'The section of the config of the simulators that gives its address'
+            setting:
+              type:
+                - string
+                - 'null'
+              description: 'The setting of the config that gives its address'
+            database:
+              type:
+                - string
+                - 'null'
+              description: 'The database it stores in'
+            web:
+              type: boolean
+              description: 'An address on a web site, not a port of Robust'
+            kind:
+              type:
+                - string
+                - 'null'
+              description: 'fixed or standard, for a web service'
+            legacy:
+              type:
+                - string
+                - 'null'
+              description: 'The script that answered it before the standard'
+            standard:
+              type:
+                - string
+                - 'null'
+              description: 'Its address in the standard of the engine, when it has one'
+        links:
+          type: object
+          properties:
+            self:
+              type: string
+    Avatars:
+      type: object
+      description: 'The avatars of a grid'
+      required:
+        - type
+        - id
+        - attributes
+      properties:
+        type:
+          const: avatars
+        id:
+          type: string
+        attributes:
+          type: object
+          properties:
+            uuid:
+              type: string
+              description: 'Its UUID'
+            name:
+              type: string
+              description: 'First Last'
+            slug:
+              type: string
+              description: first-last
+            uri:
+              type:
+                - string
+                - 'null'
+              description: 'first.last@host:port'
+            firstName:
+              type: string
+            lastName:
+              type: string
+            grid:
+              type:
+                - string
+                - 'null'
+              description: 'The grid of a visitor, null for an avatar of this grid'
+            local:
+              type: boolean
+              description: 'An avatar of this grid'
+            email:
+              type:
+                - string
+                - 'null'
+            title:
+              type: string
+              description: 'Its title'
+            created:
+              type:
+                - integer
+                - 'null'
+              description: 'When the account was made (Unix time)'
+            level:
+              type: integer
+              description: 'The user level, 200 and over are gods'
+            isGod:
+              type: boolean
+            flags:
+              type: integer
+              description: 'The user flags'
+            active:
+              type: boolean
+              description: 'The account can log in'
+            online:
+              type: boolean
+              description: 'In the world now'
+            lastSeen:
+              type:
+                - integer
+                - 'null'
+              description: 'The last login or logout (Unix time)'
+            homeRegion:
+              type:
+                - string
+                - 'null'
+              description: 'The UUID of its home region'
+            lastRegion:
+              type:
+                - string
+                - 'null'
+              description: 'The UUID of the region it was in'
+            technical:
+              type: boolean
+              description: 'An account of the services, not a person'
+            profileImage:
+              type:
+                - string
+                - 'null'
+            about:
+              type:
+                - string
+                - 'null'
+            profileUrl:
+              type:
+                - string
+                - 'null'
+            partner:
+              type:
+                - string
+                - 'null'
+              description: 'The UUID of its partner'
+            wants:
+              type:
+                - string
+                - 'null'
+            skills:
+              type:
+                - string
+                - 'null'
+            languages:
+              type:
+                - string
+                - 'null'
+            firstImage:
+              type:
+                - string
+                - 'null'
+            firstLife:
+              type:
+                - string
+                - 'null'
+        links:
+          type: object
+          properties:
+            self:
+              type: string
+    Regions:
+      type: object
+      description: 'The regions of a grid'
+      required:
+        - type
+        - id
+        - attributes
+      properties:
+        type:
+          const: regions
+        id:
+          type: string
+        attributes:
+          type: object
+          properties:
+            uuid:
+              type: string
+            name:
+              type: string
+            slug:
+              type: string
+            uri:
+              type:
+                - string
+                - 'null'
+            location:
+              type: string
+              description: 'x,y on the map, in regions'
+            x:
+              type: integer
+            'y':
+              type: integer
+            size:
+              type: string
+              description: 'width x height in meters'
+            width:
+              type: integer
+            height:
+              type: integer
+            ip:
+              type:
+                - string
+                - 'null'
+            port:
+              type:
+                - integer
+                - 'null'
+            serverUri:
+              type:
+                - string
+                - 'null'
+            handle:
+              type:
+                - integer
+                - 'null'
+              description: 'The handle of its location'
+            owner:
+              type:
+                - string
+                - 'null'
+              description: 'The UUID of its owner'
+            ownerName:
+              type:
+                - string
+                - 'null'
+            flags:
+              type: integer
+              description: 'The flags of the grid'
+            roles:
+              type: array
+              description: 'The roles its flags give: DefaultRegion, FallbackRegion...'
+            flagLabels:
+              type: array
+            isDefault:
+              type: boolean
+            isFallback:
+              type: boolean
+            online:
+              type: boolean
+            hyperlink:
+              type: boolean
+              description: 'A link to a region of another grid'
+            lastSeen:
+              type:
+                - integer
+                - 'null'
+            access:
+              type:
+                - integer
+                - 'null'
+              description: 'The access level of the region'
+            mapImage:
+              type:
+                - string
+                - 'null'
+            sources:
+              type: array
+              description: 'The grid, the config of a simulator, the search'
+            simulator:
+              type:
+                - string
+                - 'null'
+              description: 'The simulator that has it'
+            file:
+              type:
+                - string
+                - 'null'
+              description: 'Its file in the simulator'
+            internalPort:
+              type:
+                - integer
+                - 'null'
+            enabled:
+              type:
+                - boolean
+                - 'null'
+              description: 'Its file ends in .ini; null for a region of the grid with no file of this machine'
+        links:
+          type: object
+          properties:
+            self:
+              type: string
+    Parcels:
+      type: object
+      description: 'The parcels of a grid'
+      required:
+        - type
+        - id
+        - attributes
+      properties:
+        type:
+          const: parcels
+        id:
+          type: string
+        attributes:
+          type: object
+          properties:
+            uuid:
+              type: string
+            name:
+              type: string
+            slug:
+              type: string
+            uri:
+              type:
+                - string
+                - 'null'
+            description:
+              type:
+                - string
+                - 'null'
+            region:
+              type: string
+              description: 'The UUID of its region'
+            regionName:
+              type:
+                - string
+                - 'null'
+            localId:
+              type:
+                - integer
+                - 'null'
+            owner:
+              type:
+                - string
+                - 'null'
+            ownerName:
+              type:
+                - string
+                - 'null'
+            group:
+              type:
+                - string
+                - 'null'
+            isGroupOwned:
+              type: boolean
+            area:
+              type: integer
+              description: 'In square meters'
+            category:
+              type:
+                - integer
+                - 'null'
+            claimed:
+              type:
+                - integer
+                - 'null'
+            price:
+              type: integer
+            forSale:
+              type: boolean
+            flags:
+              type: integer
+            shownInSearch:
+              type: boolean
+            dwell:
+              type:
+                - number
+                - 'null'
+            landing:
+              type:
+                - array
+                - 'null'
+              description: 'The landing point: x, y, z'
+            snapshot:
+              type:
+                - string
+                - 'null'
+            music:
+              type:
+                - string
+                - 'null'
+            media:
+              type:
+                - string
+                - 'null'
+        links:
+          type: object
+          properties:
+            self:
+              type: string
+    Estates:
+      type: object
+      description: 'The estates of a grid'
+      required:
+        - type
+        - id
+        - attributes
+      properties:
+        type:
+          const: estates
+        id:
+          type: string
+        attributes:
+          type: object
+          properties:
+            number:
+              type: integer
+              description: 'Its number in its database'
+            simulator:
+              type:
+                - string
+                - 'null'
+              description: 'The simulator that has it, null for an estate of the grid'
+            name:
+              type: string
+            slug:
+              type: string
+            owner:
+              type:
+                - string
+                - 'null'
+            ownerName:
+              type:
+                - string
+                - 'null'
+            parent:
+              type:
+                - integer
+                - 'null'
+            public:
+              type: boolean
+            denyAnonymous:
+              type: boolean
+            denyIdentified:
+              type: boolean
+            denyTransacted:
+              type: boolean
+            denyMinors:
+              type: boolean
+            allowVoice:
+              type: boolean
+            allowDirectTeleport:
+              type: boolean
+            allowEnvironmentOverride:
+              type: boolean
+            resetHomeOnTeleport:
+              type: boolean
+            skipScripts:
+              type: boolean
+            taxFree:
+              type: boolean
+            pricePerMeter:
+              type: integer
+            billableFactor:
+              type: number
+            fixedSun:
+              type: boolean
+            useGlobalTime:
+              type: boolean
+            sunPosition:
+              type: number
+            abuseEmail:
+              type:
+                - string
+                - 'null'
+            abuseEmailToOwner:
+              type: boolean
+            regions:
+              type: array
+              description: 'The UUIDs of its regions'
+            managers:
+              type: array
+            users:
+              type: array
+            groups:
+              type: array
+            bans:
+              type: array
+        links:
+          type: object
+          properties:
+            self:
+              type: string
+    Tasks:
+      type: object
+      description: 'The tasks the application runs now and then'
+      required:
+        - type
+        - id
+        - attributes
+      properties:
+        type:
+          const: tasks
+        id:
+          type: string
+        attributes:
+          type: object
+          properties:
+            label:
+              type: string
+              description: 'What it is for'
+            every:
+              type: integer
+              description: 'Seconds between two runs'
+            lastRun:
+              type:
+                - integer
+                - 'null'
+              description: 'Unix time of the last start'
+            status:
+              type:
+                - string
+                - 'null'
+              description: 'ran, failed or running'
+            message:
+              type: string
+              description: 'What the last run said'
+            duration:
+              type:
+                - number
+                - 'null'
+              description: 'Seconds the last run took'
+            next:
+              type:
+                - integer
+                - 'null'
+              description: 'Unix time it is due'
+            due:
+              type: boolean
+              description: 'It runs at the next pass of the cron'
+            running:
+              type: boolean
+              description: 'Someone is running it now'
+        links:
+          type: object
+          properties:
+            self:
+              type: string
+    Forms:
+      type: object
+      description: 'What a setup asks'
+      required:
+        - type
+        - id
+        - attributes
+      properties:
+        type:
+          const: forms
+        id:
+          type: string
+        attributes:
+          type: object
+          properties:
+            fields:
+              type: array
+              description: 'The fields, in the order they are asked'
+        links:
+          type: object
+          properties:
+            self:
+              type: string

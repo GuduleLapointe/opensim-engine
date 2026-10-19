@@ -4,92 +4,354 @@ declare(strict_types=1);
 
 namespace OpenSim\Api;
 
+use OpenSim\Models\Service;
+use Symfony\Component\Yaml\Yaml;
+
 /**
- * The contract of the resources of Api, as an OpenAPI 3.1 document. The tests check it against the models: an attribute a model
- * gives and the contract does not know is a failure, and so is the other way round.
+ * The contract of the resources of Api, as an OpenAPI 3.1 document: what is asked, what comes back, what is written. It is also the
+ * reference of the API: the descriptions here are the text of the documentation (`composer docs` makes the pages), so this is where
+ * to write them. The tests check it against the models: an attribute a model gives and the contract does not know is a failure, and
+ * so is the other way round.
  */
 final class Contract
 {
     /**
-     * The attributes of each resource and their types (JSON Schema); `?` after the type is for a value that may be null.
+     * The resources: where they are, what they are for, their attributes (`name => [type, description]`, `?` after the type for a value
+     * that may be null), the filters of their list and the values these take, and what can be written.
+     *
+     * `scope` is `grid` for the resources of a grid (`/grids/{grid}/<type>`), `machine` for the ones of the machine, `application`
+     * for what the application that uses the engine provides (its tasks, the forms of its setup).
      */
-    public const ATTRIBUTES = [
+    public const RESOURCES = [
         'grids' => [
-            'nick' => 'string',
-            'name' => 'string',
-            'slug' => 'string',
-            'sources' => 'array',
-            'directory' => 'string?',
-            'remote' => 'boolean',
-            'standalone' => 'boolean',
-            'planned' => 'boolean',
-            'enabled' => 'boolean?',
-            'hypergrid' => 'boolean',
-            'baseHostname' => 'string',
-            'publicPort' => 'integer',
-            'privatePort' => 'integer',
-            'center' => 'string?',
-            'regionSpacing' => 'integer',
-            'preset' => 'string?',
-            'coreDirectory' => 'string?',
-            'robustIni' => 'string?',
-            'connectors' => 'array',
-            'regionFlags' => 'array',
-            'roles' => 'array',
-            'missingRoles' => 'array',
-            'databaseHost' => 'string',
-            'databaseName' => 'string',
-            'databaseUser' => 'string',
-            'webUrl' => 'string?',
-            'helpers' => 'boolean',
-            'simulators' => 'array?',
-            'announcement' => 'object?',
+            'scope' => 'machine',
+            'summary' => 'The grids of this machine',
+            'description' =>
+                'A grid run from this machine, only described here (a grid joined on another machine), or a standalone (one simulator that serves it all).',
+            'attributes' => [
+                'nick' => ['string', 'What names its folder, its databases and its instances (snake_case)'],
+                'name' => ['string', 'The name shown'],
+                'slug' => ['string', 'The name made for an address (kebab-case)'],
+                'sources' => ['array', 'Where it is known from: folder, plan, described, announced'],
+                'directory' => ['string?', 'Its folder'],
+                'remote' => ['boolean', 'Its Robust is on another machine'],
+                'standalone' => ['boolean', 'One simulator serves the grid itself, no Robust runs'],
+                'planned' => ['boolean', 'Not made yet'],
+                'enabled' => [
+                    'boolean?',
+                    'Its Robust (or its simulator, for a standalone) is enabled: null when it is not on this machine',
+                ],
+                'hypergrid' => ['boolean', 'Open to the other grids'],
+                'baseHostname' => ['string', 'The host its viewers log in to'],
+                'publicPort' => ['integer', 'The port of the viewers and of the other grids'],
+                'privatePort' => ['integer', 'The port of its simulators'],
+                'center' => ['string?', 'The center of its map (x,y)'],
+                'regionSpacing' => ['integer', 'The free blocks its regions leave between them'],
+                'preset' => ['string?', 'The preset of the grid it joins (OSGrid...)'],
+                'coreDirectory' => ['string?', 'The OpenSimulator release it runs'],
+                'robustIni' => ['string?', 'The config of its Robust'],
+                'connectors' => ['array', 'The services its Robust serves (the keys of [ServiceList])'],
+                'regionFlags' => ['array', 'The roles its Robust gives to regions'],
+                'roles' => ['array', 'The roles a region of the grid can have'],
+                'missingRoles' => ['array', 'The roles no region has yet'],
+                'databaseHost' => ['string', 'The host of its database'],
+                'databaseName' => ['string', 'The name of its database'],
+                'databaseUser' => ['string', 'The user of its database'],
+                'webUrl' => ['string?', 'The web site of its helpers'],
+                'helpers' => ['boolean', 'Its helpers are installed'],
+                'simulators' => ['array?', 'The names of its simulators'],
+                'announcement' => ['object?', 'What the grid says of itself at get_grid_info'],
+            ],
+            'filters' => ['remote' => ['yes', 'no'], 'enabled' => ['yes', 'no'], 'hypergrid' => ['yes', 'no']],
+            'writable' => [
+                'enabled' => ['boolean', 'Enable or disable the grid (its Robust); a running grid is not stopped'],
+            ],
         ],
         'simulators' => [
-            'uri' => 'string',
-            'name' => 'string',
-            'slug' => 'string',
-            'grid' => 'string?',
-            'ini' => 'string',
-            'link' => 'string',
-            'enabled' => 'boolean',
-            'running' => 'boolean',
-            'httpPort' => 'integer',
-            'consolePort' => 'integer',
-            'console' => 'string',
-            'databaseHost' => 'string?',
-            'databaseName' => 'string?',
-            'databaseUser' => 'string?',
-            'estateDatabaseName' => 'string?',
-            'estateName' => 'string?',
-            'estateOwner' => 'string?',
-            'regionsDirectory' => 'string?',
-            'core' => 'string?',
+            'scope' => 'machine',
+            'summary' => 'The simulators of this machine',
+            'description' =>
+                'A simulator is identified by its address (host:port); its slug has its grid (`vonda_welcome`).',
+            'attributes' => [
+                'uri' => ['string', 'Its address, host:port of its HTTP port: what identifies it'],
+                'name' => ['string', 'The name shown'],
+                'slug' => ['string', 'Its grid, an underscore, its own slug'],
+                'grid' => ['string?', 'The nick of its grid'],
+                'ini' => ['string', 'Its config'],
+                'link' => ['string', 'The link that enables it'],
+                'enabled' => ['boolean', 'Its link is there'],
+                'running' => ['boolean', 'Its process is running'],
+                'httpPort' => ['integer', 'Its HTTP port, the first of its block of ten'],
+                'consolePort' => ['integer', 'The port of its console (x4 of the block)'],
+                'console' => ['string', 'How its console is reached: rest or screen'],
+                'databaseHost' => ['string?', 'The host of its database'],
+                'databaseName' => ['string?', 'The name of its database'],
+                'databaseUser' => ['string?', 'The user of its database'],
+                'estateDatabaseName' => ['string?', 'The database of its estates, when it has its own'],
+                'estateName' => ['string?', 'The name of its estate'],
+                'estateOwner' => ['string?', 'The owner of its estate'],
+                'regionsDirectory' => ['string?', 'The folder of its regions'],
+                'core' => ['string?', 'The OpenSimulator release it runs'],
+            ],
+            'filters' => [],
+            'writable' => [
+                'enabled' => ['boolean', 'Enable or disable the simulator; a running simulator is not stopped'],
+            ],
         ],
         'services' => [
-            'key' => 'string',
-            'name' => 'string',
-            'slug' => 'string',
-            'grid' => 'string',
-            'simulator' => 'string?',
-            'uri' => 'string?',
-            'port' => 'string',
-            'provider' => 'string?',
-            'served' => 'boolean',
-            'external' => 'boolean',
-            'connectors' => 'array',
-            'section' => 'string?',
-            'setting' => 'string?',
-            'database' => 'string?',
+            'scope' => 'machine',
+            'summary' => 'The services of the grids of this machine',
+            'description' =>
+                "What the simulators and the users of a grid ask for: the assets, the profiles, the login, the search. A service is served by a Robust of the grid, by the simulator of a standalone, or by a web site (the helpers) at an address the config of the grid gives.\n\n`kind` says who fixes the format of a web service: `fixed` (OpenSimulator or the viewers: only the address is the grid's to choose) or `standard` (the engine's own; `standard` is its address, `legacy` the script that answered it before).",
+            'attributes' => [
+                'key' => ['string', 'What it is for: asset, inventory, profile, search...'],
+                'name' => ['string', 'The name shown'],
+                'slug' => ['string', 'Its grid, an underscore, its key'],
+                'grid' => ['string', 'The nick of its grid'],
+                'simulator' => [
+                    'string?',
+                    'The simulator that asks, when the service is shown as that simulator reaches it',
+                ],
+                'uri' => ['string?', 'Where it is reached'],
+                'port' => [
+                    'string',
+                    'private (the simulators), public (the viewers and other grids) or web (an address on a web site)',
+                ],
+                'provider' => ['string?', 'The instance that serves it, null when none of this machine does'],
+                'served' => ['boolean', 'A Robust of the grid, or the simulator of a standalone, serves it'],
+                'external' => ['boolean', 'Declared for the simulators, served somewhere else'],
+                'connectors' => ['array', 'The connectors of Robust that serve it'],
+                'section' => ['string?', 'The section of the config of the simulators that gives its address'],
+                'setting' => ['string?', 'The setting of the config that gives its address'],
+                'database' => ['string?', 'The database it stores in'],
+                'web' => ['boolean', 'An address on a web site, not a port of Robust'],
+                'kind' => ['string?', 'fixed or standard, for a web service'],
+                'legacy' => ['string?', 'The script that answered it before the standard'],
+                'standard' => ['string?', 'Its address in the standard of the engine, when it has one'],
+            ],
+            'filters' => ['served' => ['yes', 'no'], 'port' => [Service::PRIVATE, Service::PUBLIC, Service::WEB]],
+            'writable' => [],
+        ],
+        'avatars' => [
+            'scope' => 'grid',
+            'summary' => 'The avatars of a grid',
+            'description' =>
+                'Read from the databases of the grid, each in the one of its service. An avatar is made with its account, its password, its inventory and its default outfit. Its name does not change.',
+            'attributes' => [
+                'uuid' => ['string', 'Its UUID'],
+                'name' => ['string', 'First Last'],
+                'slug' => ['string', 'first-last'],
+                'uri' => ['string?', 'first.last@host:port'],
+                'firstName' => ['string', ''],
+                'lastName' => ['string', ''],
+                'grid' => ['string?', 'The grid of a visitor, null for an avatar of this grid'],
+                'local' => ['boolean', 'An avatar of this grid'],
+                'email' => ['string?', ''],
+                'title' => ['string', 'Its title'],
+                'created' => ['integer?', 'When the account was made (Unix time)'],
+                'level' => ['integer', 'The user level, 200 and over are gods'],
+                'isGod' => ['boolean', ''],
+                'flags' => ['integer', 'The user flags'],
+                'active' => ['boolean', 'The account can log in'],
+                'online' => ['boolean', 'In the world now'],
+                'lastSeen' => ['integer?', 'The last login or logout (Unix time)'],
+                'homeRegion' => ['string?', 'The UUID of its home region'],
+                'lastRegion' => ['string?', 'The UUID of the region it was in'],
+                'technical' => ['boolean', 'An account of the services, not a person'],
+                'profileImage' => ['string?', ''],
+                'about' => ['string?', ''],
+                'profileUrl' => ['string?', ''],
+                'partner' => ['string?', 'The UUID of its partner'],
+                'wants' => ['string?', ''],
+                'skills' => ['string?', ''],
+                'languages' => ['string?', ''],
+                'firstImage' => ['string?', ''],
+                'firstLife' => ['string?', ''],
+            ],
+            'filters' => [
+                'active' => ['yes', 'no'],
+                'online' => ['yes', 'no'],
+                'god' => ['yes', 'no'],
+                'technical' => ['yes', 'no'],
+            ],
+            'create' => [
+                'name' => ['string', 'First Last (or firstName and lastName)'],
+                'email' => ['string', ''],
+                'password' => ['string', 'The password (or passwordHash)'],
+                'passwordHash' => ['object', 'hash and salt of a password that is moved'],
+                'uuid' => ['string', 'The UUID of an account that is moved'],
+                'home' => ['string', 'The UUID of the home region'],
+            ],
+            'writable' => [
+                'email' => ['string', ''],
+                'title' => ['string', ''],
+                'level' => ['integer', ''],
+                'active' => ['boolean', ''],
+                'password' => ['string', 'A new password'],
+                'home' => ['string', 'The UUID of the home region'],
+                'about' => ['string', 'Of the profile the avatar has'],
+                'profileUrl' => ['string', ''],
+                'wants' => ['string', ''],
+                'skills' => ['string', ''],
+                'languages' => ['string', ''],
+                'firstLife' => ['string', ''],
+            ],
+            'deletable' => true,
+        ],
+        'regions' => [
+            'scope' => 'grid',
+            'summary' => 'The regions of a grid',
+            'description' => 'The regions the grid knows (its table of regions) and the ones its simulators describe.',
+            'attributes' => [
+                'uuid' => ['string', ''],
+                'name' => ['string', ''],
+                'slug' => ['string', ''],
+                'uri' => ['string?', ''],
+                'location' => ['string', 'x,y on the map, in regions'],
+                'x' => ['integer', ''],
+                'y' => ['integer', ''],
+                'size' => ['string', 'width x height in meters'],
+                'width' => ['integer', ''],
+                'height' => ['integer', ''],
+                'ip' => ['string?', ''],
+                'port' => ['integer?', ''],
+                'serverUri' => ['string?', ''],
+                'handle' => ['integer?', 'The handle of its location'],
+                'owner' => ['string?', 'The UUID of its owner'],
+                'ownerName' => ['string?', ''],
+                'flags' => ['integer', 'The flags of the grid'],
+                'roles' => ['array', 'The roles its flags give: DefaultRegion, FallbackRegion...'],
+                'flagLabels' => ['array', ''],
+                'isDefault' => ['boolean', ''],
+                'isFallback' => ['boolean', ''],
+                'online' => ['boolean', ''],
+                'hyperlink' => ['boolean', 'A link to a region of another grid'],
+                'lastSeen' => ['integer?', ''],
+                'access' => ['integer?', 'The access level of the region'],
+                'mapImage' => ['string?', ''],
+                'sources' => ['array', 'The grid, the config of a simulator, the search'],
+                'simulator' => ['string?', 'The simulator that has it'],
+                'file' => ['string?', 'Its file in the simulator'],
+                'internalPort' => ['integer?', ''],
+                'enabled' => [
+                    'boolean?',
+                    'Its file ends in .ini; null for a region of the grid with no file of this machine',
+                ],
+            ],
+            'filters' => ['online' => ['yes', 'no'], 'hyperlink' => ['yes', 'no']],
+            'writable' => [
+                'enabled' => ['boolean', 'Enable or disable the region (its file); the simulator has to restart'],
+            ],
+        ],
+        'parcels' => [
+            'scope' => 'grid',
+            'summary' => 'The parcels of a grid',
+            'description' => 'The land of every simulator of the grid, read in the database of each.',
+            'attributes' => [
+                'uuid' => ['string', ''],
+                'name' => ['string', ''],
+                'slug' => ['string', ''],
+                'uri' => ['string?', ''],
+                'description' => ['string?', ''],
+                'region' => ['string', 'The UUID of its region'],
+                'regionName' => ['string?', ''],
+                'localId' => ['integer?', ''],
+                'owner' => ['string?', ''],
+                'ownerName' => ['string?', ''],
+                'group' => ['string?', ''],
+                'isGroupOwned' => ['boolean', ''],
+                'area' => ['integer', 'In square meters'],
+                'category' => ['integer?', ''],
+                'claimed' => ['integer?', ''],
+                'price' => ['integer', ''],
+                'forSale' => ['boolean', ''],
+                'flags' => ['integer', ''],
+                'shownInSearch' => ['boolean', ''],
+                'dwell' => ['number?', ''],
+                'landing' => ['array?', 'The landing point: x, y, z'],
+                'snapshot' => ['string?', ''],
+                'music' => ['string?', ''],
+                'media' => ['string?', ''],
+            ],
+            'filters' => ['shown' => ['yes', 'no']],
+            'writable' => [],
+        ],
+        'estates' => [
+            'scope' => 'grid',
+            'summary' => 'The estates of a grid',
+            'description' => 'The estates of the grid when its Robust serves them, else the ones of each simulator.',
+            'attributes' => [
+                'number' => ['integer', 'Its number in its database'],
+                'simulator' => ['string?', 'The simulator that has it, null for an estate of the grid'],
+                'name' => ['string', ''],
+                'slug' => ['string', ''],
+                'owner' => ['string?', ''],
+                'ownerName' => ['string?', ''],
+                'parent' => ['integer?', ''],
+                'public' => ['boolean', ''],
+                'denyAnonymous' => ['boolean', ''],
+                'denyIdentified' => ['boolean', ''],
+                'denyTransacted' => ['boolean', ''],
+                'denyMinors' => ['boolean', ''],
+                'allowVoice' => ['boolean', ''],
+                'allowDirectTeleport' => ['boolean', ''],
+                'allowEnvironmentOverride' => ['boolean', ''],
+                'resetHomeOnTeleport' => ['boolean', ''],
+                'skipScripts' => ['boolean', ''],
+                'taxFree' => ['boolean', ''],
+                'pricePerMeter' => ['integer', ''],
+                'billableFactor' => ['number', ''],
+                'fixedSun' => ['boolean', ''],
+                'useGlobalTime' => ['boolean', ''],
+                'sunPosition' => ['number', ''],
+                'abuseEmail' => ['string?', ''],
+                'abuseEmailToOwner' => ['boolean', ''],
+                'regions' => ['array', 'The UUIDs of its regions'],
+                'managers' => ['array', ''],
+                'users' => ['array', ''],
+                'groups' => ['array', ''],
+                'bans' => ['array', ''],
+            ],
+            'filters' => [],
+            'writable' => [],
+        ],
+        'tasks' => [
+            'scope' => 'application',
+            'summary' => 'The tasks the application runs now and then',
+            'description' =>
+                'Cron and pseudo cron: each task has a name and an interval, runs when due, never twice at once, and a failure waits for its next turn. Asked to run, a task runs now.',
+            'attributes' => [
+                'label' => ['string', 'What it is for'],
+                'every' => ['integer', 'Seconds between two runs'],
+                'lastRun' => ['integer?', 'Unix time of the last start'],
+                'status' => ['string?', 'ran, failed or running'],
+                'message' => ['string', 'What the last run said'],
+                'duration' => ['number?', 'Seconds the last run took'],
+                'next' => ['integer?', 'Unix time it is due'],
+                'due' => ['boolean', 'It runs at the next pass of the cron'],
+                'running' => ['boolean', 'Someone is running it now'],
+            ],
+            'filters' => [],
+            'writable' => [],
+        ],
+        'forms' => [
+            'scope' => 'application',
+            'summary' => 'What a setup asks',
+            'description' =>
+                'The fields of the forms (grid, remote-grid, simulator, region), in the standard format of the forms: name, label, type, default, options, condition, follows, group. Whoever shows a form (the terminal, a web page) reads them from here; the engine itself uses them to work out what is not answered.',
+            'attributes' => [
+                'fields' => ['array', 'The fields, in the order they are asked'],
+            ],
+            'filters' => [],
+            'writable' => [],
         ],
     ];
 
-    /** The filters of each list and the values they take. */
-    private const FILTERS = [
-        'grids' => ['remote' => ['yes', 'no'], 'enabled' => ['yes', 'no'], 'hypergrid' => ['yes', 'no']],
-        'simulators' => [],
-        'services' => ['served' => ['yes', 'no'], 'port' => ['private', 'public']],
-    ];
+    /** @return array<string,array{0:string,1:string}> the attributes of a type of resource */
+    public static function attributes(string $type): array
+    {
+        return self::RESOURCES[$type]['attributes'];
+    }
 
     /** @return array<string,mixed> */
     public static function document(string $version = '1'): array
@@ -101,92 +363,195 @@ final class Contract
                 'description' => 'RFC 9457 problem details',
                 'required' => ['title', 'status'],
                 'properties' => [
-                    'type' => ['type' => 'string'],
+                    'type' => ['type' => 'string', 'description' => 'A URN that names the kind of problem'],
                     'title' => ['type' => 'string'],
                     'status' => ['type' => 'integer'],
                     'detail' => ['type' => 'string'],
-                    'instance' => ['type' => 'string'],
+                    'instance' => ['type' => 'string', 'description' => 'The address that was asked'],
                 ],
             ],
         ];
-        foreach (array_keys(Api::RESOURCES) as $type) {
-            $schemas[ucfirst($type)] = self::schema($type);
-            $paths["/$type"] = [
-                'get' => [
-                    'summary' => "The $type, searched, filtered, sorted and paged",
-                    'parameters' => self::parameters($type),
+        $tags = [];
+        $scopes = ['machine' => 'The machine', 'grid' => 'A grid', 'application' => 'The application'];
+        foreach (self::RESOURCES as $type => $resource) {
+            $schema = self::schemaName($type);
+            $one = self::schemaName(rtrim($type, 's'));
+            $tag = $scopes[$resource['scope']] . ': ' . $type;
+            $tags[] = ['name' => $tag, 'description' => $resource['description']];
+            $schemas[$schema] = self::schema($type);
+            $base = $resource['scope'] === 'grid' ? "/grids/{grid}/$type" : "/$type";
+            $parameters = $resource['scope'] === 'grid' ? [self::gridParameter()] : [];
+            if ($type !== 'tasks' && $type !== 'forms') {
+                $paths[$base]['get'] = [
+                    'operationId' => "list$schema",
+                    'tags' => [$tag],
+                    'summary' => $resource['summary'] . ', searched, filtered, sorted and paged',
+                    'parameters' => [...$parameters, ...self::listParameters($resource['filters'])],
                     'responses' => [
-                        '200' => [
-                            'description' => "A page of the $type",
-                            'content' => [
-                                Response::JSON_API => [
-                                    'schema' => [
-                                        'type' => 'object',
-                                        'properties' => [
-                                            'data' => [
-                                                'type' => 'array',
-                                                'items' => ['$ref' => '#/components/schemas/' . ucfirst($type)],
-                                            ],
-                                            'meta' => ['type' => 'object'],
-                                        ],
-                                    ],
-                                ],
-                            ],
-                        ],
+                        '200' => self::documentResponse("A page of the $type", $schema, true),
+                        '404' => self::problem('The grid is not known here'),
                         '503' => self::problem('What the list is read from is not available'),
                     ],
+                ];
+            } else {
+                $paths[$base]['get'] = [
+                    'operationId' => "list$schema",
+                    'tags' => [$tag],
+                    'summary' => $resource['summary'],
+                    'responses' => [
+                        '200' => self::documentResponse("The $type", $schema, true),
+                        '404' => self::problem('The application has none'),
+                    ],
+                ];
+            }
+            $paths["$base/{id}"]['get'] = [
+                'operationId' => "get$one",
+                'tags' => [$tag],
+                'summary' => 'One of the ' . $type . ' by its id',
+                'parameters' => [...$parameters, self::idParameter()],
+                'responses' => [
+                    '200' => self::documentResponse('The resource', $schema, false),
+                    '404' => self::problem('There is none with this id'),
                 ],
             ];
-            $paths["/$type/{id}"] = [
-                'get' => [
-                    'summary' => 'One of the ' . $type . ' by its id',
-                    'parameters' => [
-                        ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+            if (isset($resource['create'])) {
+                $paths[$base]['post'] = [
+                    'operationId' => "create$one",
+                    'tags' => [$tag],
+                    'summary' => 'Make one',
+                    'parameters' => $parameters,
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [Response::JSON_API => ['schema' => self::input($resource['create'])]],
                     ],
                     'responses' => [
-                        '200' => [
-                            'description' => 'The resource',
-                            'content' => [
-                                Response::JSON_API => [
-                                    'schema' => [
+                        '201' => self::documentResponse('Made; its address is in the Location header', $schema, false),
+                        '400' => self::problem(
+                            'A value is wrong: a name that is not one, one that is taken, no password',
+                        ),
+                        '503' => self::problem('A database cannot be reached'),
+                    ],
+                ];
+            }
+            if ($resource['writable'] !== []) {
+                $paths["$base/{id}"]['patch'] = [
+                    'operationId' => "update$one",
+                    'tags' => [$tag],
+                    'summary' => 'Change one',
+                    'parameters' => [...$parameters, self::idParameter()],
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [Response::JSON_API => ['schema' => self::input($resource['writable'])]],
+                    ],
+                    'responses' => [
+                        '200' => self::documentResponse('Changed', $schema, false),
+                        '400' => self::problem('A value is wrong'),
+                        '404' => self::problem('There is none with this id'),
+                        '503' => self::problem('No channel can change it now'),
+                    ],
+                ];
+            }
+            if ($resource['deletable'] ?? false) {
+                $paths["$base/{id}"]['delete'] = [
+                    'operationId' => "delete$one",
+                    'tags' => [$tag],
+                    'summary' => 'Delete one',
+                    'parameters' => [...$parameters, self::idParameter()],
+                    'responses' => [
+                        '204' => ['description' => 'Deleted'],
+                        '404' => self::problem('There is none with this id'),
+                        '503' => self::problem('No channel can delete it now'),
+                    ],
+                ];
+            }
+        }
+        $paths['/tasks/{id}/runs']['post'] = [
+            'operationId' => 'runTask',
+            'tags' => [$scopes['application'] . ': tasks'],
+            'summary' => 'Run a task now, whether it is due or not',
+            'parameters' => [self::idParameter()],
+            'responses' => [
+                '200' => [
+                    'description' => 'The task ran',
+                    'content' => [
+                        Response::JSON_API => [
+                            'schema' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'data' => [
                                         'type' => 'object',
                                         'properties' => [
-                                            'data' => ['$ref' => '#/components/schemas/' . ucfirst($type)],
+                                            'status' => ['type' => 'string'],
+                                            'message' => ['type' => 'string'],
+                                            'duration' => ['type' => 'number'],
                                         ],
                                     ],
                                 ],
                             ],
                         ],
-                        '404' => self::problem('There is none with this id'),
                     ],
                 ],
-            ];
-        }
+                '404' => self::problem('There is no task with this name'),
+                '500' => self::problem('The task failed: the message says why'),
+            ],
+        ];
 
         return [
             'openapi' => '3.1.0',
             'info' => [
                 'title' => 'OpenSim engine',
                 'version' => $version,
-                'description' => 'The grids, the simulators and the services of an install',
+                'license' => ['name' => 'AGPL-3.0-or-later', 'identifier' => 'AGPL-3.0-or-later'],
+                'description' =>
+                    "The grids, the simulators and the services of an install, and what is in the databases of a grid, as JSON:API resources; the errors are problem details (RFC 9457).\n\nA list takes `search`, `sort` (`-` before a column for the descending order), `filter[<name>]`, `page[number]` and `page[size]`.",
             ],
+            'servers' => [['url' => '/', 'description' => 'Where the application that uses the engine mounts the API']],
+            // Who may ask is the application's to decide: this layer asks nobody for anything
+            'security' => [],
+            'tags' => $tags,
             'paths' => $paths,
             'components' => ['schemas' => $schemas],
         ];
+    }
+
+    public static function json(string $version = '1'): string
+    {
+        return json_encode(
+            self::document($version),
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
+        ) . "\n";
+    }
+
+    public static function yaml(string $version = '1'): string
+    {
+        return Yaml::dump(
+            self::document($version),
+            12,
+            2,
+            Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK | Yaml::DUMP_EMPTY_ARRAY_AS_SEQUENCE,
+        );
+    }
+
+    private static function schemaName(string $type): string
+    {
+        return str_replace(' ', '', ucwords(str_replace('-', ' ', $type)));
     }
 
     /** @return array<string,mixed> the resource as JSON:API shows it: type, id, attributes */
     private static function schema(string $type): array
     {
         $properties = [];
-        foreach (self::ATTRIBUTES[$type] as $name => $kind) {
+        foreach (self::RESOURCES[$type]['attributes'] as $name => [$kind, $description]) {
             $nullable = str_ends_with($kind, '?');
             $json = rtrim($kind, '?');
-            $properties[$name] = ['type' => $nullable ? [$json, 'null'] : $json];
+            $properties[$name] =
+                ['type' => $nullable ? [$json, 'null'] : $json] +
+                ($description !== '' ? ['description' => $description] : []);
         }
 
         return [
             'type' => 'object',
+            'description' => self::RESOURCES[$type]['summary'],
             'required' => ['type', 'id', 'attributes'],
             'properties' => [
                 'type' => ['const' => $type],
@@ -197,8 +562,33 @@ final class Contract
         ];
     }
 
-    /** @return list<array<string,mixed>> */
-    private static function parameters(string $type): array
+    /**
+     * @param array<string,array{0:string,1:string}> $fields
+     * @return array<string,mixed>
+     */
+    private static function input(array $fields): array
+    {
+        $properties = [];
+        foreach ($fields as $name => [$kind, $description]) {
+            $properties[$name] = ['type' => $kind] + ($description !== '' ? ['description' => $description] : []);
+        }
+
+        return [
+            'type' => 'object',
+            'properties' => [
+                'data' => [
+                    'type' => 'object',
+                    'properties' => ['attributes' => ['type' => 'object', 'properties' => $properties]],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string,list<string>> $filters
+     * @return list<array<string,mixed>>
+     */
+    private static function listParameters(array $filters): array
     {
         $parameters = [
             ['name' => 'search', 'in' => 'query', 'schema' => ['type' => 'string']],
@@ -211,7 +601,7 @@ final class Contract
             ['name' => 'page[number]', 'in' => 'query', 'schema' => ['type' => 'integer', 'minimum' => 1]],
             ['name' => 'page[size]', 'in' => 'query', 'schema' => ['type' => 'integer', 'minimum' => 0]],
         ];
-        foreach (self::FILTERS[$type] as $name => $values) {
+        foreach ($filters as $name => $values) {
             $parameters[] = [
                 'name' => "filter[$name]",
                 'in' => 'query',
@@ -220,6 +610,44 @@ final class Contract
         }
 
         return $parameters;
+    }
+
+    /** @return array<string,mixed> */
+    private static function gridParameter(): array
+    {
+        return [
+            'name' => 'grid',
+            'in' => 'path',
+            'required' => true,
+            'description' => 'The nick of the grid',
+            'schema' => ['type' => 'string'],
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private static function idParameter(): array
+    {
+        return ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']];
+    }
+
+    /** @return array<string,mixed> */
+    private static function documentResponse(string $description, string $schema, bool $list): array
+    {
+        $item = ['$ref' => "#/components/schemas/$schema"];
+
+        return [
+            'description' => $description,
+            'content' => [
+                Response::JSON_API => [
+                    'schema' => [
+                        'type' => 'object',
+                        'properties' => $list
+                            ? ['data' => ['type' => 'array', 'items' => $item], 'meta' => ['type' => 'object']]
+                            : ['data' => $item],
+                    ],
+                ],
+            ],
+        ];
     }
 
     /** @return array<string,mixed> */
