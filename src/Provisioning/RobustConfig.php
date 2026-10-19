@@ -18,18 +18,19 @@ final class RobustConfig
     /**
      * The optional connectors of Robust (commented in the distribution) that the setup serves in a grid it makes, each with its
      * counterpart in the simulators (see SimulatorConfig::gridLayer() and GridShared): the bakes of the avatars, the estates of the
-     * grid, the profiles, the groups (with the helpers or a hypergrid) and the groups of the hypergrid. A grid that exists is not
+     * grid, the profiles, the offline messages of Robust (the module V2), the groups (with the helpers or a hypergrid) and the groups of the hypergrid. A grid that exists is not
      * changed: it is the operator's (and `opensim enable`) to decide.
      *
      * @return list<string> the keys of [ServiceList]
      */
-    public static function connectors(bool $helpers, bool $hypergrid): array
+    public static function connectors(bool $helpers, bool $hypergrid, string $offline = ''): array
     {
         return array_values(
             array_filter([
                 'BakedTextureService',
                 'EstateDataService',
                 'UserProfilesServiceConnector',
+                in_array($offline, ['robust', 'both'], true) ? 'OfflineIMServiceConnector' : null,
                 $helpers || $hypergrid ? 'GroupsServiceConnector' : null,
                 $hypergrid ? 'HGGroupsServiceConnector' : null,
             ]),
@@ -166,7 +167,7 @@ final class RobustConfig
             }
         }
         if ($existing === null) {
-            foreach (self::connectors($plan->helpers, $plan->enableHypergrid) as $connector) {
+            foreach (self::connectors($plan->helpers, $plan->enableHypergrid, $plan->offline) as $connector) {
                 $ini->uncomment($connector);
             }
         }

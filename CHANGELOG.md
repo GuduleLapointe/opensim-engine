@@ -2,6 +2,8 @@
 
 ### Unreleased
 
+- new: the offline messages are a choice of the setup (`offline`: the helpers with the module V1, Robust with the module V2, or both), `opensim enable|disable <grid> offline [helpers|robust]`; the grid says it as `OfflineMessages` in its conf; the health page does not ask the helpers for the module V2
+- new: `Services\OfflineMessages` (the module V1: save, retrieve, mail), `Services\SearchRegistry`, `SearchParser`, `EventsParser`, `SearchQuery`, `SearchTasks`, `XmlRpc`: the registration of simulators, the snapshots, the events and the questions of the viewers, served by `Api\Handler`
 - new: standard endpoints `/grids/{grid}/motd`, `/grids/{grid}/destinations` (the guide), `/text-images`, `/fonts`; `Grid::motd()`, `destinations()`, `Text\DestinationList`, `Assets\ImagickTextRenderer`; `Handler` takes `grid:` for a host that serves one grid
 - new: `Api\Handler`: the API as a PSR-15 handler (PSR-7 messages, PSR-17 factories given by the application), the contract at `/openapi.json`; `width` of the pictures in the contract
 - new: `Data\Cache`: what takes a search to know is searched once per session (memory), and kept for a while when given a time to live, in the `oshelpers_cache` table of the search database or in files; `GridInfoCache` is built on it

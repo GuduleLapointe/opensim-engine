@@ -330,6 +330,7 @@ final class SimulatorPlanner
 
         // The helpers of the grid, when it has some: offline messages and the search index
         $plan->offlineUrl = $grid->helperUrl('offline');
+        $plan->offlineModule = $grid->offlineModule();
         $plan->registerUrl = $grid->helperUrl('register');
         $plan->searchUrl = $grid->helperUrl('query');
         $plan->connectors = $grid->connectors();

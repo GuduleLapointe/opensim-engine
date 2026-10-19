@@ -535,3 +535,87 @@ describe('grid made by the setup', function () {
         );
     });
 });
+
+describe('offline messages of a grid', function () {
+    test('are enabled in the simulators with the module V1 and the helpers, or the module V2 and Robust', function () {
+        $machine = master_machine();
+        $features = master_features($machine);
+
+        $helpers = $features->enable('offline', ['mode' => 'helpers', 'prefix' => 'https://web.example.org/helpers']);
+        $ini = ConfigReader::load($machine->grid . '/sims/alpha.ini', expand: false);
+        $robust = $features->enable('offline', ['mode' => 'robust']);
+        $v2 = ConfigReader::load($machine->grid . '/sims/alpha.ini', expand: false);
+
+        expect($helpers['error'])
+            ->toBeNull()
+            ->and($helpers['simulators'])
+            ->toBe(['alpha', 'beta'])
+            ->and($ini['Messaging'])
+            ->toBe([
+                'OfflineMessageModule' => 'OfflineMessageModule',
+                'OfflineMessageURL' => 'https://web.example.org/helpers/offline.php',
+            ])
+            ->and($robust['error'])
+            ->toBeNull()
+            ->and($v2['Messaging'])
+            ->toBe([
+                'OfflineMessageModule' => 'Offline Message Module V2',
+                'OfflineMessageURL' => '${Const|PrivURL}:${Const|PrivatePort}',
+            ]);
+
+        $features->disable('offline');
+        expect(ConfigReader::load($machine->grid . '/sims/alpha.ini', expand: false)['Messaging'] ?? [])->toBe([]);
+    });
+
+    test('need the helpers for the module V1, and a module that exists', function () {
+        $features = master_features(master_machine());
+
+        expect($features->enable('offline', ['mode' => 'helpers'])['error'])
+            ->toContain('has no helpers')
+            ->toContain('--mode=robust')
+            ->and($features->enable('offline', ['mode' => 'v3'])['error'])
+            ->toContain("unknown module of offline messages 'v3'")
+            ->and(Features::isFeature('offline'))
+            ->toBeTrue();
+    });
+
+    test('are written in the config of a simulator for the module the grid uses', function () {
+        $machine = master_machine();
+        $plan = master_plan($machine->grid, $machine->core);
+        $render = static fn(SimulatorPlan $plan): string => implode("\n", SimulatorConfig::gridLayer($plan));
+
+        $follows = $render($plan);
+        $plan->offlineModule = 'robust';
+        $robust = $render($plan);
+        $plan->offlineModule = 'helpers';
+        $plan->offlineUrl = '';
+        $none = $render($plan);
+
+        expect($follows)
+            ->toContain(
+                'OfflineMessageModule = OfflineMessageModule',
+                'OfflineMessageURL = "https://demo.example.org/helpers/offline.php"',
+            )
+            ->and($robust)
+            ->toContain(
+                'OfflineMessageModule = "Offline Message Module V2"',
+                'OfflineMessageURL = "${Const|PrivURL}:${Const|PrivatePort}"',
+            )
+            ->not->toContain('offline.php')
+            ->and($none)
+            ->not->toContain('[Messaging]');
+    });
+
+    test('are the module a grid says, the helpers\' when it says none', function () {
+        $machine = new Machine();
+        $grid = fn() => Grid::find($machine->environment, 'demo');
+        expect($grid()->offlineMode())->toBe('')->and($grid()->offlineModule())->toBe('');
+
+        $machine->write(
+            $machine->grid . '/demo.conf',
+            "[Grid]\nGridName = Demo\nCoreDirectory = {$machine->core}\nOfflineMessages = robust\n",
+        );
+
+        expect($grid()->offlineMode())->toBe('robust')->and($grid()->offlineModule())->toBe('robust');
+    });
+});

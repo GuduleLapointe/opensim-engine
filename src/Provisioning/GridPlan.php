@@ -44,6 +44,8 @@ final class GridPlan
     // The options of a grid that is made (see Models\Grid::fields(), group options).
     /** Where the search is: 'internal' (the helpers of the grid), 'shared' (the provider of 2do.directory) or 'disabled'. */
     public string $search = 'internal';
+    /** The offline messages: 'helpers' (module V1, the helpers keep them), 'robust' (module V2, Robust keeps them) or 'both'. */
+    public string $offline = 'helpers';
     /** The currency: 'beta' (BetaGridLikeMoneyModule) or 'gloebit'. */
     public string $economy = 'beta';
     /** More OSSL functions for the owners and the groups of the parcels (NPC, animations, drawing...). */

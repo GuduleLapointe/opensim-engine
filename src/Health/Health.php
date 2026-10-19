@@ -208,13 +208,16 @@ class Health
             'rows' => $rows ?: [self::empty_row('DATA_SRV_*')],
         ];
         $offline = (string) $config->find('Messaging', 'OfflineMessageURL');
+        // The module V2 talks to Robust, which is not the helpers: nothing here to ask
+        $robust = stripos((string) $config->find('Messaging', 'OfflineMessageModule'), 'V2') !== false;
         $groups[] = [
             'file' => $file['opensim'],
             'title' => '[Messaging]',
-            'rows' =>
-                $offline === ''
+            'rows' => $robust
+                ? [self::empty_row('OfflineMessageModule: ' . _('served by Robust (module V2)'))]
+                : ($offline === ''
                     ? [self::empty_row('OfflineMessageURL')]
-                    : self::post('OfflineMessageURL', $offline, self::retrieve_messages(), 'RetrieveMessages/'),
+                    : self::post('OfflineMessageURL', $offline, self::retrieve_messages(), 'RetrieveMessages/')),
         ];
 
         // The key of the currency, where the MoneyServer has it: never shown, only whether the grid has one. Without it the

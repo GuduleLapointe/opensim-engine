@@ -302,6 +302,40 @@ describe('The options of a new grid', function () {
             ->toMatchArray(['search' => 'internal', 'economy' => 'beta', 'web_server' => 'caddy']);
     });
 
+    test(
+        'keep the offline messages with the helpers when there are some, with Robust when there are none',
+        function () {
+            $with = planner(['helpersAvailable' => true]);
+            $without = planner(['helpersAvailable' => false]);
+
+            expect($with->plan([])->offline)
+                ->toBe('helpers')
+                ->and($without->plan([])->offline)
+                ->toBe('robust')
+                ->and($with->plan(['offline' => 'both'])->offline)
+                ->toBe('both')
+                ->and($with->plan(['offline' => 'robust'])->offline)
+                ->toBe('robust')
+                ->and($with->resolve(['offline' => 'nowhere'])['offline'])
+                ->toBe('helpers')
+                ->and(OpenSim\Provisioning\RobustConfig::connectors(true, true, 'helpers'))
+                ->not->toContain('OfflineIMServiceConnector')
+                ->and(OpenSim\Provisioning\RobustConfig::connectors(true, true, 'both'))
+                ->toContain('OfflineIMServiceConnector')
+                ->and(OpenSim\Provisioning\RobustConfig::connectors(false, false, 'robust'))
+                ->toContain('OfflineIMServiceConnector');
+        },
+    );
+
+    test('cannot say the offline messages are the helpers\' without the helpers', function () {
+        $problems = planner(['helpersAvailable' => false])->problems(['helpers' => false, 'offline' => 'helpers']);
+
+        expect($problems)
+            ->toHaveKey('offline')
+            ->and(planner(['helpersAvailable' => false])->problems(['helpers' => false, 'offline' => 'robust']))
+            ->not->toHaveKey('offline');
+    });
+
     test('cannot say the search is the grid\'s own without the helpers', function () {
         expect(planner(['helpersAvailable' => false])->problems(['search' => 'internal', 'helpers' => false]))
             ->toHaveKey('search')
@@ -459,6 +493,7 @@ describe('fields of a grid', function () {
                 'helpers',
                 'helpers_path',
                 'search',
+                'offline',
                 'economy',
                 'ossl',
                 'web_server',

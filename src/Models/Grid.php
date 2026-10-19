@@ -80,6 +80,7 @@ final class Grid extends InstalledModel
         'helpers' => false,
         'helpersPath' => '/helpers',
         'search' => 'internal',
+        'offline' => '',
     ];
 
     /** @var array{0:array<string,string>,1:bool}|null what the grid said of itself, asked once */
@@ -280,6 +281,28 @@ final class Grid extends InstalledModel
                 'callback' => static fn(mixed $value, array $answers): ?string => $value === 'internal' &&
                 !($answers['helpers'] ?? true)
                     ? _('The search of this grid is served by opensim-helpers.')
+                    : null,
+                'enable' => $new,
+            ],
+            [
+                'name' => 'offline',
+                'group' => 'options',
+                'type' => 'select',
+                'label' => _('Offline messages'),
+                'description' => _(
+                    'The messages sent to an avatar who is not there wait for them. With the helpers (module V1) they are also mailed to the avatars who ask for it (Send IM to email in their viewer) and there is no limit; it needs the helpers running. With Robust (module V2) there is nothing more to run, but no mail, and 25 messages are kept per avatar (MaxOfflineIMs of Robust.ini).',
+                ),
+                'options' => [
+                    'helpers' => _('Helpers (module V1): mailed on request, no limit'),
+                    'robust' => _('Robust (module V2): nothing to run, no mail, 25 messages per avatar'),
+                    'both' => _('Both: V1 by default, the service of Robust ready for the simulators set to V2'),
+                ],
+                'callback' => static fn(mixed $value, array $answers): ?string => in_array(
+                    $value,
+                    ['helpers', 'both'],
+                    true,
+                ) && !($answers['helpers'] ?? true)
+                    ? _('The module V1 keeps its messages with opensim-helpers.')
                     : null,
                 'enable' => $new,
             ],
@@ -545,8 +568,13 @@ final class Grid extends InstalledModel
                 // What its Robust serves: as written when it is, else as the setup will write it
                 'connectors' => is_file($robustIni)
                     ? RobustController::connectorsIn($robustIni)
-                    : \OpenSim\Provisioning\RobustConfig::connectors($plan->helpers, $plan->enableHypergrid),
+                    : \OpenSim\Provisioning\RobustConfig::connectors(
+                        $plan->helpers,
+                        $plan->enableHypergrid,
+                        $plan->offline,
+                    ),
                 'search' => $plan->search,
+                'offline' => $plan->offline,
                 'helpers' => $plan->helpers,
                 'webUrl' => $plan->webUrl,
                 'helpersPath' => $plan->helpersPath,
@@ -769,6 +797,7 @@ final class Grid extends InstalledModel
             'dataDirectory' => $conf['DataDirectory'] ?? $layout->dataRoot() . "/$nick",
             'cacheDirectory' => $conf['CacheDirectory'] ?? $layout->cacheRoot() . "/$nick",
             'logsDirectory' => $conf['LogsDirectory'] ?? $layout->logsRoot(),
+            'offline' => strtolower($conf['OfflineMessages'] ?? ''),
         ];
         $robustIni = $this->robustFile();
         if ($robustIni === null && $this->hasStandaloneDescription()) {
@@ -955,6 +984,26 @@ final class Grid extends InstalledModel
     public function connectors(): array
     {
         return (array) $this->get('connectors');
+    }
+
+    /**
+     * How the grid keeps the messages for the avatars who are not there: `helpers` (the module V1 of the simulators and the helpers: mailed
+     * to the avatar who asks, no limit), `robust` (the module V2 and the offline service of Robust: nothing else to run, no mail, 25
+     * messages per avatar unless Robust says more), `both` (V1 by default, the service of Robust ready for the simulators set to V2). Empty
+     * when the grid does not say.
+     */
+    public function offlineMode(): string
+    {
+        return (string) $this->get('offline');
+    }
+
+    /**
+     * The module of offline messages its simulators use: `helpers` (V1) or `robust` (V2), empty when the grid keeps none. A grid
+     * that does not say how (made before the choice existed) follows its helpers.
+     */
+    public function offlineModule(): string
+    {
+        return $this->offlineMode() === 'robust' ? 'robust' : ($this->helperUrl('offline') !== '' ? 'helpers' : '');
     }
 
     /** Whether Robust serves a connector of [ServiceList] (the keys the distribution comments: see RobustConfig::connectors()). */

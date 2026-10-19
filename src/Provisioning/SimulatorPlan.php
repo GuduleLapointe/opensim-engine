@@ -68,6 +68,8 @@ final class SimulatorPlan
     // Its estate, whose owner is an account of the grid.
     /** The helpers of the grid the simulator tells its offline messages and its data to (empty without helpers) */
     public string $offlineUrl = '';
+    /** The module of offline messages the simulator uses: 'helpers' (V1), 'robust' (V2), empty to follow its helpers. */
+    public string $offlineModule = '';
     public string $registerUrl = '';
     /** The search service of the helpers, which the module of search of the simulator asks (empty without helpers) */
     public string $searchUrl = '';

@@ -18,14 +18,20 @@ use OpenSim\Config\GridConfig;
  *  - economy: the economy module of the simulators (the beta module, or Gloebit, whose keys are the operator's: no default
  *    secret), and for Gloebit the address of the economy that Robust tells the viewers (`currency.php`, `landtool.php`);
  *  - profiles: the profile service the simulators ask for the profiles and their classifieds (`[UserProfiles]`), served by
- *    Robust (`[UserProfilesService]`).
+ *    Robust (`[UserProfilesService]`);
+ *  - offline: the messages for the avatars who are not there, kept by the helpers (the module V1 of the simulators: mailed on
+ *    request, no limit) or by Robust (the module V2: nothing more to run, no mail, 25 messages per avatar).
  */
 final class Features
 {
     public const SEARCH = 'search';
     public const ECONOMY = 'economy';
     public const PROFILES = 'profiles';
-    public const NAMES = [self::SEARCH, self::ECONOMY, self::PROFILES];
+    public const OFFLINE = 'offline';
+    public const NAMES = [self::SEARCH, self::ECONOMY, self::PROFILES, self::OFFLINE];
+
+    /** The modules of offline messages the command knows, by the word it takes, and what OpenSim calls them in `OfflineMessageModule`. */
+    public const OFFLINE_MODULES = ['helpers' => 'OfflineMessageModule', 'robust' => '"Offline Message Module V2"'];
 
     /** The money modules the command knows, by the word it takes, and what OpenSim calls them in `economymodule`. */
     public const MONEY = ['beta' => 'BetaGridLikeMoneyModule', 'gloebit' => 'Gloebit'];
@@ -40,8 +46,8 @@ final class Features
     /**
      * Enable a feature of the grid.
      *
-     * @param  array{prefix?:string,money?:string} $options the address of the services (a prefix: `<prefix>/query.php`), the
-     *                                                      money module (beta or gloebit)
+     * @param  array{prefix?:string,money?:string,mode?:string} $options the address of the services (a prefix: `<prefix>/query.php`), the
+     *                                                      money module (beta or gloebit), the module of offline messages (helpers or robust)
      * @return array{error:?string,simulators:list<string>,grid:bool,robust:bool,notes:list<string>}
      */
     public function enable(string $feature, array $options = []): array
@@ -117,6 +123,18 @@ final class Features
                 return $this->finish($this->economy($on, $money, $prefix, $result));
             case self::PROFILES:
                 return $this->finish($this->profiles($on, $result));
+            case self::OFFLINE:
+                $mode = strtolower($options['mode'] ?? 'helpers');
+                if (!isset(self::OFFLINE_MODULES[$mode])) {
+                    $result['error'] =
+                        "unknown module of offline messages '$mode' (" .
+                        implode(', ', array_keys(self::OFFLINE_MODULES)) .
+                        ')';
+
+                    return $result;
+                }
+
+                return $this->finish($this->offline($on, $mode, $prefix, $result));
         }
         $result['error'] = "unknown feature '$feature' (" . implode(', ', self::NAMES) . ')';
 
@@ -283,6 +301,48 @@ final class Features
                     implode(', ', array_keys($missing)) .
                     ' in [Gloebit] of the OpenSim.ini of the grid or of the simulators (Gloebit.ini.example), the module does nothing without them';
             }
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param  array{error:?string,simulators:list<string>,grid:bool,robust:bool,notes:list<string>} $result
+     * @return array{error:?string,simulators:list<string>,grid:bool,robust:bool,notes:list<string>}
+     */
+    private function offline(bool $on, string $mode, string $prefix, array $result): array
+    {
+        $url =
+            $mode === 'helpers'
+                ? ($prefix !== ''
+                    ? "$prefix/offline.php"
+                    : $this->grid->helperUrl('offline'))
+                : '${Const|PrivURL}:${Const|PrivatePort}';
+        if ($on && $url === '') {
+            $result['error'] =
+                "the grid {$this->grid->nick()} has no helpers: the module V1 keeps its messages with them, " .
+                "opensim enable {$this->grid->nick()} offline --mode=robust uses the service of Robust";
+
+            return $result;
+        }
+        $this->eachFile($result, function (IniEditor $ini, bool $grid) use ($on, $mode, $url): void {
+            if ($on) {
+                $this->put($ini, $grid, 'Messaging', 'OfflineMessageModule', self::OFFLINE_MODULES[$mode]);
+                $this->put($ini, $grid, 'Messaging', 'OfflineMessageURL', $this->quote($url));
+
+                return;
+            }
+            $ini->comment('Messaging', 'OfflineMessageModule');
+            $ini->comment('Messaging', 'OfflineMessageURL');
+        });
+        // The service of Robust goes with the module V2: its connector and nothing else (the module is the simulators')
+        if ($mode === 'robust') {
+            $result['robust'] =
+                $this->robust(function (IniEditor $ini) use ($on): void {
+                    $on
+                        ? $ini->uncomment('OfflineIMServiceConnector')
+                        : $ini->comment('ServiceList', 'OfflineIMServiceConnector');
+                }, $result) || $result['robust'];
         }
 
         return $result;

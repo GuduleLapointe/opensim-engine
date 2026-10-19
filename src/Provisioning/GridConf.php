@@ -65,6 +65,7 @@ final class GridConf
             'LogsDirectory = "' . $plan->logsDirectory . '"',
             "RegionSpacing = {$plan->regionSpacing}",
             "Center = {$plan->center}",
+            "OfflineMessages = {$plan->offline}",
             '',
         ];
 

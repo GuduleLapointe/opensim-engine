@@ -218,6 +218,12 @@ final class GridPlanner
                 ['internal', 'shared', 'disabled'],
                 self::flag($answers['helpers'] ?? $c['helpersAvailable']) ? 'internal' : 'disabled',
             ),
+            // Without the helpers, Robust keeps the messages
+            'offline' => self::choice(
+                $answers['offline'] ?? null,
+                ['helpers', 'robust', 'both'],
+                self::flag($answers['helpers'] ?? $c['helpersAvailable']) ? 'helpers' : 'robust',
+            ),
             'economy' => self::choice($answers['economy'] ?? null, ['beta', 'gloebit'], 'beta'),
             'ossl' => self::flag($answers['ossl'] ?? false),
             'web_server' => self::choice($answers['web_server'] ?? null, ['caddy', 'apache', 'nginx'], $c['webServer']),
@@ -286,6 +292,7 @@ final class GridPlanner
             $plan->helpersPath = Services::normalize($v['helpers_path']);
         }
         $plan->search = $v['search'];
+        $plan->offline = $v['offline'];
         $plan->economy = $v['economy'];
         $plan->ossl = $v['ossl'];
         $plan->webServer = $v['web_server'];

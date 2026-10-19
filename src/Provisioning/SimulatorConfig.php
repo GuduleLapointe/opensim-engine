@@ -131,6 +131,8 @@ final class SimulatorConfig
         $search = $plan ? $from->searchUrl : $from->helperUrl('query');
         $register = $plan ? $from->registerUrl : $from->helperUrl('register');
         $offline = $plan ? $from->offlineUrl : $from->helperUrl('offline');
+        // A grid that does not say follows its helpers
+        $module = $plan ? $from->offlineModule : $from->offlineModule() ?: ($offline !== '' ? 'helpers' : '');
 
         return [
             ...$search !== ''
@@ -153,15 +155,23 @@ final class SimulatorConfig
                 ]
                 : [],
             '',
-            ...$offline !== ''
-                ? [
+            ...match (true) {
+                $module === 'robust' => [
+                    ';; The offline messages are kept by Robust (module V2)',
+                    '[Messaging]',
+                    'OfflineMessageModule = "Offline Message Module V2"',
+                    'OfflineMessageURL = "${Const|PrivURL}:${Const|PrivatePort}"',
+                    '',
+                ],
+                $module === 'helpers' && $offline !== '' => [
                     ';; The offline messages are kept by the helpers of the grid',
                     '[Messaging]',
                     'OfflineMessageModule = OfflineMessageModule',
                     'OfflineMessageURL = "' . $offline . '"',
                     '',
-                ]
-                : [],
+                ],
+                default => [],
+            },
             ';; The profiles (and their classifieds) are kept by Robust, which the simulator asks',
             '[UserProfiles]',
             'ProfileServiceURL = "${Const|BaseURL}:${Const|PublicPort}"',
