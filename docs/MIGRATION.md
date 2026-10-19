@@ -72,6 +72,8 @@ The profile arrays (`['EtcRoot' => ..., 'DataRoot' => ...]`) are gone: whatever 
 
 `Health::grid_info()` and `Grid::announcement()` are `Network\GridInfoReader::read()`; a grid gives its own with `Grid::gridInfo()`.
 
+The methods of `Health\Health` are in camel case: `grid_info()` is `gridInfo()`, `empty_row()` `emptyRow()`, `retrieve_messages()` `retrieveMessages()`, `is_url()` `isUrl()`.
+
 The web services of a grid (search, currency, land purchase, registration, offline messages, message of the day, guide, images of a text) are in the catalog of `Models\Service`: where the config of the grid puts each, whether its format is fixed by OpenSimulator and the viewers (`query`, `register`, `offline`, `currency`, `landtool`: only the address is free) or the engine's (`standard`: the old script is its `legacy` name), and `endpoint`, where the engine serves it.
 
 ## The scripts of the helpers

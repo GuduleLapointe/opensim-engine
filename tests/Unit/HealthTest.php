@@ -215,15 +215,15 @@ describe('An address', function () {
 describe('What a grid says', function () {
     test('is what it answers at get_grid_info, as it says it, nothing when it does not answer', function () {
         [$process, $port] = code_server();
-        $says = Health::grid_info("http://127.0.0.1:$port/");
-        $nothing = Health::grid_info("http://127.0.0.1:$port/200");
+        $says = Health::gridInfo("http://127.0.0.1:$port/");
+        $nothing = Health::gridInfo("http://127.0.0.1:$port/200");
         proc_terminate($process);
 
         expect($says)
             ->toBe(['gridname' => 'Alpha', 'login' => 'http://play.example.org:8002/'])
-            ->and(Health::grid_info('http://127.0.0.1:9/'))
+            ->and(Health::gridInfo('http://127.0.0.1:9/'))
             ->toBe([])
-            ->and(Health::grid_info('not an address'))
+            ->and(Health::gridInfo('not an address'))
             ->toBe([]);
     });
 });

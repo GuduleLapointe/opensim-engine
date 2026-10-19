@@ -70,7 +70,7 @@ class Health
      * @param  string $login the login address of the grid
      * @return array<string,string> key => value, empty when the grid does not answer
      */
-    public static function grid_info($login)
+    public static function gridInfo($login)
     {
         return \OpenSim\Network\GridInfoReader::read((string) $login);
     }
@@ -151,13 +151,13 @@ class Health
                 // The profile is one row: the address as the config says it, the link and the test those of the owner of the grid
                 $profile = $key === 'web_profile_url' && $owner !== null && str_contains($value, '[AGENT_NAME]');
                 if ($profile && $same) {
-                    $rows[] = self::profile_row($key, $value, $owner);
+                    $rows[] = self::profileRow($key, $value, $owner);
                     continue;
                 }
                 $rows[] =
                     [
                         'label' => $key,
-                        self::is_url($value) ? 'url' : 'text' => $profile
+                        self::isUrl($value) ? 'url' : 'text' => $profile
                             ? str_replace('[AGENT_NAME]', $owner, $value)
                             : $value,
                         'level' => $same ? 'ok' : 'error',
@@ -179,7 +179,7 @@ class Health
                         $owner,
                     ),
                     ...self::address('MessageUrl', (string) $config->find('LoginService', 'MessageUrl'), $owner),
-                    self::login_search((string) $config->find('LoginService', 'SearchURL'), $given['search'] ?? ''),
+                    self::loginSearch((string) $config->find('LoginService', 'SearchURL'), $given['search'] ?? ''),
                 ],
             ];
         }
@@ -191,7 +191,7 @@ class Health
             'title' => '[Search]',
             'rows' =>
                 $search === ''
-                    ? [self::empty_row('SearchURL')]
+                    ? [self::emptyRow('SearchURL')]
                     : self::xmlrpc('SearchURL', $search, 'dir_places_query', [
                         'flags' => 0,
                         'text' => 'health',
@@ -205,7 +205,7 @@ class Health
         $groups[] = [
             'file' => $file['opensim'],
             'title' => '[DataSnapshot]',
-            'rows' => $rows ?: [self::empty_row('DATA_SRV_*')],
+            'rows' => $rows ?: [self::emptyRow('DATA_SRV_*')],
         ];
         $offline = (string) $config->find('Messaging', 'OfflineMessageURL');
         // The module V2 talks to Robust, which is not the helpers: nothing here to ask
@@ -214,10 +214,10 @@ class Health
             'file' => $file['opensim'],
             'title' => '[Messaging]',
             'rows' => $robust
-                ? [self::empty_row('OfflineMessageModule: ' . _('served by Robust (module V2)'))]
+                ? [self::emptyRow('OfflineMessageModule: ' . _('served by Robust (module V2)'))]
                 : ($offline === ''
-                    ? [self::empty_row('OfflineMessageURL')]
-                    : self::post('OfflineMessageURL', $offline, self::retrieve_messages(), 'RetrieveMessages/')),
+                    ? [self::emptyRow('OfflineMessageURL')]
+                    : self::post('OfflineMessageURL', $offline, self::retrieveMessages(), 'RetrieveMessages/')),
         ];
 
         // The key of the currency, where the MoneyServer has it: never shown, only whether the grid has one. Without it the
@@ -257,9 +257,9 @@ class Health
     private static function address($key, $value, $owner, $home = '', $variants = false)
     {
         if ($value === '') {
-            return [self::empty_row($key) + ($key === 'search' ? ['tag' => _('Web search')] : [])];
+            return [self::emptyRow($key) + ($key === 'search' ? ['tag' => _('Web search')] : [])];
         }
-        if (!self::is_url($value)) {
+        if (!self::isUrl($value)) {
             return [['label' => $key, 'url' => '', 'text' => $value, 'level' => 'none', 'status' => '', 'ms' => null]];
         }
         $row = self::page($key, $value);
@@ -291,7 +291,7 @@ class Health
                             'status' => '',
                             'ms' => null,
                         ]
-                        : self::profile_row($key, $value, $owner),
+                        : self::profileRow($key, $value, $owner),
                 ];
             }
             $row['url'] = rtrim((string) preg_replace('#\[AGENT_NAME\].*$#', '', $value), '/');
@@ -307,7 +307,7 @@ class Health
      * The profile of an avatar of the grid (its owner): shown as the config says it, with [AGENT_NAME], linked and asked with the
      * name of the owner.
      */
-    private static function profile_row($key, $value, $owner)
+    private static function profileRow($key, $value, $owner)
     {
         return self::page($key, str_replace('[AGENT_NAME]', $owner, $value)) + ['display' => $value];
     }
@@ -340,10 +340,10 @@ class Health
      * @param string $value  SearchURL of [LoginService]
      * @param string $search search of [GridInfoService]
      */
-    private static function login_search($value, $search)
+    private static function loginSearch($value, $search)
     {
         if ($value === '') {
-            return self::empty_row('SearchURL') + ['tag' => _('Web search')];
+            return self::emptyRow('SearchURL') + ['tag' => _('Web search')];
         }
         if ($search !== '' && rtrim($value, '/') === rtrim($search, '/')) {
             return [
@@ -360,7 +360,7 @@ class Health
     }
 
     /** The row of a setting that has no value: its name, nothing else. */
-    public static function empty_row($label)
+    public static function emptyRow($label)
     {
         return ['label' => $label, 'url' => '', 'level' => 'none', 'status' => '', 'ms' => null];
     }
@@ -387,7 +387,7 @@ class Health
             $label,
             $url,
             'post',
-            ['method' => 'xmlrpc', 'body' => self::xmlrpc_body($call, $params)],
+            ['method' => 'xmlrpc', 'body' => self::xmlrpcBody($call, $params)],
             _('with valid XMLRPC request'),
         );
     }
@@ -452,7 +452,7 @@ class Health
     }
 
     /** The request of the offline messages of an avatar, which has none. */
-    public static function retrieve_messages()
+    public static function retrieveMessages()
     {
         return '<?xml version="1.0"?><UUID xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><Guid>' .
             self::UNKNOWN_AVATAR .
@@ -460,7 +460,7 @@ class Health
     }
 
     /** The body of a call of XML-RPC, with one struct of ints and strings as parameter. */
-    private static function xmlrpc_body($method, array $params)
+    private static function xmlrpcBody($method, array $params)
     {
         $members = '';
         foreach ($params as $name => $value) {
@@ -694,7 +694,7 @@ class Health
     }
 
     /** Whether a value is an address. */
-    public static function is_url($value)
+    public static function isUrl($value)
     {
         return (bool) preg_match('#^https?://#i', (string) $value);
     }
