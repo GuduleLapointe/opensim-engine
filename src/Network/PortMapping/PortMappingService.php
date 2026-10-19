@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace OpenSim\Network\PortMapping;
 
 use OpenSim\Config\ConfigReader;
-use OpenSim\Network\InstancePorts;
 use OpenSim\Provisioning\Slug;
 use OpenSim\Config\GridConfig;
 
@@ -33,9 +32,6 @@ final class PortMappingService
     /** The module when the grid asks for the port mapping and names none. */
     public const DEFAULT_MODULE = 'kick-inside';
 
-    /** @var \Closure(string):list<array{port:int,proto:string}> */
-    private \Closure $ports;
-
     /** @var array<string,\Closure():PortMapperInterface> */
     private array $modules;
 
@@ -44,16 +40,13 @@ final class PortMappingService
 
     /**
      * @param \Closure(string,bool):void $log tells what is done, the second argument is true for a problem
-     * @param ?\Closure(string):list<array{port:int,proto:string}> $ports the ports of an instance, by its config file
      * @param array<string,\Closure():PortMapperInterface> $modules more modules, or others instead of these
      */
     public function __construct(
         private readonly string $stateDir,
         private readonly \Closure $log,
-        ?\Closure $ports = null,
         array $modules = [],
     ) {
-        $this->ports = $ports ?? static fn(string $ini): array => InstancePorts::of($ini);
         $this->modules =
             $modules +
             array_map(
@@ -68,8 +61,9 @@ final class PortMappingService
      *
      * @param string $instance the name of the instance
      * @param string $ini its config file
+     * @param list<array{port:int,proto:string}> $ports the ports it listens on (see AbstractController::ports())
      */
-    public function start(string $instance, string $ini): void
+    public function start(string $instance, string $ini, array $ports): void
     {
         $ini = realpath($ini) ?: $ini;
         $grid = $this->grid($ini);
@@ -78,7 +72,7 @@ final class PortMappingService
         if ($module === '') {
             // Not asked: what is still mapped is closed (the stop has done it when it ran), and the regions announce what
             // they would without port mapping, whatever they announced before
-            is_file($this->state($instance)) && $this->release($instance, $ini, $grid['module']);
+            is_file($this->state($instance)) && $this->release($instance, $ports, $grid['module']);
             $this->announce($grid, 'SYSTEMIP');
 
             return;
@@ -86,7 +80,7 @@ final class PortMappingService
 
         $host = '';
         $problem = '';
-        if (!$this->ready($instance, $grid) || !$this->map($instance, $ini, $module)) {
+        if (!$this->ready($instance, $grid) || !$this->map($instance, $ports, $module)) {
             $problem = 'port mapping failed';
         } elseif ($grid['simulator']) {
             $host = $this->module($module)?->address() ?? '';
@@ -95,7 +89,7 @@ final class PortMappingService
         if ($problem !== '') {
             $this->say($instance, "$problem, starting without port mapping", true);
             // Only what was mapped is closed: nothing was, when the grid was not ready
-            is_file($this->state($instance)) && $this->release($instance, $ini, $module);
+            is_file($this->state($instance)) && $this->release($instance, $ports, $module);
         }
         $this->announce($grid, $host !== '' ? $host : 'SYSTEMIP');
     }
@@ -104,10 +98,10 @@ final class PortMappingService
      * After an instance stopped: what it has mapped is closed, whatever the grid asks now, with the ports it has now and the
      * ones it had.
      */
-    public function stop(string $instance, string $ini): void
+    public function stop(string $instance, string $ini, array $ports): void
     {
         $ini = realpath($ini) ?: $ini;
-        $this->release($instance, $ini, $this->grid($ini)['module']);
+        $this->release($instance, $ports, $this->grid($ini)['module']);
     }
 
     /**
@@ -155,7 +149,7 @@ final class PortMappingService
     }
 
     /** Map the ports of an instance, unless they are mapped already. False when one cannot be, nothing is left mapped then. */
-    private function map(string $instance, string $ini, string $module): bool
+    private function map(string $instance, array $ports, string $module): bool
     {
         $mapper = $this->module($module);
         if ($mapper === null) {
@@ -163,7 +157,6 @@ final class PortMappingService
 
             return false;
         }
-        $ports = ($this->ports)($ini);
         if ($ports === []) {
             return false;
         }
@@ -174,7 +167,7 @@ final class PortMappingService
             if (array_shift($kept) === $module && $kept === $wanted) {
                 return true;
             }
-            $this->release($instance, $ini, $module);
+            $this->release($instance, $ports, $module);
         }
 
         $this->say($instance, 'mapping ports ' . self::format($ports) . " ($module), this can take a moment");
@@ -184,7 +177,7 @@ final class PortMappingService
         }
         foreach ($ports as $p) {
             if (!$mapper->open($p['port'], $p['proto'])) {
-                $this->release($instance, $ini, $module);
+                $this->release($instance, $ports, $module);
 
                 return false;
             }
@@ -198,7 +191,7 @@ final class PortMappingService
      * Close what an instance has mapped: the ports it has now and the ones the state keeps, with the module of the state, else
      * the given one. Nothing is done when no module is known.
      */
-    private function release(string $instance, string $ini, string $module): void
+    private function release(string $instance, array $ports, string $module): void
     {
         $state = $this->state($instance);
         $kept = is_file($state) ? (file($state, FILE_IGNORE_NEW_LINES) ?: []) : [];
@@ -212,7 +205,7 @@ final class PortMappingService
                     $list["$port $proto"] = ['port' => (int) $port, 'proto' => $proto];
                 }
             }
-            foreach (($this->ports)($ini) as $p) {
+            foreach ($ports as $p) {
                 $list["{$p['port']} {$p['proto']}"] = $p;
             }
             usort($list, static fn(array $a, array $b): int => [$a['port'], $a['proto']] <=> [$b['port'], $b['proto']]);

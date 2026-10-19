@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace OpenSim\Console;
 
-use OpenSim\Controllers\Controller;
+use OpenSim\Controllers\AbstractController;
 
 /**
  * The remote console of an instance that has one (a port, a user and a password), else its screen session.
  */
 final class ConsoleFactory implements ConsoleFactoryInterface
 {
-    public function for(Controller $instance): ConsoleInterface
+    public function for(AbstractController $instance): ConsoleInterface
     {
         $remote = $instance->remoteConsole();
 

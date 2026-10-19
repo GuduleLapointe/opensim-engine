@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace OpenSim\Models;
 
 use OpenSim\Config\GridConfig;
-use OpenSim\Controllers\Controller;
+use OpenSim\Controllers\AbstractController;
 use OpenSim\Controllers\RobustController;
 use OpenSim\Data\Collection;
 use OpenSim\Data\Database;
@@ -669,7 +669,7 @@ final class Service extends InstalledModel
     /**
      * What serves it: a Robust of the grid, or the simulator of a standalone grid. Null when nothing does.
      */
-    public function provider(): ?Controller
+    public function provider(): ?AbstractController
     {
         if ($this->grid->isStandalone()) {
             $serves =

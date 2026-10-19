@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace OpenSim\Console;
 
-use OpenSim\Controllers\Controller;
+use OpenSim\Controllers\AbstractController;
 
 /**
  * Gives the console of an instance.
  */
 interface ConsoleFactoryInterface
 {
-    public function for(Controller $instance): ConsoleInterface;
+    public function for(AbstractController $instance): ConsoleInterface;
 
     /** The screen session of an instance, whether it has one now or not. */
     public function screen(string $name): ScreenInterface;

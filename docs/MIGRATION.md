@@ -17,7 +17,7 @@ required by path. Method names that are snake_case keep their shape in the class
 
 | Before | Now |
 | --- | --- |
-| `Models\Instance` | `Controllers\Controller` (abstract) |
+| `Models\Instance` | `Controllers\AbstractController` (abstract) |
 | `Models\Robust` | `Controllers\RobustController`; `Grid::robust()` gives it, `Grid::robusts()` the list |
 | the process part of `Models\Simulator` | `Controllers\OpenSimController`; `Simulator::controller()` |
 | `Models\Core` | `Runtime\Core` |

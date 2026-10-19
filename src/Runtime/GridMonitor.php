@@ -53,15 +53,16 @@ final class GridMonitor
             if (!in_array($item->name(), $mine, true)) {
                 continue;
             }
+            $process = $item->process();
             $instances[] = [
                 'name' => $item->name(),
                 'type' => $item->type() === 'robust' ? 'robust' : 'simulator',
-                'running' => $item->isRunning(),
-                'pid' => $item->process?->pid,
-                'cpu' => $item->process?->cpu,
-                'memory' => $item->process?->memory,
-                'rss' => $item->process?->rss,
-                'httpPort' => $item->instance instanceof OpenSimController ? $item->instance->httpPort() : null,
+                'running' => $process !== null,
+                'pid' => $process?->pid,
+                'cpu' => $process?->cpu,
+                'memory' => $process?->memory,
+                'rss' => $process?->rss,
+                'httpPort' => $item instanceof OpenSimController ? $item->httpPort() : null,
             ];
         }
 

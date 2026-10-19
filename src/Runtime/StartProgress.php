@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Runtime;
 
-use OpenSim\Controllers\Controller;
+use OpenSim\Controllers\AbstractController;
 use OpenSim\Controllers\OpenSimController;
 
 /**
@@ -23,7 +23,7 @@ final class StartProgress
      */
     public function __construct(
         private readonly Environment $environment,
-        private readonly Controller $instance,
+        private readonly AbstractController $instance,
         private readonly LogFile $log,
         private readonly int $mark,
         private readonly string $output = '',

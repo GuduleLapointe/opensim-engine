@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace OpenSim\Runtime;
 
+use OpenSim\Controllers\AbstractController;
+
 /**
  * The instances of this machine and what they use: the enabled ones, running or not, and the totals of the OpenSimulator
  * processes that run.
@@ -11,14 +13,14 @@ namespace OpenSim\Runtime;
 final class Status
 {
     /**
-     * @param list<InstanceStatus> $instances
+     * @param list<AbstractController> $instances
      * @param list<Process> $processes every OpenSimulator process of the machine, enabled instances or not
      */
     public function __construct(public readonly array $instances, public readonly array $processes) {}
 
     public function up(): int
     {
-        return count(array_filter($this->instances, static fn(InstanceStatus $s): bool => $s->isRunning()));
+        return count(array_filter($this->instances, static fn(AbstractController $i): bool => $i->process() !== null));
     }
 
     public function down(): int

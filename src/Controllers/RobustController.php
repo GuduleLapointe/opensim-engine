@@ -13,7 +13,7 @@ use OpenSim\Data\Database;
  * The Robust of a grid: the server of its services (login, users, inventory, assets, presence). A grid has one of its own on
  * this machine, or none when it is run elsewhere.
  */
-final class RobustController extends Controller
+final class RobustController extends AbstractController
 {
     public function type(): string
     {
@@ -117,5 +117,21 @@ final class RobustController extends Controller
     protected function consolePortKeys(): array
     {
         return ['ConsolePort', 'consoleport'];
+    }
+
+    protected function listeningPorts(): array
+    {
+        $uses = [];
+        self::addPort($uses, $this->publicPort(), 'tcp', 'public port of the grid: viewers, other grids', 'public');
+        self::addPort($uses, $this->privatePort(), 'tcp', 'private port of the grid: its simulators only', 'private');
+        // The services it serves on another port
+        foreach (array_values($this->settings()['ServiceList'] ?? []) as $connector) {
+            $port = (string) preg_replace('/^.*@/', '', explode('/', $connector, 2)[0]);
+            if (ctype_digit($port) && (int) $port !== $this->publicPort() && (int) $port !== $this->privatePort()) {
+                self::addPort($uses, $port, 'tcp', 'additional service', 'private');
+            }
+        }
+
+        return $uses;
     }
 }

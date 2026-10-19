@@ -6,12 +6,12 @@ namespace OpenSim\Controllers;
 
 use OpenSim\Config\ConfigReader;
 use OpenSim\Config\ConnectionString;
+use OpenSim\Config\GridFileService;
 use OpenSim\Config\InstanceSettings;
 use OpenSim\Console\ConsoleInterface;
 use OpenSim\Data\Database;
 use OpenSim\Interfaces\Enablable;
 use OpenSim\Models\Grid;
-use OpenSim\Network\InstancePorts;
 use OpenSim\Runtime\Core;
 use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\LogFile;
@@ -29,7 +29,7 @@ use OpenSim\Config\GridConfig;
  * The config file is the one the controller runs with (`-inifile=`): the link in `opensim.d` or `robust.d` of an enabled
  * controller, which is where the launcher found it, else the file itself.
  */
-abstract class Controller implements Enablable
+abstract class AbstractController implements Enablable
 {
     /** The sections the launcher reads its settings in, the last that says one wins. */
     private const LAUNCH_SECTIONS = ['Const', 'Launch', 'Startup', 'Network'];
@@ -345,10 +345,78 @@ abstract class Controller implements Enablable
         return $this->environment->consoles->for($this);
     }
 
-    /** The ports it listens on (see InstancePorts). */
+    /**
+     * The ports it listens on, with what each one is for and who has to reach it:
+     *
+     *  - public:  the viewers, the other grids, the other simulators
+     *  - private: the simulators of the grid only (Robust private port, without any authentication: never for the world)
+     *  - console: the REST console, which gives every right on the instance
+     *  - off:     kept for a console that is not enabled
+     *
+     * The region ports are UDP: they are the ones the viewers send to, and the number is the one the viewers get, so it cannot
+     * differ outside.
+     *
+     * @return list<array{port:int,proto:string,role:string,use:string}>
+     */
     public function ports(): array
     {
-        return InstancePorts::of($this->ini);
+        $uses = $this->listeningPorts();
+        if (($console = $this->remoteConsole()) !== null) {
+            self::addPort($uses, $console['port'], 'tcp', 'REST console (every right on the instance)', 'console');
+        } elseif ($this->launchSetting(...$this->consolePortKeys()) === '') {
+            self::addPort($uses, $this->keptConsolePort(), 'tcp', 'REST console (not enabled)', 'off');
+        }
+        usort($uses, static fn(array $a, array $b): int => [$a['port'], $a['proto']] <=> [$b['port'], $b['proto']]);
+
+        return $uses;
+    }
+
+    /**
+     * The ports its kind of program listens on, besides its console.
+     *
+     * @return list<array{port:int,proto:string,role:string,use:string}>
+     */
+    abstract protected function listeningPorts(): array;
+
+    /**
+     * Adds a use of a port to a list, unless the port is not a number above zero.
+     *
+     * @param list<array{port:int,proto:string,role:string,use:string}> $uses
+     */
+    protected static function addPort(array &$uses, int|string|null $port, string $proto, string $role, string $use): void
+    {
+        if ($port !== null && ctype_digit((string) $port) && (int) $port > 0) {
+            $uses[] = ['port' => (int) $port, 'proto' => $proto, 'role' => $role, 'use' => $use];
+        }
+    }
+
+    /** The port of its console as the config keeps it for when it is enabled (the line is commented out), null when it does not. */
+    private function keptConsolePort(): ?int
+    {
+        $text = is_file($this->ini) ? GridFileService::read($this->ini) : '';
+        foreach ($this->consolePortKeys() as $key) {
+            if (preg_match('/^\s*;+\s*' . preg_quote($key, '/') . '\s*=\s*"?(\d+)/mi', $text, $m) === 1 && (int) $m[1] > 0) {
+                return (int) $m[1];
+            }
+        }
+
+        return null;
+    }
+
+    /** One setting of a section, the names of the section and of the key in any case; empty when the config does not say it. */
+    protected function settingAnyCase(string $section, string $key): string
+    {
+        foreach ($this->settings() as $name => $keys) {
+            if (strcasecmp((string) $name, $section) === 0) {
+                foreach ($keys as $other => $value) {
+                    if (strcasecmp((string) $other, $key) === 0) {
+                        return trim((string) $value);
+                    }
+                }
+            }
+        }
+
+        return '';
     }
 
     /** The folder its logs are in: the one it names, else the one of its includes, else the one of the install. */

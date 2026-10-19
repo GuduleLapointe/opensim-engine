@@ -35,7 +35,7 @@
 - new: `Avatar::create()` and a fuller `update()`; `AccountImporter::forModels()`
 - new: `Models\Service` and `Grid::services()`, `Simulator::service()`; standalone grids (`Standalone = true`)
 - update: every operation takes an `Environment` (no profile array); `Ports` is built on one; `EnvironmentFake` for tests
-- update: `Instance` and `Robust` are `Controllers\Controller` and `RobustController`; `Core` is `Runtime\Core`
+- update: `Instance` and `Robust` are `Controllers\AbstractController` and `RobustController`; `Core` is `Runtime\Core`
 - update: `sims` is `simulators` in the code (`GridConfig::SIMULATORS` names the folder); the region form field is `simulator`
 - update: `OSPDO` is `OpenSim\Data\OSPDO` and the health checks `OpenSim\Health\Health`; the `legacy/` aliases (`OpenSim_Config`, `OpenSim_Oar`) are gone, the classes load through the autoloader only
 - update: the classes and functions of the WordPress plugin nobody here uses are gone (`OpenSim_Avatar`, `OpenSim_Form`..., the escaping and the dead functions); the plugin has its own copy
@@ -63,7 +63,7 @@
 - new: `OpenSim\Config` (Layout, IniEditor, IniReader, GridFileService), `OpenSim\Provisioning` (plans, config writers, presets, features, accounts, provisioners), `OpenSim\Archives`, `OpenSim\Network\Ports`
 - new: `OpenSim\Testing` has the test doubles of the machine for the front-ends
 - new: `OpenSim\OpenSim` starts, stops, restarts and reports on grids and simulators (`Models`, `Runtime`, `Console`)
-- new: the namespace `OpenSim\` in `src/` (PSR-4, one class per file): `OpenSim\Network\PortMapping` (the port mapping of the instances: `KickInsideMapper`, UPnP in PHP with `magicoli/kick-inside`, the default; `UpnpcMapper`, the `upnpc` command, the alternative; `PortMappingService`), `OpenSim\Network\InstancePorts`, `OpenSim\Provisioning\Slug`
+- new: the namespace `OpenSim\` in `src/` (PSR-4, one class per file): `OpenSim\Network\PortMapping` (the port mapping of the instances: `KickInsideMapper`, UPnP in PHP with `magicoli/kick-inside`, the default; `UpnpcMapper`, the `upnpc` command, the alternative; `PortMappingService`), `OpenSim\Provisioning\Slug`
 ### 3.0.0-beta.6
 
 Freeze current state before refactor

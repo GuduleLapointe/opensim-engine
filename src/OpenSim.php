@@ -6,11 +6,10 @@ namespace OpenSim;
 
 use OpenSim\Config\Layout;
 use OpenSim\Models\Grid;
-use OpenSim\Controllers\Controller;
+use OpenSim\Controllers\AbstractController;
 use OpenSim\Controllers\OpenSimController;
 use OpenSim\Controllers\RobustController;
 use OpenSim\Runtime\Environment;
-use OpenSim\Runtime\InstanceStatus;
 use OpenSim\Runtime\ReporterInterface;
 use OpenSim\Runtime\InstanceResult;
 use OpenSim\Runtime\Status;
@@ -113,27 +112,14 @@ final class OpenSim
     {
         $environment ??= self::environment();
         $processes = $environment->processes->all();
-        $instances = [];
-        foreach (self::enabled($environment) as $instance) {
-            $real = realpath($instance->ini()) ?: $instance->ini();
-            $found = null;
-            foreach ($processes as $process) {
-                if ($process->runs($instance->ini()) || $process->runs($real)) {
-                    $found = $process;
 
-                    break;
-                }
-            }
-            $instances[] = new InstanceStatus($instance, $found);
-        }
-
-        return new Status($instances, $processes);
+        return new Status(self::enabled($environment), $processes);
     }
 
     /**
      * The enabled instances of this machine: the configs linked in `robust.d` and `opensim.d`, the Robusts first.
      *
-     * @return list<Controller>
+     * @return list<AbstractController>
      */
     public static function enabled(Environment $environment): array
     {
@@ -166,7 +152,7 @@ final class OpenSim
     /**
      * One instance by what names it: a config file, or the name of an enabled instance (the one of a grid is its Robust).
      */
-    public static function instance(Environment $environment, string $target): ?Controller
+    public static function instance(Environment $environment, string $target): ?AbstractController
     {
         $target = trim($target);
         if ($target === '') {
@@ -180,7 +166,7 @@ final class OpenSim
                 ? new RobustController($environment, $real)
                 : new OpenSimController($environment, $real);
         }
-        $name = Controller::cleanName($target);
+        $name = AbstractController::cleanName($target);
         foreach (self::enabled($environment) as $instance) {
             if ($instance->name() === $name) {
                 return $instance;
@@ -196,7 +182,7 @@ final class OpenSim
      * @param string|list<string>|null $targets
      * @param list<InstanceResult> $results where the targets that name nothing are told
      * @param bool $simulators the enabled simulators of the grids named come after their Robust
-     * @return list<Controller>
+     * @return list<AbstractController>
      */
     private static function resolve(
         Environment $environment,
@@ -210,7 +196,7 @@ final class OpenSim
         }
         $instances = [];
         $seen = [];
-        $add = static function (Controller $instance) use (&$instances, &$seen): void {
+        $add = static function (AbstractController $instance) use (&$instances, &$seen): void {
             if (!isset($seen[$instance->name()])) {
                 $seen[$instance->name()] = true;
                 $instances[] = $instance;
@@ -252,14 +238,14 @@ final class OpenSim
     /**
      * The order to stop instances in: the simulators, then the Robusts they depend on.
      *
-     * @param list<Controller> $instances
-     * @return list<Controller>
+     * @param list<AbstractController> $instances
+     * @return list<AbstractController>
      */
     private static function stopOrder(array $instances): array
     {
         return [
-            ...array_filter($instances, static fn(Controller $i): bool => !($i instanceof RobustController)),
-            ...array_filter($instances, static fn(Controller $i): bool => $i instanceof RobustController),
+            ...array_filter($instances, static fn(AbstractController $i): bool => !($i instanceof RobustController)),
+            ...array_filter($instances, static fn(AbstractController $i): bool => $i instanceof RobustController),
         ];
     }
 }

@@ -3,10 +3,12 @@
 declare(strict_types=1);
 
 /**
- * The ports an instance listens on, from its config and the descriptions of its regions.
+ * The ports a controller listens on, from its config and the descriptions of its regions.
  */
 
-use OpenSim\Network\InstancePorts;
+use OpenSim\Controllers\OpenSimController;
+use OpenSim\Controllers\RobustController;
+use OpenSim\Testing\Machine;
 
 /** A config file in a temporary folder. */
 function instance_ports_file(string $name, string $text): string
@@ -18,7 +20,7 @@ function instance_ports_file(string $name, string $text): string
     return "$dir/$name";
 }
 
-describe('ports of an instance', function () {
+describe('ports of a controller', function () {
     test('are, for Robust, its public and private ports, its additional services, its console', function () {
         $ini = instance_ports_file(
             'Robust.HG.ini',
@@ -37,8 +39,10 @@ describe('ports of an instance', function () {
             ,
         );
 
+        $robust = new RobustController((new Machine())->environment, $ini);
+
         expect(
-            array_map(static fn(array $p): string => "{$p['port']}/{$p['proto']} {$p['use']}", InstancePorts::of($ini)),
+            array_map(static fn(array $p): string => "{$p['port']}/{$p['proto']} {$p['use']}", $robust->ports()),
         )->toBe(['8002/tcp public', '8003/tcp private', '8010/tcp private', '8404/tcp console']);
     });
 
@@ -54,34 +58,25 @@ describe('ports of an instance', function () {
             "[Plaza]\r\nInternalPort = 9021\r\n[Park]\r\nInternalPort = 9022\r\n",
         );
 
+        $simulator = new OpenSimController((new Machine())->environment, $ini);
+
         expect(
-            array_map(static fn(array $p): string => "{$p['port']}/{$p['proto']} {$p['use']}", InstancePorts::of($ini)),
+            array_map(static fn(array $p): string => "{$p['port']}/{$p['proto']} {$p['use']}", $simulator->ports()),
         )->toBe(['9020/tcp public', '9021/udp public', '9022/udp public', '9024/tcp console']);
     });
 
     test('keep the port of a console that is not enabled, marked off', function () {
         $ini = instance_ports_file('sim.ini', "[Network]\n  http_listener_port = 9020\n  ;console_port = 9024\n");
 
-        expect(array_map(static fn(array $p): string => "{$p['port']} {$p['use']}", InstancePorts::of($ini)))->toBe([
+        $simulator = new OpenSimController((new Machine())->environment, $ini);
+
+        expect(array_map(static fn(array $p): string => "{$p['port']} {$p['use']}", $simulator->ports()))->toBe([
             '9020 public',
             '9024 off',
         ]);
     });
 
-    test('are read the way the caller reads files it cannot read itself', function () {
-        $ini = instance_ports_file('sim.ini', '');
-        $read = static fn(string $file): string => "[Network]\n  http_listener_port = 9100\n";
-
-        expect(InstancePorts::of($ini, $read))
-            ->toBe([
-                [
-                    'port' => 9100,
-                    'proto' => 'tcp',
-                    'role' => 'HTTP of the simulator: viewers, grid, neighbours',
-                    'use' => 'public',
-                ],
-            ])
-            ->and(InstancePorts::of('/nowhere/sim.ini'))
-            ->toBe([]);
+    test('are none for a config that is not there', function () {
+        expect((new OpenSimController((new Machine())->environment, '/nowhere/sim.ini'))->ports())->toBe([]);
     });
 });

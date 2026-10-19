@@ -7,7 +7,7 @@ namespace OpenSim\Models;
 use OpenSim\Config\ConfigReader;
 use OpenSim\Config\ConnectionString;
 use OpenSim\Config\GridConfig;
-use OpenSim\Controllers\Controller;
+use OpenSim\Controllers\AbstractController;
 use OpenSim\Controllers\RobustController;
 use OpenSim\Data\Collection;
 use OpenSim\Data\Connections;
@@ -1676,7 +1676,7 @@ final class Grid extends InstalledModel
     public function simulator(string $name): ?Simulator
     {
         foreach ($this->simulators() as $simulator) {
-            if ($simulator->name() === Controller::cleanName($name)) {
+            if ($simulator->name() === AbstractController::cleanName($name)) {
                 return $simulator;
             }
         }
@@ -1740,20 +1740,20 @@ final class Grid extends InstalledModel
     /**
      * The instances to run, in the order they start: its Robust, then, when asked, its enabled simulators.
      *
-     * @return list<Controller>
+     * @return list<AbstractController>
      */
     public function instances(bool $simulators = false): array
     {
         // The simulator of a standalone is the grid: it has no Robust to start before it
         if ($this->isStandalone()) {
-            return array_map(static fn(Simulator $s): Controller => $s->controller(), $this->enabledSimulators());
+            return array_map(static fn(Simulator $s): AbstractController => $s->controller(), $this->enabledSimulators());
         }
         $robust = $this->robust();
 
         return [
             ...$robust !== null && $robust->isEnabled() ? [$robust] : [],
             ...$simulators
-                ? array_map(static fn(Simulator $s): Controller => $s->controller(), $this->enabledSimulators())
+                ? array_map(static fn(Simulator $s): AbstractController => $s->controller(), $this->enabledSimulators())
                 : [],
         ];
     }
@@ -1789,7 +1789,7 @@ final class Grid extends InstalledModel
     public function stop(bool $now = false, bool $simulators = false): array
     {
         return array_map(
-            static fn(Controller $i): InstanceResult => $i->stop($now),
+            static fn(AbstractController $i): InstanceResult => $i->stop($now),
             array_reverse($this->instances($simulators)),
         );
     }

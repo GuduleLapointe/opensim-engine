@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace OpenSim\Runtime;
 
 use OpenSim\Console\ScreenInterface;
-use OpenSim\Controllers\Controller;
+use OpenSim\Controllers\AbstractController;
 use OpenSim\Controllers\OpenSimController;
 
 /**
@@ -28,7 +28,7 @@ final class StartService
 
     public function __construct(private readonly Environment $environment) {}
 
-    public function start(Controller $instance): InstanceResult
+    public function start(AbstractController $instance): InstanceResult
     {
         $env = $this->environment;
         $name = $instance->name();
@@ -88,7 +88,7 @@ final class StartService
         $master = $instance instanceof OpenSimController ? $instance->master($core->bin()) : null;
 
         // Port mapping, when the grid asks for it: ports mapped and regions address set before the instance starts
-        $env->portMapping?->start($name, $instance->ini());
+        $env->portMapping?->start($name, $instance->ini(), $instance->ports());
 
         // Regions load the modules enabled for the install from the addins folder of their registry
         $registry = $instance->launchSetting('RegistryLocation');
@@ -180,7 +180,7 @@ final class StartService
 
     /** Wait for the instance to be ready, and tell how it went. */
     private function wait(
-        Controller $instance,
+        AbstractController $instance,
         string $base,
         LogFile $log,
         int $mark,
@@ -245,7 +245,7 @@ final class StartService
      * @return array{0:int,1:list<string>} 0 when all are loaded, 4 when some failed to load (named in the list, once the others
      *                                     have reported), 3 when the instance exited, 1 when the delay is over
      */
-    private function watchServices(Controller $instance, LogFile $log, int $mark, array $services): array
+    private function watchServices(AbstractController $instance, LogFile $log, int $mark, array $services): array
     {
         $env = $this->environment;
         $pending = array_fill_keys($services, true);
@@ -278,7 +278,7 @@ final class StartService
     }
 
     /** Wait for the regions of a simulator with a remote console to be ready, in its log: 0, 3 when it exited, 1 at the end of the delay. */
-    private function waitLog(Controller $instance, LogFile $log, int $mark, StartProgress $progress): int
+    private function waitLog(AbstractController $instance, LogFile $log, int $mark, StartProgress $progress): int
     {
         for ($tick = 0; $tick < self::TIMEOUT * 2; $tick++) {
             if (preg_match('/RegionReady|LOAD REGIONS PLUGIN\]: Done/', $log->since($mark))) {
@@ -299,7 +299,7 @@ final class StartService
      * their default, each once, as they come: a region fully described asks none. A question blocks the loading, so the region is
      * ready only after them.
      */
-    private function waitConsole(Controller $instance, StartProgress $progress): int
+    private function waitConsole(AbstractController $instance, StartProgress $progress): int
     {
         $console = $this->environment->consoles->screen($instance->name());
         $answered = [];
@@ -334,7 +334,7 @@ final class StartService
      * @return array{0:int,1:string} 0 and the lines that match, 3 when the session is gone, 1 at the end of the delay
      */
     private function waitScreen(
-        Controller $instance,
+        AbstractController $instance,
         ScreenInterface $console,
         string $pattern,
         StartProgress $progress,
@@ -363,7 +363,7 @@ final class StartService
      *
      * @return string|false the file, empty when there is none to give, false when it could not be made
      */
-    private function logConfig(Controller $instance, string $base, string $bin): string|false
+    private function logConfig(AbstractController $instance, string $base, string $bin): string|false
     {
         $layout = $this->environment->layout;
         $config = $instance->launchSetting('logconfig', 'LogConfig');

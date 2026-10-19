@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Runtime;
 
-use OpenSim\Controllers\Controller;
+use OpenSim\Controllers\AbstractController;
 use OpenSim\Controllers\OpenSimController;
 
 /**
@@ -29,7 +29,7 @@ final class StopService
     }
 
     /** @param bool $now stop without warning the users */
-    public function stop(Controller $instance, bool $now = false): InstanceResult
+    public function stop(AbstractController $instance, bool $now = false): InstanceResult
     {
         $env = $this->environment;
         $name = $instance->name();
@@ -63,7 +63,7 @@ final class StopService
                 }
             }
         }
-        $env->portMapping?->stop($name, $instance->ini());
+        $env->portMapping?->stop($name, $instance->ini(), $instance->ports());
 
         return match (true) {
             !$stopped => InstanceResult::failed($name, "$name still running after being killed"),

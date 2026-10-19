@@ -44,6 +44,19 @@ final class FakeMapper implements PortMapperInterface
     }
 }
 
+/** What opensim ports lists: public, private and console ones, and one not enabled: all of them are mapped. */
+function portmapping_ports(string $ini): array
+{
+    return str_contains($ini, 'Robust')
+        ? [['port' => 8002, 'proto' => 'tcp'], ['port' => 8003, 'proto' => 'tcp']]
+        : [
+            ['port' => 9020, 'proto' => 'tcp'],
+            ['port' => 9021, 'proto' => 'udp'],
+            ['port' => 9024, 'proto' => 'tcp'],
+            ['port' => 9025, 'proto' => 'tcp'],
+        ];
+}
+
 /**
  * A grid with its Robust and a simulator, and the service to map them.
  *
@@ -66,19 +79,9 @@ function portmapping_setup(string $config): array
     FakeMapper::$refuse = 0;
     FakeMapper::$address = '203.0.113.7';
     $log = new ArrayObject();
-    // What opensim ports lists: public, private and console ones, and one not enabled: all of them are mapped
-    $ports = static fn(string $ini): array => str_contains($ini, 'Robust')
-        ? [['port' => 8002, 'proto' => 'tcp'], ['port' => 8003, 'proto' => 'tcp']]
-        : [
-            ['port' => 9020, 'proto' => 'tcp'],
-            ['port' => 9021, 'proto' => 'udp'],
-            ['port' => 9024, 'proto' => 'tcp'],
-            ['port' => 9025, 'proto' => 'tcp'],
-        ];
     $service = new PortMappingService(
         "$root/var/portmap",
         static fn(string $message, bool $problem) => $log->append(($problem ? '! ' : '') . $message),
-        $ports,
         ['fake' => static fn(): PortMapperInterface => new FakeMapper()],
     );
 
@@ -96,8 +99,8 @@ describe('Port mapping, enabled', function () {
     test('maps every port opensim ports lists, then gives the regions the public address', function () {
         $t = portmapping_setup("PortMappingModule = fake\nPortMappingEnabled = true\n");
 
-        $t['service']->start('demo', $t['robust']);
-        $t['service']->start('demo_sim', $t['sim']);
+        $t['service']->start('demo', $t['robust'], portmapping_ports($t['robust']));
+        $t['service']->start('demo_sim', $t['sim'], portmapping_ports($t['sim']));
 
         expect(FakeMapper::$calls)
             ->toContain(
@@ -121,19 +124,19 @@ describe('Port mapping, enabled', function () {
     test('calls the module for nothing on a restart', function (array $t) {
         FakeMapper::$calls = [];
 
-        $t['service']->start('demo_sim', $t['sim']);
+        $t['service']->start('demo_sim', $t['sim'], portmapping_ports($t['sim']));
 
         expect(FakeMapper::$calls)->toBe([]);
     })->depends('maps every port opensim ports lists, then gives the regions the public address');
 
     test('closes the ports when it is stopped, those it has and those it had', function () {
         $t = portmapping_setup("PortMappingModule = fake\nPortMappingEnabled = true\n");
-        $t['service']->start('demo', $t['robust']);
-        $t['service']->start('demo_sim', $t['sim']);
+        $t['service']->start('demo', $t['robust'], portmapping_ports($t['robust']));
+        $t['service']->start('demo_sim', $t['sim'], portmapping_ports($t['sim']));
         file_put_contents(dirname($t['grid'], 2) . '/var/portmap/demo_sim', "8888 tcp\n", FILE_APPEND);
         FakeMapper::$calls = [];
 
-        $t['service']->stop('demo_sim', $t['sim']);
+        $t['service']->stop('demo_sim', $t['sim'], portmapping_ports($t['sim']));
 
         expect(FakeMapper::$calls)
             ->toContain('close 8888/tcp', 'close 9020/tcp', 'close 9021/udp', 'close 9024/tcp', 'close 9025/tcp')
@@ -150,7 +153,7 @@ describe('Port mapping, enabled', function () {
     test('does not map a simulator before its grid is', function () {
         $t = portmapping_setup("PortMappingModule = fake\nPortMappingEnabled = true\n");
 
-        $t['service']->start('demo_sim', $t['sim']);
+        $t['service']->start('demo_sim', $t['sim'], portmapping_ports($t['sim']));
 
         expect(FakeMapper::$calls)
             ->toBe([])
@@ -161,7 +164,7 @@ describe('Port mapping, enabled', function () {
     test('maps a simulator of a grid on another machine without its grid', function () {
         $t = portmapping_setup("Remote = true\nPortMappingModule = fake\nPortMappingEnabled = true\n");
 
-        $t['service']->start('demo_sim', $t['sim']);
+        $t['service']->start('demo_sim', $t['sim'], portmapping_ports($t['sim']));
 
         expect(FakeMapper::$calls)->toContain('open 9020/tcp');
     });
@@ -169,9 +172,9 @@ describe('Port mapping, enabled', function () {
     test('starts without mapping, and says so, when a port is refused', function () {
         $t = portmapping_setup("PortMappingModule = fake\nPortMappingEnabled = true\n");
         FakeMapper::$refuse = 9021;
-        $t['service']->start('demo', $t['robust']);
+        $t['service']->start('demo', $t['robust'], portmapping_ports($t['robust']));
 
-        $t['service']->start('demo_sim', $t['sim']);
+        $t['service']->start('demo_sim', $t['sim'], portmapping_ports($t['sim']));
 
         expect((array) $t['log'])
             ->toContain('! demo_sim: port mapping failed, starting without port mapping')
@@ -184,7 +187,7 @@ describe('Port mapping, enabled', function () {
     test('starts without mapping when the module is unknown', function () {
         $t = portmapping_setup("PortMappingModule = nothing\nPortMappingEnabled = true\n");
 
-        $t['service']->start('demo', $t['robust']);
+        $t['service']->start('demo', $t['robust'], portmapping_ports($t['robust']));
 
         expect((array) $t['log'])->toContain("! demo: unknown port mapping module 'nothing'");
     });
@@ -194,8 +197,8 @@ describe('Port mapping, not enabled', function () {
     test('closes what was open, even without a state file, and says which ports', function () {
         $t = portmapping_setup("PortMappingModule = fake\nPortMappingEnabled = false\n");
 
-        $t['service']->start('demo_sim', $t['sim']);
-        $t['service']->stop('demo_sim', $t['sim']);
+        $t['service']->start('demo_sim', $t['sim'], portmapping_ports($t['sim']));
+        $t['service']->stop('demo_sim', $t['sim'], portmapping_ports($t['sim']));
 
         expect(FakeMapper::$calls)
             ->toContain('close 9020/tcp', 'close 9021/udp', 'close 9024/tcp', 'close 9025/tcp')
@@ -205,13 +208,13 @@ describe('Port mapping, not enabled', function () {
 
     test('closes once on a restart, not once for the stop and once for the start', function () {
         $t = portmapping_setup("PortMappingModule = fake\nPortMappingEnabled = true\n");
-        $t['service']->start('demo', $t['robust']);
-        $t['service']->start('demo_sim', $t['sim']);
+        $t['service']->start('demo', $t['robust'], portmapping_ports($t['robust']));
+        $t['service']->start('demo_sim', $t['sim'], portmapping_ports($t['sim']));
         file_put_contents($t['grid'] . '/demo.conf', "[Grid]\nPortMappingModule = fake\nPortMappingEnabled = false\n");
         $t['log']->exchangeArray([]);
 
-        $t['service']->stop('demo_sim', $t['sim']);
-        $t['service']->start('demo_sim', $t['sim']);
+        $t['service']->stop('demo_sim', $t['sim'], portmapping_ports($t['sim']));
+        $t['service']->start('demo_sim', $t['sim'], portmapping_ports($t['sim']));
 
         expect(
             array_values(array_filter((array) $t['log'], static fn(string $l): bool => str_contains($l, 'closing'))),
@@ -220,12 +223,12 @@ describe('Port mapping, not enabled', function () {
 
     test('gives the regions SYSTEMIP back on a restart, the state being gone', function () {
         $t = portmapping_setup("PortMappingModule = fake\nPortMappingEnabled = true\n");
-        $t['service']->start('demo', $t['robust']);
-        $t['service']->start('demo_sim', $t['sim']);
+        $t['service']->start('demo', $t['robust'], portmapping_ports($t['robust']));
+        $t['service']->start('demo_sim', $t['sim'], portmapping_ports($t['sim']));
         file_put_contents($t['grid'] . '/demo.conf', "[Grid]\nPortMappingModule = fake\nPortMappingEnabled = false\n");
 
-        $t['service']->stop('demo_sim', $t['sim']);
-        $t['service']->start('demo_sim', $t['sim']);
+        $t['service']->stop('demo_sim', $t['sim'], portmapping_ports($t['sim']));
+        $t['service']->start('demo_sim', $t['sim'], portmapping_ports($t['sim']));
 
         expect(file_get_contents($t['regions']))->toContain('ExternalHostName = SYSTEMIP');
     });
@@ -233,8 +236,8 @@ describe('Port mapping, not enabled', function () {
     test('does nothing without a module', function () {
         $t = portmapping_setup("PortMappingEnabled = false\n");
 
-        $t['service']->start('demo_sim', $t['sim']);
-        $t['service']->stop('demo_sim', $t['sim']);
+        $t['service']->start('demo_sim', $t['sim'], portmapping_ports($t['sim']));
+        $t['service']->stop('demo_sim', $t['sim'], portmapping_ports($t['sim']));
 
         expect(FakeMapper::$calls)->toBe([]);
     });
@@ -287,7 +290,6 @@ describe('Port mapping, the module', function () {
         $service = new PortMappingService(
             dirname($t['grid'], 2) . '/var/portmap-default',
             static fn(string $message, bool $problem) => null,
-            static fn(string $ini): array => [['port' => 8002, 'proto' => 'tcp']],
             [
                 'kick-inside' => static function () use (&$made): PortMapperInterface {
                     $made[] = 'kick-inside';
@@ -297,7 +299,7 @@ describe('Port mapping, the module', function () {
             ],
         );
 
-        $service->start('demo', $t['robust']);
+        $service->start('demo', $t['robust'], portmapping_ports($t['robust']));
 
         expect($made)
             ->toBe(['kick-inside'])
@@ -311,7 +313,6 @@ describe('Port mapping, the module', function () {
         $service = new PortMappingService(
             dirname($t['grid'], 2) . '/var/portmap-once',
             static fn(string $message, bool $problem) => null,
-            static fn(string $ini): array => [['port' => 8002, 'proto' => 'tcp'], ['port' => 8003, 'proto' => 'tcp']],
             [
                 'fake' => static function () use (&$made): PortMapperInterface {
                     $made++;
@@ -321,8 +322,8 @@ describe('Port mapping, the module', function () {
             ],
         );
 
-        $service->start('demo', $t['robust']);
-        $service->stop('demo', $t['robust']);
+        $service->start('demo', $t['robust'], portmapping_ports($t['robust']));
+        $service->stop('demo', $t['robust'], portmapping_ports($t['robust']));
 
         expect($made)->toBe(1);
     });
