@@ -13,7 +13,7 @@ final class RegionName
     {
         return preg_match('/^[A-Za-z0-9][A-Za-z0-9 ._-]{0,49}$/', trim($name)) === 1
             ? null
-            : 'Letters, digits, spaces, . _ and - only.';
+            : 'invalid (letters, digits, space . _ -)';
     }
 
     /** The key of [GridService] giving the flags of a region: Robust looks for its name with the spaces replaced by underscores. */

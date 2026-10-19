@@ -171,21 +171,24 @@ final class Simulator extends InstalledModel
     {
         return preg_match('/^[A-Za-z0-9][A-Za-z0-9 _-]*$/', trim(Slug::ascii((string) $value))) === 1
             ? null
-            : _('Letters, digits, spaces, _ and - only.');
+            : _('invalid (letters, digits, space _ -)');
     }
 
     /** The name of an account: first and last name. */
     public static function validateOwner(mixed $value): ?string
     {
-        return GridAccounts::validName(trim((string) $value)) ? null : _('First and last name, e.g. Jane Doe.');
+        return GridAccounts::validName(trim((string) $value)) ? null : _('invalid (First Last)');
     }
 
     /** The password of an account to make. */
     public static function validatePassword(mixed $value): ?string
     {
-        return preg_match('/^[^"\r\n]{6,}$/', (string) $value) === 1
-            ? null
-            : _('At least 6 characters, without double quote.');
+        // The double quote stays out: the implementations and the console do not agree on it
+        return match (true) {
+            preg_match('/["\r\n]/', (string) $value) === 1 => _('invalid (no double quote)'),
+            strlen((string) $value) < 6 => _('too short (6 min)'),
+            default => null,
+        };
     }
 
     /** The email of an account to make, or nothing. */
@@ -194,7 +197,7 @@ final class Simulator extends InstalledModel
         return trim((string) $value) === '' ||
             preg_match('/^[^\s"\'\\\\]+@[^\s"\'\\\\]+$/', trim((string) $value)) === 1
             ? null
-            : _('An email address, or nothing.');
+            : _('invalid');
     }
 
     /**

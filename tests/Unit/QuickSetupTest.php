@@ -183,3 +183,27 @@ describe('quick setup through the API', function () {
             ->toBe(409);
     });
 });
+
+describe('quick setup, the words of the problems', function () {
+    test('are one or two words, the label is the display\'s', function () {
+        $problems = QuickSetup::plan((new Machine())->environment, [
+            'type' => 'island',
+            'login_uri' => 'x y',
+            'avatar' => 'Ada',
+            'password' => 'ab',
+            'email' => 'nope',
+        ])['problems'];
+
+        expect($problems)->toBe([
+            'type' => 'invalid',
+            'login_uri' => 'invalid (host:port)',
+            'avatar' => 'invalid (First Last)',
+            'password' => 'too short (6 min)',
+            'email' => 'invalid',
+        ]);
+        expect(QuickSetup::plan((new Machine())->environment, quick_answers(['password' => 'ab"cdef']))['problems'])->toBe([
+            'password' => 'invalid (no double quote)',
+        ])->and(array_keys(QuickSetup::plan((new Machine())->environment, [])['problems']))->toBe(['avatar', 'password']);
+        expect(QuickSetup::plan((new Machine())->environment, [])['problems']['avatar'])->toBe('required');
+    });
+});

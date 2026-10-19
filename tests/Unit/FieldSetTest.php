@@ -75,12 +75,12 @@ describe('A set of fields', function () {
 
         expect($fields->problems(['name' => ' ', 'port' => 'abc', 'path' => 'a', 'expected' => 'b']))
             ->toBe([
-                'name' => 'This field is required.',
+                'name' => 'required',
                 'port' => 'A number',
                 'path' => 'Not the expected one',
             ])
             ->and($fields->problems(['name' => 'x', 'port' => '80', 'path' => 'b', 'expected' => 'b']))
-            ->toBe(['shown_when' => 'This field is required.'])
+            ->toBe(['shown_when' => 'required'])
             ->and($fields->problems(['name' => 'y', 'port' => '', 'path' => 'b', 'expected' => 'b']))
             ->toBe([]);
     });

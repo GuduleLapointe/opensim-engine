@@ -38,7 +38,7 @@ final class QuickSetup
         $problems = [];
         $type = strtolower(trim((string) ($answers['type'] ?? '')));
         if ($type !== '' && !in_array($type, self::TYPES, true)) {
-            $problems['type'] = sprintf(_('One of: %s.'), implode(', ', self::TYPES));
+            $problems['type'] = _('invalid');
         }
         $standalone = $type === 'standalone';
 
@@ -47,7 +47,7 @@ final class QuickSetup
         // The hypergrid is on unless it is said to be off
         $hypergrid = filter_var($answers['hypergrid'] ?? true, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
         $hypergrid === null
-            ? ($problems['hypergrid'] = _('Yes or no.'))
+            ? ($problems['hypergrid'] = _('invalid'))
             : ($gridAnswers['hypergrid'] = $hypergrid);
         trim((string) ($answers['name'] ?? '')) !== '' && ($gridAnswers['name'] = trim((string) $answers['name']));
         [$uri, $uriProblem] = self::loginUri((string) ($answers['login_uri'] ?? ''));
@@ -102,15 +102,15 @@ final class QuickSetup
         $label = '[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?';
         $pattern = "~^(?:(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*)://)?(?P<host>$label(?:\\.$label)*|\\[[0-9A-Fa-f:.]+\\])(?::(?P<port>\\d{1,5}))?/?$~";
         if (preg_match($pattern, $uri, $m) !== 1 || (isset($m['port']) && $m['port'] !== '' && ((int) $m['port'] < 1 || (int) $m['port'] > 65535))) {
-            return [[], _('A host and a port: login.example.org:8002.')];
+            return [[], _('invalid (host:port)')];
         }
         if (($m['scheme'] ?? '') !== '' && !in_array(strtolower($m['scheme']), ['http', 'https'], true)) {
-            return [[], _('A host and a port: login.example.org:8002.')];
+            return [[], _('invalid (host:port)')];
         }
         $found = ['hostname' => $m['host']];
         ($m['port'] ?? '') !== '' && ($found['public_port'] = (int) $m['port']);
         if ((strtolower($m['scheme'] ?? '') ?: 'http') !== 'http') {
-            return [$found, _('Only http is handled for now: login.example.org:8002.')];
+            return [$found, _('https not supported')];
         }
 
         return [$found, null];

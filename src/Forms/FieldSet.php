@@ -106,7 +106,7 @@ final class FieldSet
             $empty = $value === null || (is_string($value) && trim($value) === '');
             if ($empty) {
                 if (($field['required'] ?? false) === true) {
-                    $problems[$name] = _('This field is required.');
+                    $problems[$name] = _('required');
                 }
 
                 continue;
