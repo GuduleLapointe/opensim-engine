@@ -84,11 +84,11 @@ its host and port, `$grid->regionUri('Welcome', '128/128/22')` the address of on
 another grid follows it (`Avatar::visitor($config, $id, $grids)`: `first.last@host:port` of the login their grid says, not of the
 address OpenSimulator kept when they came).
 
-The answers are kept for a few minutes (`Network\GridInfoCache`, 300 seconds, a failure 30), because they are asked all the time;
-`gridInfo()` and the rest read the kept answer. Nothing older is served and no address is tried in place of another: when the time is
-over the grid is asked again, and if it does not answer it is a failure (`loginUrl()` of a grid that runs elsewhere is null). Where
-the information is saved the grid is asked whatever is kept (`read($login, fresh: true)`), and what is saved is what it says. The
-engine adds no port the grid does not give.
+What a grid says is kept when it is verified (`Network\GridInfoCache`): joining a grid, starting it, `$grid->refreshInfo()`. Nothing is
+asked anywhere else, `gridInfo()`, `loginUrl()` and `uri()` read what was kept, valid for a day (a grid that is offline for hours does not
+make it less valid, a verification that fails leaves it as it is), then it is gone. No other address is tried in place of the one of a
+grid: a grid that runs elsewhere and was never verified, or whose time is over, has no login (`loginUrl()` is null). The engine adds no
+port the grid does not give.
 
 ## Addresses of a grid
 

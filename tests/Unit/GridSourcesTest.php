@@ -242,6 +242,10 @@ describe('what a grid says of itself', function () {
         $grid = Grid::find($machine->environment, 'demo');
 
         expect($grid->gridInfoIsLive())
+            ->toBeFalse()
+            ->and($grid->refreshInfo())
+            ->toBeTrue()
+            ->and($grid->gridInfoIsLive())
             ->toBeTrue()
             ->and($grid->gridInfo())
             ->toBe([
@@ -360,30 +364,37 @@ describe('the login address of a grid', function () {
     });
 
     test(
-        'is the one a grid described here says, and none when it does not answer: no other address is tried',
+        'is the one a grid described here said when it was verified, and none before or when it does not answer',
         function () {
             $machine = new Machine();
             $machine->write(
                 $machine->etc . '/grids/example/example.conf',
                 "[Grid]\nGridName = Example\nRemote = true\nBaseHostname = grid.example.org\nPublicPort = 8002\n",
             );
+            $grid = Grid::find($machine->environment, 'example');
 
-            $silent = Grid::find($machine->environment, 'example');
-            expect($silent->loginUrl())
+            expect($grid->loginUrl())
                 ->toBeNull()
-                ->and($silent->uri())
+                ->and($grid->uri())
                 ->toBeNull()
-                ->and($silent->baseHostname())
+                ->and($grid->refreshInfo())
+                ->toBeFalse()
+                ->and($grid->loginUrl())
+                ->toBeNull()
+                ->and($grid->baseHostname())
                 ->toBe('grid.example.org');
 
-            // The failure is kept for a short while: the grid is asked again when that time is over
             $machine->http['http://grid.example.org:8002/get_grid_info'] = renamed_grid_answer();
-            $machine->clock->now += OpenSim\Network\GridInfoCache::FAILED_TTL + 1;
-            $answering = Grid::find($machine->environment, 'example');
-            expect($answering->loginUrl())
+            expect($grid->refreshInfo())
+                ->toBeTrue()
+                ->and($grid->loginUrl())
                 ->toBe('http://grid.example.org:8002')
-                ->and($answering->uri())
+                ->and($grid->uri())
                 ->toBe('grid.example.org:8002');
+
+            // What was verified is kept: another reading of the grid finds it, without asking
+            $machine->http = [];
+            expect(Grid::find($machine->environment, 'example')->uri())->toBe('grid.example.org:8002');
         },
     );
 

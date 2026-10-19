@@ -2,7 +2,7 @@
 
 ### Unreleased
 
-- new: `Network\GridInfoCache`: the answers of get_grid_info kept for a few minutes, a failure for less, never served older; `Grid::loginUrl()` and `regionUri()`: the login the grid says is the one, whatever address it was reached at, none for a grid that runs elsewhere and does not answer; the address of a visitor follows it
+- new: `Network\GridInfoCache`: what a grid said when it was verified (joining it, starting it, `Grid::refreshInfo()`) is kept for a day and read from there, nothing is asked at each call; `Grid::loginUrl()` and `regionUri()`: the login the grid said is the one, whatever address it was reached at, none for a grid that runs elsewhere and was not verified; the address of a visitor follows it
 - new: `Result::isTrue()`, `isFalse()`; `isSuccess()` and `isError()` are no more contraries (null is neither); `Support\Bitmask`; `Connections::test()`; `Destination::loginUrl()`, `sanitizePlus()`; `wantsList` and `skillsList` of an avatar
 - new: `Text\Uuid::isNullKey()` (the two keys for nobody) and `isEmpty()`
 - new: `Grid::addresses()`, `address()` and `helpersUrl()`, `economy()`, `searchUrl()`, `searchApi()`...: every address of the grid, wherever it is said; the web services of the catalog are `query`, `search`, `welcome`, `web-profile`, `currency`, `landtool`, `register`, `offline`, `motd`, `guide`, `grid-status`, `grid-status-rss`, `parser`, `events-parser`, `text-images`, `assets`, `map`

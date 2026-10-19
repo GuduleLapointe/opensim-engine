@@ -30,7 +30,7 @@ final class FileCache
         $now = (int) ($this->clock?->time() ?? time());
         if (filesize($file) === 0 || (int) filemtime($file) < $now - $this->ttl) {
             @unlink($file);
-            @unlink("$file.meta");
+            is_file("$file.meta") && @unlink("$file.meta");
 
             return null;
         }

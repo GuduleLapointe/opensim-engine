@@ -9,71 +9,84 @@ use OpenSim\Runtime\Environment;
 use OpenSim\Support\FileCache;
 
 /**
- * What the grids say of themselves at `/get_grid_info`, kept for a while: asked at every call, a viewer turning its head would ask a
- * grid dozens of times. An answer is kept for `$ttl` seconds, an address that does not answer is kept as a failure for a shorter time
- * (a grid that is down is not asked again at once). Nothing older than that is served: when the time is over the grid is asked
- * again, and if it does not answer it is a failure, no other address is tried and no old answer is given.
+ * What the grids said of themselves at `/get_grid_info` when they were verified, kept. What a grid says is the truth about it,
+ * whatever address it was reached at: a grid that changed its domain name says the new one when it is asked at the old one.
  *
- * What a grid says is the truth about it, whatever the address it was reached at: `login()` gives its login address.
+ * Nothing is asked here unless it is a verification: `verify()` asks the grid and keeps its answer; everything else reads what was
+ * kept (`saved()`, `login()`). The grids do not change every minute, what was kept is valid for a day, and a grid that is offline
+ * for hours does not make it less valid: a failed verification leaves it as it is. The time is over once a day, then it is gone, and
+ * whoever verifies next keeps the new answer. No other address is tried in place of the one of a grid.
  */
 final class GridInfoCache
 {
-    /** Seconds an answer is kept. */
-    public const TTL = 300;
-
-    /** Seconds a failure is kept. */
-    public const FAILED_TTL = 30;
+    /** Seconds what a grid said is valid, from the moment it was verified. */
+    public const TTL = 86400;
 
     private FileCache $files;
 
-    public function __construct(
-        private readonly Environment $environment,
-        private readonly int $ttl = self::TTL,
-        private readonly int $failedTtl = self::FAILED_TTL,
-    ) {
-        $root = $environment->layout->cacheRoot() ?: sys_get_temp_dir() . '/opensim-cache';
-        $this->files = new FileCache($root . '/grid-info', 86400, $environment->clock);
-    }
-
-    /**
-     * What the grid says of itself at its login address, null when it does not answer.
-     *
-     * @param bool $fresh ask the grid whatever is kept (when the information is saved)
-     * @return ?array<string,string> every element it says, the free ones included
-     */
-    public function read(string $login, bool $fresh = false): ?array
+    public function __construct(private readonly Environment $environment, int $ttl = self::TTL)
     {
-        $key = md5(strtolower(rtrim($login, '/')));
-        $now = (int) $this->environment->clock->time();
-        if (!$fresh && ($kept = $this->files->get($key)) !== null) {
-            $age = $now - (int) ($kept['meta']['time'] ?? 0);
-            $ok = (bool) ($kept['meta']['ok'] ?? false);
-            if ($age >= 0 && $age < ($ok ? $this->ttl : $this->failedTtl)) {
-                return $ok ? (array) json_decode($kept['data'], true) : null;
-            }
-        }
-        $said = GridInfoReader::read($login, $this->environment->http);
-        $this->files->put($key, json_encode($said, JSON_UNESCAPED_SLASHES) ?: '[]', [
-            'ok' => $said !== [],
-            'time' => $now,
-        ]);
-
-        return $said !== [] ? $said : null;
+        $root = $environment->layout->cacheRoot() ?: sys_get_temp_dir() . '/opensim-cache';
+        $this->files = new FileCache($root . '/grid-info', $ttl, $environment->clock);
     }
 
     /**
-     * The login address of the grid an address leads to, as the grid says it: `http://speculoos.world:8002` for a grid asked at an old
-     * domain name that now says that one. Null when the grid does not answer: it is a failure. A grid that answers without saying
-     * its login is at the address it was asked at.
+     * What the grid said when it was last verified, as long as it is valid. Nothing is asked.
+     *
+     * @return ?array<string,string> every element it said, the free ones included
      */
-    public function login(string $address, bool $fresh = false): ?string
+    public function saved(string $login): ?array
+    {
+        $kept = $this->files->get($this->key($login));
+
+        return $kept === null ? null : (array) json_decode($kept['data'], true);
+    }
+
+    /**
+     * Ask the grid now and keep what it says, under the address it was asked at and under the login it says. A grid that does not
+     * answer is a failure: what was kept of it stays as it is.
+     *
+     * @return ?array<string,string> what it said, null when it did not answer
+     */
+    public function verify(string $login): ?array
+    {
+        $asked = Destination::loginUrl($login);
+        $said = $asked === null ? [] : GridInfoReader::read($asked, $this->environment->http);
+        if ($said === []) {
+            return null;
+        }
+        $this->save($asked, $said);
+        if (($official = Destination::loginUrl($said['login'] ?? '')) !== null) {
+            $this->save($official, $said);
+        }
+
+        return $said;
+    }
+
+    /** @param array<string,string> $said */
+    public function save(string $login, array $said): void
+    {
+        $this->files->put($this->key($login), json_encode($said, JSON_UNESCAPED_SLASHES) ?: '[]');
+    }
+
+    /**
+     * The login address of the grid an address leads to, as the grid said it when it was verified: `http://grid.example.org:8002`
+     * for an address that is the old one of that grid. A grid that was verified and says no login is at the address it was asked at.
+     * Null when nothing was kept of it (unless `$verify` asks the grid now, and it answers).
+     */
+    public function login(string $address, bool $verify = false): ?string
     {
         $asked = Destination::loginUrl($address);
         if ($asked === null) {
             return null;
         }
-        $said = $this->read($asked, $fresh);
+        $said = $this->saved($asked) ?? ($verify ? $this->verify($asked) : null);
 
         return $said === null ? null : Destination::loginUrl($said['login'] ?? '') ?? $asked;
+    }
+
+    private function key(string $login): string
+    {
+        return md5(strtolower(rtrim((string) Destination::loginUrl($login), '/')));
     }
 }

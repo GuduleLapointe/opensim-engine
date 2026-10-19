@@ -206,6 +206,7 @@ describe('web services of a grid', function () {
                 '<gridinfo><gridname>Demo</gridname><economy>https://play.example.org/helpers</economy><welcome>https://play.example.org/splash</welcome><GridStatusRSS>https://play.example.org/live.rss</GridStatusRSS><mood>free value</mood></gridinfo>';
             $grid = Grid::find($machine->environment, 'demo');
 
+            $grid->refreshInfo();
             $addresses = $grid->addresses(web: true);
 
             expect($addresses)

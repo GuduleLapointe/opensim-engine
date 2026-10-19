@@ -16,7 +16,6 @@ use OpenSim\Provisioning\LocationFinder;
 use OpenSim\Provisioning\Slug;
 use OpenSim\Hypergrid\Destination;
 use OpenSim\Network\GridInfoCache;
-use OpenSim\Network\GridInfoReader;
 use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\Result;
 
@@ -600,7 +599,7 @@ final class Grid extends InstalledModel
      */
     public static function announcement(Environment $environment, string $host, int $port): array
     {
-        return GridInfoReader::read("http://$host:$port", $environment->http);
+        return (new GridInfoCache($environment))->verify("http://$host:$port") ?? [];
     }
 
     /**
@@ -631,9 +630,10 @@ final class Grid extends InstalledModel
     }
 
     /**
-     * What the grid says of itself, the keys of its `[GridInfoService]` (gridname, login, economy, welcome, search...): as the running
-     * Robust says it at `/get_grid_info`, which is the truth for whoever answers a request, a config changed since it started
-     * included. When the grid does not answer, as its config says it (gridInfoIsLive() tells which).
+     * What the grid says of itself, the keys of its `[GridInfoService]` (gridname, login, economy, welcome, search...), every one it
+     * said, the free ones included: as it said them at `/get_grid_info` the last time it was verified (refreshInfo(), joining a grid,
+     * starting it), which is the truth for whoever answers a request, a config changed since it started included. A grid of this
+     * machine that was never verified says what its config says (gridInfoIsLive() tells which). Nothing is asked here.
      *
      * @return array<string,string>
      */
@@ -642,7 +642,7 @@ final class Grid extends InstalledModel
         return $this->info()[0];
     }
 
-    /** Whether gridInfo() is what the running grid said, not what its config says. */
+    /** Whether gridInfo() is what the grid said when it was verified, not what its config says. */
     public function gridInfoIsLive(): bool
     {
         return $this->info()[1];
@@ -660,11 +660,10 @@ final class Grid extends InstalledModel
         if ($this->isPlanned()) {
             return $this->info = [[], false];
         }
-        // Asked where the grid is described at, at most once in a while (see GridInfoCache); no answer is no answer: no other address is tried
-        $login = $this->service('get-grid-info')?->url() ?? "http://{$this->baseHostname()}:{$this->publicPort()}";
-        $live = (new GridInfoCache($this->environment))->read($login);
-        if ($live !== null) {
-            return $this->info = [$live, true];
+        // What the grid said when it was verified, at the address it is known at; no other address is tried
+        $saved = (new GridInfoCache($this->environment))->saved($this->infoAddress());
+        if ($saved !== null) {
+            return $this->info = [$saved, true];
         }
         $controller = $this->isStandalone() ? ($this->simulators()[0] ?? null)?->controller() : $this->robust();
         $configured = [];
@@ -673,6 +672,26 @@ final class Grid extends InstalledModel
         }
 
         return $this->info = [$configured, false];
+    }
+
+    /**
+     * Ask the grid what it says of itself and keep it: this is the verification, the one moment the grid is asked. What it said before
+     * is kept as it is when it does not answer.
+     *
+     * @return bool whether the grid answered
+     */
+    public function refreshInfo(): bool
+    {
+        $said = (new GridInfoCache($this->environment))->verify($this->infoAddress());
+        $this->info = null;
+
+        return $said !== null;
+    }
+
+    /** Where the grid is asked what it says: its Robust, or the address it is known at. */
+    private function infoAddress(): string
+    {
+        return $this->service('get-grid-info')?->url() ?? "http://{$this->baseHostname()}:{$this->publicPort()}";
     }
 
     /** Whether the grid is there: a Robust config, or the description of a remote grid. */
@@ -1529,13 +1548,17 @@ final class Grid extends InstalledModel
     public function start(bool $simulators = false): array
     {
         $results = [];
+        $serving = false;
         foreach ($this->instances($simulators) as $instance) {
             $result = $instance->start();
             $results[] = $result;
             if ($instance instanceof RobustController && !$result->ok()) {
                 break;
             }
+            $serving = $serving || ($result->ok() && ($instance instanceof RobustController || $this->isStandalone()));
         }
+        // What the grid says is what it says since it started: verified now, kept
+        $serving && $this->refreshInfo();
 
         return $results;
     }
