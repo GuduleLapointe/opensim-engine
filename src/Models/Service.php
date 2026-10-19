@@ -21,7 +21,7 @@ use OpenSim\Runtime\Environment;
  *
  *     $grid->services();                      // the services the grid has, served here or declared
  *     $grid->service('asset')->provider();    // the Robust that serves the assets
- *     $simulator->service('profile')->uri();  // the profile service as this simulator reaches it
+ *     $simulator->service('profile')->url();  // the profile service as this simulator reaches it
  *
  * A simulator inherits the services of its grid and answers for them: asked for a service, it gives the address its own config says
  * (a simulator may use a service that is not its grid's), else the one of its grid.
@@ -542,7 +542,7 @@ final class Service extends InstalledModel
             $options,
             static fn(
                 self $service,
-            ): string => "{$service->key} {$service->name()} {$service->uri()} {$service->grid->nick()}",
+            ): string => "{$service->key} {$service->name()} {$service->url()} {$service->grid->nick()}",
             [
                 'name' => static fn(self $service): string => $service->name(),
                 'key' => static fn(self $service): string => $service->key,
@@ -558,7 +558,7 @@ final class Service extends InstalledModel
             [
                 ['name' => 'name', 'label' => _('Service'), 'sortable' => true],
                 ['name' => 'grid', 'label' => _('Grid'), 'sortable' => true],
-                ['name' => 'uri', 'label' => _('Address')],
+                ['name' => 'url', 'label' => _('Address')],
                 ['name' => 'provider', 'label' => _('Served by')],
             ],
         );
@@ -700,10 +700,10 @@ final class Service extends InstalledModel
     }
 
     /**
-     * The address the service is reached at. A simulator gives the one its config says, else the one of its grid: the Robust that
+     * The link to the service, where it is reached. A simulator gives the one its config says, else the one of its grid: the Robust that
      * serves it (its base URL and its private or public port), else the address declared for the simulators of the grid.
      */
-    public function uri(): ?string
+    public function url(): ?string
     {
         if ($this->viewer !== null && ($own = $this->declaredBy($this->viewer)) !== null) {
             return $own;
@@ -809,7 +809,7 @@ final class Service extends InstalledModel
             'slug' => $this->slug(),
             'grid' => $this->grid->nick(),
             'simulator' => $this->viewer?->id(),
-            'uri' => $this->uri(),
+            'url' => $this->url(),
             'port' => $this->port(),
             'provider' => $this->provider()?->name(),
             'served' => $this->isServed(),

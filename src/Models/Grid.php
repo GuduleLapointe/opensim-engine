@@ -617,7 +617,7 @@ final class Grid extends InstalledModel
         if ($this->isPlanned()) {
             return $this->info = [[], false];
         }
-        $login = $this->service('get-grid-info')?->uri() ?? "http://{$this->baseHostname()}:{$this->publicPort()}";
+        $login = $this->service('get-grid-info')?->url() ?? "http://{$this->baseHostname()}:{$this->publicPort()}";
         $live = GridInfoReader::read($login, $this->environment->http);
         if ($live !== []) {
             return $this->info = [$live, true];
@@ -1217,8 +1217,8 @@ final class Grid extends InstalledModel
     {
         $addresses = [];
         foreach (Service::of($this)->items() as $service) {
-            $uri = $service->uri();
-            $uri !== null && (!$web || $service->isWeb()) && ($addresses[$service->key()] = $uri);
+            $url = $service->url();
+            $url !== null && (!$web || $service->isWeb()) && ($addresses[$service->key()] = $url);
         }
 
         return $addresses;
@@ -1227,7 +1227,7 @@ final class Grid extends InstalledModel
     /** The address of one of the services of the grid (see addresses()), null when it has none. */
     public function address(string $key): ?string
     {
-        return $this->service($key)?->uri();
+        return $this->service($key)?->url();
     }
 
     /**
@@ -1245,7 +1245,7 @@ final class Grid extends InstalledModel
      * Where the helpers of the grid are: the web site of the grid and the path of its economy (`/helpers` when the economy is
      * elsewhere or says nothing). Null for a grid without a web site.
      */
-    public function helpersUri(): ?string
+    public function helpersUrl(): ?string
     {
         $web = $this->isPlanned() ? $this->webUrl() : \OpenSim\Provisioning\Web\HelpersConfig::webUrl($this->directory);
         if ($web === '') {
@@ -1261,7 +1261,7 @@ final class Grid extends InstalledModel
     }
 
     /** The web page of the search of the grid. */
-    public function searchUri(): ?string
+    public function searchUrl(): ?string
     {
         return $this->address('search');
     }
@@ -1273,43 +1273,43 @@ final class Grid extends InstalledModel
     }
 
     /** Where the simulators register for the search. */
-    public function registerUri(): ?string
+    public function registerUrl(): ?string
     {
         return $this->address('register');
     }
 
     /** Where the offline messages are kept. */
-    public function offlineUri(): ?string
+    public function offlineUrl(): ?string
     {
         return $this->address('offline');
     }
 
     /** The message of the day the viewers show when they log in. */
-    public function motdUri(): ?string
+    public function motdUrl(): ?string
     {
         return $this->address('motd');
     }
 
     /** The destination guide. */
-    public function guideUri(): ?string
+    public function guideUrl(): ?string
     {
         return $this->address('guide');
     }
 
     /** The welcome page the viewers show. */
-    public function welcomeUri(): ?string
+    public function welcomeUrl(): ?string
     {
         return $this->address('welcome');
     }
 
     /** The map tiles of the grid, on the public port of Robust. */
-    public function mapUri(): ?string
+    public function mapUrl(): ?string
     {
         return $this->address('map');
     }
 
     /** The page of the status of the grid. */
-    public function gridStatusUri(): ?string
+    public function gridStatusUrl(): ?string
     {
         return $this->address('grid-status');
     }
@@ -1321,7 +1321,7 @@ final class Grid extends InstalledModel
     }
 
     /** The web assets server: the address of the assets as pictures. */
-    public function assetsUri(): ?string
+    public function assetsUrl(): ?string
     {
         return $this->address('assets');
     }

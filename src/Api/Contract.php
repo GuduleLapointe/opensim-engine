@@ -112,7 +112,7 @@ final class Contract
                     'string?',
                     'The simulator that asks, when the service is shown as that simulator reaches it',
                 ],
-                'uri' => ['string?', 'Where it is reached'],
+                'url' => ['string?', 'The link to the service, where it is reached'],
                 'port' => [
                     'string',
                     'private (the simulators), public (the viewers and other grids) or web (an address on a web site)',

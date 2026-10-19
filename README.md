@@ -71,9 +71,9 @@ use OpenSim\Runtime\Environment;
 $environment = Environment::system(Layout::resolve());      // the install of this machine
 $grid = Grid::find($environment, 'vonda');
 $grid->robust()->isRunning();                                // its Robust (a controller)
-$grid->service('asset')->uri();                              // a service of the grid, and who serves it
+$grid->service('asset')->url();                              // a service of the grid, and who serves it
 $simulator = $grid->simulator('welcome');
-$simulator->service('profile')->uri();                       // the service as this simulator reaches it
+$simulator->service('profile')->url();                       // the service as this simulator reaches it
 $grid->start(simulators: true);
 ```
 

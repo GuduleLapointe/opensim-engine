@@ -60,7 +60,7 @@ A grid has services (assets, inventories, profiles, login...), served by its Rob
 $grid->services();                       // a Collection of Service
 $grid->service('asset')->provider();     // the controller that serves it, null when none does
 $grid->service('profile')->isExternal(); // declared, served somewhere else
-$simulator->service('profile')->uri();   // as this simulator reaches it: its own config, else its grid's
+$simulator->service('profile')->url();   // as this simulator reaches it: its own config, else its grid's
 ```
 
 ## What a grid says of itself
@@ -73,7 +73,7 @@ which. The addresses the viewers are told (the economy, for the currency and the
 ```php
 $grid->gridInfo()['login'];       // http://play.example.org:8002/
 $grid->gridInfoIsLive();          // false: the grid did not answer, this is its config
-$grid->service('currency')->uri();   // the economy it tells, then currency.php
+$grid->service('currency')->url();   // the economy it tells, then currency.php
 ```
 
 ## Addresses of a grid
@@ -85,8 +85,8 @@ Robust. Whoever asks does not need to know which section of which file says it: 
 config (Robust, OpenSim, `Helpers.ini`), then where the helpers answer. `$grid->address('currency')` is one of them,
 `$grid->service('currency')->source()` says where it comes from (`provider`, `simulator`, `live`, `config`, `default`).
 
-The usual ones have a method of their own: `helpersUri()`, `economy()`, `searchUri()` (the web search), `searchApi()` (`query.php`),
-`registerUri()`, `offlineUri()`, `motdUri()`, `guideUri()`, `welcomeUri()`, `mapUri()`, `gridStatusUri()`, `gridStatusRss()`, `assetsUri()`.
+The usual ones have a method of their own: `helpersUrl()`, `economy()`, `searchUrl()` (the web search), `searchApi()` (`query.php`),
+`registerUrl()`, `offlineUrl()`, `motdUrl()`, `guideUrl()`, `welcomeUrl()`, `mapUrl()`, `gridStatusUrl()`, `gridStatusRss()`, `assetsUrl()`.
 They are for the code that uses the engine, the HTTP API has `/services`.
 
 ## Assets

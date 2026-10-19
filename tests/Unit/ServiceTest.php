@@ -36,7 +36,7 @@ describe('services of a grid', function () {
                 ->toBeTrue()
                 ->and($grid->service('asset')->isExternal())
                 ->toBeFalse()
-                ->and($grid->service('asset')->uri())
+                ->and($grid->service('asset')->url())
                 ->toBe('http://localhost:8003')
                 ->and($grid->service('asset')->database())
                 ->toBe(Database::Assets)
@@ -97,7 +97,7 @@ describe('services as a simulator reaches them', function () {
 
         expect($beta)
             ->toBeInstanceOf(Simulator::class)
-            ->and($beta->service('asset')->uri())
+            ->and($beta->service('asset')->url())
             ->toBe('http://localhost:8003')
             ->and($beta->service('asset')->viewer()?->id())
             ->toBe($beta->id())
@@ -118,11 +118,11 @@ describe('services as a simulator reaches them', function () {
             $alpha = $grid->simulator('alpha');
             $beta = $grid->simulator('beta');
 
-            expect($alpha->service('asset')->uri())
+            expect($alpha->service('asset')->url())
                 ->toBe('http://assets.example.org:8003')
                 ->and($alpha->service('asset')->isServed())
                 ->toBeTrue()
-                ->and($alpha->service('profile')->uri())
+                ->and($alpha->service('profile')->url())
                 ->toBe('https://profiles.example.org')
                 ->and($alpha->service('profile')->isServed())
                 ->toBeFalse()
@@ -130,7 +130,7 @@ describe('services as a simulator reaches them', function () {
                 ->toBeTrue()
                 ->and($beta->service('profile'))
                 ->toBeNull()
-                ->and($beta->service('asset')->uri())
+                ->and($beta->service('asset')->url())
                 ->toBe('http://localhost:8003');
         },
     );
@@ -169,7 +169,7 @@ describe('web services of a grid', function () {
                 as $key
             ) {
                 $uris[$key] = [
-                    $grid->service($key)?->uri(),
+                    $grid->service($key)?->url(),
                     $grid->service($key)?->kind(),
                     $grid->service($key)?->legacy(),
                 ];
@@ -228,12 +228,12 @@ describe('web services of a grid', function () {
                 ->toBeNull()
                 ->and([
                     $grid->economy(),
-                    $grid->helpersUri(),
-                    $grid->searchUri(),
+                    $grid->helpersUrl(),
+                    $grid->searchUrl(),
                     $grid->searchApi(),
-                    $grid->assetsUri(),
+                    $grid->assetsUrl(),
                     $grid->gridStatusRss(),
-                    $grid->mapUri(),
+                    $grid->mapUrl(),
                 ])
                 ->toBe([
                     'https://play.example.org/helpers',

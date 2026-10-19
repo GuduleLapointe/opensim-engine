@@ -2,7 +2,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "OpenSim engine",
-        "version": "2845ef3",
+        "version": "56da752",
         "license": {
             "name": "AGPL-3.0-or-later",
             "identifier": "AGPL-3.0-or-later"
@@ -2617,12 +2617,12 @@
                                 ],
                                 "description": "The simulator that asks, when the service is shown as that simulator reaches it"
                             },
-                            "uri": {
+                            "url": {
                                 "type": [
                                     "string",
                                     "null"
                                 ],
-                                "description": "Where it is reached"
+                                "description": "The link to the service, where it is reached"
                             },
                             "port": {
                                 "type": "string",

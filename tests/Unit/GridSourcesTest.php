@@ -249,9 +249,9 @@ describe('what a grid says of itself', function () {
                 'login' => 'http://localhost:8002/',
                 'economy' => 'https://old.example.org/helpers/',
             ])
-            ->and($grid->service('currency')->uri())
+            ->and($grid->service('currency')->url())
             ->toBe('https://old.example.org/helpers/currency.php')
-            ->and($grid->service('landtool')->uri())
+            ->and($grid->service('landtool')->url())
             ->toBe('https://old.example.org/helpers/landtool.php');
     });
 
@@ -267,7 +267,7 @@ describe('what a grid says of itself', function () {
                 'economy' => 'https://play.example.org/helpers/',
                 'welcome' => 'http://localhost/welcome',
             ])
-            ->and($grid->service('currency')->uri())
+            ->and($grid->service('currency')->url())
             ->toBe('https://play.example.org/helpers/currency.php');
     });
 
