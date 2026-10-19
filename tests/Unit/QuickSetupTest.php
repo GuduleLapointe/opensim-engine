@@ -248,9 +248,36 @@ describe('quick setup, the names and the host', function () {
             ->and($first['setup']['simulators'][0]['regions'][0]['name'])
             ->toBe('Ile Noel')
             ->and($bad['problems'])
-            ->toBe(['name' => 'invalid (letters, digits, space . _ -)'])
+            ->toBe(['name' => 'invalid (letters, digits, space . -)'])
             ->and($grid['valid'])
             ->toBeTrue();
+    });
+});
+
+describe('quick setup, what separates and what is a space', function () {
+    test('refuses the dot, the hyphen and the underscore in the name of an avatar: they separate or replace the words', function (string $name) {
+        expect(QuickSetup::plan((new Machine())->environment, quick_answers(['avatar' => $name]))['problems'])
+            ->toBe(['avatar' => 'invalid (First Last)']);
+    })->with(['a dot' => 'Ada.Love Smith', 'a hyphen' => 'Ada-Love Smith', 'an underscore' => 'Ada_Love Smith', 'three words' => 'Ada Love Smith', 'one word' => 'Ada']);
+
+    test('refuses the underscore in the name of a region: it is a space for Robust', function () {
+        expect(QuickSetup::plan((new Machine())->environment, quick_answers(['type' => 'standalone', 'name' => 'My_Island']))['problems'])
+            ->toBe(['name' => 'invalid (letters, digits, space . -)']);
+    });
+
+    test('transliterates the names of every alphabet', function () {
+        $first = QuickSetup::plan((new Machine())->environment, quick_answers(['avatar' => 'Владимир Путин']));
+
+        expect($first['corrected']['avatar'])
+            ->toMatch('/^[A-Za-z0-9]+ [A-Za-z0-9]+$/')
+            ->and($first['problems'])
+            ->toBe(['avatar' => 'transliterated']);
+    });
+
+    test('keeps a domain name in unicode as it is, in lower case, without transliterating it', function () {
+        $grid = QuickSetup::plan((new Machine())->environment, quick_answers(['login_uri' => 'Bücher.Example:8102']))['setup']['grid'];
+
+        expect($grid['hostname'])->toBe('bücher.example')->and($grid['public_port'])->toBe(8102);
     });
 });
 

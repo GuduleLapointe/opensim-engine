@@ -115,15 +115,15 @@ final class QuickSetup
         if ($uri === '') {
             return [[], null];
         }
-        $label = '[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?';
-        $pattern = "~^(?:(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*)://)?(?P<host>$label(?:\\.$label)*|\\[[0-9A-Fa-f:.]+\\])(?::(?P<port>\\d{1,5}))?/?$~";
+        $label = '[\\p{L}\\p{N}](?:[\\p{L}\\p{N}-]*[\\p{L}\\p{N}])?';
+        $pattern = "~^(?:(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*)://)?(?P<host>$label(?:\\.$label)*|\\[[0-9A-Fa-f:.]+\\])(?::(?P<port>\\d{1,5}))?/?$~u";
         if (preg_match($pattern, $uri, $m) !== 1 || (isset($m['port']) && $m['port'] !== '' && ((int) $m['port'] < 1 || (int) $m['port'] > 65535))) {
             return [[], _('invalid (host:port)')];
         }
         if (($m['scheme'] ?? '') !== '' && !in_array(strtolower($m['scheme']), ['http', 'https'], true)) {
             return [[], _('invalid (host:port)')];
         }
-        $found = ['hostname' => strtolower($m['host'])];
+        $found = ['hostname' => mb_strtolower($m['host'])];
         ($m['port'] ?? '') !== '' && ($found['public_port'] = (int) $m['port']);
         if ((strtolower($m['scheme'] ?? '') ?: 'http') !== 'http') {
             return [$found, _('https not supported')];

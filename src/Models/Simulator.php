@@ -140,7 +140,7 @@ final class Simulator extends InstalledModel
                 'name' => 'new_name',
                 'group' => 'estate',
                 'label' => _('Name of the new account (First Last)'),
-                'callback' => [self::class, 'validateOwner'],
+                'callback' => [self::class, 'validateNewAvatar'],
             ] + $new,
         );
         $fields[] = $fresh(
@@ -169,9 +169,18 @@ final class Simulator extends InstalledModel
     /** The name of a simulator. An accent is not refused, it is transliterated (Noël becomes Noel). */
     public static function validateName(mixed $value): ?string
     {
-        return preg_match('/^[A-Za-z0-9][A-Za-z0-9 _-]*$/', trim(Slug::ascii((string) $value))) === 1
+        return preg_match('/^[A-Za-z0-9][A-Za-z0-9 -]*$/', trim(Slug::ascii((string) $value))) === 1
             ? null
-            : _('invalid (letters, digits, space _ -)');
+            : _('invalid (letters, digits, space -)');
+    }
+
+    /**
+     * The name of an account that is made: two words of letters and digits. The dot, the hyphen and the underscore are not
+     * accepted, they separate the first and the last name (First.Last) or are taken for a space.
+     */
+    public static function validateNewAvatar(mixed $value): ?string
+    {
+        return preg_match('/^[A-Za-z0-9]+ [A-Za-z0-9]+$/', trim((string) $value)) === 1 ? null : _('invalid (First Last)');
     }
 
     /** The name of an account: first and last name. */
