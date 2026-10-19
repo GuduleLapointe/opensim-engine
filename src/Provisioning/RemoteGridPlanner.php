@@ -134,6 +134,11 @@ final class RemoteGridPlanner
 
         // A preset says all that is needed, the grid is not asked
         $said = $preset !== '' ? [] : $this->says($environment, $host, $public);
+        // The address it was reached at is not the grid: the login address it says is
+        if (($official = Destination::loginParts((string) ($said['login'] ?? ''))) !== null) {
+            $host = $official['host'];
+            $public = $official['port'] ?? ($official['scheme'] === 'https' ? 443 : 80);
+        }
         if ($said === [] && $preset === '') {
             $result['warnings'][] = sprintf(
                 _(

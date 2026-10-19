@@ -333,3 +333,71 @@ describe('the elements of get_grid_info', function () {
         ]);
     });
 });
+
+describe('the login address of a grid', function () {
+    /** The answer of a grid that changed its domain name: asked at the old one, it says the new one. */
+    function moved_grid_answer(): string
+    {
+        return '<?xml version="1.0"?><gridinfo><gridname>Speculoos</gridname><gridnick>speculoos</gridnick><login>http://speculoos.world:8002/</login></gridinfo>';
+    }
+
+    test('is the one the grid says, not the address it was reached at', function () {
+        $machine = new Machine();
+        $machine->http['http://speculoos.co.uk:8002/get_grid_info'] = moved_grid_answer();
+
+        $grid = Grid::announced($machine->environment, 'speculoos.co.uk', 8002);
+
+        expect($grid->loginUrl())
+            ->toBe('http://speculoos.world:8002')
+            ->and($grid->uri())
+            ->toBe('speculoos.world:8002')
+            ->and([$grid->baseHostname(), $grid->publicPort()])
+            ->toBe(['speculoos.world', 8002])
+            ->and($grid->regionUri('Welcome', '128/128/22'))
+            ->toBe('speculoos.world:8002/Welcome/128/128/22')
+            ->and($grid->regionUri('Welcome'))
+            ->toBe('speculoos.world:8002/Welcome');
+    });
+
+    test(
+        'follows the grid that moved for a grid described here, and is what was described when it does not answer',
+        function () {
+            $machine = new Machine();
+            $machine->write(
+                $machine->etc . '/grids/speculoos/speculoos.conf',
+                "[Grid]\nGridName = Speculoos\nRemote = true\nBaseHostname = speculoos.co.uk\nPublicPort = 8002\n",
+            );
+            $grid = Grid::find($machine->environment, 'speculoos');
+
+            expect($grid->loginUrl())
+                ->toBe('http://speculoos.co.uk:8002')
+                ->and($grid->uri())
+                ->toBe('speculoos.co.uk:8002');
+
+            $machine->http['http://speculoos.co.uk:8002/get_grid_info'] = moved_grid_answer();
+            $moved = Grid::find($machine->environment, 'speculoos');
+
+            expect($moved->loginUrl())
+                ->toBe('http://speculoos.world:8002')
+                ->and($moved->uri())
+                ->toBe('speculoos.world:8002')
+                ->and($moved->baseHostname())
+                ->toBe('speculoos.co.uk');
+        },
+    );
+
+    test('is not given a port the grid does not give', function () {
+        $machine = new Machine();
+        $machine->http['http://secure.example.org:80/get_grid_info'] =
+            '<gridinfo><gridname>Secure</gridname><login>https://login.example.org/</login></gridinfo>';
+
+        $grid = Grid::announced($machine->environment, 'secure.example.org', 80);
+
+        expect($grid->loginUrl())
+            ->toBe('https://login.example.org')
+            ->and($grid->uri())
+            ->toBe('login.example.org')
+            ->and($grid->publicPort())
+            ->toBe(443);
+    });
+});

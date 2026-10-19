@@ -76,6 +76,13 @@ $grid->gridInfoIsLive();          // false: the grid did not answer, this is its
 $grid->service('currency')->url();   // the economy it tells, then currency.php
 ```
 
+## The login address of a grid
+
+`$grid->loginUrl()` is the login URL the grid says, whatever address it was reached at: a grid that changed its domain name says the
+new one when it is asked at the old one, and the new one is its login. For another grid that knows it, `$grid->uri()` is its host
+and port and `$grid->regionUri('Welcome', '128/128/22')` the address of one of its regions, formed from that login. The running
+grid says it at get_grid_info, else its config, else the description kept of it. The engine adds no port the grid does not give.
+
 ## Addresses of a grid
 
 `$grid->addresses()` gives every address the grid gives or has by default, by the key of the service: `currency`, `landtool`,

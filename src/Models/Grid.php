@@ -14,6 +14,7 @@ use OpenSim\Data\Database;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\LocationFinder;
 use OpenSim\Provisioning\Slug;
+use OpenSim\Hypergrid\Destination;
 use OpenSim\Network\GridInfoReader;
 use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\Result;
@@ -60,6 +61,7 @@ final class Grid extends InstalledModel
         'robustIni' => '',
         'coreDirectory' => '',
         'baseHostname' => 'localhost',
+        'login' => '',
         'publicPort' => 8002,
         'privatePort' => 8003,
         'databaseHost' => 'localhost',
@@ -434,7 +436,7 @@ final class Grid extends InstalledModel
         return self::listing(
             $grids,
             $options,
-            static fn(self $grid): string => "{$grid->nick()} {$grid->name()} {$grid->uri()}",
+            static fn(self $grid): string => "{$grid->nick()} {$grid->name()} {$grid->hostPort()}",
             [
                 'name' => static fn(self $grid): string => $grid->name(),
                 'nick' => static fn(self $grid): string => $grid->nick(),
@@ -463,7 +465,47 @@ final class Grid extends InstalledModel
     /** Where it is reached from other grids: `host:port` of its login. */
     public function uri(): ?string
     {
+        // A grid that runs elsewhere is what it says, not the address it was reached at
+        if ($this->isRemote() || $this->in(self::ANNOUNCED)) {
+            $parts = Destination::loginParts((string) $this->loginUrl());
+
+            return $parts === null ? null : $parts['host'] . ($parts['port'] !== null ? ':' . $parts['port'] : '');
+        }
+
+        return $this->hostPort();
+    }
+
+    /** The host and the port the grid is described at, without asking it. */
+    private function hostPort(): ?string
+    {
         return $this->baseHostname() !== '' ? $this->baseHostname() . ':' . $this->publicPort() : null;
+    }
+
+    /**
+     * The login URL of the grid: the one it says, whatever address it was reached at (a grid that changed its domain name says the new
+     * one, and the new one is its login). The running grid says it at get_grid_info, its config when it does not answer, the
+     * description kept of it when it has no config; failing that, the host and the port it is described at.
+     */
+    public function loginUrl(): ?string
+    {
+        $said = Destination::loginUrl($this->gridInfo()['login'] ?? '');
+        if ($said !== null) {
+            return $said;
+        }
+        $kept = Destination::loginUrl((string) $this->get('login'));
+        if ($kept !== null) {
+            return $kept;
+        }
+
+        return $this->hostPort() !== null ? Destination::loginUrl((string) $this->hostPort()) : null;
+    }
+
+    /** The address of a region of the grid, from where the grid says its login is: `host:port/Region Name[/x/y/z]`. */
+    public function regionUri(string $region, string $position = ''): ?string
+    {
+        $uri = $this->uri();
+
+        return $uri === null ? null : $uri . '/' . $region . ($position !== '' ? '/' . ltrim($position, '/') : '');
     }
 
     /** The channels a write can go through: the config of its Robust. */
@@ -537,14 +579,18 @@ final class Grid extends InstalledModel
             return null;
         }
 
+        // The address it was asked at is not the grid: its login address is, the one it says
+        $login = Destination::loginParts((string) ($said['login'] ?? '')) ?? Destination::loginParts("$host:$port");
+
         return new self(
             $environment,
             '',
             [
                 'nick' => $said['gridnick'] ?? '',
                 'name' => $said['gridname'] ?? '',
-                'baseHostname' => $host,
-                'publicPort' => $port,
+                'baseHostname' => $login['host'],
+                'publicPort' => $login['port'] ?? ($login['scheme'] === 'https' ? 443 : 80),
+                'login' => (string) Destination::loginUrl((string) ($said['login'] ?? '')),
                 'announcement' => $said,
             ],
             [self::ANNOUNCED],

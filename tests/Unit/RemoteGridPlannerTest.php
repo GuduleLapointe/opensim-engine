@@ -77,6 +77,22 @@ describe('A grid on another machine', function () {
             ->toBe(443);
     });
 
+    test('describes the grid by the login address it says, not by the address it was reached at', function () {
+        [$planner] = remote_planner([
+            'gridname' => 'Speculoos',
+            'gridnick' => 'speculoos',
+            'login' => 'http://speculoos.world:8002/',
+        ]);
+
+        $grid = $planner->plan(['address' => 'speculoos.co.uk:8002'])['grid'];
+
+        expect([$grid->baseHostname(), $grid->publicPort(), $grid->privatePort()])->toBe([
+            'speculoos.world',
+            8002,
+            8003,
+        ]);
+    });
+
     test('keeps what was answered over what the grid says, the private port included', function () {
         [$planner] = remote_planner(['gridname' => 'Far World', 'gridnick' => 'far']);
 
