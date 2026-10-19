@@ -63,6 +63,7 @@
         ]
     },
     "suggest": {
+        "nyholm/psr7": "A PSR-7 and PSR-17 implementation to serve the API with Api\\Handler (any other works)",
         "ext-gettext": "To translate the messages; without it they stay in English",
         "ezyang/htmlpurifier": "For advanced HTML sanitization if rich content is needed"
     },

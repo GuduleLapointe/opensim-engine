@@ -22,6 +22,21 @@ The suite needs nothing of the machine it runs on: `composer test` (Pest). The f
 
 The resources are the models'; `Api` names them and writes the documents, `Contract` is the OpenAPI document and the text of the documentation (the descriptions of the attributes are written there). `composer docs` makes `docs/api/` (JSON, YAML and a page, Redoc; `npx @redocly/cli lint docs/api/openapi.json` checks that the document is valid OpenAPI, it is not a dependency of the project: the one warning left is the media path, `/assets/{id}` and `/assets/{id}.{format}`); the tests fail when the pages are not the ones of the contract, or when a model gives an attribute the contract does not know. A new resource is a model, an entry of `Contract::RESOURCES` and of `Api::RESOURCES` or `Api::GRID_RESOURCES`.
 
+A web host (the helpers) serves the engine like this:
+
+```php
+$factory = new Nyholm\Psr7\Psr17Factory();                 // any PSR-7 / PSR-17 implementation
+$environment = OpenSim\Runtime\Environment::system(OpenSim\Config\Layout::load());
+$scheduler = OpenSim\Scheduling\Scheduler::for($environment);
+OpenSim\Services\SearchTasks::add($scheduler, $environment, $config);   // the tasks of the search of the grid
+$handler = new OpenSim\Api\Handler(new OpenSim\Api\Api($environment, $scheduler), $factory, $factory, base: '/helpers', grid: 'nick');
+
+$response = $handler->handle($request);                    // emit it, then:
+$handler->terminate();                                     // the simulator that registered is read, the tasks that are due run
+```
+
+The addresses are in the contract (`docs/api/`), with the format OpenSimulator and the viewers expect for the ones they fix. A new fixed-format endpoint is described in `Api\Formats` (its methods and fields, with an example each), a test checks that what is described is what the service answers.
+
 `Api\Handler` is the API as a PSR-15 handler (`new Handler($api, $responseFactory, $streamFactory, base: '/api')`): the engine requires the PSR interfaces only, the application brings the implementation of the messages (the tests use nyholm/psr7). Its addresses are the ones of the contract, which it serves at `/openapi.json`. A host that serves one grid gives it as `grid:` and its endpoints lose the `/grids/{grid}` (`/motd`, `/destinations`, `/avatars`): these are the standard addresses of the services the catalog calls `standard`.
 
 ## Formatting
