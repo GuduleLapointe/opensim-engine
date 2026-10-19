@@ -12,7 +12,6 @@ use OpenSim\Models\Avatar;
 use OpenSim\Models\Grid;
 use OpenSim\Models\Region;
 use OpenSim\Models\Simulator;
-use OpenSim\Provisioning\NameRule;
 use OpenSim\Text\Uuid;
 
 describe('Avatar', function () {
@@ -134,23 +133,16 @@ describe('Grid', function () {
     });
 });
 
-describe('NameRule', function () {
-    test('is written once: the check, the message and the correction come from the punctuation and the length', function () {
-        $rule = new NameRule('.-', max: 5);
-
-        expect($rule->problem('A.b-c'))
-            ->toBeNull()
-            ->and($rule->problem('Too long'))
-            ->toBe('too long (5 max)')
-            ->and($rule->problem('a_b'))
-            ->toBe('invalid (letters, digits, space . -)')
-            ->and($rule->normalize('Café'))
-            ->toBe('Cafe')
-            ->and(Simulator::validateName('Noël Un'))
-            ->toBeNull()
-            ->and(Simulator::validateName('Un.Deux'))
-            ->toBe('invalid (letters, digits, space -)');
-    });
+describe('Names', function () {
+    test('are asked the same way of every model that has one: validateName and normalizeName', function (string $model, string $name, ?string $problem, string $normalized) {
+        expect($model::validateName($name))->toBe($problem)->and($model::normalizeName($name))->toBe($normalized);
+    })->with([
+        'a region' => [Region::class, 'Ma Region', null, 'Ma Region'],
+        'a region with an accent' => [Region::class, 'Noël', null, 'Noel'],
+        'a simulator' => [Simulator::class, 'Un-Deux', null, 'Un-Deux'],
+        'a simulator with a dot' => [Simulator::class, 'Un.Deux', 'invalid (letters, digits, space -)', 'Un.Deux'],
+        'a grid' => [Grid::class, "Olivier's Grid", null, "Olivier's Grid"],
+    ]);
 });
 
 describe('Uuid', function () {

@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace OpenSim\Models;
 
-use OpenSim\Provisioning\NameRule;
 use OpenSim\Config\ConnectionString;
 use OpenSim\Console\ConsoleInterface;
 use OpenSim\Controllers\OpenSimController;
 use OpenSim\Data\Collection;
-use OpenSim\Provisioning\Slug;
 use OpenSim\Runtime\Core;
 use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\LogFile;
@@ -25,6 +23,11 @@ use OpenSim\Runtime\InstanceResult;
  */
 final class Simulator extends InstalledModel
 {
+    use HasName;
+
+    /** The rule of the name of a simulator: letters, digits, space and hyphen, no dot. */
+    private const NAME = ['punctuation' => '-'];
+
     private readonly OpenSimController $controller;
 
     public function __construct(Environment $environment, string $ini, ?string $name = null)
@@ -167,28 +170,6 @@ final class Simulator extends InstalledModel
 
         return $fields;
     }
-
-    /** The name of a simulator. An accent is not refused, it is transliterated (Noël becomes Noel). */
-    public static function validateName(mixed $value): ?string
-    {
-        return self::nameRule()->problem(Slug::ascii((string) $value));
-    }
-
-    /** The name in Latin letters without accents (the viewers lose the accents), every alphabet transliterated. */
-    public static function normalizeName(string $name): string
-    {
-        return self::nameRule()->normalize($name);
-    }
-
-    /** The rule of the name of a simulator: the one of the regions, the dot is out here too. */
-    private static function nameRule(): NameRule
-    {
-        return new NameRule('-');
-    }
-
-
-
-
 
     /**
      * Where it is reached, `host:port`: what identifies it. The port is the one it listens on, the host the one its regions announce

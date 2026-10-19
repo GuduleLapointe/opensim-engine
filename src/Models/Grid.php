@@ -15,7 +15,6 @@ use OpenSim\Data\Database;
 use OpenSim\Services\DefaultDestinations;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\LocationFinder;
-use OpenSim\Provisioning\NameRule;
 use OpenSim\Provisioning\Slug;
 use OpenSim\Hypergrid\Destination;
 use OpenSim\Network\GridInfoCache;
@@ -44,6 +43,13 @@ use OpenSim\Runtime\InstanceResult;
  */
 final class Grid extends InstalledModel
 {
+    use HasName {
+        validateName as private validateGridName;
+    }
+
+    /** The rule of the name of a grid: the one of the regions, with the apostrophe (Olivier's grid). The dot is out here too. */
+    private const NAME = ['punctuation' => "'-"];
+
     /** The files that hold the Robust config, the first that exists is the one. */
     private const ROBUST_FILES = ['Robust.HG.ini', 'Robust.ini'];
 
@@ -423,29 +429,14 @@ final class Grid extends InstalledModel
         ];
     }
 
-    /** The name of a grid in Latin letters without accents (the viewers lose the accents), every alphabet transliterated. */
-    public static function normalizeName(string $name): string
-    {
-        return self::nameRule()->normalize($name);
-    }
-
-    /** The rule of the name of a grid: the one of the regions, with the apostrophe (Olivier's grid). The dot is out here too. */
-    private static function nameRule(): NameRule
-    {
-        return new NameRule("'-");
-    }
-
     /**
-     * The name of a grid, typed. An accent is not refused, it is transliterated. The grid of a standalone is its region: it has the name
-     * of a region.
+     * The name of a grid, typed. The grid of a standalone is its region: it has the name of a region.
      *
      * @param array<string,mixed> $answers
      */
     public static function validateName(mixed $value, array $answers = []): ?string
     {
-        return Result::isTrue($answers['standalone'] ?? false)
-            ? Region::validateName($value)
-            : self::nameRule()->problem(Slug::ascii((string) $value));
+        return Result::isTrue($answers['standalone'] ?? false) ? Region::validateName($value) : self::validateGridName($value);
     }
 
     /** A host name or an IPv6 address in brackets: labels of letters (unicode too), digits and hyphens. */

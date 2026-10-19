@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace OpenSim\Models;
 
 use OpenSim\Text\Uuid;
-use OpenSim\Provisioning\NameRule;
 use OpenSim\Config\ConfigReader;
 use OpenSim\Config\GridConfig;
 use OpenSim\Config\GridFileService;
@@ -38,6 +37,16 @@ use OpenSim\Provisioning\Slug;
  */
 final class Region extends Model
 {
+    use HasName;
+
+    /**
+     * The rule of the name of a region, from the one of Second Life (Linden Lab, naming private regions): letters and digits, three
+     * words at most, 3 characters at least (the map search needs 3), 50 at most (the column holds 128). No punctuation: the viewer
+     * takes the dot for a host name, and Robust takes the underscore for a space (Ma Region and Ma_Region would be the same
+     * Region_Ma_Region).
+     */
+    private const NAME = ['punctuation' => '', 'min' => 3, 'max' => 50, 'words' => 3];
+
     public const DEFAULT_REGION = 1;
     public const FALLBACK_REGION = 2;
     public const REGION_ONLINE = 4;
@@ -992,29 +1001,6 @@ final class Region extends Model
                 'condition' => $made + ($pool !== [] ? ['simulator' => array_keys($pool)] : []),
             ],
         ];
-    }
-
-    /**
-     * The rule of the name of a region, from the one of Second Life (Linden Lab, naming private regions): letters and digits, three
-     * words at most, 3 characters at least (the map search needs 3), 50 at most (the column holds 128). No punctuation: the viewer
-     * takes the dot for a host name, and Robust takes the underscore for a space (Ma Region and Ma_Region would be the same
-     * Region_Ma_Region).
-     */
-    private static function nameRule(): NameRule
-    {
-        return new NameRule(min: 3, max: 50, words: 3);
-    }
-
-    /** The name of a region, typed. An accent is not refused, it is transliterated (Noël becomes Noel). */
-    public static function validateName(mixed $value): ?string
-    {
-        return self::nameRule()->problem(Slug::ascii((string) $value));
-    }
-
-    /** The name in Latin letters without accents (the viewers lose the accents), every alphabet transliterated. */
-    public static function normalizeName(string $name): string
-    {
-        return self::nameRule()->normalize($name);
     }
 
     /** The key of [GridService] giving the flags of a region: Robust looks for its name with the spaces replaced by underscores. */
