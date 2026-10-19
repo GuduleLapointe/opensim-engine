@@ -156,7 +156,7 @@ final class SetupFile
 
         $owner = $data['owner'] ?? null;
         if (is_array($owner)) {
-            if (!Avatar::validName(trim((string) ($owner['name'] ?? '')))) {
+            if (Avatar::validateName($owner['name'] ?? '') !== null) {
                 $problems[] = 'owner.name is a first and a last name, e.g. Jane Doe';
             }
             // The password, or its hash and salt as Robust keeps them (what the setup writes in its own file)

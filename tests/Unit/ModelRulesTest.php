@@ -15,18 +15,18 @@ use OpenSim\Models\Simulator;
 use OpenSim\Text\Uuid;
 
 describe('Avatar', function () {
-    test('has the name of an account that exists as OpenSimulator has it, and a new one without the dot, the at sign and the underscore', function () {
-        expect(Avatar::validName('First.Last x'))
-            ->toBeTrue()
-            ->and(Avatar::validName('Ada'))
-            ->toBeFalse()
-            ->and(Avatar::validateNewName('Ada Love-Lace'))
+    test('has one name rule, for any use: two words of letters, digits and hyphens', function () {
+        expect(Avatar::validateName('Ada Love-Lace'))
             ->toBeNull()
-            ->and(Avatar::validateNewName('Ada Lo_ve'))
+            ->and(Avatar::validateName('Ada Lo_ve'))
             ->toBe('invalid (First Last)')
-            ->and(Avatar::validateNewName('Ada.Love'))
+            ->and(Avatar::validateName('Ada.Love'))
             ->toBe('invalid (First Last)')
-            ->and(Avatar::validateNewName('Ada Love Lace'))
+            ->and(Avatar::validateName('First.Last x'))
+            ->toBe('invalid (First Last)')
+            ->and(Avatar::validateName('Ada'))
+            ->toBe('invalid (First Last)')
+            ->and(Avatar::validateName('Ada Love Lace'))
             ->toBe('invalid (First Last)');
     });
 

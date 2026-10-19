@@ -35,8 +35,8 @@ final class AccountList
             $salt = trim((string) ($row['password_salt'] ?? ''));
             if ($hash !== '' && !Avatar::validPasswordHash($hash, $salt)) {
                 $problem = 'password_hash is the 32 hexadecimal characters Robust keeps, with its password_salt';
-            } elseif (!Avatar::validName("$first $last")) {
-                $problem = "name \"$first $last\" must be a first and a last name of letters, digits, . _ and -";
+            } elseif (Avatar::validateName("$first $last") !== null) {
+                $problem = "name \"$first $last\" must be a first and a last name of letters, digits and -";
             } elseif ($email !== '' && !Avatar::validEmail($email)) {
                 $problem = "email \"$email\" is not an address";
             } elseif (isset($seen[strtolower("$first $last")])) {

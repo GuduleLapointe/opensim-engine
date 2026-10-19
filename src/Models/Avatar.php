@@ -30,8 +30,8 @@ final class Avatar extends Model
     /** The level of the accounts that are gods (administrators). */
     public const GOD_LEVEL = 200;
 
-    /** What the name of a new account may have besides letters and digits. */
-    private const NEW_NAME_PUNCTUATION = '-';
+    /** What the name of an account may have besides letters and digits. */
+    private const NAME_PUNCTUATION = '-';
 
     /** What is read of an account, a visit and a profile. */
     private const ACCOUNT_COLUMNS = 'u.PrincipalID, u.FirstName, u.LastName, u.Email, u.Created, u.UserLevel, u.UserFlags, u.UserTitle, u.active';
@@ -301,39 +301,22 @@ final class Avatar extends Model
         return Connections::pdo($this->config, 'UserAccountService') === null ? [] : ['database'];
     }
 
-    /** What the name of an account that exists is made of, as OpenSimulator has it: a first and a last name. */
-    public static function validName(string $name): bool
-    {
-        return preg_match('/^[A-Za-z0-9._-]+ [A-Za-z0-9._-]+$/', $name) === 1;
-    }
-
-    /** The name of an account, typed: the form of an account that exists. */
+    /**
+     * The name of an account: a first and a last name of letters, digits and hyphens, whatever it is for (to make an account, to pick
+     * or import one). The dot and the at sign are the hypergrid's (First.Last@grid), the underscore is taken for a space in many places
+     * of OpenSimulator.
+     */
     public static function validateName(mixed $value): ?string
     {
-        return self::validName(trim((string) $value)) ? null : _('invalid (First Last)');
-    }
+        $word = '[A-Za-z0-9' . preg_quote(self::NAME_PUNCTUATION, '/') . ']+';
 
-    /**
-     * Whether a name can be given to an account that is made: two words of letters, digits and hyphens. The dot and the at sign are the
-     * hypergrid's (First.Last@grid), the underscore is taken for a space in many places of OpenSimulator.
-     */
-    public static function validNewName(string $name): bool
-    {
-        $word = '[A-Za-z0-9' . preg_quote(self::NEW_NAME_PUNCTUATION, '/') . ']+';
-
-        return preg_match("/^$word $word$/", $name) === 1;
-    }
-
-    /** The name of an account that is made, typed. */
-    public static function validateNewName(mixed $value): ?string
-    {
-        return self::validNewName(trim((string) $value)) ? null : _('invalid (First Last)');
+        return preg_match("/^$word $word$/", trim((string) $value)) === 1 ? null : _('invalid (First Last)');
     }
 
     /** The name in Latin letters without accents (the viewers lose the accents), every alphabet transliterated. */
     public static function normalizeName(string $name): string
     {
-        return Slug::latin($name, self::NEW_NAME_PUNCTUATION);
+        return Slug::latin($name, self::NAME_PUNCTUATION);
     }
 
     /** The password of an account that is made. The double quote is out: the implementations and the console do not agree on it. */
@@ -379,9 +362,9 @@ final class Avatar extends Model
         [$first, $last] = isset($values['name'])
             ? array_pad(explode(' ', trim((string) $values['name']), 2), 2, '')
             : [(string) ($values['firstName'] ?? ''), (string) ($values['lastName'] ?? '')];
-        if (!self::validName("$first $last")) {
+        if (self::validateName("$first $last") !== null) {
             throw new \InvalidArgumentException(
-                "'$first $last' is not the name of an avatar: a first and a last name, letters, digits and . _ -",
+                "'$first $last' is not the name of an avatar: a first and a last name, letters, digits and -",
             );
         }
         $hash = isset($values['passwordHash']) ? (array) $values['passwordHash'] : null;

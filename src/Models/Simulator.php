@@ -144,7 +144,7 @@ final class Simulator extends InstalledModel
                 'name' => 'new_name',
                 'group' => 'estate',
                 'label' => _('Name of the new account (First Last)'),
-                'callback' => [Avatar::class, 'validateNewName'],
+                'callback' => [Avatar::class, 'validateName'],
                 'normalize' => [Avatar::class, 'normalizeName'],
             ] + $new,
         );

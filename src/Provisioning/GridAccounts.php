@@ -22,12 +22,6 @@ final class GridAccounts
 
     public function __construct(private DatabaseService $database, private UiInterface $ui) {}
 
-    /** What a name of a person is made of (see Avatar::validName()). */
-    public static function validName(string $name): bool
-    {
-        return Avatar::validName($name);
-    }
-
     /**
      * The accounts of people ("First Last"), oldest first, or null when the
      * database of the grid cannot be read.
@@ -49,7 +43,7 @@ final class GridAccounts
     /** Whether an account exists, or null when it cannot be told. */
     public function exists(Grid $grid, string $name): ?bool
     {
-        if (!self::validName($name)) {
+        if (Avatar::validateName($name) !== null) {
             return false;
         }
         [$first, $last] = explode(' ', $name);
@@ -82,7 +76,7 @@ final class GridAccounts
      */
     public function setHome(Grid $grid, string $name, string $regionId): ?bool
     {
-        if (!self::validName($name) || preg_match('/^[0-9a-fA-F-]{36}$/', $regionId) !== 1) {
+        if (Avatar::validateName($name) !== null || preg_match('/^[0-9a-fA-F-]{36}$/', $regionId) !== 1) {
             return false;
         }
         [$first, $last] = explode(' ', $name);
@@ -116,7 +110,7 @@ final class GridAccounts
      */
     public function raiseHome(Grid $grid, string $name): ?bool
     {
-        if (!self::validName($name)) {
+        if (Avatar::validateName($name) !== null) {
             return false;
         }
         [$first, $last] = explode(' ', $name);
