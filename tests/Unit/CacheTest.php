@@ -97,7 +97,10 @@ describe('a store', function () {
             $reader = new Cache($store, $clock);
             Cache::flush();
 
-            expect($reader->get('day'))->toBe(['mood' => 'free'])->and($reader->get('for.ever'))->toBe('still');
+            expect($reader->get('day'))
+                ->toBe(['mood' => 'free'])
+                ->and($reader->get('for.ever'))
+                ->toBe('still');
             Cache::flush();
             $clock->now += 86401;
             expect($reader->get('day'))->toBeNull()->and($reader->get('for.ever'))->toBe('still');
@@ -109,7 +112,9 @@ describe('a store', function () {
         [$cache] = cache_over('database', $pdo);
         $cache->set('region.1', ['name' => 'Welcome'], 3600);
         $cache->set('region.1', ['name' => 'Renamed'], 3600);
-        $row = $pdo->query('SELECT cache_key, cache_value, cache_expires FROM oshelpers_cache')->fetchAll(PDO::FETCH_ASSOC);
+        $row = $pdo
+            ->query('SELECT cache_key, cache_value, cache_expires FROM oshelpers_cache')
+            ->fetchAll(PDO::FETCH_ASSOC);
 
         expect($row)
             ->toHaveCount(1)
@@ -125,7 +130,9 @@ describe('a store', function () {
         $pdo = test_pdo();
         [$cache, $clock, $store] = cache_over('database', $pdo);
         $cache->get('warm');
-        $pdo->exec("INSERT INTO oshelpers_cache VALUES ('from.helper', '[1,2]', NULL), ('plain', 'not json', 0), ('past', '1', 5)");
+        $pdo->exec(
+            "INSERT INTO oshelpers_cache VALUES ('from.helper', '[1,2]', NULL), ('plain', 'not json', 0), ('past', '1', 5)",
+        );
 
         expect($cache->get('from.helper'))
             ->toBe([1, 2])

@@ -39,7 +39,9 @@ final class Cache
         $store =
             $pdo !== null
                 ? new DatabaseCacheStore($pdo)
-                : new FileCacheStore(($environment->layout->cacheRoot() ?: sys_get_temp_dir() . '/opensim-cache') . '/cache');
+                : new FileCacheStore(
+                    ($environment->layout->cacheRoot() ?: sys_get_temp_dir() . '/opensim-cache') . '/cache',
+                );
 
         return new self($store, $environment->clock);
     }

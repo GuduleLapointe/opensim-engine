@@ -36,7 +36,9 @@ final class DatabaseCacheStore implements CacheStoreInterface
             if (!is_array($row) || $row['cache_value'] === null) {
                 return null;
             }
-            $raw = is_resource($row['cache_value']) ? stream_get_contents($row['cache_value']) : (string) $row['cache_value'];
+            $raw = is_resource($row['cache_value'])
+                ? stream_get_contents($row['cache_value'])
+                : (string) $row['cache_value'];
             // What a helper stored is JSON; anything else is given as it is
             $value = json_decode((string) $raw, true);
 
