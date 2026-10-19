@@ -72,28 +72,7 @@ class Health
      */
     public static function grid_info($login)
     {
-        if (!self::is_url($login)) {
-            return [];
-        }
-        $handle = curl_init(rtrim($login, '/') . '/get_grid_info');
-        curl_setopt_array($handle, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => self::TIMEOUT,
-            CURLOPT_CONNECTTIMEOUT => 2,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_MAXREDIRS => 5,
-            // What is asked here is what the grid says, whatever its certificate (the checks say it)
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_SSL_VERIFYHOST => 0,
-        ]);
-        $body = curl_exec($handle);
-        $ok = curl_getinfo($handle, CURLINFO_RESPONSE_CODE) === 200;
-        $previous = libxml_use_internal_errors(true);
-        $xml = $ok && is_string($body) ? simplexml_load_string($body) : false;
-        libxml_clear_errors();
-        libxml_use_internal_errors($previous);
-
-        return $xml ? array_map('strval', (array) $xml) : [];
+        return \OpenSim\Network\GridInfoReader::read((string) $login);
     }
 
     /**

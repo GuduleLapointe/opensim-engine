@@ -215,6 +215,7 @@ final class Service extends InstalledModel
             'port' => self::WEB,
             'setting' => ['GridInfoService', 'economy'],
             'role' => 'Robust',
+            'info' => 'economy',
             'append' => 'currency.php',
             'database' => Database::Economy,
             'kind' => self::FIXED,
@@ -225,6 +226,7 @@ final class Service extends InstalledModel
             'port' => self::WEB,
             'setting' => ['GridInfoService', 'economy'],
             'role' => 'Robust',
+            'info' => 'economy',
             'append' => 'landtool.php',
             'database' => null,
             'kind' => self::FIXED,
@@ -606,7 +608,10 @@ final class Service extends InstalledModel
                 $this->grid->publicPort();
         }
 
-        $declared = $this->declared();
+        // What the running grid says of itself (get_grid_info) is what the viewers are told, whatever the config says now
+        $info = self::CATALOG[$this->key]['info'] ?? null;
+        $live = $info !== null && $this->grid->gridInfoIsLive() ? $this->grid->gridInfo()[$info] ?? '' : '';
+        $declared = $live !== '' ? $live : $this->declared();
         if ($declared !== null) {
             $append = self::CATALOG[$this->key]['append'] ?? '';
 

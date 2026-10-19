@@ -63,6 +63,19 @@ $grid->service('profile')->isExternal(); // declared, served somewhere else
 $simulator->service('profile')->uri();   // as this simulator reaches it: its own config, else its grid's
 ```
 
+## What a grid says of itself
+
+`$grid->gridInfo()` gives the keys of the `[GridInfoService]` of Robust (gridname, login, economy, welcome, search...), as the
+running Robust says them at `/get_grid_info`: that is what answers a request, even when the config was changed after the grid
+started and waits for a restart. When the grid does not answer, they are the ones of its config, and `$grid->gridInfoIsLive()` says
+which. The addresses the viewers are told (the economy, for the currency and the land purchase) follow it.
+
+```php
+$grid->gridInfo()['login'];       // http://play.example.org:8002/
+$grid->gridInfoIsLive();          // false: the grid did not answer, this is its config
+$grid->service('currency')->uri();   // the economy it tells, then currency.php
+```
+
 ## Collection
 
 What every list gives back: `first() last() count() isEmpty()`, `total()` (before the pages), `page() perPage() pages()`,

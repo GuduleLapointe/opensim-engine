@@ -7,6 +7,7 @@ declare(strict_types=1);
  */
 
 use OpenSim\Models\Grid;
+use OpenSim\Network\GridInfoReader;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Runtime\Environment;
 use OpenSim\Testing\Machine;
@@ -216,5 +217,119 @@ describe('instance of a simulator', function () {
             ->toBe('demo_lake-house')
             ->and($grid->simulator('demo_lake-house')?->httpPort())
             ->toBe(9030);
+    });
+});
+
+describe('what a grid says of itself', function () {
+    /** The machine whose Robust says `[GridInfoService]` in its config, and a running grid that may say something else. */
+    function grid_info_machine(?string $live = null): Machine
+    {
+        $machine = new Machine();
+        $machine->write(
+            $machine->grid . '/Robust.HG.ini',
+            file_get_contents($machine->grid . '/Robust.HG.ini') .
+                "\n[GridInfoService]\n    gridname = \"Demo\"\n    login = \"http://localhost:8002/\"\n    economy = \"https://play.example.org/helpers/\"\n    welcome = \"http://localhost/welcome\"\n",
+        );
+        $live !== null && ($machine->http['http://localhost:8002/get_grid_info'] = $live);
+
+        return $machine;
+    }
+
+    test('is what the running Robust says, even when the config has changed since it started', function () {
+        $machine = grid_info_machine(
+            '<?xml version="1.0"?><gridinfo><gridname>Old name</gridname><login>http://localhost:8002/</login><economy>https://old.example.org/helpers/</economy></gridinfo>',
+        );
+        $grid = Grid::find($machine->environment, 'demo');
+
+        expect($grid->gridInfoIsLive())
+            ->toBeTrue()
+            ->and($grid->gridInfo())
+            ->toBe([
+                'gridname' => 'Old name',
+                'login' => 'http://localhost:8002/',
+                'economy' => 'https://old.example.org/helpers/',
+            ])
+            ->and($grid->service('currency')->uri())
+            ->toBe('https://old.example.org/helpers/currency.php')
+            ->and($grid->service('landtool')->uri())
+            ->toBe('https://old.example.org/helpers/landtool.php');
+    });
+
+    test('is what its config says when the grid does not answer, and says so', function () {
+        $grid = Grid::find(grid_info_machine()->environment, 'demo');
+
+        expect($grid->gridInfoIsLive())
+            ->toBeFalse()
+            ->and($grid->gridInfo())
+            ->toBe([
+                'gridname' => 'Demo',
+                'login' => 'http://localhost:8002/',
+                'economy' => 'https://play.example.org/helpers/',
+                'welcome' => 'http://localhost/welcome',
+            ])
+            ->and($grid->service('currency')->uri())
+            ->toBe('https://play.example.org/helpers/currency.php');
+    });
+
+    test('is what an announced grid said, and nothing for a grid not made yet', function () {
+        $machine = new Machine();
+        $machine->http['http://play.example.org:8002/get_grid_info'] = '<gridinfo><gridname>Play</gridname></gridinfo>';
+
+        expect(Grid::announced($machine->environment, 'play.example.org', 8002)->gridInfo())
+            ->toBe(['gridname' => 'Play'])
+            ->and(Grid::described($machine->environment, ['planned' => true, 'nick' => 'later'])->gridInfo())
+            ->toBe([]);
+    });
+});
+
+describe('the elements of get_grid_info', function () {
+    test(
+        'are all kept, the ones nobody planned, the empty ones, and the ones of an answer not well formed',
+        function () {
+            $free =
+                '<?xml version="1.0"?><gridinfo><gridname>Free &amp; Open</gridname><mood>sunny</mood><empty></empty><closed/><x-custom_key>1</x-custom_key><nested><a>1</a></nested></gridinfo>';
+
+            expect(GridInfoReader::parse($free))
+                ->toBe([
+                    'gridname' => 'Free & Open',
+                    'mood' => 'sunny',
+                    'empty' => '',
+                    'closed' => '',
+                    'x-custom_key' => '1',
+                    'nested' => '',
+                ])
+                ->and(
+                    GridInfoReader::parse(
+                        '<gridinfo><gridname>Broken</gridname><mood>cloudy</mood><empty></empty><closed/>',
+                    ),
+                )
+                ->toBe(['gridname' => 'Broken', 'mood' => 'cloudy', 'empty' => '', 'closed' => ''])
+                ->and(GridInfoReader::read('not an address'))
+                ->toBe([])
+                ->and(
+                    GridInfoReader::read(
+                        'http://play.example.org:8002',
+                        static fn(string $url): ?string => $url === 'http://play.example.org:8002/get_grid_info'
+                            ? $free
+                            : null,
+                    )['mood'],
+                )
+                ->toBe('sunny');
+        },
+    );
+
+    test('are all the keys of [GridInfoService] when the grid does not answer, empty values included', function () {
+        $machine = new Machine();
+        $machine->write(
+            $machine->grid . '/Robust.HG.ini',
+            file_get_contents($machine->grid . '/Robust.HG.ini') .
+                "\n[GridInfoService]\n    gridname = \"Demo\"\n    mood = \"sunny\"\n    welcome = \"\"\n",
+        );
+
+        expect(Grid::find($machine->environment, 'demo')->gridInfo())->toBe([
+            'gridname' => 'Demo',
+            'mood' => 'sunny',
+            'welcome' => '',
+        ]);
     });
 });

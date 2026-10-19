@@ -14,6 +14,7 @@ use OpenSim\Data\Database;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\LocationFinder;
 use OpenSim\Provisioning\Slug;
+use OpenSim\Network\GridInfoReader;
 use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\Result;
 
@@ -78,6 +79,9 @@ final class Grid extends InstalledModel
         'helpersPath' => '/helpers',
         'search' => 'internal',
     ];
+
+    /** @var array{0:array<string,string>,1:bool}|null what the grid said of itself, asked once */
+    private ?array $info = null;
 
     /**
      * @param ?array<string,mixed> $values what the sources say, by the names of DEFAULTS; null for a grid of this machine, read
@@ -553,22 +557,7 @@ final class Grid extends InstalledModel
      */
     public static function announcement(Environment $environment, string $host, int $port): array
     {
-        $url = "http://$host:$port/get_grid_info";
-        $body =
-            $environment->http !== null
-                ? ($environment->http)($url)
-                : @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => 5]]));
-        $said = [];
-        if (
-            is_string($body) &&
-            preg_match_all('#<([A-Za-z_][\w.-]*)>([^<]+)</\1>#', $body, $found, PREG_SET_ORDER) > 0
-        ) {
-            foreach ($found as [, $key, $value]) {
-                $said[$key] = trim(html_entity_decode($value, ENT_QUOTES | ENT_XML1));
-            }
-        }
-
-        return $said;
+        return GridInfoReader::read("http://$host:$port", $environment->http);
     }
 
     /**
@@ -596,6 +585,50 @@ final class Grid extends InstalledModel
     public function said(): array
     {
         return (array) ($this->values()['announcement'] ?? []);
+    }
+
+    /**
+     * What the grid says of itself, the keys of its `[GridInfoService]` (gridname, login, economy, welcome, search...): as the running
+     * Robust says it at `/get_grid_info`, which is the truth for whoever answers a request, a config changed since it started
+     * included. When the grid does not answer, as its config says it (gridInfoIsLive() tells which).
+     *
+     * @return array<string,string>
+     */
+    public function gridInfo(): array
+    {
+        return $this->info()[0];
+    }
+
+    /** Whether gridInfo() is what the running grid said, not what its config says. */
+    public function gridInfoIsLive(): bool
+    {
+        return $this->info()[1];
+    }
+
+    /** @return array{0:array<string,string>,1:bool} the elements, and whether the grid said them */
+    private function info(): array
+    {
+        if ($this->info !== null) {
+            return $this->info;
+        }
+        if ($this->in(self::ANNOUNCED)) {
+            return $this->info = [array_map('strval', $this->said()), true];
+        }
+        if ($this->isPlanned()) {
+            return $this->info = [[], false];
+        }
+        $login = $this->service('get-grid-info')?->uri() ?? "http://{$this->baseHostname()}:{$this->publicPort()}";
+        $live = GridInfoReader::read($login, $this->environment->http);
+        if ($live !== []) {
+            return $this->info = [$live, true];
+        }
+        $controller = $this->isStandalone() ? ($this->simulators()[0] ?? null)?->controller() : $this->robust();
+        $configured = [];
+        foreach ($controller?->settings()['GridInfoService'] ?? [] as $key => $value) {
+            is_string($value) && ($configured[$key] = $value);
+        }
+
+        return $this->info = [$configured, false];
     }
 
     /** Whether the grid is there: a Robust config, or the description of a remote grid. */
