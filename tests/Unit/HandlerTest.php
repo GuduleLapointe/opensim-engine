@@ -622,3 +622,83 @@ describe('The API handler, for the health of a grid', function () {
             ->toBe('GET');
     });
 });
+
+describe('The API on the command line and as a library', function () {
+    test('the router answers like the handler, and the library calls it without HTTP', function () {
+        $router = new OpenSim\Api\Router(new Api((new Machine())->environment));
+
+        $one = $router->get('/simulators/alpha');
+        $changed = $router->patch('/simulators/alpha', [
+            'data' => ['type' => 'simulators', 'attributes' => ['enabled' => false]],
+        ]);
+        $missing = $router->get('/simulators/nobody');
+
+        expect($one->status)
+            ->toBe(200)
+            ->and($one->document['data']['type'])
+            ->toBe('simulators')
+            ->and($changed->document['data']['attributes']['enabled'])
+            ->toBeFalse()
+            ->and($missing->status)
+            ->toBe(404)
+            ->and($router->delete('/services')->status)
+            ->toBe(405);
+    });
+
+    test('opensim api: words are a request, JSON is printed, the status says how it went', function () {
+        $cli = new OpenSim\Api\Cli(new OpenSim\Api\Router(new Api((new Machine())->environment)));
+
+        [$status, $out, $err] = $cli->run(['GET', '/services', 'filter[served]=yes', 'page[size]=1']);
+        [$patched, $json] = $cli->run(['PATCH', '/simulators/alpha', 'enabled=false']);
+        [$noGet, , $problem] = $cli->run(['/simulators/nobody']);
+        [$posted, $body] = $cli->run(
+            ['POST', '/grids', '--data=-'],
+            fn() => '{"data":{"type":"grids","attributes":{"name":"New"}}}',
+        );
+        [$bad, , $usage] = $cli->run(['whatever']);
+
+        expect($status)
+            ->toBe(0)
+            ->and(json_decode($out, true)['meta']['total'])
+            ->toBe(2)
+            ->and($err)
+            ->toBe('')
+            ->and($patched)
+            ->toBe(0)
+            ->and(json_decode($json, true)['data']['attributes']['enabled'])
+            ->toBeFalse()
+            ->and($noGet)
+            ->toBe(1)
+            ->and($problem)
+            ->toStartWith('HTTP 404 Not found')
+            ->and($posted)
+            ->toBe(1)
+            ->and($body)
+            ->toContain('made by the setup')
+            ->and($bad)
+            ->toBe(2)
+            ->and($usage)
+            ->toStartWith('usage: opensim api');
+    });
+
+    test('opensim api: the monitor as the lines of opensim status, a file as the body', function () {
+        $machine = new Machine();
+        $cli = new OpenSim\Api\Cli(new OpenSim\Api\Router(new Api($machine->environment)));
+        $file = $machine->write(
+            $machine->root . '/call.json',
+            '{"data":{"type":"simulators","attributes":{"enabled":true}}}',
+        );
+
+        [$status, $text] = $cli->run(['/grids/demo/monitor', 'format=text']);
+        [$patched, $json] = $cli->run(['PATCH', '/simulators/alpha', "--data=@$file"]);
+
+        expect($status)
+            ->toBe(0)
+            ->and($text)
+            ->toStartWith('DOWN - Demo')
+            ->and($patched)
+            ->toBe(0)
+            ->and(json_decode($json, true)['data']['attributes']['enabled'])
+            ->toBeTrue();
+    });
+});

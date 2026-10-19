@@ -2,6 +2,8 @@
 
 ### Unreleased
 
+- new: `Api\Router` (the addresses of the API without a transport) with three adapters: `Handler` (PSR-15), `Cli` (`opensim api GET /grids/demo/monitor`) and the PHP library (`$router->get('/monitor')`)
+- new: `GET /grids/{grid}/monitor` (data, `format=text`, `format=png`), `/grids/{grid}/addresses`, `/grids/{grid}/info`; `Runtime\GridMonitor`
 - new: `Models\Archive` and the resource `archives`: the inventories, regions and backups of the grids, read from their names (`GET /archives`)
 - new: `GET /grids/{grid}/health` (`Api::health()`): the addresses of a grid asked now, the PHP it needs, the files it reads
 - new: `Economy\Currency` is an instance configured by `CurrencySettings` (from the files of the grid); `Services\CurrencyServer` answers the currency and the land tools of the viewers and the simulators; `Services\DefaultDestinations`: a grid with no guide has its popular places and the places shown in search
