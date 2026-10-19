@@ -88,7 +88,7 @@ final class Handler implements RequestHandlerInterface
             $grid === null &&
             $this->grid !== null &&
             (isset(Api::GRID_RESOURCES[$tail[0] ?? '']) ||
-                in_array($tail[0] ?? '', ['destinations', 'motd', 'search'], true))
+                in_array($tail[0] ?? '', ['destinations', 'motd', 'search', 'offline-messages'], true))
         ) {
             $grid = $this->grid;
         }
@@ -110,6 +110,8 @@ final class Handler implements RequestHandlerInterface
             $routes = ['GET' => fn() => $this->api->register($grid, $query)];
         } elseif ($grid !== null && $tail === ['search', 'query']) {
             $routes = ['POST' => fn() => $this->api->searchQuery($grid, (string) $request->getBody(), $query)];
+        } elseif ($grid !== null && count($tail) === 2 && $tail[0] === 'offline-messages') {
+            $routes = ['POST' => fn() => $this->api->offline($grid, $tail[1], (string) $request->getBody())];
         } elseif ($grid !== null && $tail === ['motd']) {
             $routes = ['GET' => fn() => $this->api->motd($grid, (string) ($query['username'] ?? ''))];
         } elseif (count($tail) === 1 && $tail[0] !== '') {

@@ -25,6 +25,9 @@ use OpenSim\Data\Connections;
 use OpenSim\Data\Database;
 use OpenSim\Provisioning\Slug;
 use OpenSim\Services\Failure;
+use OpenSim\Services\MailerInterface;
+use OpenSim\Services\OfflineMessages;
+use OpenSim\Services\PhpMailer;
 use OpenSim\Services\SearchParser;
 use OpenSim\Services\SearchQuery;
 use OpenSim\Services\SearchRegistry;
@@ -80,12 +83,14 @@ final class Api
      * @param ?Scheduler $scheduler the tasks of the application, none when it has none
      * @param ?\Closure(Grid):?GridConfig $config the config of a grid (default: its folder)
      * @param ?TextRendererInterface $texts draws the images of a text (default: ImageMagick)
+     * @param ?MailerInterface $mailer sends the mails of the grid (default: the mail function of PHP)
      */
     public function __construct(
         private readonly Environment $environment,
         private readonly ?Scheduler $scheduler = null,
         ?\Closure $config = null,
         private readonly ?TextRendererInterface $texts = null,
+        private readonly ?MailerInterface $mailer = null,
     ) {
         $this->config =
             $config ??
@@ -421,6 +426,36 @@ final class Api
         }
 
         return (new XmlRpc($methods->methods()))->call($body);
+    }
+
+    /**
+     * What the simulators ask of the offline messages (the module V1 of OpenSimulator): `SaveMessage` and `RetrieveMessages`, the
+     * messages in the XML of the module. The mails to the avatars who want them are sent once the answer is sent (see finish()).
+     */
+    public function offline(string $grid, string $method, string $body): Response
+    {
+        try {
+            $found = Grid::find($this->environment, $grid) ?? throw new Failure("There is no grid called '$grid'", 404);
+            $config = ($this->config)($found) ?? throw new Failure("There is no config for the grid '$grid'", 404);
+            $messages = Connections::pdo($config, Database::Offline);
+            if ($messages === null || !$messages->connected) {
+                throw new Failure('Bad configuration: the database of the offline messages is not available', 503);
+            }
+            $profiles = Connections::pdo($config, Database::Profiles);
+            $service = new OfflineMessages(
+                $messages,
+                $profiles?->connected ? $profiles : null,
+                $found->name(),
+                $config->find('Helpers', 'MailSender') ?? 'no-reply@' . $found->baseHostname(),
+                $this->mailer ?? new PhpMailer(),
+            );
+        } catch (Failure $failure) {
+            return XmlRpc::failure($failure);
+        }
+        $answer = $service->call($method, $body);
+        $this->after[] = $service->finish(...);
+
+        return $answer;
     }
 
     /**
