@@ -102,7 +102,7 @@ final class Contract
             'scope' => 'machine',
             'summary' => 'The services of the grids of this machine',
             'description' =>
-                "What the simulators and the users of a grid ask for: the assets, the profiles, the login, the search. A service is served by a Robust of the grid, by the simulator of a standalone, or by a web site (the helpers) at an address the config of the grid gives.\n\n`kind` says who fixes the format of a web service: `fixed` (OpenSimulator or the viewers: only the address is the grid's to choose) or `standard` (the engine's own; `standard` is its address, `legacy` the script that answered it before).",
+                "What the simulators and the users of a grid ask for: the assets, the profiles, the login, the search. A service is served by a Robust of the grid, by the simulator of a standalone, or by a web site (the helpers) at an address the config of the grid gives.\n\n`get-grid-info` is the /get_grid_info that Robust answers: the engine reads it, it does not provide one.\n\n`kind` says who fixes the format of a web service: `fixed` (OpenSimulator or the viewers: only the address is the grid's to choose) or `standard` (the engine's own; `standard` is its address, `legacy` the script that answered it before).",
             'attributes' => [
                 'key' => ['string', 'What it is for: asset, inventory, profile, search...'],
                 'name' => ['string', 'The name shown'],

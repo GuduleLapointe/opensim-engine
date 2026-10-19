@@ -159,7 +159,8 @@ final class Service extends InstalledModel
             'setting' => null,
             'database' => null,
         ],
-        'grid-info' => [
+        // The /get_grid_info of OpenSimulator (Robust answers it): the engine reads it, it is no endpoint of the API
+        'get-grid-info' => [
             'connectors' => ['GridInfoServerInConnector'],
             'port' => self::PUBLIC,
             'setting' => null,
@@ -292,7 +293,7 @@ final class Service extends InstalledModel
         'mute-list',
         'profile',
         'login',
-        'grid-info',
+        'get-grid-info',
     ];
 
     private const STANDALONE_HYPERGRID = [
@@ -353,7 +354,7 @@ final class Service extends InstalledModel
             'offline' => _('Offline messages'),
             'profile' => _('Profiles'),
             'login' => _('Login'),
-            'grid-info' => _('Grid information'),
+            'get-grid-info' => _('Grid information of Robust (get_grid_info)'),
             'gatekeeper' => _('Gatekeeper (hypergrid arrivals)'),
             'user-agent' => _('User agent (hypergrid departures)'),
             'hg-friends' => _('Hypergrid friends'),
