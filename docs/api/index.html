@@ -12,7 +12,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "OpenSim engine",
-        "version": "e704d11",
+        "version": "f971b20",
         "license": {
             "name": "AGPL-3.0-or-later",
             "identifier": "AGPL-3.0-or-later"
@@ -4390,6 +4390,13 @@
                                                         "problems": {
                                                             "type": "object",
                                                             "description": "What is wrong, by the name of the question",
+                                                            "additionalProperties": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "corrected": {
+                                                            "type": "object",
+                                                            "description": "The answers the setup rewrote (a name with accents, transliterated), by question: show them in the form, the person validates the change by sending it again",
                                                             "additionalProperties": {
                                                                 "type": "string"
                                                             }

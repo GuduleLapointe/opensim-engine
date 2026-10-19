@@ -207,3 +207,50 @@ describe('quick setup, the words of the problems', function () {
         expect(QuickSetup::plan((new Machine())->environment, [])['problems']['avatar'])->toBe('required');
     });
 });
+
+describe('quick setup, the names and the host', function () {
+    test('lowers the case of the host, whatever way it is given', function () {
+        $environment = (new Machine())->environment;
+
+        expect(QuickSetup::plan($environment, quick_answers(['login_uri' => 'HTTP://Login.Example.ORG:8102']))['setup']['grid']['hostname'])
+            ->toBe('login.example.org');
+    });
+
+    test('replaces the accents of an avatar name and asks the person to validate the change', function () {
+        $environment = (new Machine())->environment;
+
+        $first = QuickSetup::plan($environment, quick_answers(['avatar' => 'José García']));
+        $again = QuickSetup::plan($environment, quick_answers(['avatar' => $first['corrected']['avatar']]));
+
+        expect($first['valid'])
+            ->toBeFalse()
+            ->and($first['problems'])
+            ->toBe(['avatar' => 'transliterated'])
+            ->and($first['corrected'])
+            ->toBe(['avatar' => 'Jose Garcia'])
+            ->and($again['valid'])
+            ->toBeTrue()
+            ->and($again['corrected'])
+            ->toBe([]);
+    });
+
+    test('does the same for the name of a standalone, which is its region, and checks the rest of it', function () {
+        $environment = (new Machine())->environment;
+
+        $first = QuickSetup::plan($environment, quick_answers(['type' => 'standalone', 'name' => 'Île Noël']));
+        $bad = QuickSetup::plan($environment, quick_answers(['type' => 'standalone', 'name' => 'My/Island']));
+        $grid = QuickSetup::plan($environment, quick_answers(['name' => 'Île Noël']));
+
+        expect($first['corrected'])
+            ->toBe(['name' => 'Ile Noel'])
+            ->and($first['problems'])
+            ->toBe(['name' => 'transliterated'])
+            ->and($first['setup']['simulators'][0]['regions'][0]['name'])
+            ->toBe('Ile Noel')
+            ->and($bad['problems'])
+            ->toBe(['name' => 'invalid (letters, digits, space . _ -)'])
+            ->and($grid['valid'])
+            ->toBeTrue();
+    });
+});
+

@@ -117,7 +117,7 @@ final class GridPlanner
     /** The host name a grid is proposed: the one of the machine. */
     public static function defaultHost(): string
     {
-        return trim(ShellService::capture('hostname -f')[1]) ?: 'localhost';
+        return strtolower(trim(ShellService::capture('hostname -f')[1])) ?: 'localhost';
     }
 
     /** The web server a grid is proposed: the first the machine has (Caddy, nginx, Apache), else Caddy. */
@@ -193,7 +193,7 @@ final class GridPlanner
         $core = $core !== '' ? $core : (string) array_key_first($cores);
 
         $host0 = (string) ($current?->baseHostname() ?? ($solo?->baseHostname() ?? $c['defaultHost']));
-        $host = $text('hostname', $host0);
+        $host = strtolower($text('hostname', $host0));
         $public0 = (int) ($current?->publicPort() ?? ($solo?->publicPort() ?? $c['defaultPublic']));
         $public = (int) ($answers['public_port'] ?? $public0);
         $private0 = (int) ($current?->privatePort() ?? $this->privateFor($public0));

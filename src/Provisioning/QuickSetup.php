@@ -31,7 +31,7 @@ final class QuickSetup
     /**
      * @param array<string,mixed> $answers type, name, login_uri, hypergrid, avatar, password, email: all optional, a missing one is proposed
      *        or, when it cannot be, told in the problems
-     * @return array{valid:bool,problems:array<string,string>,setup:array<string,mixed>,rows:list<array{section:string,label:string,value:string}>}
+     * @return array{valid:bool,problems:array<string,string>,corrected:array<string,string>,setup:array<string,mixed>,rows:list<array{section:string,label:string,value:string}>}
      */
     public static function plan(Environment $environment, array $answers): array
     {
@@ -41,6 +41,18 @@ final class QuickSetup
             $problems['type'] = _('invalid');
         }
         $standalone = $type === 'standalone';
+
+        // A name is Latin letters without accents: what is not is replaced, and the person validates the change by sending the form
+        // again (the value that comes back is the replaced one)
+        $corrected = [];
+        foreach ($standalone ? ['name', 'avatar'] : ['avatar'] as $key) {
+            $given = trim((string) ($answers[$key] ?? ''));
+            $latin = trim(Slug::ascii($given));
+            if ($given !== '' && $latin !== $given && $latin !== '') {
+                $corrected[$key] = $answers[$key] = $latin;
+                $problems[$key] = _('transliterated');
+            }
+        }
 
         // The grid
         $gridAnswers = ['standalone' => $standalone];
@@ -75,13 +87,17 @@ final class QuickSetup
             $problems[self::QUESTIONS[$field] ?? $field] ??= $message;
         }
         $simulator = $simulators->plan($owner);
-        RegionPlanner::forSimulator($simulator, $grid, $database, defaultName: $region)->apply($simulator, [
-            'name' => $region,
-        ]);
+        $regions = RegionPlanner::forSimulator($simulator, $grid, $database, defaultName: $region);
+        // The region of a standalone is named by the person: its name is checked as a region's
+        foreach ($standalone ? $regions->problems(['name' => $region]) : [] as $field => $message) {
+            $problems[self::QUESTIONS[$field] ?? $field] ??= $message;
+        }
+        $regions->apply($simulator, ['name' => $region]);
 
         return [
             'valid' => $problems === [],
             'problems' => $problems,
+            'corrected' => $corrected,
             'setup' => SetupFile::withSimulator(SetupFile::withGrid([], $plan), $simulator),
             'rows' => self::rows($plan, $simulator, $standalone, trim((string) ($answers['email'] ?? ''))),
         ];
@@ -107,7 +123,7 @@ final class QuickSetup
         if (($m['scheme'] ?? '') !== '' && !in_array(strtolower($m['scheme']), ['http', 'https'], true)) {
             return [[], _('invalid (host:port)')];
         }
-        $found = ['hostname' => $m['host']];
+        $found = ['hostname' => strtolower($m['host'])];
         ($m['port'] ?? '') !== '' && ($found['public_port'] = (int) $m['port']);
         if ((strtolower($m['scheme'] ?? '') ?: 'http') !== 'http') {
             return [$found, _('https not supported')];

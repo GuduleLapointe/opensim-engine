@@ -505,6 +505,11 @@ final class Endpoints
                             'description' => 'What is wrong, by the name of the question',
                             'additionalProperties' => ['type' => 'string'],
                         ],
+                        'corrected' => [
+                            'type' => 'object',
+                            'description' => 'The answers the setup rewrote (a name with accents, transliterated), by question: show them in the form, the person validates the change by sending it again',
+                            'additionalProperties' => ['type' => 'string'],
+                        ],
                         'setup' => ['type' => 'object', 'description' => 'The grid, its simulator, its owner'],
                         'rows' => [
                             'type' => 'array',
