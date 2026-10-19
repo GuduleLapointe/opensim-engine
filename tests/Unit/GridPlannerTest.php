@@ -481,6 +481,7 @@ describe('fields of a grid', function () {
                 'name',
                 'nick',
                 'hypergrid',
+                'standalone',
                 'spacing',
                 'core',
                 'hostname',

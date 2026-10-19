@@ -66,6 +66,19 @@ final class GridConf
             "RegionSpacing = {$plan->regionSpacing}",
             "Center = {$plan->center}",
             "OfflineMessages = {$plan->offline}",
+            ...$plan->standalone
+                ? [
+                    ';; A standalone: its simulator serves the grid itself, its address and its database are its own',
+                    'Standalone = true',
+                    'Hypergrid = ' . ($plan->enableHypergrid ? 'true' : 'false'),
+                    "BaseHostname = {$plan->baseHostname}",
+                    "PublicPort = {$plan->publicPort}",
+                    "DatabaseHost = {$plan->dbHost}",
+                    "DatabaseName = {$plan->dbName}",
+                    "DatabaseUser = {$plan->dbUser}",
+                    "DatabasePassword = {$plan->dbPass}",
+                ]
+                : [],
             '',
         ];
 

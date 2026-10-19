@@ -385,3 +385,53 @@ describe('answers about a simulator', function () {
         },
     );
 });
+
+describe('A simulator of a standalone', function () {
+    /** A planner for a standalone grid on 9000 whose database is solo, with no account yet. */
+    function standalone_simulator_planner(): SimulatorPlanner
+    {
+        $grid = sim_grid([
+            'standalone' => true,
+            'publicPort' => 9000,
+            'privatePort' => 9000,
+            'databaseName' => 'solo',
+        ]);
+
+        return simulator_planner(['grid' => $grid, 'accounts' => []]);
+    }
+
+    test('serves the grid on its port, with the database of the grid, and makes the account of its owner', function () {
+        $planner = standalone_simulator_planner();
+        $answers = ['new_name' => 'Ada Love', 'new_password' => 'secret123', 'new_email' => 'ada@example.org'];
+        $plan = $planner->plan($answers);
+
+        expect($plan->standalone)
+            ->toBeTrue()
+            ->and($plan->httpPort)
+            ->toBe(9000)
+            ->and($plan->dbName)
+            ->toBe('solo')
+            ->and($plan->createOwner)
+            ->toBeTrue()
+            ->and($plan->ownerUuid)
+            ->toMatch('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/');
+    });
+
+    test('is the only one: another is refused, and the one that exists can be changed', function () {
+        $solo = sim_grid(['standalone' => true, 'publicPort' => 9000]);
+        $new = simulator_planner(['grid' => $solo, 'accounts' => []]);
+
+        expect($new->problems(['name' => 'Welcome']))->not->toHaveKey('name');
+
+        file_put_contents("{$solo->directory()}/sims/demo_welcome.ini", "[Network]\nhttp_listener_port = 9000\n");
+
+        expect($new->problems(['name' => 'Second']))
+            ->toHaveKey('name')
+            ->and(
+                simulator_planner(['grid' => $solo, 'modify' => true, 'simulatorName' => 'Welcome'])->problems([]),
+            )
+            ->not->toHaveKey('name')
+            ->and(simulator_planner()->problems(['name' => 'Second']))
+            ->not->toHaveKey('name');
+    });
+});

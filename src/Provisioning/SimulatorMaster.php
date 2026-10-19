@@ -97,6 +97,7 @@ final class SimulatorMaster
         $public = (int) ($info['publicPort'] ?? ($conf['PublicPort'] ?? 8002));
         $private = (int) ($info['privatePort'] ?? ($conf['PrivatePort'] ?? 8003));
         $hypergrid = basename($robust) === 'Robust.HG.ini' || strtolower($conf['Hypergrid'] ?? '') === 'true';
+        $standalone = strtolower($conf['Standalone'] ?? '') === 'true';
 
         return implode("\n", [
             '[Const]',
@@ -116,8 +117,9 @@ final class SimulatorMaster
             'Include-Architecture = "' .
             $configDir .
             '/config-include/' .
-            ($hypergrid ? 'GridHypergrid.ini' : 'Grid.ini') .
-            '"',
+            ($standalone ? 'Standalone' : 'Grid') .
+            ($hypergrid ? 'Hypergrid' : '') .
+            '.ini"',
             '',
         ]);
     }

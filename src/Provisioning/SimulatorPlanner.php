@@ -95,7 +95,10 @@ final class SimulatorPlanner
                 Ports::simulatorsFrom($grid->publicPort()),
                 $foreign,
             ),
-            'accounts' => $grid->isRemote() ? null : (new GridAccounts($database, $ui))->names($grid),
+            // A standalone that has no account yet has no database to ask: the owner is made at its first start
+            'accounts' => $grid->isRemote()
+                ? null
+                : (new GridAccounts($database, $ui))->names($grid) ?? ($grid->isStandalone() ? [] : null),
         ];
 
         return $planner->with($context)->forSimulator($simulatorName ?? $context['defaultName']);
@@ -188,7 +191,8 @@ final class SimulatorPlanner
                     ? $grid->coreDirectory()
                     : array_key_first($cores));
 
-        $http0 = (int) ($current?->httpPort() ?? $c['block']);
+        // A standalone serves the grid itself: its port is the one of the grid
+        $http0 = (int) ($current?->httpPort() ?? ($grid->isStandalone() ? $grid->publicPort() : $c['block']));
         $http = (int) ($answers['http_port'] ?? $http0);
         $console0 = (int) ($current?->consolePort() ?? $this->consoleFor($http0));
         $owner =
@@ -216,7 +220,11 @@ final class SimulatorPlanner
                 'database_host',
                 $current?->databaseHost() ?? ($sibling?->databaseHost() ?? $grid->databaseHost()),
             ),
-            'database_name' => $text('database_name', $current?->databaseName() ?? Slug::snake($slug)),
+            // The database of a standalone is the one of the grid
+            'database_name' => $text(
+                'database_name',
+                $current?->databaseName() ?? ($grid->isStandalone() ? $grid->databaseName() : Slug::snake($slug)),
+            ),
             'database_user' => $text(
                 'database_user',
                 $current?->databaseUser() ?? ($sibling?->databaseUser() ?? $grid->databaseUser()),
@@ -271,8 +279,18 @@ final class SimulatorPlanner
     public function problems(array $answers = []): array
     {
         $values = $this->resolve($answers);
+        $problems = $this->fields()->problems(array_intersect_key($answers, $values) + $values);
+        $grid = $this->context['grid'];
+        // A standalone is one simulator: no other can join it
+        if (
+            $grid->isStandalone() &&
+            !$this->context['modify'] &&
+            Grid::at($grid->environment(), $grid->directory())->simulatorNames() !== []
+        ) {
+            $problems['name'] = _('A standalone has one simulator, and it has it.');
+        }
 
-        return $this->fields()->problems(array_intersect_key($answers, $values) + $values);
+        return $problems;
     }
 
     /** The plan of the simulator these answers describe. The region is added by RegionPlanner::apply(). */
@@ -287,6 +305,7 @@ final class SimulatorPlanner
         $plan->gridName = $grid->name();
         $plan->gridDir = $grid->directory();
         $plan->hypergrid = $grid->isHypergrid();
+        $plan->standalone = $grid->isStandalone();
         $plan->baseHostname = $grid->baseHostname();
         $plan->publicPort = $grid->publicPort();
         $plan->privatePort = $grid->privatePort();
@@ -341,6 +360,7 @@ final class SimulatorPlanner
             $plan->createOwner = true;
             $plan->ownerPassword = $v['new_password'];
             $plan->ownerEmail = $v['new_email'];
+            $plan->ownerUuid = RegionPlanner::uuid();
         } else {
             $plan->estateOwner = $v['estate_owner'];
         }

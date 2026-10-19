@@ -28,13 +28,14 @@ final class GridProvisioner
         $this->makeDirs($plan);
         $conf = (new GridConf())->write($plan);
         $this->ui->note(sprintf(_('Wrote %s'), $conf));
-        $this->writeRobust($plan);
+        // A standalone has no Robust: its simulator serves the grid
+        $plan->standalone || $this->writeRobust($plan);
         $this->writeHelpers($plan);
         $this->copyConfigInclude($plan);
         $this->writeMaster($plan, $environment);
         $this->applyOptions($plan, $environment);
 
-        $logConfig = (new RobustLogConfig())->write($plan);
+        $logConfig = $plan->standalone ? null : (new RobustLogConfig())->write($plan);
         if ($logConfig !== null) {
             $this->ui->note(sprintf(_('Wrote %s'), $logConfig));
         }
@@ -56,7 +57,8 @@ final class GridProvisioner
             );
         }
 
-        if ($plan->enable) {
+        // A standalone is enabled and started with its simulator
+        if ($plan->enable && !$plan->standalone) {
             $grid = Grid::at($environment, $plan->gridDir);
             if ($grid->enable()) {
                 $link = (string) $grid->robust()?->link();
@@ -156,8 +158,9 @@ final class GridProvisioner
     {
         // The distribution, over it what the grid has set: a setting new in the distribution is there, what was chosen stays
         // (the same procedure as the folder of a preset), ready for the simulators that will join the grid
-        (new GridShared())->merge($plan->etcDirectory, $plan->binDir, $plan->enableHypergrid);
-        (new GridShared())->prepare($plan->etcDirectory, $plan->binDir, $plan->enableHypergrid);
+        $shared = new GridShared();
+        $shared->merge($plan->etcDirectory, $plan->binDir, $plan->enableHypergrid, standalone: $plan->standalone);
+        $shared->prepare($plan->etcDirectory, $plan->binDir, $plan->enableHypergrid, $plan->standalone);
         $this->ui->note(_('Copied config-include defaults.'));
     }
     /**

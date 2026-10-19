@@ -16,6 +16,8 @@ final class SimulatorPlan
     public string $gridName = '';
     public string $gridDir = '';
     public bool $hypergrid = true;
+    /** The grid is a standalone: this simulator serves it (no Robust), and is its only one. */
+    public bool $standalone = false;
     public string $baseHostname = 'localhost';
     public int $publicPort = 8002;
     public int $privatePort = 8003;
@@ -82,6 +84,8 @@ final class SimulatorPlan
     public bool $createOwner = false;
     public string $ownerPassword = '';
     public string $ownerEmail = '';
+    /** The identity of the account to create, when the simulator makes it itself (a standalone). */
+    public string $ownerUuid = '';
 
     // Its first region.
     public bool $createRegion = true;

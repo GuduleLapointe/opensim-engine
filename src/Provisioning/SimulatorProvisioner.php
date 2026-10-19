@@ -44,8 +44,8 @@ final class SimulatorProvisioner
             return;
         }
 
-        // First, while nothing is written: the account the estate needs
-        if ($plan->createOwner) {
+        // First, while nothing is written: the account the estate needs (a standalone makes it itself when it starts)
+        if ($plan->createOwner && !$plan->standalone) {
             $accounts = new GridAccounts(new DatabaseService($this->ui), $this->ui);
             if (!$accounts->create($grid, $plan->estateOwner, $plan->ownerPassword, $plan->ownerEmail)) {
                 throw new SetupFailedException('account');
@@ -82,7 +82,8 @@ final class SimulatorProvisioner
             $master = (new SimulatorMaster())->ensure($plan->gridDir, $plan->binDir());
             $master !== null && $this->ui->note(sprintf(_('Wrote %s'), $master));
         } else {
-            foreach ((new GridShared())->prepare($plan->gridDir, $plan->binDir(), $plan->hypergrid) as $file) {
+            $shared = new GridShared();
+            foreach ($shared->prepare($plan->gridDir, $plan->binDir(), $plan->hypergrid, $plan->standalone) as $file) {
                 $this->ui->note(sprintf(_('Wrote %s'), $file));
             }
         }
@@ -138,8 +139,8 @@ final class SimulatorProvisioner
     private function startSimulator(SimulatorPlan $plan, Grid $grid, Environment $environment): void
     {
         // A region registers with the grid when it starts: the grid has to run (when
-        // it is ours: a Robust on another machine is its administrator's)
-        if (!$grid->isRemote()) {
+        // it is ours: a Robust on another machine is its administrator's). A standalone is the grid: it starts with it
+        if (!$grid->isRemote() && !$plan->standalone) {
             // Robust reads the roles of its regions when it starts: it starts again to give them
             [$code] = InstanceControl::run(
                 $this->ui,
@@ -167,6 +168,8 @@ final class SimulatorProvisioner
         [$code, $said] = InstanceControl::run($this->ui, 'restart', $plan->slug, $now !== '');
         $pending = $code === 0 && str_contains($said, 'still starting');
         if ($code === 0 && !$pending) {
+            // The account is made: its password does not stay in the config
+            $plan->standalone && $plan->createOwner && (new SimulatorConfig())->forgetOwnerPassword($plan->iniPath());
             if ($plan->createRegion && !$grid->isRemote() && !$this->registered($plan, $grid)) {
                 $this->failed(
                     $plan,
@@ -340,8 +343,8 @@ final class SimulatorProvisioner
     /** Whether the grid knows the region, waiting a little for it to tell. */
     private function registered(SimulatorPlan $plan, Grid $grid): bool
     {
-        if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9 ._-]*$/', $plan->regionName)) {
-            return true; // cannot be looked for
+        if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9 ._-]*$/', $plan->regionName) || $grid->isStandalone()) {
+            return true; // cannot be looked for, or kept by the simulator itself (a standalone has no table of regions)
         }
         $database = new DatabaseService($this->ui);
         for ($i = 0; $i < 60; $i++) {
@@ -392,7 +395,8 @@ final class SimulatorProvisioner
     /** Give the roles asked to the region in the Robust config of the grid. */
     private function giveRoles(SimulatorPlan $plan, Grid $grid): void
     {
-        $ini = $grid->robustIni();
+        // The roles of a standalone are given in its own config, where its [GridService] is
+        $ini = $plan->standalone ? $plan->iniPath() : $grid->robustIni();
         if ($plan->regionRoles === [] || $grid->isRemote() || $ini === null) {
             return;
         }

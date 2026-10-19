@@ -52,6 +52,8 @@ final class GridPlanner
             'nick' => '', // the grid whose settings are the starting point
             'current' => null, // its Robust, when it exists: its settings are the ones proposed
             'currentHypergrid' => null,
+            'currentStandalone' => false, // the grid exists and is a standalone: no Robust, one simulator
+            'currentGrid' => null, // the grid that exists, which says what a standalone has in place of a Robust
             'savedSpacing' => 0,
             'savedCenter' => '',
             'defaultName' => 'My',
@@ -102,6 +104,8 @@ final class GridPlanner
                 'nick' => $nick,
                 'current' => $grid?->robust(),
                 'currentHypergrid' => $grid?->robust() !== null ? $grid->isHypergrid() : null,
+                'currentStandalone' => $grid?->isStandalone() ?? false,
+                'currentGrid' => $grid,
                 'savedSpacing' => $grid?->regionSpacing() ?? 0,
                 'savedCenter' => trim((string) $center, " \t\""),
                 'helpersAvailable' => is_file(HelpersConfig::path($dir)) || is_dir(Snippets::WEBROOT),
@@ -173,7 +177,14 @@ final class GridPlanner
         $modify = $c['modify'];
         $text = static fn(string $name, mixed $default): string => trim((string) ($answers[$name] ?? $default));
 
-        $name = $text('name', $current?->gridName() ?? ($modify ? Slug::nameOf($c['nick']) : $c['defaultName']));
+        // A standalone that exists has no Robust: its description says what Robust would
+        $solo = $c['currentStandalone'] ? $c['currentGrid'] : null;
+        $standalone = self::flag($answers['standalone'] ?? $c['currentStandalone']);
+
+        $name = $text(
+            'name',
+            $current?->gridName() ?? ($solo?->name() ?? ($modify ? Slug::nameOf($c['nick']) : $c['defaultName'])),
+        );
         $nick = $modify ? $c['nick'] : $text('nick', Slug::nick($name));
         $hypergrid = self::flag($answers['hypergrid'] ?? ($c['currentHypergrid'] ?? true));
         $spacing = (int) ($answers['spacing'] ?? $c['savedSpacing']);
@@ -181,9 +192,9 @@ final class GridPlanner
         $core = $text('core', count($cores) > 1 ? $layout->coreDirectory() : '');
         $core = $core !== '' ? $core : (string) array_key_first($cores);
 
-        $host0 = (string) ($current?->baseHostname() ?? $c['defaultHost']);
+        $host0 = (string) ($current?->baseHostname() ?? ($solo?->baseHostname() ?? $c['defaultHost']));
         $host = $text('hostname', $host0);
-        $public0 = (int) ($current?->publicPort() ?? $c['defaultPublic']);
+        $public0 = (int) ($current?->publicPort() ?? ($solo?->publicPort() ?? $c['defaultPublic']));
         $public = (int) ($answers['public_port'] ?? $public0);
         $private0 = (int) ($current?->privatePort() ?? $this->privateFor($public0));
         $private = (int) ($answers['private_port'] ?? ($public === $public0 ? $private0 : $this->privateFor($public)));
@@ -195,12 +206,13 @@ final class GridPlanner
         $web0 = (string) ($current?->webUrl() ?? "https://$host0");
         $web = $text('web_url', $host === $host0 ? $web0 : "https://$host");
 
-        $foundPassword = (string) ($current?->databasePassword() ?? '');
+        $foundPassword = (string) ($current?->databasePassword() ?? ($solo?->databasePassword() ?? ''));
 
         return [
             'name' => $name,
             'nick' => $nick,
             'hypergrid' => $hypergrid,
+            'standalone' => $standalone,
             'spacing' => $spacing,
             'core' => $core,
             'hostname' => $host,
@@ -230,10 +242,18 @@ final class GridPlanner
             'web_site' => self::choice($answers['web_site'] ?? null, ['helpers', 'website'], 'helpers'),
             'database_host' => $text(
                 'database_host',
-                $current?->databaseHost() ?? ($layout->dataSource() ?: 'localhost'),
+                $current?->databaseHost() ?? ($solo?->databaseHost() ?? ($layout->dataSource() ?: 'localhost')),
             ),
-            'database_name' => $text('database_name', $current?->databaseName() ?? strtolower($nick) . '_robust'),
-            'database_user' => $text('database_user', $current?->databaseUser() ?? 'opensim'),
+            // The database of a standalone is the one of the grid, no Robust is in its name
+            'database_name' => $text(
+                'database_name',
+                $current?->databaseName() ??
+                    ($solo?->databaseName() ?? strtolower($nick) . ($standalone ? '' : '_robust')),
+            ),
+            'database_user' => $text(
+                'database_user',
+                $current?->databaseUser() ?? ($solo?->databaseUser() ?? 'opensim'),
+            ),
             // A password found is reused, otherwise one is made (never changeme)
             'database_password' => $text(
                 'database_password',
@@ -276,6 +296,7 @@ final class GridPlanner
         $plan->cacheDirectory = $layout->cacheRoot() . "/$nick";
         $plan->logsDirectory = $layout->logsRoot();
         $plan->enableHypergrid = $v['hypergrid'];
+        $plan->standalone = $v['standalone'];
         // The rule that places the regions: free blocks between them
         $plan->regionSpacing = $v['spacing'];
         $plan->coreDirectory = $v['core'];
@@ -283,7 +304,8 @@ final class GridPlanner
 
         $plan->baseHostname = $v['hostname'];
         $plan->publicPort = $v['public_port'];
-        $plan->privatePort = $v['private_port'];
+        // A standalone is served by one process, on one port
+        $plan->privatePort = $plan->standalone ? $v['public_port'] : $v['private_port'];
         $plan->center = $v['center'];
         $plan->webUrl = $v['web_url'];
         $plan->helpers = $v['helpers'];

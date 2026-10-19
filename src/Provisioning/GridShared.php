@@ -2,6 +2,7 @@
 
 namespace OpenSim\Provisioning;
 
+use OpenSim\Config\ConfigReader;
 use OpenSim\Config\GridFileService;
 use OpenSim\Config\IniEditor;
 use OpenSim\Config\TextFileService;
@@ -30,13 +31,16 @@ final class GridShared
      *
      * @return list<string>
      */
-    public static function files(bool $hypergrid): array
+    public static function files(bool $hypergrid, bool $standalone = false): array
     {
+        // A standalone has the architecture and the common settings of a standalone, where a grid has those of a grid
+        $architecture = ($standalone ? 'Standalone' : 'Grid') . ($hypergrid ? 'Hypergrid' : '');
+
         return [
             'OpenSimDefaults.ini',
             'OpenSim.ini',
-            'config-include/' . ($hypergrid ? 'GridHypergrid.ini' : 'Grid.ini'),
-            'config-include/GridCommon.ini',
+            "config-include/$architecture.ini",
+            'config-include/' . ($standalone ? 'StandaloneCommon.ini' : 'GridCommon.ini'),
             'config-include/FlotsamCache.ini',
             'config-include/osslDefaultEnable.ini',
             'config-include/osslEnable.ini',
@@ -53,10 +57,16 @@ final class GridShared
      * @param  list<string> $extra files besides those of files(), relative paths (the ini files a preset has)
      * @return list<string> the files written
      */
-    public function merge(string $dir, string $binDir, bool $hypergrid, array $over = [], array $extra = []): array
-    {
+    public function merge(
+        string $dir,
+        string $binDir,
+        bool $hypergrid,
+        array $over = [],
+        array $extra = [],
+        bool $standalone = false,
+    ): array {
         $written = [];
-        foreach (array_values(array_unique(array_merge(self::files($hypergrid), $extra))) as $file) {
+        foreach (array_values(array_unique(array_merge(self::files($hypergrid, $standalone), $extra))) as $file) {
             $dest = "$dir/$file";
             $source = $this->source($binDir, $file);
             $layers = array_values(array_filter($over, static fn(string $root): bool => is_file("$root/$file")));
@@ -126,6 +136,34 @@ final class GridShared
     }
 
     /**
+     * What a standalone is, in the common settings of the distribution: the names it gives itself in get_grid_info in place of those of
+     * the distribution, and its gatekeeper when it is a hypergrid (the distribution has it commented, to enable it).
+     *
+     * @return array<string,string> pattern => replacement
+     */
+    private static function standalonePatches(string $dir): array
+    {
+        $conf = ConfigReader::file("$dir/" . basename($dir) . '.conf')['Grid'] ?? [];
+        // A name in the config is a plain text: no quote, no backslash, no reference to a constant
+        $quote = static fn(string $value): string => '"' . str_replace(['\\', '$', '"'], '', $value) . '"';
+        $patches = [];
+        $defaults = [
+            'gridname' => ['GridName', 'the lost continent of hippo'],
+            'gridnick' => ['GridNick', 'hippogrid'],
+        ];
+        foreach ($defaults as $key => [$name, $default]) {
+            if (($value = trim((string) ($conf[$name] ?? ''))) !== '') {
+                $patches['/^(\s*' . $key . '\s*=\s*)"' . $default . '"/m'] = '$1' . $quote($value);
+            }
+        }
+        if (strtolower(trim((string) ($conf['Hypergrid'] ?? ''))) === 'true') {
+            $patches['/^(\s*);(\s*GatekeeperURI\s*=\s*"\$\{Const\|BaseURL\}:\$\{Const\|PublicPort\}")/m'] = '$1$2';
+        }
+
+        return $patches;
+    }
+
+    /**
      * @return array<string,string> pattern => replacement, for a file of the folder
      */
     private function patches(string $dir, string $file): array
@@ -135,6 +173,18 @@ final class GridShared
             'config-include/GridHypergrid.ini', 'config-include/Grid.ini' => [
                 '/^(\s*Include-Common\s*=\s*)"?config-include\/GridCommon\.ini"?/m' =>
                     '$1"' . $include . '/GridCommon.ini"',
+            ],
+            'config-include/StandaloneHypergrid.ini', 'config-include/Standalone.ini' => [
+                '/^(\s*Include-Common\s*=\s*)"?config-include\/StandaloneCommon\.ini"?/m' =>
+                    '$1"' . $include . '/StandaloneCommon.ini"',
+            ],
+            'config-include/StandaloneCommon.ini' => [
+                // The database of the simulator is its own, not the SQLite file of the distribution
+                '/^(\s*Include-Storage\s*=.*)$/m' => ';$1',
+                // The grid says its name, where the distribution says its own
+                ...self::standalonePatches($dir),
+                '/^(\s*Include-FlotsamCache\s*=\s*)"?config-include\/FlotsamCache\.ini"?/m' =>
+                    '$1"' . $include . '/FlotsamCache.ini"',
             ],
             'config-include/GridCommon.ini' => [
                 // The estates are the grid's when its Robust serves them (the simulators ask it, instead of keeping their own)
@@ -178,14 +228,21 @@ final class GridShared
      *
      * @return list<string> the files written
      */
-    public function prepare(string $gridDir, string $binDir, bool $hypergrid): array
+    public function prepare(string $gridDir, string $binDir, bool $hypergrid, bool $standalone = false): array
     {
         $dir = "$gridDir/config-include";
-        $architecture = $hypergrid ? 'GridHypergrid.ini' : 'Grid.ini';
         $written = [];
 
         foreach (
-            [$architecture, 'GridCommon.ini', 'FlotsamCache.ini', 'osslDefaultEnable.ini', 'osslEnable.ini']
+            array_map(
+                static fn(string $file): string => substr($file, strlen('config-include/')),
+                array_values(
+                    array_filter(
+                        self::files($hypergrid, $standalone),
+                        static fn(string $file): bool => str_starts_with($file, 'config-include/'),
+                    ),
+                ),
+            )
             as $file
         ) {
             $dest = "$dir/$file";
@@ -206,7 +263,7 @@ final class GridShared
         }
 
         // The same corrections as merge(), for the files that are only copied
-        foreach (self::files($hypergrid) as $file) {
+        foreach (self::files($hypergrid, $standalone) as $file) {
             if (!str_starts_with($file, 'config-include/') || !is_file("$gridDir/$file")) {
                 continue;
             }

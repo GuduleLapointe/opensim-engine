@@ -129,6 +129,13 @@ final class Grid extends InstalledModel
             ],
             ['name' => 'hypergrid', 'group' => 'grid', 'type' => 'boolean', 'label' => _('Enable Hypergrid?')],
             [
+                'name' => 'standalone',
+                'group' => 'grid',
+                'type' => 'boolean',
+                'label' => _('Standalone? (one simulator is the whole grid, no Robust, no other simulator)'),
+                'enable' => !($options['modify'] ?? false),
+            ],
+            [
                 'name' => 'spacing',
                 'group' => 'grid',
                 'type' => 'integer',
@@ -554,6 +561,7 @@ final class Grid extends InstalledModel
                 'directory' => $plan->gridDir,
                 'robustIni' => $robustIni,
                 'hypergrid' => $plan->enableHypergrid,
+                'standalone' => $plan->standalone,
                 'regionSpacing' => $plan->regionSpacing,
                 'center' => $plan->center,
                 'coreDirectory' => $plan->coreDirectory,
@@ -568,13 +576,15 @@ final class Grid extends InstalledModel
                 'cacheDirectory' => $plan->cacheDirectory,
                 'logsDirectory' => $plan->logsDirectory,
                 // What its Robust serves: as written when it is, else as the setup will write it
-                'connectors' => is_file($robustIni)
-                    ? RobustController::connectorsIn($robustIni)
-                    : \OpenSim\Provisioning\RobustConfig::connectors(
-                        $plan->helpers,
-                        $plan->enableHypergrid,
-                        $plan->offline,
-                    ),
+                'connectors' => $plan->standalone
+                    ? []
+                    : (is_file($robustIni)
+                        ? RobustController::connectorsIn($robustIni)
+                        : \OpenSim\Provisioning\RobustConfig::connectors(
+                            $plan->helpers,
+                            $plan->enableHypergrid,
+                            $plan->offline,
+                        )),
                 'search' => $plan->search,
                 'offline' => $plan->offline,
                 'helpers' => $plan->helpers,
@@ -834,6 +844,11 @@ final class Grid extends InstalledModel
                 'baseHostname' => $conf['BaseHostname'] ?? 'localhost',
                 'publicPort' => $port,
                 'privatePort' => $port,
+                // Its database is the one of its simulator, which the setup names in the description
+                'databaseHost' => $conf['DatabaseHost'] ?? 'localhost',
+                'databaseName' => $conf['DatabaseName'] ?? Slug::snake($nick),
+                'databaseUser' => $conf['DatabaseUser'] ?? 'opensim',
+                'databasePassword' => $conf['DatabasePassword'] ?? '',
             ];
         }
         if ($robustIni === null) {

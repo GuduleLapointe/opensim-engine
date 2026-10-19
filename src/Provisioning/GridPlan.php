@@ -13,6 +13,8 @@ final class GridPlan
     public string $gridNick = '';
     public string $gridSlug = '';
     public bool $enableHypergrid = true;
+    /** One simulator is the whole grid (its login, its services, its region): no Robust, no other simulator, one database. */
+    public bool $standalone = false;
     /** Free blocks the regions of the grid leave between them (0: side by side). */
     public int $regionSpacing = 0;
     /** The center of the grid, "x,y": where the search of a place for a region starts. */
