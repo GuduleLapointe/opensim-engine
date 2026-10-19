@@ -519,6 +519,7 @@ describe('The calls to the currency', function () {
             $factory,
             '/api',
             grid: 'demo',
+            authenticator: new OpenSim\Security\OpenAccess(),
         );
         $ask = static fn(string $path, string $body, string $ip = '10.0.0.9') => $handler->handle(
             $factory

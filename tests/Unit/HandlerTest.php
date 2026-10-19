@@ -44,6 +44,7 @@ function api_handler(
         '/api',
         asset_converter($calls),
         $grid,
+        new OpenSim\Security\OpenAccess(),
     );
 }
 

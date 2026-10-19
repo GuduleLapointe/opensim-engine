@@ -557,7 +557,12 @@ describe('The documentation of the API', function () {
             ->toBeFile()
             ->and(file_get_contents("$dir/index.html"))
             ->toContain('Redoc.init')
-            ->toContain('"openapi": "3.1.0"');
+            ->toContain('"openapi": "3.1.0"')
+            ->toContain('href="try.html"')
+            ->and(file_get_contents("$dir/try.html"))
+            ->toContain('SwaggerUIBundle')
+            ->toContain('persistAuthorization')
+            ->toContain('"ApiKey"');
     })->skip(fn() => !is_file(dirname(__DIR__, 2) . '/dev/api-docs.php'), 'the script is not there');
 });
 

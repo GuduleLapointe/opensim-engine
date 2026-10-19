@@ -724,6 +724,12 @@ final class Contract
                 $paths['/grids/{grid}/destinations']['get'],
             ));
 
+        // What needs no key is what the viewers, the simulators and the visitors call (Router::PUBLIC)
+        foreach (Router::PUBLIC as $public) {
+            [$method, $path] = explode(' ', $public, 2);
+            isset($paths[$path][strtolower($method)]) && ($paths[$path][strtolower($method)]['security'] = []);
+        }
+
         return [
             'openapi' => '3.1.0',
             'info' => [
@@ -731,11 +737,11 @@ final class Contract
                 'version' => $version,
                 'license' => ['name' => 'AGPL-3.0-or-later', 'identifier' => 'AGPL-3.0-or-later'],
                 'description' =>
-                    "The grids, the simulators and the services of an install, and what is in the databases of a grid, as JSON:API resources; the errors are problem details (RFC 9457).\n\nA list takes `search`, `sort` (`-` before a column for the descending order), `filter[<name>]`, `page[number]` and `page[size]`.",
+                    "The grids, the simulators and the services of an install, and what is in the databases of a grid, as JSON:API resources; the errors are problem details (RFC 9457).\n\nA list takes `search`, `sort` (`-` before a column for the descending order), `filter[<name>]`, `page[number]` and `page[size]`.\n\n## Authentication\n\nThe API is closed: what manages the machine and the grids (the resources, the tasks, the health) needs an API key, sent as `Authorization: Bearer <key>`. A key is made on the machine and shown once: `opensim api-key create <label>`; `opensim api-key list` lists them without what opens them, `opensim api-key revoke <id>` closes one. A key opens everything for now. To try the API from this documentation, open the [test page](try.html), enter the address of the API and click Authorize.\n\nWhat the viewers, the simulators and the visitors of a site call needs none (the message of the day, the guide, the pictures, the status of the grid, the pages): the operations marked as open. The calls in a format of OpenSimulator and the viewers (search, registration, offline messages, currency, land tools) are protected by what the protocol has: the secure session of an avatar, the secret of a region, the key of the money server.",
             ],
             'servers' => [['url' => '/', 'description' => 'Where the application that uses the engine mounts the API']],
-            // Who may ask is the application's to decide: this layer asks nobody for anything
-            'security' => [],
+            // Closed unless an operation says it is open (`security: []`)
+            'security' => [['ApiKey' => []]],
             'tags' => $tags,
             // The sections of the documentation: the machine, a grid, the application, the helpers, Robust
             'x-tagGroups' => array_map(
@@ -744,7 +750,18 @@ final class Contract
                 array_values($groups),
             ),
             'paths' => $paths,
-            'components' => ['schemas' => $schemas],
+            'components' => [
+                'securitySchemes' => [
+                    'ApiKey' => [
+                        'type' => 'http',
+                        'scheme' => 'bearer',
+                        'bearerFormat' => 'osk_...',
+                        'description' =>
+                            'A key made on the machine with `opensim api-key create`, sent as `Authorization: Bearer <key>`.',
+                    ],
+                ],
+                'schemas' => $schemas,
+            ],
         ];
     }
 

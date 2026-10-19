@@ -221,6 +221,7 @@ describe('The offline messages', function () {
             $factory,
             '/api',
             grid: 'demo',
+            authenticator: new OpenSim\Security\OpenAccess(),
         );
         $post = static fn(string $path, string $body) => $handler->handle(
             $factory->createServerRequest('POST', $path)->withBody($factory->createStream($body)),

@@ -24,12 +24,12 @@ final class Endpoints
             [
                 'name' => 'Search',
                 'description' =>
-                    'The search of the grid, made by the helpers: the simulators register to it and tell it their regions (a snapshot the helpers read), the viewers ask it for places, popular places, land for sale, events and classifieds. The format is the one of the module OpenSimSearch of the simulators; the address is the grid\'s to choose (`SearchURL` of `[Search]` and `DATA_SRV_*` of `[DataSnapshot]` in OpenSim.ini). A search can be shared by several grids: `gk`, the gatekeeper of the grid that asks, tells for which the search is made (the viewers do not send it).',
+                    'The search of the grid, made by the helpers: the simulators register to it and tell it their regions (a snapshot the helpers read), the viewers ask it for places, popular places, land for sale, events and classifieds. The format is the one of the module OpenSimSearch of the simulators; the address is the grid\'s to choose (`SearchURL` of `[Search]` and `DATA_SRV_*` of `[DataSnapshot]` in OpenSim.ini). A search can be shared by several grids: `gk`, the gatekeeper of the grid that asks, tells for which the search is made (the viewers do not send it). These calls need no API key: the viewers and the simulators do not send one.',
             ],
             [
                 'name' => 'Economy',
                 'description' =>
-                    'The currency and the land tools of the grid, as the viewers and the money modules call them: XML-RPC at `currency.php` and `landtool.php` under the economy address the grid gives its viewers (`economy` of `[GridInfoService]`). Nothing is served without the key of the grid (`MoneyScriptAccessKey` of `[MoneyServer]`): a quote is tied to its purchase with it and to the address of who asked. An avatar proves who they are with their secure session, a region with its secret.',
+                    'The currency and the land tools of the grid, as the viewers and the money modules call them: XML-RPC at `currency.php` and `landtool.php` under the economy address the grid gives its viewers (`economy` of `[GridInfoService]`). Nothing is served without the key of the grid (`MoneyScriptAccessKey` of `[MoneyServer]`): a quote is tied to its purchase with it and to the address of who asked. An avatar proves who they are with their secure session, a region with its secret: no API key is needed, the viewers do not send one.',
             ],
             [
                 'name' => 'Offline messages',
@@ -357,6 +357,7 @@ final class Endpoints
             'tags' => ['Pages'],
             'summary' => $summary,
             'description' => $description,
+            'security' => [],
             'parameters' => $parameters,
             'responses' => [
                 '200' => [
@@ -409,6 +410,7 @@ final class Endpoints
             'operationId' => 'feedGridStatus',
             'tags' => ['Pages'],
             'summary' => 'Grid status feed',
+            'security' => [],
             'description' =>
                 'The RSS feed the viewers read for the news of the grid (`GridStatusRSS` of `[GridInfoService]`).',
             'responses' => [
@@ -423,6 +425,7 @@ final class Endpoints
             'operationId' => 'getGridInfo',
             'tags' => ['Grid info'],
             'summary' => 'Grid info',
+            'security' => [],
             'description' =>
                 'Served by Robust at its public port, not by the engine, which reads it (`Grid::gridInfo()`). The elements are the keys of `[GridInfoService]` of Robust.ini, **every one**, the free ones included: `gridname`, `gridnick`, `login` (the address of the grid, which is the truth about it whatever address it was reached at), `economy`, `search`, `welcome`... What a grid says is kept for a day when it is verified.',
             'servers' => [

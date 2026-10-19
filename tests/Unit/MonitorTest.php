@@ -139,6 +139,7 @@ describe('The monitor, the addresses and the info of a grid, in the API', functi
             $factory,
             $factory,
             '/api',
+            authenticator: new OpenSim\Security\OpenAccess(),
         );
     }
 

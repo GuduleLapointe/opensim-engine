@@ -2,6 +2,7 @@
 
 ### Unreleased
 
+- new: the API is closed: API keys (`Security\ApiKeys`, `opensim api-key create|list|revoke`), `Authorization: Bearer`, the public operations (`Router::PUBLIC`) marked open in the contract, a page to try the API with a key (`docs/api/try.html`); `Handler` takes `authenticator:` and answers 401 without it
 - new: `Api\Router` (the addresses of the API without a transport) with three adapters: `Handler` (PSR-15), `Cli` (`opensim api GET /grids/demo/monitor`) and the PHP library (`$router->get('/monitor')`)
 - new: `GET /grids/{grid}/monitor` (data, `format=text`, `format=png`), `/grids/{grid}/addresses`, `/grids/{grid}/info`; `Runtime\GridMonitor`
 - new: `Models\Archive` and the resource `archives`: the inventories, regions and backups of the grids, read from their names (`GET /archives`)

@@ -2,12 +2,12 @@
     "openapi": "3.1.0",
     "info": {
         "title": "OpenSim engine",
-        "version": "9087e13",
+        "version": "4a1a340",
         "license": {
             "name": "AGPL-3.0-or-later",
             "identifier": "AGPL-3.0-or-later"
         },
-        "description": "The grids, the simulators and the services of an install, and what is in the databases of a grid, as JSON:API resources; the errors are problem details (RFC 9457).\n\nA list takes `search`, `sort` (`-` before a column for the descending order), `filter[<name>]`, `page[number]` and `page[size]`."
+        "description": "The grids, the simulators and the services of an install, and what is in the databases of a grid, as JSON:API resources; the errors are problem details (RFC 9457).\n\nA list takes `search`, `sort` (`-` before a column for the descending order), `filter[<name>]`, `page[number]` and `page[size]`.\n\n## Authentication\n\nThe API is closed: what manages the machine and the grids (the resources, the tasks, the health) needs an API key, sent as `Authorization: Bearer <key>`. A key is made on the machine and shown once: `opensim api-key create <label>`; `opensim api-key list` lists them without what opens them, `opensim api-key revoke <id>` closes one. A key opens everything for now. To try the API from this documentation, open the [test page](try.html), enter the address of the API and click Authorize.\n\nWhat the viewers, the simulators and the visitors of a site call needs none (the message of the day, the guide, the pictures, the status of the grid, the pages): the operations marked as open. The calls in a format of OpenSimulator and the viewers (search, registration, offline messages, currency, land tools) are protected by what the protocol has: the secure session of an avatar, the secret of a region, the key of the money server."
     },
     "servers": [
         {
@@ -15,7 +15,11 @@
             "description": "Where the application that uses the engine mounts the API"
         }
     ],
-    "security": [],
+    "security": [
+        {
+            "ApiKey": []
+        }
+    ],
     "tags": [
         {
             "name": "Grids",
@@ -71,11 +75,11 @@
         },
         {
             "name": "Search",
-            "description": "The search of the grid, made by the helpers: the simulators register to it and tell it their regions (a snapshot the helpers read), the viewers ask it for places, popular places, land for sale, events and classifieds. The format is the one of the module OpenSimSearch of the simulators; the address is the grid's to choose (`SearchURL` of `[Search]` and `DATA_SRV_*` of `[DataSnapshot]` in OpenSim.ini). A search can be shared by several grids: `gk`, the gatekeeper of the grid that asks, tells for which the search is made (the viewers do not send it)."
+            "description": "The search of the grid, made by the helpers: the simulators register to it and tell it their regions (a snapshot the helpers read), the viewers ask it for places, popular places, land for sale, events and classifieds. The format is the one of the module OpenSimSearch of the simulators; the address is the grid's to choose (`SearchURL` of `[Search]` and `DATA_SRV_*` of `[DataSnapshot]` in OpenSim.ini). A search can be shared by several grids: `gk`, the gatekeeper of the grid that asks, tells for which the search is made (the viewers do not send it). These calls need no API key: the viewers and the simulators do not send one."
         },
         {
             "name": "Economy",
-            "description": "The currency and the land tools of the grid, as the viewers and the money modules call them: XML-RPC at `currency.php` and `landtool.php` under the economy address the grid gives its viewers (`economy` of `[GridInfoService]`). Nothing is served without the key of the grid (`MoneyScriptAccessKey` of `[MoneyServer]`): a quote is tied to its purchase with it and to the address of who asked. An avatar proves who they are with their secure session, a region with its secret."
+            "description": "The currency and the land tools of the grid, as the viewers and the money modules call them: XML-RPC at `currency.php` and `landtool.php` under the economy address the grid gives its viewers (`economy` of `[GridInfoService]`). Nothing is served without the key of the grid (`MoneyScriptAccessKey` of `[MoneyServer]`): a quote is tied to its purchase with it and to the address of who asked. An avatar proves who they are with their secure session, a region with its secret: no API key is needed, the viewers do not send one."
         },
         {
             "name": "Offline messages",
@@ -2267,7 +2271,8 @@
                             }
                         }
                     }
-                }
+                },
+                "security": []
             }
         },
         "/grids/{grid}/destinations/{id}": {
@@ -2323,7 +2328,8 @@
                             }
                         }
                     }
-                }
+                },
+                "security": []
             }
         },
         "/tasks": {
@@ -2549,7 +2555,8 @@
                             }
                         }
                     }
-                }
+                },
+                "security": []
             }
         },
         "/fonts/{id}": {
@@ -2596,7 +2603,8 @@
                             }
                         }
                     }
-                }
+                },
+                "security": []
             }
         },
         "/grids/{grid}/assets/{id}.{format}": {
@@ -2673,7 +2681,8 @@
                             }
                         }
                     }
-                }
+                },
+                "security": []
             }
         },
         "/grids/{grid}/motd": {
@@ -2725,7 +2734,8 @@
                             }
                         }
                     }
-                }
+                },
+                "security": []
             }
         },
         "/text-images": {
@@ -2830,7 +2840,8 @@
                             }
                         }
                     }
-                }
+                },
+                "security": []
             }
         },
         "/tasks/{id}/runs": {
@@ -3026,7 +3037,8 @@
                             }
                         }
                     }
-                }
+                },
+                "security": []
             }
         },
         "/grids/{grid}/info": {
@@ -3108,7 +3120,8 @@
                             }
                         }
                     }
-                }
+                },
+                "security": []
             }
         },
         "/grids/{grid}/monitor": {
@@ -3295,7 +3308,8 @@
                             }
                         }
                     }
-                }
+                },
+                "security": []
             }
         },
         "/grids/{grid}/health": {
@@ -3472,7 +3486,8 @@
                             }
                         }
                     }
-                }
+                },
+                "security": []
             }
         },
         "/grids/{grid}/search/query": {
@@ -3633,7 +3648,8 @@
                             }
                         }
                     }
-                }
+                },
+                "security": []
             }
         },
         "/grids/{grid}/currency.php": {
@@ -3761,7 +3777,8 @@
                             }
                         }
                     }
-                }
+                },
+                "security": []
             }
         },
         "/grids/{grid}/landtool.php": {
@@ -3865,7 +3882,8 @@
                             }
                         }
                     }
-                }
+                },
+                "security": []
             }
         },
         "/grids/{grid}/offline-messages/SaveMessage": {
@@ -3944,7 +3962,8 @@
                             }
                         }
                     }
-                }
+                },
+                "security": []
             }
         },
         "/grids/{grid}/offline-messages/RetrieveMessages": {
@@ -4023,7 +4042,8 @@
                             }
                         }
                     }
-                }
+                },
+                "security": []
             }
         },
         "/search": {
@@ -4034,6 +4054,7 @@
                 ],
                 "summary": "Web search",
                 "description": "The page the viewers open for the search. The address is `search` of `[GridInfoService]` and `SearchURL` of `[LoginService]`, which the setup keeps equal.",
+                "security": [],
                 "parameters": [],
                 "responses": {
                     "200": {
@@ -4060,6 +4081,7 @@
                 ],
                 "summary": "Welcome",
                 "description": "The page the viewers show at login. The address is `welcome` of `[GridInfoService]`.",
+                "security": [],
                 "parameters": [],
                 "responses": {
                     "200": {
@@ -4086,6 +4108,7 @@
                 ],
                 "summary": "Destination guide",
                 "description": "The page the viewers open for the destinations (`DestinationGuide` of `[LoginService]`), made from `/grids/{grid}/destinations`.",
+                "security": [],
                 "parameters": [],
                 "responses": {
                     "200": {
@@ -4112,6 +4135,7 @@
                 ],
                 "summary": "Profile",
                 "description": "The page the viewers open for a profile (`web_profile_url` of `[GridInfoService]`, `[AGENT_NAME]` standing for the name).",
+                "security": [],
                 "parameters": [
                     {
                         "name": "name",
@@ -4148,6 +4172,7 @@
                 ],
                 "summary": "Health page",
                 "description": "A management page: the same checks as `/grids/{grid}/health`, for a person to read. It is not a page of the viewers, and not public.",
+                "security": [],
                 "parameters": [],
                 "responses": {
                     "200": {
@@ -4174,6 +4199,7 @@
                 ],
                 "summary": "Grid status",
                 "description": "A light page, in HTML or plain text, from which the viewer takes one line of global status by keyword (ONLINE green, OFFLINE red, DEGRADED or MAINTENANCE orange). The address is `GridStatus` of `[GridInfoService]`.",
+                "security": [],
                 "parameters": [],
                 "responses": {
                     "200": {
@@ -4199,6 +4225,7 @@
                     "Pages"
                 ],
                 "summary": "Grid status feed",
+                "security": [],
                 "description": "The RSS feed the viewers read for the news of the grid (`GridStatusRSS` of `[GridInfoService]`).",
                 "responses": {
                     "200": {
@@ -4224,6 +4251,7 @@
                     "Grid info"
                 ],
                 "summary": "Grid info",
+                "security": [],
                 "description": "Served by Robust at its public port, not by the engine, which reads it (`Grid::gridInfo()`). The elements are the keys of `[GridInfoService]` of Robust.ini, **every one**, the free ones included: `gridname`, `gridnick`, `login` (the address of the grid, which is the truth about it whatever address it was reached at), `economy`, `search`, `welcome`... What a grid says is kept for a day when it is verified.",
                 "servers": [
                     {
@@ -4260,6 +4288,14 @@
         }
     },
     "components": {
+        "securitySchemes": {
+            "ApiKey": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "osk_...",
+                "description": "A key made on the machine with `opensim api-key create`, sent as `Authorization: Bearer <key>`."
+            }
+        },
         "schemas": {
             "Problem": {
                 "type": "object",

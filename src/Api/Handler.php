@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace OpenSim\Api;
 
 use OpenSim\Assets\ConverterInterface;
+use OpenSim\Security\Authenticator;
+use OpenSim\Security\Locked;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -31,6 +33,8 @@ final class Handler implements RequestHandlerInterface
      * @param ?ConverterInterface $converter converts the pictures of the grid (default: the one of the machine)
      * @param ?string $grid the grid a web host serves: what is asked of a grid without saying which (`/motd`, `/destinations`,
      *        `/avatars`, `/assets/{id}.png`) is asked of this one
+     * @param ?Authenticator $authenticator who opens what is not public (`Security\ApiKeys::for($environment)`); the API is closed
+     *        until it is given one
      */
     public function __construct(
         Api $api,
@@ -39,8 +43,9 @@ final class Handler implements RequestHandlerInterface
         string $base = '',
         ?ConverterInterface $converter = null,
         ?string $grid = null,
+        ?Authenticator $authenticator = null,
     ) {
-        $this->router = new Router($api, $base, $converter, $grid);
+        $this->router = new Router($api, $base, $converter, $grid, $authenticator ?? new Locked());
     }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -53,6 +58,7 @@ final class Handler implements RequestHandlerInterface
             (string) ($request->getServerParams()['REMOTE_ADDR'] ?? ''),
             $request->getHeaderLine('Accept'),
             is_array($request->getParsedBody()) ? $request->getParsedBody() : null,
+            $request->getHeaderLine('Authorization'),
         );
         $response = $this->responses->createResponse($answer->status);
         foreach ($answer->headers as $name => $value) {

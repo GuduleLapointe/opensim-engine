@@ -6,6 +6,8 @@ namespace OpenSim\Api;
 
 use OpenSim\Assets\ConverterInterface;
 use OpenSim\Models\Image;
+use OpenSim\Security\ApiKeys;
+use OpenSim\Security\Authenticator;
 
 /**
  * The addresses of the API, without a transport: a method, a path, a query and a body in, an `Api\Response` out. The adapters are
@@ -28,6 +30,32 @@ final class Router
     public const OPENAPI = 'application/vnd.oai.openapi+json';
 
     /**
+     * What needs no key: what the viewers, the simulators and the visitors of a site call (the message of the day, the guide, the
+     * pictures, the status of the grid), and what OpenSimulator and the viewers call in a format of their own, which they protect with
+     * their own means (the secure session of an avatar, the secret of a region, the key of the money server). Everything else is for
+     * the operator and the applications that hold a key.
+     */
+    public const PUBLIC = [
+        'GET /openapi.json',
+        'GET /text-images',
+        'GET /fonts',
+        'GET /fonts/{id}',
+        'GET /grids/{grid}/destinations',
+        'GET /grids/{grid}/destinations/{id}',
+        'GET /grids/{grid}/motd',
+        'GET /grids/{grid}/addresses',
+        'GET /grids/{grid}/info',
+        'GET /grids/{grid}/monitor',
+        'GET /grids/{grid}/assets/{id}.{format}',
+        'GET /grids/{grid}/search/register',
+        'POST /grids/{grid}/search/query',
+        'POST /grids/{grid}/offline-messages/SaveMessage',
+        'POST /grids/{grid}/offline-messages/RetrieveMessages',
+        'POST /grids/{grid}/currency.php',
+        'POST /grids/{grid}/landtool.php',
+    ];
+
+    /**
      * @param string $base where the application mounts the API (`/api`): the beginning of the paths it does not answer for
      * @param ?ConverterInterface $converter converts the pictures of the grid (default: the one of the machine)
      * @param ?string $grid the grid a web host serves: what is asked of a grid without saying which (`/motd`, `/destinations`,
@@ -38,6 +66,7 @@ final class Router
         private readonly string $base = '',
         private readonly ?ConverterInterface $converter = null,
         private readonly ?string $grid = null,
+        private readonly ?Authenticator $authenticator = null,
     ) {}
 
     /**
@@ -48,6 +77,7 @@ final class Router
      * @param string $ip the address of whoever calls (a quote of currency is tied to it)
      * @param string $accept the `Accept` header: the boards of the scripts ask the guide as plain text
      * @param ?array<string,mixed> $parsed the body when the transport already read it (a form)
+     * @param string $authorization the `Authorization` header: `Bearer <key>`
      */
     public function route(
         string $method,
@@ -57,9 +87,10 @@ final class Router
         string $ip = '',
         string $accept = '',
         ?array $parsed = null,
+        string $authorization = '',
     ): Response {
         try {
-            return $this->dispatch(strtoupper($method), $path, $query, $body, $ip, $accept, $parsed);
+            return $this->dispatch(strtoupper($method), $path, $query, $body, $ip, $accept, $parsed, $authorization);
         } catch (\Throwable $error) {
             return Response::problem(Problem::from($error, $path));
         }
@@ -106,6 +137,7 @@ final class Router
         string $ip,
         string $accept,
         ?array $parsed,
+        string $authorization,
     ): Response {
         $base = rtrim($this->base, '/');
         if ($base !== '' && !($path === $base || str_starts_with($path, "$base/"))) {
@@ -143,9 +175,12 @@ final class Router
         ) {
             $grid = $this->grid;
         }
+        $template = '';
         if ($segments === ['openapi.json']) {
+            $template = '/openapi.json';
             $routes = ['GET' => fn() => new Response(200, ['Content-Type' => self::OPENAPI], Contract::document())];
         } elseif (count($segments) === 3 && $segments[0] === 'tasks' && $segments[2] === 'runs') {
+            $template = '/tasks/{id}/runs';
             $routes = ['POST' => fn() => $this->api->run($segments[1])];
         } elseif (
             $grid !== null &&
@@ -154,35 +189,48 @@ final class Router
             preg_match('/^(.+)\.(' . implode('|', array_keys(Image::FORMATS)) . ')$/', $tail[1], $m) === 1
         ) {
             $width = isset($query['width']) ? (int) $query['width'] : null;
+            $template = '/grids/{grid}/assets/{id}.{format}';
             $routes = ['GET' => fn() => $this->api->media($grid, $m[1], $m[2], $this->converter, $width)];
         } elseif ($tail === ['text-images']) {
+            $template = '/text-images';
             $routes = ['GET' => fn() => $this->api->textImage($query)];
         } elseif ($grid !== null && $tail === ['search', 'register']) {
+            $template = '/grids/{grid}/search/register';
             $routes = ['GET' => fn() => $this->api->register($grid, $query)];
         } elseif ($grid !== null && $tail === ['search', 'query']) {
+            $template = '/grids/{grid}/search/query';
             $routes = ['POST' => fn() => $this->api->searchQuery($grid, $body, $query)];
         } elseif ($grid !== null && count($tail) === 2 && $tail[0] === 'offline-messages') {
+            $template = '/grids/{grid}/offline-messages/' . $tail[1];
             $routes = ['POST' => fn() => $this->api->offline($grid, $tail[1], $body)];
         } elseif ($grid !== null && $tail === ['currency.php']) {
+            $template = '/grids/{grid}/currency.php';
             $routes = [
                 'POST' => fn() => $this->api->currency($grid, $body, $ip),
             ];
         } elseif ($grid !== null && $tail === ['landtool.php']) {
+            $template = '/grids/{grid}/landtool.php';
             $routes = [
                 'POST' => fn() => $this->api->landTool($grid, $body, $ip),
             ];
         } elseif ($grid !== null && $tail === ['addresses']) {
+            $template = '/grids/{grid}/addresses';
             $routes = ['GET' => fn() => $this->api->addresses($grid)];
         } elseif ($grid !== null && $tail === ['info']) {
+            $template = '/grids/{grid}/info';
             $routes = ['GET' => fn() => $this->api->info($grid)];
         } elseif ($grid !== null && $tail === ['monitor']) {
+            $template = '/grids/{grid}/monitor';
             $routes = ['GET' => fn() => $this->api->monitor($grid, $query)];
         } elseif ($grid !== null && $tail === ['health']) {
+            $template = '/grids/{grid}/health';
             $routes = ['GET' => fn() => $this->api->health($grid)];
         } elseif ($grid !== null && $tail === ['motd']) {
+            $template = '/grids/{grid}/motd';
             $routes = ['GET' => fn() => $this->api->motd($grid, (string) ($query['username'] ?? ''))];
         } elseif (count($tail) === 1 && $tail[0] !== '') {
             $type = $tail[0];
+            $template = ($grid !== null ? '/grids/{grid}' : '') . "/$type";
             // The boards of the scripts ask the guide as the lines they read
             $type === 'destinations' && str_contains($accept, 'text/plain') && ($query['format'] = 'list');
             $routes = [
@@ -192,6 +240,7 @@ final class Router
             ];
         } elseif (count($tail) === 2) {
             [$type, $id] = $tail;
+            $template = ($grid !== null ? '/grids/{grid}' : '') . "/$type/{id}";
             $routes = [
                 'GET' => fn() => $this->api->get($type, $id, $grid),
                 'PATCH' => fn() => $this->check($body, $parsed, $path, $type) ??
@@ -211,6 +260,23 @@ final class Router
                     405,
                     'Method not allowed',
                     "$method is not allowed here, $allow are",
+                    instance: $path,
+                ))->toArray(),
+            );
+        }
+
+        if (
+            $this->authenticator !== null &&
+            !in_array("$method $template", self::PUBLIC, true) &&
+            !$this->authenticator->allows(ApiKeys::token($authorization))
+        ) {
+            return new Response(
+                401,
+                ['Content-Type' => Problem::CONTENT_TYPE, 'WWW-Authenticate' => 'Bearer realm="opensim"'],
+                (new Problem(
+                    401,
+                    'Unauthorized',
+                    'This needs an API key: Authorization: Bearer <key> (opensim api-key create makes one)',
                     instance: $path,
                 ))->toArray(),
             );

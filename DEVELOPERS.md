@@ -29,11 +29,20 @@ $factory = new Nyholm\Psr7\Psr17Factory();                 // any PSR-7 / PSR-17
 $environment = OpenSim\Runtime\Environment::system(OpenSim\Config\Layout::load());
 $scheduler = OpenSim\Scheduling\Scheduler::for($environment);
 OpenSim\Services\SearchTasks::add($scheduler, $environment, $config);   // the tasks of the search of the grid
-$handler = new OpenSim\Api\Handler(new OpenSim\Api\Api($environment, $scheduler), $factory, $factory, base: '/helpers', grid: 'nick');
+$handler = new OpenSim\Api\Handler(
+    new OpenSim\Api\Api($environment, $scheduler),
+    $factory,
+    $factory,
+    base: '/helpers',
+    grid: 'nick',
+    authenticator: OpenSim\Security\ApiKeys::for($environment),   // closed without it
+);
 
 $response = $handler->handle($request);                    // emit it, then:
 $handler->terminate();                                     // the simulator that registered is read, the tasks that are due run
 ```
+
+The API is closed: what manages the machine and the grids needs a key (`Authorization: Bearer <key>`), made on the machine with `opensim api-key create LABEL` (`list`, `revoke`), kept hashed in `api-keys.json` of the state folder (mode 640, the group of the web server reads it). What the viewers, the simulators and the visitors call is open (`Router::PUBLIC`, marked `security: []` in the contract; a test checks that the contract and the router agree), and the calls in a format of OpenSimulator and the viewers are protected by what their protocol has. The command line and the PHP library are trusted (the system protects the files): no key. `docs/api/try.html` is the page to try the API (Swagger UI: the address, Authorize for the key).
 
 The addresses are in the contract (`docs/api/`), with the format OpenSimulator and the viewers expect for the ones they fix. A new fixed-format endpoint is described in `Api\Formats` (its methods and fields, with an example each), a test checks that what is described is what the service answers.
 
