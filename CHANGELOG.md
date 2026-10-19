@@ -2,6 +2,7 @@
 
 ### Unreleased
 
+- new: the scripts read `~/.opensimrc` and the other rc files (`bin/opensim-env`): which php, the `OPENSIM_*` variables
 - new: `bin/opensim-api`, the API on the command line, for tools that are not PHP
 - fix: `start|stop|restart <standalone>` name its simulator, the monitor counts the regions it describes
 - fix: the groups messaging of the simulators needs `MessageOnlineUsersOnly = true`, it was left off

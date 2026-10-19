@@ -116,7 +116,7 @@ require 'vendor/autoload.php';   // PSR-4: OpenSim\ is src/; the gettext stand-i
 
 ### On the command line
 
-`bin/opensim-api` (`vendor/bin/opensim-api` for a project that has the engine) is the API on the command line, for the tools that are not PHP: `opensim-api GET /forms/grid`, `opensim-api --grid=demo GET /monitor format=text`. The install is the one of `opensim.conf` or of the `OPENSIM_*` variables.
+`bin/opensim-api` (`vendor/bin/opensim-api` for a project that has the engine) is the API on the command line, for the tools that are not PHP: `opensim-api GET /forms/grid`, `opensim-api --grid=demo GET /monitor format=text`. The install is the one of `opensim.conf` or of the `OPENSIM_*` variables. The scripts of the ecosystem first read the rc files that exist (`bin/opensim-env`, sourced): `/etc/opensim/opensimrc`, `~/.opensimrc`, `~/.config/opensim/opensimrc`, then the one `OPENSIM_RC` names. They are bash, what they assign is exported: `PHP=/path/to/php` says which php runs the tools, `OPENSIM_CONF=...` where the install is. The `OPENSIM_*` variables are given to php as arguments, so a php that does not pass the environment on does not lose them.
 
 ## 📚 Documentation
 
