@@ -12,6 +12,8 @@ final class Response
 {
     public const JSON_API = 'application/vnd.api+json';
 
+    private ?string $raw = null;
+
     /**
      * @param array<string,string> $headers
      * @param array<string,mixed> $document the body, a JSON:API document or a problem
@@ -32,8 +34,18 @@ final class Response
         return new self($problem->status, ['Content-Type' => Problem::CONTENT_TYPE], $problem->toArray());
     }
 
+    /** An answer that is a file, a picture: the bytes and their content type. */
+    public static function binary(string $data, string $mime, int $status = 200): self
+    {
+        $response = new self($status, ['Content-Type' => $mime, 'Content-Length' => (string) strlen($data)], []);
+        $response->raw = $data;
+
+        return $response;
+    }
+
     public function body(): string
     {
-        return json_encode($this->document, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        return $this->raw ??
+            json_encode($this->document, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 }

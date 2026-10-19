@@ -348,8 +348,10 @@ describe('The contract', function () {
                     'Regions',
                     'Parcels',
                     'Estates',
+                    'Assets',
                     'Tasks',
                     'Forms',
+                    'Addresses',
                 ])
                 ->and($paths['/services']['get']['parameters'])
                 ->toContain([
@@ -397,6 +399,8 @@ describe('The contract', function () {
         parcels_in(parcel_databases());
         $details['parcels'] = first_attributes(machine_api(parcel_config())->list('parcels', [], grid: 'demo'));
         $details['estates'] = first_attributes(machine_api(estate_world())->list('estates', [], grid: 'demo'));
+        Connections::using(static fn() => asset_database());
+        $details['assets'] = first_attributes(machine_api(asset_config())->list('assets', [], grid: 'demo'));
         $scheduler = new Scheduler(test_tmp() . '/api-cron-' . bin2hex(random_bytes(4)), new ClockFake());
         $scheduler->add(new Task('count', 60, fn() => null));
         $details['tasks'] = first_attributes(machine_api(scheduler: $scheduler)->list('tasks'));
@@ -423,6 +427,8 @@ describe('The contract', function () {
         parcels_in(parcel_databases());
         $parcel = first_attributes(machine_api(parcel_config())->list('parcels', [], grid: 'demo'));
         $estate = first_attributes(machine_api(estate_world())->list('estates', [], grid: 'demo'));
+        Connections::using(static fn() => asset_database());
+        $asset = first_attributes(machine_api(asset_config())->list('assets', [], grid: 'demo'));
         $types = [
             'string' => 'is_string',
             'integer' => 'is_int',
@@ -453,6 +459,80 @@ describe('The contract', function () {
         }
         expect($wrong)->toBe([]);
     });
+});
+
+describe('The API, for the addresses of a grid', function () {
+    test('gives every address of the grid in one document, and where each comes from', function () {
+        $machine = new Machine();
+        $machine->write(
+            $machine->grid . '/Robust.HG.ini',
+            file_get_contents($machine->grid . '/Robust.HG.ini') .
+                "\n[GridInfoService]\n    economy = \"https://play.example.org/helpers\"\n    mood = \"free\"\n",
+        );
+        $api = new Api($machine->environment);
+
+        $all = $api->addresses('demo');
+        $web = $api->addresses('demo', web: true);
+
+        expect($all->status)
+            ->toBe(200)
+            ->and($all->document['data'])
+            ->toMatchArray(['type' => 'addresses', 'id' => 'demo'])
+            ->and($all->document['data']['attributes'])
+            ->toMatchArray([
+                'asset' => 'http://localhost:8003',
+                'currency' => 'https://play.example.org/helpers/currency.php',
+            ])
+            ->and($all->document['meta']['sources'])
+            ->toMatchArray(['asset' => 'provider', 'currency' => 'config'])
+            ->and($web->document['data']['attributes'])
+            ->toBe([
+                'currency' => 'https://play.example.org/helpers/currency.php',
+                'landtool' => 'https://play.example.org/helpers/landtool.php',
+            ])
+            ->and($api->addresses('nowhere')->status)
+            ->toBe(404);
+    });
+});
+
+describe('The API, for the assets of a grid', function () {
+    test(
+        'lists their records, and gives a texture as a picture, the picture of nothing with a 404 for what is not there',
+        function () {
+            Connections::using(static fn() => asset_database());
+            $machine = new Machine();
+            $id = sprintf(
+                '%08x-0000-4000-8000-%012x',
+                random_int(1, PHP_INT_MAX >> 40),
+                random_int(1, PHP_INT_MAX >> 20),
+            );
+            $machine->http['http://localhost:8003/assets/' . $id] =
+                '<AssetBase><Data>' . base64_encode('JP2-BYTES') . "</Data><ID>$id</ID><Type>0</Type></AssetBase>";
+            $api = new Api($machine->environment, null, static fn(Grid $grid): GridConfig => asset_config());
+            $calls = [];
+
+            $list = $api->list('assets', ['filter' => ['type' => 'texture']], grid: 'demo');
+            $picture = $api->media('demo', $id, 'png', asset_converter($calls));
+            $nothing = $api->media('demo', 'ffffffff-0000-4000-8000-000000000000', 'png', asset_converter($calls));
+
+            expect($list->document['meta']['total'])
+                ->toBe(1)
+                ->and($list->document['data'][0]['type'])
+                ->toBe('assets')
+                ->and($picture->status)
+                ->toBe(200)
+                ->and($picture->headers['Content-Type'])
+                ->toBe('image/png')
+                ->and($picture->body())
+                ->toBe('png:JP2-BYTES')
+                ->and($nothing->status)
+                ->toBe(404)
+                ->and($nothing->headers['Content-Type'])
+                ->toBe('image/png')
+                ->and($api->media('nowhere', $id)->status)
+                ->toBe(404);
+        },
+    );
 });
 
 describe('The documentation of the API', function () {

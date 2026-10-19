@@ -76,6 +76,26 @@ $grid->gridInfoIsLive();          // false: the grid did not answer, this is its
 $grid->service('currency')->uri();   // the economy it tells, then currency.php
 ```
 
+## Addresses of a grid
+
+`$grid->addresses()` gives every address the grid gives or has by default, by the key of the service: `currency`, `landtool`,
+`query` (the search API of the simulators), `search` (the web search), `register`, `offline`, `motd`, `guide`, `welcome`, `map`,
+`grid-status`, `grid-status-rss`, `parser`, `events-parser`, `text-images`, `assets` (the web assets server), and the services of
+Robust. Whoever asks does not need to know which section of which file says it: the running grid first (get_grid_info), then the
+config (Robust, OpenSim, `Helpers.ini`), then where the helpers answer. `$grid->address('currency')` is one of them,
+`$grid->service('currency')->source()` says where it comes from (`provider`, `simulator`, `live`, `config`, `default`).
+
+## Assets
+
+`Asset::all($config)` and `Asset::find($config, $uuid)` give the records of the assets, the same for every type (`type()`: texture,
+sound, notecard, script, object, mesh...; `data()`: the bytes of the grid). A type that needs more is a class that extends `Asset`
+(`Image` converts a picture for the web); `Asset::TYPES` says which. `Asset::fromService()` reads one from the asset service of the
+grid, whatever it keeps it in.
+
+`WebAssets::for($grid)->get($uuid, 'png')` gives an asset for a web page: a texture as a picture (the grid keeps JPEG 2000, ImageMagick
+converts it), the other types as they are, the picture of nothing for what is not there. What the grid gave and what was converted are
+kept for a day in the cache folder of the grid.
+
 ## Collection
 
 What every list gives back: `first() last() count() isEmpty()`, `total()` (before the pages), `page() perPage() pages()`,

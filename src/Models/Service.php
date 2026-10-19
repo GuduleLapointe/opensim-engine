@@ -43,6 +43,9 @@ final class Service extends InstalledModel
     /** The format is the engine's own (see Contract): the old scripts that answered in their own are adapted. */
     public const STANDARD = 'standard';
 
+    /** A page for people (the web search, the status of the grid), no format to keep. */
+    public const PAGE = 'page';
+
     /**
      * The services OpenSimulator has, by key: the connectors of `[ServiceList]` that serve it, the port they are on, and the setting a
      * simulator is given its address in (section, key), when it has one.
@@ -202,21 +205,61 @@ final class Service extends InstalledModel
             'setting' => null,
             'database' => null,
         ],
-        'search' => [
+        'map' => [
+            'connectors' => ['MapGetServiceConnector'],
+            'port' => self::PUBLIC,
+            'setting' => null,
+            'database' => null,
+            'kind' => self::FIXED,
+        ],
+        'query' => [
             'connectors' => [],
             'port' => self::WEB,
             'setting' => ['Search', 'SearchURL'],
             'database' => Database::Search,
+            'default' => 'query',
             'kind' => self::FIXED,
             'legacy' => 'query',
+        ],
+        'search' => [
+            'connectors' => [],
+            'port' => self::WEB,
+            'setting' => ['GridInfoService', 'search'],
+            'role' => 'Robust',
+            'also' => [['Robust', 'LoginService', 'SearchURL']],
+            'info' => 'search',
+            'default' => 'search',
+            'database' => null,
+            'kind' => self::PAGE,
+        ],
+        'welcome' => [
+            'connectors' => [],
+            'port' => self::WEB,
+            'setting' => ['GridInfoService', 'welcome'],
+            'role' => 'Robust',
+            'info' => 'welcome',
+            'default' => 'welcome',
+            'database' => null,
+            'kind' => self::PAGE,
+        ],
+        'web-profile' => [
+            'connectors' => [],
+            'port' => self::WEB,
+            'setting' => ['GridInfoService', 'web_profile_url'],
+            'role' => 'Robust',
+            'info' => 'web_profile_url',
+            'database' => null,
+            'kind' => self::PAGE,
         ],
         'currency' => [
             'connectors' => [],
             'port' => self::WEB,
             'setting' => ['GridInfoService', 'economy'],
             'role' => 'Robust',
+            'also' => [['Robust', 'Economy', 'economy']],
             'info' => 'economy',
             'append' => 'currency.php',
+            'default' => 'currency',
             'database' => Database::Economy,
             'kind' => self::FIXED,
             'legacy' => 'currency',
@@ -226,8 +269,10 @@ final class Service extends InstalledModel
             'port' => self::WEB,
             'setting' => ['GridInfoService', 'economy'],
             'role' => 'Robust',
+            'also' => [['Robust', 'Economy', 'economy']],
             'info' => 'economy',
             'append' => 'landtool.php',
+            'default' => 'landtool',
             'database' => null,
             'kind' => self::FIXED,
             'legacy' => 'landtool',
@@ -236,6 +281,7 @@ final class Service extends InstalledModel
             'connectors' => [],
             'port' => self::WEB,
             'setting' => ['DataSnapshot', 'DATA_SRV_*'],
+            'default' => 'register',
             'database' => Database::Search,
             'kind' => self::STANDARD,
             'legacy' => 'register',
@@ -246,6 +292,7 @@ final class Service extends InstalledModel
             'port' => self::WEB,
             'setting' => ['LoginService', 'MessageUrl'],
             'role' => 'Robust',
+            'default' => 'motd',
             'database' => null,
             'kind' => self::STANDARD,
             'legacy' => 'motd',
@@ -256,19 +303,71 @@ final class Service extends InstalledModel
             'port' => self::WEB,
             'setting' => ['LoginService', 'DestinationGuide'],
             'role' => 'Robust',
+            'default' => 'guide',
             'database' => null,
             'kind' => self::STANDARD,
             'legacy' => 'guide',
             'standard' => 'GET /destinations',
         ],
+        'grid-status' => [
+            'connectors' => [],
+            'port' => self::WEB,
+            'setting' => ['GridInfoService', 'GridStatus'],
+            'role' => 'Robust',
+            'also' => [['Helpers', 'Helpers', 'GridStatusURL']],
+            'info' => 'GridStatus',
+            'default' => 'grid_status',
+            'database' => null,
+            'kind' => self::PAGE,
+        ],
+        'grid-status-rss' => [
+            'connectors' => [],
+            'port' => self::WEB,
+            'setting' => ['GridInfoService', 'GridStatusRSS'],
+            'role' => 'Robust',
+            'info' => 'GridStatusRSS',
+            'database' => null,
+            'kind' => self::FIXED,
+        ],
+        'parser' => [
+            'connectors' => [],
+            'port' => self::WEB,
+            'setting' => null,
+            'default' => 'parser',
+            'database' => null,
+            'kind' => self::STANDARD,
+            'legacy' => 'parser',
+            'standard' => 'POST /tasks/search-parse/runs',
+        ],
+        'events-parser' => [
+            'connectors' => [],
+            'port' => self::WEB,
+            'setting' => null,
+            'default' => 'eventsparser',
+            'database' => null,
+            'kind' => self::STANDARD,
+            'legacy' => 'eventsparser',
+            'standard' => 'POST /tasks/events-parse/runs',
+        ],
         'text-images' => [
             'connectors' => [],
             'port' => self::WEB,
             'setting' => null,
+            'default' => 'textgen',
             'database' => null,
             'kind' => self::STANDARD,
             'legacy' => 'textgen',
             'standard' => 'GET /text-images',
+        ],
+        'assets' => [
+            'connectors' => [],
+            'port' => self::WEB,
+            'setting' => ['Helpers', 'AssetsURL'],
+            'role' => 'Helpers',
+            'default' => 'assets',
+            'database' => Database::Assets,
+            'kind' => self::STANDARD,
+            'standard' => 'GET /assets/{id}.{format}',
         ],
         'instant-message' => [
             'connectors' => ['InstantMessageServerConnector'],
@@ -306,6 +405,9 @@ final class Service extends InstalledModel
         'hg-inventory',
         'instant-message',
     ];
+
+    /** @var array{0:?string,1:?string}|null the address and its source, worked out once */
+    private ?array $resolved = null;
 
     /** @var array{0:?string}|null the address declared for the simulators of the grid, read once */
     private ?array $declaration = null;
@@ -364,13 +466,22 @@ final class Service extends InstalledModel
             'hg-inventory' => _('Hypergrid inventories'),
             'hg-groups' => _('Hypergrid groups'),
             'instant-message' => _('Instant messages between grids'),
-            'search' => _('Search'),
+            'map' => _('Map tiles for the web'),
+            'query' => _('Search API (the simulators query it)'),
+            'search' => _('Web search'),
+            'welcome' => _('Welcome page'),
+            'web-profile' => _('Web page of a profile'),
             'currency' => _('Currency'),
             'landtool' => _('Land purchase'),
             'register' => _('Registration of the simulators in the search'),
             'motd' => _('Message of the day'),
             'guide' => _('Destination guide'),
+            'grid-status' => _('Status of the grid'),
+            'grid-status-rss' => _('Status of the grid, feed'),
+            'parser' => _('Reading of the search data of the hosts'),
+            'events-parser' => _('Reading of the events'),
             'text-images' => _('Images of a text'),
+            'assets' => _('Assets as images for the web'),
         ];
     }
 
@@ -441,7 +552,7 @@ final class Service extends InstalledModel
                 'served' => $yesNo,
                 'port' => [
                     static fn(self $service, string $value): bool => $service->port() === $value,
-                    [self::PRIVATE, self::PUBLIC],
+                    [self::PRIVATE, self::PUBLIC, self::WEB],
                 ],
             ],
             [
@@ -581,8 +692,11 @@ final class Service extends InstalledModel
     /** Whether the grid has it: served by a Robust, or declared for its simulators. */
     public function exists(): bool
     {
-        // A service with no setting for it that the helpers answer by themselves is the grid's when it has helpers
-        return $this->isServed() || $this->declared() !== null || $this->helperAddress() !== null;
+        // What the grid says, or the helpers answer at their default address
+        return $this->isServed() ||
+            $this->declared() !== null ||
+            $this->live() !== null ||
+            $this->helperAddress() !== null;
     }
 
     /**
@@ -594,31 +708,72 @@ final class Service extends InstalledModel
         if ($this->viewer !== null && ($own = $this->declaredBy($this->viewer)) !== null) {
             return $own;
         }
+        return $this->resolved()[0];
+    }
+
+    /**
+     * Where the address comes from: `provider` (the Robust or the simulator that serves it), `simulator` (its own config), `live`
+     * (the running grid says it at get_grid_info), `config`, `default` (where the helpers answer it); null when it has none.
+     */
+    public function source(): ?string
+    {
+        if ($this->viewer !== null && $this->declaredBy($this->viewer) !== null) {
+            return 'simulator';
+        }
+
+        return $this->resolved()[1];
+    }
+
+    /**
+     * The address and where it comes from, in the order of trust: what serves it, what the running grid says (a config changed
+     * since is not what the viewers are told), what the config says, where the helpers answer it.
+     *
+     * @return array{0:?string,1:?string}
+     */
+    private function resolved(): array
+    {
+        if ($this->resolved !== null) {
+            return $this->resolved;
+        }
+        $append = self::CATALOG[$this->key]['append'] ?? '';
+        $with = static fn(string $base): string => $append !== '' ? rtrim($base, '/') . '/' . $append : $base;
         $provider = $this->provider();
         if ($provider instanceof RobustController) {
             $port = $this->port() === self::PUBLIC ? $provider->publicPort() : $provider->privatePort();
             $base = $provider->setting('Const', 'BaseURL') ?: 'http://' . ($provider->baseHostname() ?? 'localhost');
 
-            return $port !== null ? "$base:$port" : $base;
+            return $this->resolved = [$port !== null ? "$base:$port" : $base, 'provider'];
         }
         if ($provider !== null) {
             // The simulator of a standalone answers for everything on its own port
-            return ($provider->setting('Const', 'BaseURL') ?: 'http://' . $this->grid->baseHostname()) .
+            return $this->resolved = [
+                ($provider->setting('Const', 'BaseURL') ?: 'http://' . $this->grid->baseHostname()) .
                 ':' .
-                $this->grid->publicPort();
+                $this->grid->publicPort(),
+                'provider',
+            ];
         }
+        if (($live = $this->live()) !== null) {
+            return $this->resolved = [$with($live), 'live'];
+        }
+        if (($declared = $this->declared()) !== null) {
+            return $this->resolved = [$with($declared), 'config'];
+        }
+        $default = $this->helperAddress();
 
-        // What the running grid says of itself (get_grid_info) is what the viewers are told, whatever the config says now
+        return $this->resolved = [$default, $default !== null ? 'default' : null];
+    }
+
+    /** What the running grid says for it at get_grid_info, null when it does not say, or does not answer. */
+    private function live(): ?string
+    {
         $info = self::CATALOG[$this->key]['info'] ?? null;
-        $live = $info !== null && $this->grid->gridInfoIsLive() ? $this->grid->gridInfo()[$info] ?? '' : '';
-        $declared = $live !== '' ? $live : $this->declared();
-        if ($declared !== null) {
-            $append = self::CATALOG[$this->key]['append'] ?? '';
-
-            return $append !== '' ? rtrim($declared, '/') . '/' . $append : $declared;
+        if ($info === null || !$this->grid->gridInfoIsLive()) {
+            return null;
         }
+        $value = $this->grid->gridInfo()[$info] ?? '';
 
-        return $this->helperAddress();
+        return $value !== '' ? $value : null;
     }
 
     /** Served by a Robust that is enabled, or declared (a server somewhere else is the business of whoever runs it). */
@@ -667,17 +822,31 @@ final class Service extends InstalledModel
             'kind' => $this->kind(),
             'legacy' => $this->legacy(),
             'standard' => $this->standard(),
+            'source' => $this->source(),
         ];
     }
 
-    /** Where the helpers of the grid answer a web service no setting names (the images of a text), null when they do not. */
+    /** Where the helpers of the grid answer a web service when the grid says nothing of it, null when it has no helpers. */
     private function helperAddress(): ?string
     {
-        if (!$this->isWeb() || $this->setting() !== null || $this->legacy() === null) {
-            return null;
-        }
+        $default = self::CATALOG[$this->key]['default'] ?? null;
 
-        return $this->grid->helperUrl($this->legacy()) ?: null;
+        return $default !== null && $this->isWeb() ? ($this->grid->helperUrl($default) ?: null) : null;
+    }
+
+    /**
+     * The settings of the config that give the address, the first that has a value wins: role, section, key.
+     *
+     * @return list<array{0:string,1:string,2:string}>
+     */
+    private function settings(): array
+    {
+        $entry = self::CATALOG[$this->key];
+        $settings = isset($entry['setting'])
+            ? [[$entry['role'] ?? 'OpenSim', $entry['setting'][0], $entry['setting'][1]]]
+            : [];
+
+        return [...$settings, ...$entry['also'] ?? []];
     }
 
     /** The address the config of the simulators of the grid gives for it, null when it gives none. */
@@ -692,19 +861,22 @@ final class Service extends InstalledModel
 
     private function gridDeclaration(): ?string
     {
-        $setting = $this->setting();
-        if ($setting === null) {
-            return null;
-        }
         if ($this->declaration === null) {
-            // What the grid says: the OpenSim.ini of its folder for the simulators, the Robust config for what Robust tells
-            $section =
+            // What the grid says: the OpenSim.ini of its folder for the simulators, the Robust config for what Robust tells, the
+            // Helpers.ini for what has no official place
+            $tree =
                 $this->grid->directory() !== '' && is_dir($this->grid->directory())
-                    ? GridConfig::fromFolder($this->grid->directory())->tree()[
-                            self::CATALOG[$this->key]['role'] ?? 'OpenSim'
-                        ][$setting[0]] ?? []
+                    ? GridConfig::fromFolder($this->grid->directory(), ['Helpers' => 'Helpers.ini'])->tree()
                     : [];
-            $this->declaration = [self::valueOf(is_array($section) ? $section : [], $setting[1])];
+            $value = null;
+            foreach ($this->settings() as [$role, $section, $key]) {
+                $in = $tree[$role][$section] ?? [];
+                $value = self::valueOf(is_array($in) ? $in : [], $key);
+                if ($value !== null) {
+                    break;
+                }
+            }
+            $this->declaration = [$value];
         }
 
         return $this->declaration[0];

@@ -7,6 +7,9 @@ namespace OpenSim\Api;
 use OpenSim\Config\GridConfig;
 use OpenSim\Exceptions\NotFound;
 use OpenSim\Interfaces\ModelInterface;
+use OpenSim\Assets\ConverterInterface;
+use OpenSim\Assets\WebAssets;
+use OpenSim\Models\Asset;
 use OpenSim\Models\Avatar;
 use OpenSim\Models\Estate;
 use OpenSim\Models\Grid;
@@ -43,6 +46,7 @@ final class Api
         'regions' => Region::class,
         'parcels' => Parcel::class,
         'estates' => Estate::class,
+        'assets' => Asset::class,
     ];
 
     /** The forms the engine knows (what a setup asks), by name. */
@@ -214,6 +218,55 @@ final class Api
         }
 
         return new Response(204, [], []);
+    }
+
+    /**
+     * Every address the grid gives or has by default (its currency, its search, its map, its messages of the day, its assets...) in
+     * one document, whichever section of whichever file says it: the running grid first, then its config, then where its helpers
+     * answer. `meta.sources` says where each one comes from.
+     *
+     * @param bool $web only the web services, not the ports of Robust
+     */
+    public function addresses(string $grid, bool $web = false): Response
+    {
+        $instance = self::path('addresses', null, $grid);
+        try {
+            $found = Grid::find($this->environment, $grid) ?? throw NotFound::for("grid called '$grid'");
+            $addresses = $found->addresses($web);
+            $sources = [];
+            foreach (array_keys($addresses) as $key) {
+                $sources[$key] = $found->service($key)?->source();
+            }
+        } catch (\Throwable $error) {
+            return Response::problem(Problem::from($error, $instance));
+        }
+
+        return Response::document([
+            'data' => ['type' => 'addresses', 'id' => $grid, 'attributes' => $addresses],
+            'meta' => ['sources' => $sources],
+            'links' => ['self' => $instance],
+        ]);
+    }
+
+    /**
+     * An asset of a grid as a page shows it: a texture as a picture in the format asked (the grid keeps JPEG 2000), the other types as
+     * they are. What is not there is the picture of nothing, with the status 404.
+     */
+    public function media(
+        string $grid,
+        string $id,
+        string $format = 'jpg',
+        ?ConverterInterface $converter = null,
+    ): Response {
+        $instance = self::path('assets', $id, $grid);
+        try {
+            $found = Grid::find($this->environment, $grid) ?? throw NotFound::for("grid called '$grid'");
+            $picture = WebAssets::for($found, $converter)->get($id, $format);
+        } catch (\Throwable $error) {
+            return Response::problem(Problem::from($error, $instance));
+        }
+
+        return Response::binary($picture['data'], $picture['mime'], $picture['found'] ? 200 : 404);
     }
 
     /** Run a task now, whether it is due or not. */

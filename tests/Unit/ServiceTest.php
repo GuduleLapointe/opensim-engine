@@ -138,18 +138,23 @@ describe('services as a simulator reaches them', function () {
 
 describe('web services of a grid', function () {
     /** The grid `demo` with the addresses its config gives to the web services. */
-    function web_grid(): Grid
+    function web_grid(bool $helpers = false): Grid
     {
         $machine = new Machine();
         $machine->write(
             $machine->grid . '/Robust.HG.ini',
             file_get_contents($machine->grid . '/Robust.HG.ini') .
-                "\n[GridInfoService]\n    economy = \"https://play.example.org/helpers/\"\n[LoginService]\n    MessageUrl = \"https://play.example.org/helpers/motd.php\"\n    DestinationGuide = \"https://play.example.org/guide\"\n",
+                "\n[Const]\n    WebURL = \"https://play.example.org\"\n[GridInfoService]\n    economy = \"https://play.example.org/helpers/\"\n    search = \"https://play.example.org/search\"\n    GridStatusRSS = \"https://play.example.org/status.rss\"\n[LoginService]\n    MessageUrl = \"https://play.example.org/helpers/motd.php\"\n    DestinationGuide = \"https://play.example.org/guide\"\n",
         );
         $machine->write(
             $machine->grid . '/OpenSim.ini',
             "[Search]\n    SearchURL = \"https://play.example.org/helpers/query.php\"\n[DataSnapshot]\n    DATA_SRV_demo = \"https://play.example.org/helpers/register.php\"\n[Messaging]\n    OfflineMessageURL = \"https://play.example.org/helpers/offline.php\"\n",
         );
+        $helpers &&
+            $machine->write(
+                $machine->grid . '/Helpers.ini',
+                "[Helpers]\n    AssetsURL = \"https://assets.example.org/a\"\n    GridStatusURL = \"https://play.example.org/helpers/status-page\"\n",
+            );
 
         return Grid::find($machine->environment, 'demo');
     }
@@ -159,7 +164,10 @@ describe('web services of a grid', function () {
         function () {
             $grid = web_grid();
             $uris = [];
-            foreach (['search', 'currency', 'landtool', 'register', 'offline', 'motd', 'guide'] as $key) {
+            foreach (
+                ['query', 'search', 'currency', 'landtool', 'register', 'offline', 'motd', 'guide', 'grid-status-rss']
+                as $key
+            ) {
                 $uris[$key] = [
                     $grid->service($key)?->uri(),
                     $grid->service($key)?->kind(),
@@ -168,14 +176,68 @@ describe('web services of a grid', function () {
             }
 
             expect($uris)->toBe([
-                'search' => ['https://play.example.org/helpers/query.php', Service::FIXED, 'query'],
+                'query' => ['https://play.example.org/helpers/query.php', Service::FIXED, 'query'],
+                'search' => ['https://play.example.org/search', Service::PAGE, null],
                 'currency' => ['https://play.example.org/helpers/currency.php', Service::FIXED, 'currency'],
                 'landtool' => ['https://play.example.org/helpers/landtool.php', Service::FIXED, 'landtool'],
                 'register' => ['https://play.example.org/helpers/register.php', Service::STANDARD, 'register'],
                 'offline' => ['https://play.example.org/helpers/offline.php', Service::STANDARD, 'offline'],
                 'motd' => ['https://play.example.org/helpers/motd.php', Service::STANDARD, 'motd'],
                 'guide' => ['https://play.example.org/guide', Service::STANDARD, 'guide'],
+                'grid-status-rss' => ['https://play.example.org/status.rss', Service::FIXED, null],
             ]);
+        },
+    );
+
+    test(
+        'are all asked the same way, wherever the grid says them, the running grid before its config before the helpers',
+        function () {
+            $machine = new Machine();
+            $machine->write(
+                $machine->grid . '/Robust.HG.ini',
+                file_get_contents($machine->grid . '/Robust.HG.ini') .
+                    "\n[Const]\n    WebURL = \"https://play.example.org\"\n[GridInfoService]\n    economy = \"https://old.example.org/helpers\"\n[LoginService]\n    SearchURL = \"https://play.example.org/websearch\"\n",
+            );
+            $machine->write(
+                $machine->grid . '/Helpers.ini',
+                "[Helpers]\n    AssetsURL = \"https://assets.example.org/a\"\n    GridStatusURL = \"https://play.example.org/helpers/status-page\"\n",
+            );
+            $machine->http['http://localhost:8002/get_grid_info'] =
+                '<gridinfo><gridname>Demo</gridname><economy>https://play.example.org/helpers</economy><welcome>https://play.example.org/splash</welcome><GridStatusRSS>https://play.example.org/live.rss</GridStatusRSS><mood>free value</mood></gridinfo>';
+            $grid = Grid::find($machine->environment, 'demo');
+
+            $addresses = $grid->addresses(web: true);
+
+            expect($addresses)
+                ->toMatchArray([
+                    'currency' => 'https://play.example.org/helpers/currency.php',
+                    'landtool' => 'https://play.example.org/helpers/landtool.php',
+                    'welcome' => 'https://play.example.org/splash',
+                    'grid-status-rss' => 'https://play.example.org/live.rss',
+                    'search' => 'https://play.example.org/websearch',
+                    'grid-status' => 'https://play.example.org/helpers/status-page',
+                    'assets' => 'https://assets.example.org/a',
+                    'query' => 'https://play.example.org/helpers/query.php',
+                    'parser' => 'https://play.example.org/helpers/parser.php',
+                    'events-parser' => 'https://play.example.org/helpers/eventsparser.php',
+                    'text-images' => 'https://play.example.org/helpers/textgen.php',
+                ])
+                ->and($grid->address('currency'))
+                ->toBe('https://play.example.org/helpers/currency.php')
+                ->and($grid->address('nonsense'))
+                ->toBeNull()
+                ->and(
+                    array_map(fn(string $key): ?string => $grid->service($key)->source(), [
+                        'currency',
+                        'welcome',
+                        'search',
+                        'grid-status',
+                        'query',
+                    ]),
+                )
+                ->toBe(['live', 'live', 'config', 'config', 'default'])
+                ->and($grid->addresses())
+                ->toHaveKeys(['currency', 'asset', 'grid']);
         },
     );
 
@@ -193,20 +255,30 @@ describe('web services of a grid', function () {
                 ->and($motd->standard())
                 ->toBe('GET /motd')
                 ->and($motd->detail())
-                ->toMatchArray(['web' => true, 'kind' => 'standard', 'legacy' => 'motd', 'standard' => 'GET /motd'])
-                ->and(web_grid()->service('search')->standard())
-                ->toBeNull();
+                ->toMatchArray([
+                    'web' => true,
+                    'kind' => 'standard',
+                    'legacy' => 'motd',
+                    'standard' => 'GET /motd',
+                    'source' => 'config',
+                ])
+                ->and(web_grid()->service('query')->standard())
+                ->toBeNull()
+                ->and(web_grid()->service('parser')->standard())
+                ->toBe('POST /tasks/search-parse/runs');
         },
     );
 
-    test('are not the grid\'s when its config does not give them', function () {
+    test('are not the grid\'s when its config does not give them and it has no helpers', function () {
         $grid = service_grid(new Machine());
 
-        expect($grid->service('search'))
+        expect($grid->service('query'))
             ->toBeNull()
             ->and($grid->service('currency'))
             ->toBeNull()
             ->and($grid->service('text-images'))
-            ->toBeNull();
+            ->toBeNull()
+            ->and($grid->addresses(web: true))
+            ->toBe([]);
     });
 });

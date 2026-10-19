@@ -128,6 +128,10 @@ final class Contract
                 'kind' => ['string?', 'fixed or standard, for a web service'],
                 'legacy' => ['string?', 'The script that answered it before the standard'],
                 'standard' => ['string?', 'Its address in the standard of the engine, when it has one'],
+                'source' => [
+                    'string?',
+                    'Where its address comes from: provider, simulator, live (the running grid), config, default (where the helpers answer)',
+                ],
             ],
             'filters' => ['served' => ['yes', 'no'], 'port' => [Service::PRIVATE, Service::PUBLIC, Service::WEB]],
             'writable' => [],
@@ -315,6 +319,34 @@ final class Contract
             'filters' => [],
             'writable' => [],
         ],
+        'assets' => [
+            'scope' => 'grid',
+            'summary' => 'The assets of a grid',
+            'description' =>
+                'What the grid keeps in its asset service: textures, sounds, notecards, scripts, objects... A record never carries its data: an image of any type (texture, TGA, JPEG) is asked as a picture (`/grids/{grid}/assets/{id}.{format}`, the grid keeps textures as JPEG 2000 and the engine converts them and keeps the result for a day), the other types as they are.',
+            'attributes' => [
+                'uuid' => ['string', ''],
+                'name' => ['string', ''],
+                'slug' => ['string', ''],
+                'description' => ['string', ''],
+                'type' => ['string', 'texture, sound, notecard, script, object, mesh...'],
+                'typeNumber' => ['integer', 'The number OpenSimulator gives the type'],
+                'mime' => ['string', 'The content type of its data'],
+                'local' => ['boolean', 'Kept in the region that made it only'],
+                'temporary' => ['boolean', 'Kept for a while only'],
+                'flags' => ['integer', ''],
+                'creator' => ['string?', 'The UUID of who made it'],
+                'created' => ['integer?', 'Unix time'],
+                'accessed' => ['integer?', 'Unix time'],
+                'size' => ['integer?', 'Bytes of its data'],
+            ],
+            'filters' => [
+                'type' => ['texture', 'sound', 'notecard', 'script', 'object', 'mesh'],
+                'local' => ['yes', 'no'],
+                'temporary' => ['yes', 'no'],
+            ],
+            'writable' => [],
+        ],
         'tasks' => [
             'scope' => 'application',
             'summary' => 'The tasks the application runs now and then',
@@ -465,6 +497,83 @@ final class Contract
                 ];
             }
         }
+        $schemas['Addresses'] = [
+            'type' => 'object',
+            'description' =>
+                'The addresses of a grid by the key of the service (currency, query, search, register, offline, motd, guide, map, grid-status, assets...)',
+            'required' => ['type', 'id', 'attributes'],
+            'properties' => [
+                'type' => ['const' => 'addresses'],
+                'id' => ['type' => 'string', 'description' => 'The nick of the grid'],
+                'attributes' => ['type' => 'object', 'additionalProperties' => ['type' => 'string']],
+            ],
+        ];
+        $paths['/grids/{grid}/addresses']['get'] = [
+            'operationId' => 'getAddresses',
+            'tags' => [$scopes['grid'] . ': addresses'],
+            'summary' => 'Every address the grid gives or has by default, whichever section of whichever file says it',
+            'description' =>
+                'The running grid first (get_grid_info), then the config of the grid (Robust, OpenSim, Helpers.ini), then where its helpers answer. `meta.sources` says where each address comes from: provider, simulator, live, config or default. The elements get_grid_info gives that are not addresses are `gridInfo()` of the grid, all of them, the free ones included.',
+            'parameters' => [
+                self::gridParameter(),
+                [
+                    'name' => 'web',
+                    'in' => 'query',
+                    'description' => 'Only the web services, not the ports of Robust',
+                    'schema' => ['type' => 'string', 'enum' => ['yes', 'no']],
+                ],
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'The addresses',
+                    'content' => [
+                        Response::JSON_API => [
+                            'schema' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'data' => ['$ref' => '#/components/schemas/Addresses'],
+                                    'meta' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'sources' => [
+                                                'type' => 'object',
+                                                'additionalProperties' => ['type' => ['string', 'null']],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                '404' => self::problem('The grid is not known here'),
+            ],
+        ];
+        $paths['/grids/{grid}/assets/{id}.{format}']['get'] = [
+            'operationId' => 'getAssetMedia',
+            'tags' => [$scopes['grid'] . ': assets'],
+            'summary' => 'An asset as a page shows it: an image of any type as a picture in the format asked',
+            'parameters' => [
+                self::gridParameter(),
+                self::idParameter(),
+                [
+                    'name' => 'format',
+                    'in' => 'path',
+                    'required' => true,
+                    'schema' => ['type' => 'string', 'enum' => ['jpg', 'png', 'gif', 'webp']],
+                ],
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'The picture, or the asset as it is',
+                    'content' => ['image/*' => ['schema' => ['type' => 'string', 'format' => 'binary']]],
+                ],
+                '404' => [
+                    'description' => 'There is no such asset, or it cannot be converted: the picture of nothing',
+                    'content' => ['image/png' => ['schema' => ['type' => 'string', 'format' => 'binary']]],
+                ],
+            ],
+        ];
         $paths['/tasks/{id}/runs']['post'] = [
             'operationId' => 'runTask',
             'tags' => [$scopes['application'] . ': tasks'],

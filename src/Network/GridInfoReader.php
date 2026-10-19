@@ -25,7 +25,7 @@ final class GridInfoReader
             return [];
         }
         $url = rtrim($login, '/') . '/get_grid_info';
-        $body = $http !== null ? $http($url) : self::fetch($url);
+        $body = $http !== null ? $http($url) : self::get($url);
         if (!is_string($body) || $body === '') {
             return [];
         }
@@ -64,7 +64,8 @@ final class GridInfoReader
         return $said;
     }
 
-    private static function fetch(string $url): ?string
+    /** The body of an address, null when it does not answer with a 200 (the certificate is not checked). */
+    public static function get(string $url): ?string
     {
         $handle = curl_init($url);
         curl_setopt_array($handle, [

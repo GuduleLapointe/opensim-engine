@@ -1205,6 +1205,31 @@ final class Grid extends InstalledModel
         return Service::of($this, null, $options);
     }
 
+    /**
+     * The addresses of the grid, by the key of the service: its currency, its search, its map, its messages of the day... wherever the
+     * grid says them: the running grid first (`get_grid_info`), then its config (Robust, OpenSim, Helpers.ini), then where its helpers
+     * answer when it says nothing. Whoever asks does not need to know which.
+     *
+     * @param bool $web only the web services (the helpers' and the viewers'), not the ports of Robust
+     * @return array<string,string> key => address; `$grid->service($key)->source()` says where one comes from
+     */
+    public function addresses(bool $web = false): array
+    {
+        $addresses = [];
+        foreach (Service::of($this)->items() as $service) {
+            $uri = $service->uri();
+            $uri !== null && (!$web || $service->isWeb()) && ($addresses[$service->key()] = $uri);
+        }
+
+        return $addresses;
+    }
+
+    /** The address of one of the services of the grid (see addresses()), null when it has none. */
+    public function address(string $key): ?string
+    {
+        return $this->service($key)?->uri();
+    }
+
     /** A service of the grid by its key (`asset`, `profile`), null when the grid does not have it. */
     public function service(string $key): ?Service
     {

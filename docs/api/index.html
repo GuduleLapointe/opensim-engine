@@ -11,7 +11,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "OpenSim engine",
-        "version": "7680c62",
+        "version": "7dded51",
         "license": {
             "name": "AGPL-3.0-or-later",
             "identifier": "AGPL-3.0-or-later"
@@ -53,6 +53,10 @@
         {
             "name": "A grid: estates",
             "description": "The estates of the grid when its Robust serves them, else the ones of each simulator."
+        },
+        {
+            "name": "A grid: assets",
+            "description": "What the grid keeps in its asset service: textures, sounds, notecards, scripts, objects... A record never carries its data: an image of any type (texture, TGA, JPEG) is asked as a picture (`/grids/{grid}/assets/{id}.{format}`, the grid keeps textures as JPEG 2000 and the engine converts them and keeps the result for a day), the other types as they are."
         },
         {
             "name": "The application: tasks",
@@ -1750,6 +1754,192 @@
                 }
             }
         },
+        "/grids/{grid}/assets": {
+            "get": {
+                "operationId": "listAssets",
+                "tags": [
+                    "A grid: assets"
+                ],
+                "summary": "The assets of a grid, searched, filtered, sorted and paged",
+                "parameters": [
+                    {
+                        "name": "grid",
+                        "in": "path",
+                        "required": true,
+                        "description": "The nick of the grid",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "A column, `-` before it for the descending order",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page[number]",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "page[size]",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "filter[type]",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "texture",
+                                "sound",
+                                "notecard",
+                                "script",
+                                "object",
+                                "mesh"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "filter[local]",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "yes",
+                                "no"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "filter[temporary]",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "yes",
+                                "no"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A page of the assets",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Assets"
+                                            }
+                                        },
+                                        "meta": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "The grid is not known here",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Problem"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "What the list is read from is not available",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Problem"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/grids/{grid}/assets/{id}": {
+            "get": {
+                "operationId": "getAsset",
+                "tags": [
+                    "A grid: assets"
+                ],
+                "summary": "One of the assets by its id",
+                "parameters": [
+                    {
+                        "name": "grid",
+                        "in": "path",
+                        "required": true,
+                        "description": "The nick of the grid",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The resource",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Assets"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "There is none with this id",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Problem"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/tasks": {
             "get": {
                 "operationId": "listTasks",
@@ -1919,6 +2109,146 @@
                             "application/problem+json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/Problem"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/grids/{grid}/addresses": {
+            "get": {
+                "operationId": "getAddresses",
+                "tags": [
+                    "A grid: addresses"
+                ],
+                "summary": "Every address the grid gives or has by default, whichever section of whichever file says it",
+                "description": "The running grid first (get_grid_info), then the config of the grid (Robust, OpenSim, Helpers.ini), then where its helpers answer. `meta.sources` says where each address comes from: provider, simulator, live, config or default. The elements get_grid_info gives that are not addresses are `gridInfo()` of the grid, all of them, the free ones included.",
+                "parameters": [
+                    {
+                        "name": "grid",
+                        "in": "path",
+                        "required": true,
+                        "description": "The nick of the grid",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "web",
+                        "in": "query",
+                        "description": "Only the web services, not the ports of Robust",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "yes",
+                                "no"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The addresses",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Addresses"
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "sources": {
+                                                    "type": "object",
+                                                    "additionalProperties": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "The grid is not known here",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Problem"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/grids/{grid}/assets/{id}.{format}": {
+            "get": {
+                "operationId": "getAssetMedia",
+                "tags": [
+                    "A grid: assets"
+                ],
+                "summary": "An asset as a page shows it: an image of any type as a picture in the format asked",
+                "parameters": [
+                    {
+                        "name": "grid",
+                        "in": "path",
+                        "required": true,
+                        "description": "The nick of the grid",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "format",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "jpg",
+                                "png",
+                                "gif",
+                                "webp"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The picture, or the asset as it is",
+                        "content": {
+                            "image/*": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "There is no such asset, or it cannot be converted: the picture of nothing",
+                        "content": {
+                            "image/png": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
                                 }
                             }
                         }
@@ -2445,6 +2775,13 @@
                                     "null"
                                 ],
                                 "description": "Its address in the standard of the engine, when it has one"
+                            },
+                            "source": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "description": "Where its address comes from: provider, simulator, live (the running grid), config, default (where the helpers answer)"
                             }
                         }
                     },
@@ -3102,6 +3439,99 @@
                     }
                 }
             },
+            "Assets": {
+                "type": "object",
+                "description": "The assets of a grid",
+                "required": [
+                    "type",
+                    "id",
+                    "attributes"
+                ],
+                "properties": {
+                    "type": {
+                        "const": "assets"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "attributes": {
+                        "type": "object",
+                        "properties": {
+                            "uuid": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "slug": {
+                                "type": "string"
+                            },
+                            "description": {
+                                "type": "string"
+                            },
+                            "type": {
+                                "type": "string",
+                                "description": "texture, sound, notecard, script, object, mesh..."
+                            },
+                            "typeNumber": {
+                                "type": "integer",
+                                "description": "The number OpenSimulator gives the type"
+                            },
+                            "mime": {
+                                "type": "string",
+                                "description": "The content type of its data"
+                            },
+                            "local": {
+                                "type": "boolean",
+                                "description": "Kept in the region that made it only"
+                            },
+                            "temporary": {
+                                "type": "boolean",
+                                "description": "Kept for a while only"
+                            },
+                            "flags": {
+                                "type": "integer"
+                            },
+                            "creator": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "description": "The UUID of who made it"
+                            },
+                            "created": {
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "description": "Unix time"
+                            },
+                            "accessed": {
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "description": "Unix time"
+                            },
+                            "size": {
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "description": "Bytes of its data"
+                            }
+                        }
+                    },
+                    "links": {
+                        "type": "object",
+                        "properties": {
+                            "self": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
             "Tasks": {
                 "type": "object",
                 "description": "The tasks the application runs now and then",
@@ -3210,6 +3640,30 @@
                             "self": {
                                 "type": "string"
                             }
+                        }
+                    }
+                }
+            },
+            "Addresses": {
+                "type": "object",
+                "description": "The addresses of a grid by the key of the service (currency, query, search, register, offline, motd, guide, map, grid-status, assets...)",
+                "required": [
+                    "type",
+                    "id",
+                    "attributes"
+                ],
+                "properties": {
+                    "type": {
+                        "const": "addresses"
+                    },
+                    "id": {
+                        "type": "string",
+                        "description": "The nick of the grid"
+                    },
+                    "attributes": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
                         }
                     }
                 }
