@@ -114,6 +114,10 @@ git submodule add https://github.com/magicoli/opensim-engine.git engine
 require 'vendor/autoload.php';   // PSR-4: OpenSim\ is src/; the gettext stand-in and the xmlrpc polyfill load by themselves
 ```
 
+### On the command line
+
+`bin/opensim-api` (`vendor/bin/opensim-api` for a project that has the engine) is the API on the command line, for the tools that are not PHP: `opensim-api GET /forms/grid`, `opensim-api --grid=demo GET /monitor format=text`. The install is the one of `opensim.conf` or of the `OPENSIM_*` variables.
+
 ## 📚 Documentation
 
 - **[Developer Guide](DEVELOPERS.md)** - Architecture rules and patterns

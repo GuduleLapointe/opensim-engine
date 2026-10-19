@@ -2,6 +2,7 @@
 
 ### Unreleased
 
+- new: `bin/opensim-api`, the API on the command line, for tools that are not PHP
 - fix: `start|stop|restart <standalone>` name its simulator, the monitor counts the regions it describes
 - fix: the groups messaging of the simulators needs `MessageOnlineUsersOnly = true`, it was left off
 - new: a standalone has the settings of a grid (`GridServices`), its features, groups and offline V2

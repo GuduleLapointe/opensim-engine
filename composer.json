@@ -52,6 +52,9 @@
         }
     ],
     "minimum-stability": "dev",
+    "bin": [
+        "bin/opensim-api"
+    ],
     "autoload": {
         "psr-4": {
             "OpenSim\\": "src/"
