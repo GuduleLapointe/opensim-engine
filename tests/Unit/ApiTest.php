@@ -356,6 +356,7 @@ describe('The contract', function () {
                     'Grids',
                     'Simulators',
                     'Services',
+                    'Archives',
                     'Avatars',
                     'Regions',
                     'Parcels',
@@ -404,6 +405,7 @@ describe('The contract', function () {
             'grids' => $grid->detail(),
             'simulators' => $grid->simulator('alpha')->detail(),
             'services' => $grid->service('asset')->detail(),
+            'archives' => archive_machine()->detail(),
         ];
         Connections::using(static fn() => avatar_creation_database());
         $details['avatars'] = first_attributes(machine_api(avatar_grid())->list('avatars', [], grid: 'demo'));

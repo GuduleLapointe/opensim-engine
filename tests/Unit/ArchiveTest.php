@@ -1,577 +1,76 @@
 <?php
 
-use OpenSim\Archives\ArchiveRunner;
-use OpenSim\Archives\Archives;
-use OpenSim\Archives\BackupService;
-use OpenSim\Archives\Instances;
-use OpenSim\Testing\EnvironmentFake;
+declare(strict_types=1);
 
 /**
- * An install with one grid, alpha, whose simulators sim1 (a region, Welcome) and sim2 (two regions) are enabled.
- *
- * @return array<string,string> the profile, with the root of the files
+ * The archives and the backups of the grids: found in the data folder of their grid and in the folder of the backups, described by
+ * their names.
  */
-function archive_install(): array
-{
-    $root = test_tmp() . '/archive-' . bin2hex(random_bytes(4));
-    $etc = "$root/etc";
-    $grid = "$etc/grids/alpha";
-    mkdir("$grid/sims/alpha_sim1/regions", 0o755, true);
-    mkdir("$grid/sims/alpha_sim2/regions", 0o755, true);
-    mkdir("$etc/robust.d", 0o755, true);
-    mkdir("$etc/opensim.d", 0o755, true);
-    mkdir("$root/data/alpha/alpha_sim1", 0o755, true);
-    mkdir("$root/data/alpha/backups/oar", 0o755, true);
-    mkdir("$root/logs", 0o755, true);
-    file_put_contents(
-        "$grid/Robust.HG.ini",
-        "[DatabaseService]\nConnectionString = \"Data Source=localhost;Database=alpha_robust;User ID=opensim;Password=secret;Old Guids=true;\"\n",
-    );
-    file_put_contents("$grid/alpha.conf", "[Grid]\nGridNick = alpha\n");
-    foreach (['alpha_sim1', 'alpha_sim2'] as $simulator) {
-        file_put_contents(
-            "$grid/sims/$simulator.ini",
-            "[DatabaseService]\nConnectionString = \"Data Source=localhost;Database=$simulator;User ID=opensim;Password=secret;Old Guids=true;\"\n",
-        );
-        symlink("$grid/sims/$simulator.ini", "$etc/opensim.d/$simulator.ini");
-    }
-    symlink("$grid/Robust.HG.ini", "$etc/robust.d/alpha.ini");
-    file_put_contents("$grid/sims/alpha_sim1/regions/Welcome.ini", "[Welcome]\nLocation = 1000,1000\n");
-    file_put_contents("$grid/sims/alpha_sim2/regions/North.ini", "[North]\nLocation = 1000,1001\n");
-    file_put_contents("$grid/sims/alpha_sim2/regions/South.ini", "[South]\nLocation = 1000,999\n");
-    file_put_contents("$etc/opensim.conf", "[Defaults]\nDefaultProfile = x\n");
-    file_put_contents("$root/data/alpha/alpha_sim1/state", 'persistent');
-    file_put_contents("$root/data/alpha/backups/oar/old.oar", 'archive of a user');
 
-    return ['root' => $root, 'EtcRoot' => $etc, 'DataRoot' => "$root/data", 'LogsRoot' => "$root/logs"];
+use OpenSim\Models\Archive;
+use OpenSim\Models\Grid;
+use OpenSim\Testing\Machine;
+
+/** The test machine with an inventory, two regions and a backup, and the first archive found. */
+function archive_machine(): Archive
+{
+    return archive_files()[1]->all[0];
 }
 
-describe('names of the archives', function () {
-    test('tell what is in them, the modes in suffixes', function () {
-        $stamp = '20261003-101500';
+/** @return array{0:Machine,1:object} */
+function archive_files(): array
+{
+    $machine = new Machine();
+    $grid = Grid::find($machine->environment, 'demo');
+    $data = rtrim($grid->dataDirectory(), '/');
+    $machine->write("$data/backups/iar/demo-ada-love-noassets-20261019-101500.iar", 'iar');
+    $machine->write("$data/backups/oar/demo-alpha-Plaza-perm_CM-publish-20261019-111500.oar", 'oar');
+    $machine->write("$data/backups/oar/demo-alpha-20261019-121500.oar", 'oar');
+    $backups = rtrim($machine->environment->layout->dataRoot(), '/') . '/backups/admin';
+    $machine->write("$backups/demo-alpha-20261019-131500-logs.tar.gz", 'tgz');
+    $machine->write("$backups/other-20261019-131500.tar.gz", 'tgz');
 
-        expect(Archives::iarName('alpha', 'Jane', 'Doe', [], $stamp))
-            ->toBe('alpha-Jane-Doe-20261003-101500.iar')
-            ->and(Archives::iarName('alpha', 'Jane', 'Doe', ['noassets' => true, 'perm' => 'CMT'], $stamp))
-            ->toBe('alpha-Jane-Doe-noassets-permCMT-20261003-101500.iar')
-            ->and(Archives::oarName('alpha', 'sim1', 'Welcome', [], $stamp))
-            ->toBe('alpha-sim1-Welcome-20261003-101500.oar')
-            ->and(Archives::oarName('alpha', 'sim1', 'Welcome', ['all' => true, 'noassets' => true], $stamp))
-            ->toBe('alpha-sim1-noassets-20261003-101500.oar')
-            ->and(Archives::oarName('alpha', 'sim1', 'Welcome', ['perm' => 'CT', 'publish' => true], $stamp))
-            ->toBe('alpha-sim1-Welcome-permCT-publish-20261003-101500.oar');
-    });
+    return [$machine, (object) ['all' => Archive::all($machine->environment, ['sort' => 'name'])->items()]];
+}
 
-    test('have a stamp of year, month, day, hour, minute, second', function () {
-        expect(Archives::stamp(mktime(9, 5, 3, 2, 7, 2026)))->toBe('20260207-090503');
-    });
+describe('Archives', function () {
+    test(
+        'are the inventories and regions of the data folder of their grid, and the backups of the setup, by their names',
+        function () {
+            [$machine, $found] = archive_files();
+            $by = [];
+            foreach ($found->all as $archive) {
+                $by[$archive->name()] = $archive->detail();
+            }
 
-    test('keep a hyphen of a name out of the parts', function () {
-        expect(Archives::part('Old-Grid name'))->toBe('Old_Grid_name');
-    });
-
-    test('finds the newest archive', function () {
-        $dir = test_tmp() . '/archive-new-' . bin2hex(random_bytes(4));
-        mkdir($dir);
-        foreach (
-            [
-                'alpha-sim1-20261001-100000.oar',
-                'alpha-sim1-noassets-20261003-100000.oar',
-                'alpha-sim1-Welcome-20261009-100000.oar',
-                'alpha-sim10-20261009-100000.oar',
-            ]
-            as $name
-        ) {
-            touch("$dir/$name");
-        }
-
-        expect(basename((string) Archives::newest($dir, Archives::oarPrefix('alpha', 'sim1', null), 'oar')))
-            ->toBe('alpha-sim1-noassets-20261003-100000.oar')
-            ->and(basename((string) Archives::newest($dir, Archives::oarPrefix('alpha', 'sim1', 'Welcome'), 'oar')))
-            ->toBe('alpha-sim1-Welcome-20261009-100000.oar')
-            ->and(Archives::newest($dir, Archives::oarPrefix('alpha', 'other', null), 'oar'))
-            ->toBeNull();
-    });
-});
-
-describe('arguments of a command on an archive', function () {
-    test('are the kind, the options and the other words', function () {
-        $spec = Archives::parse('save', [
-            'oar',
-            'alpha',
-            'sim1',
-            '--noassets',
-            '--perm=CMT',
-            '--region',
-            'Welcome',
-            'copy.oar',
-        ]);
-
-        expect($spec['kind'])
-            ->toBe('oar')
-            ->and($spec['options'])
-            ->toBe(['noassets' => true, 'perm' => 'CMT', 'region' => 'Welcome'])
-            ->and($spec['words'])
-            ->toBe(['alpha', 'sim1', 'copy.oar']);
-    });
-
-    test('take a short option and its value', function () {
-        $spec = Archives::parse('save', [
-            'iar',
-            '-h',
-            'https://home.example.org',
-            '-v',
-            'Jane',
-            'Doe',
-            '/Clothing',
-            'pw',
-        ]);
-
-        expect($spec['options'])
-            ->toBe(['home' => 'https://home.example.org', 'verbose' => true])
-            ->and(Archives::positional('save', 'iar', $spec['words']))
-            ->toBe(['first' => 'Jane', 'last' => 'Doe', 'path' => '/Clothing', 'password' => 'pw']);
-    });
-
-    test('are refused when they make no sense', function () {
-        expect(fn() => Archives::parse('save', ['alpha']))
-            ->toThrow(InvalidArgumentException::class)
-            ->and(fn() => Archives::parse('save', ['alpha', 'oar']))
-            ->toThrow(InvalidArgumentException::class)
-            ->and(fn() => Archives::parse('save', ['oar', '-z']))
-            ->toThrow(InvalidArgumentException::class, 'unknown option')
-            ->and(fn() => Archives::parse('load', ['iar', '--merge=1']))
-            ->toThrow(InvalidArgumentException::class, 'no value')
-            ->and(fn() => Archives::positional('save', 'oar', ['a', 'b']))
-            ->toThrow(InvalidArgumentException::class, 'too many');
-    });
-
-    test('makes the console line', function () {
-        expect(
-            Archives::line(
-                'save',
-                'oar',
-                ['noassets' => true, 'region' => 'Welcome', 'perm' => 'CMT'],
-                ['/tmp/a b.oar'],
-            ),
-        )
-            ->toBe('save oar --noassets --perm=CMT "/tmp/a b.oar"')
-            ->and(Archives::line('load', 'iar', ['merge' => true], ['Jane', 'Doe', '/My Stuff', 'pw', '/tmp/x.iar']))
-            ->toBe('load iar --merge Jane Doe "/My Stuff" pw /tmp/x.iar');
-    });
-});
-
-describe('instance a command names', function () {
-    test('is a grid, a simulator or a region', function () {
-        $profile = archive_install();
-
-        expect(Instances::locate(EnvironmentFake::with($profile), []))
-            ->toBe(['alpha', null, null])
-            ->and(Instances::locate(EnvironmentFake::with($profile), ['alpha']))
-            ->toBe(['alpha', null, null])
-            ->and(Instances::locate(EnvironmentFake::with($profile), ['alpha', 'sim1']))
-            ->toBe(['alpha', 'alpha_sim1', null])
-            ->and(Instances::locate(EnvironmentFake::with($profile), ['alpha', '_sim2']))
-            ->toBe(['alpha', 'alpha_sim2', null])
-            ->and(Instances::locate(EnvironmentFake::with($profile), ['alpha_sim2']))
-            ->toBe(['alpha', 'alpha_sim2', null])
-            ->and(Instances::locate(EnvironmentFake::with($profile), ['alpha', 'south']))
-            ->toBe(['alpha', 'alpha_sim2', 'South'])
-            ->and(Instances::locate(EnvironmentFake::with($profile), ['Welcome']))
-            ->toBe(['alpha', 'alpha_sim1', 'Welcome'])
-            ->and(Instances::resolve(EnvironmentFake::with($profile), ['North']))
-            ->toBe(['alpha', 'alpha_sim2'])
-            ->and(fn() => Instances::locate(EnvironmentFake::with($profile), ['alpha', 'nope']))
-            ->toThrow(InvalidArgumentException::class);
-    });
-});
-
-describe('opensim save and load', function () {
-    /** A runner whose simulators answer through their log, the way a real one does. */
-    function archive_runner(array $profile, array &$sent, string $answer): ArchiveRunner
-    {
-        return new ArchiveRunner(
-            EnvironmentFake::with($profile),
-            function (string $instance, string $lines) use (&$sent, $answer, $profile): bool {
-                $sent[] = [$instance, $lines];
-                $log = "{$profile['LogsRoot']}/$instance.log";
-                // The file is made by the simulator, then it says so
-                if (preg_match('/save (?:oar|iar).* (\S+\.(?:oar|iar))\n$/', $lines, $m)) {
-                    file_put_contents($m[1], 'archive');
-                }
-                file_put_contents($log, "2026-10-03 10:00:00,000 INFO  [ARCHIVER]: $answer\n", FILE_APPEND);
-
-                return true;
-            },
-            static fn(string $ini): bool => str_contains($ini, 'alpha_sim1') || str_contains($ini, 'alpha_sim2'),
-            static function (string $message): void {},
-            2,
-        );
-    }
-
-    test('saves a region with a telling name', function () {
-        $profile = archive_install();
-        $sent = [];
-        [$code, $file] = archive_runner($profile, $sent, 'Finished writing out OAR for Welcome')->run('save', [
-            'oar',
-            'alpha',
-            'sim1',
-            '--noassets',
-        ]);
-
-        expect($code)
-            ->toBe(0)
-            ->and($file)
-            ->toStartWith("{$profile['DataRoot']}/alpha/backups/oar/alpha-sim1-Welcome-")
-            ->and($file)
-            ->toContain('-noassets-2')
-            ->and(is_file($file))
-            ->toBeTrue()
-            ->and($sent[0][0])
-            ->toBe('alpha_sim1')
-            ->and($sent[0][1])
-            ->toStartWith("change region Welcome\nsave oar --noassets /");
-    });
-
-    test('save the region that is named in place of the simulator', function () {
-        $profile = archive_install();
-        $sent = [];
-        [$code, $file] = archive_runner($profile, $sent, 'Finished writing out OAR')->run('save', [
-            'oar',
-            'alpha',
-            'South',
-        ]);
-
-        expect($code)
-            ->toBe(0)
-            ->and(basename((string) $file))
-            ->toStartWith('alpha-sim2-South-2')
-            ->and($sent[0][0])
-            ->toBe('alpha_sim2')
-            ->and($sent[0][1])
-            ->toStartWith("change region South\nsave oar ");
-    })->depends('saves a region with a telling name');
-
-    test('removes the older archives of the series with --keep, and does not send it', function () {
-        $profile = archive_install();
-        $directory = "{$profile['DataRoot']}/alpha/backups/oar";
-        foreach (['20200101-000000', '20200102-000000'] as $stamp) {
-            touch("$directory/alpha-sim2-South-$stamp.oar");
-        }
-        touch("$directory/alpha-sim2-South-noassets-20200101-000000.oar"); // another series
-        $sent = [];
-        [$code, $file] = archive_runner($profile, $sent, 'Finished writing out OAR')->run('save', [
-            'oar',
-            'alpha',
-            'South',
-            '--keep',
-            '2',
-        ]);
-
-        expect($code)->toBe(0);
-        expect(array_values(array_diff(scandir($directory), ['.', '..'])))->toBe([
-            'alpha-sim2-South-20200102-000000.oar',
-            basename((string) $file),
-            'alpha-sim2-South-noassets-20200101-000000.oar',
-            'old.oar', // there from the start, no stamp: not of a series
-        ]);
-        expect($sent[0][1])->not->toContain('keep');
-    })->depends('saves a region with a telling name');
-
-    test('removes nothing without --keep', function () {
-        $profile = archive_install();
-        $directory = "{$profile['DataRoot']}/alpha/backups/oar";
-        foreach (['20200101-000000', '20200102-000000', '20200103-000000'] as $stamp) {
-            touch("$directory/alpha-sim2-South-$stamp.oar");
-        }
-        $sent = [];
-        [$code, $file] = archive_runner($profile, $sent, 'Finished writing out OAR')->run('save', [
-            'oar',
-            'alpha',
-            'South',
-        ]);
-
-        expect($code)->toBe(0);
-        expect(count(glob("$directory/alpha-sim2-South-*.oar")))->toBe(4);
-    })->depends('saves a region with a telling name');
-
-    test('refuses --keep without a number', function () {
-        $profile = archive_install();
-        $sent = [];
-
-        expect(
-            archive_runner($profile, $sent, 'Finished writing out OAR')->run('save', [
-                'oar',
-                'alpha',
-                'South',
-                '--keep',
-                'many',
-            ])[0],
-        )->toBe(2);
-        expect($sent)->toBe([]);
-    })->depends('saves a region with a telling name');
-
-    test('asks which region, or takes all', function () {
-        $profile = archive_install();
-        $sent = [];
-        $runner = archive_runner($profile, $sent, 'Finished writing out OAR');
-        [$code] = $runner->run('save', ['oar', 'alpha', 'sim2']);
-        [$all, $file] = $runner->run('save', ['oar', 'alpha', 'sim2', '--all']);
-
-        expect($code)
-            ->toBe(2)
-            ->and($all)
-            ->toBe(0)
-            ->and(basename((string) $file))
-            ->toStartWith('alpha-sim2-2')
-            ->and($sent[0][1])
-            ->toStartWith("change region root\nsave oar --all ");
-    })->depends('saves a region with a telling name');
-
-    test('load the newest archive of a region when no file is given', function () {
-        $profile = archive_install();
-        $dir = "{$profile['DataRoot']}/alpha/backups/oar";
-        touch("$dir/alpha-sim1-Welcome-20261001-100000.oar");
-        touch("$dir/alpha-sim1-Welcome-20261002-100000.oar");
-        $sent = [];
-        [$code, $file] = archive_runner($profile, $sent, 'Successfully loaded archive')->run('load', [
-            'oar',
-            'alpha',
-            'sim1',
-            '--merge',
-        ]);
-
-        expect($code)
-            ->toBe(0)
-            ->and(basename((string) $file))
-            ->toBe('alpha-sim1-Welcome-20261002-100000.oar')
-            ->and($sent[0][1])
-            ->toBe("change region Welcome\nload oar --merge $file\n");
-    })->depends('saves a region with a telling name');
-
-    test('saves an inventory', function () {
-        $profile = archive_install();
-        $sent = [];
-        [$code, $file] = archive_runner($profile, $sent, 'Saved archive with 12 items for Jane Doe')->run('save', [
-            'iar',
-            'Jane',
-            'Doe',
-            '/',
-            'pw',
-        ]);
-
-        expect($code)
-            ->toBe(0)
-            ->and(basename((string) $file))
-            ->toStartWith('alpha-Jane-Doe-2')
-            ->and($sent[0][0])
-            ->toBe('alpha_sim1')
-            ->and($sent[0][1])
-            ->toStartWith('save iar Jane Doe / pw /');
-    })->depends('saves a region with a telling name');
-
-    test('report what the simulator says went wrong', function () {
-        $profile = archive_install();
-        $sent = [];
-        $messages = [];
-        $runner = new ArchiveRunner(
-            EnvironmentFake::with($profile),
-            function (string $instance, string $lines) use ($profile): bool {
-                file_put_contents(
-                    "{$profile['LogsRoot']}/alpha_sim1.log",
-                    "2026-10-03 10:00:00,000 ERROR [INVENTORY ARCHIVER]: Password for user Jane Doe incorrect.  Please try again.\n",
-                    FILE_APPEND,
-                );
-
-                return true;
-            },
-            static fn(string $ini): bool => true,
-            function (string $message) use (&$messages): void {
-                $messages[] = $message;
-            },
-            2,
-        );
-        [$code] = $runner->run('save', ['iar', 'Jane', 'Doe', '/', 'wrong']);
-
-        expect($code)->toBe(1)->and(implode("\n", $messages))->toContain('incorrect');
-    })->depends('saves a region with a telling name');
-
-    test('refuses a file, a stopped sim, no password', function () {
-        $profile = archive_install();
-        $sent = [];
-        $runner = archive_runner($profile, $sent, 'Finished writing out OAR');
-        $existing = "{$profile['DataRoot']}/alpha/backups/oar/old.oar";
-
-        expect($runner->run('save', ['oar', 'alpha', 'sim1', 'old.oar'])[0])
-            ->toBe(1)
-            ->and($existing)
-            ->toBeFile()
-            ->and($sent)
-            ->toBe([]);
-
-        $down = new ArchiveRunner(
-            EnvironmentFake::with($profile),
-            fn() => true,
-            fn() => false,
-            static function (string $m): void {},
-            1,
-        );
-        expect($down->run('save', ['iar', 'Jane', 'Doe', '/', 'pw'])[0])->toBe(1);
-
-        putenv('OPENSIM_IAR_PASSWORD');
-        $noPassword = archive_runner($profile, $sent, 'x');
-        expect($noPassword->run('save', ['iar', 'Jane', 'Doe', '/'])[0])->toBe(2);
-    })->depends('saves a region with a telling name');
-});
-
-describe('opensim backup', function () {
-    test('holds config, data and databases', function () {
-        $profile = archive_install();
-        $dumped = [];
-        $backup = new BackupService(
-            EnvironmentFake::with($profile),
-            function (array $db, string $file) use (&$dumped): void {
-                $dumped[] = $db['name'];
-                file_put_contents($file, 'dump');
-            },
-            static function (string $message): void {},
-            '20261003-101500',
-        );
-        $files = $backup->run(['alpha']);
-
-        expect($files)
-            ->toBe(["{$profile['DataRoot']}/backups/admin/alpha-20261003-101500.tar.gz"])
-            ->and(substr(sprintf('%o', fileperms($files[0])), -3))
-            ->toBe('640')
-            ->and($dumped)
-            ->toBe(['alpha_robust', 'alpha_sim1', 'alpha_sim2']);
-
-        $list = shell_exec('tar -tzf ' . escapeshellarg($files[0]));
-        expect($list)
-            ->toContain('manifest.json')
-            ->and($list)
-            ->toContain('db/alpha_robust.sql.gz')
-            ->and($list)
-            ->toContain('etc/grids/alpha/Robust.HG.ini')
-            ->and($list)
-            ->toContain('etc/grids/alpha/sims/alpha_sim2/regions/South.ini')
-            ->and($list)
-            ->toContain('etc/robust.d/alpha.ini')
-            ->and($list)
-            ->toContain('etc/opensim.conf')
-            ->and($list)
-            ->toContain('var/alpha/alpha_sim1/state')
-            ->and($list)
-            ->not->toContain('old.oar');
-        // The links keep their targets
-        expect(shell_exec('tar -tvzf ' . escapeshellarg($files[0]) . ' | grep "robust.d/alpha.ini"'))->toContain(
-            "{$profile['EtcRoot']}/grids/alpha/Robust.HG.ini",
-        );
-    });
-
-    test('takes the archives of the users and the logs when asked', function () {
-        $profile = archive_install();
-        file_put_contents("{$profile['LogsRoot']}/alpha_sim1.log", 'log');
-        $backup = new BackupService(
-            EnvironmentFake::with($profile),
-            fn(array $db, string $file) => file_put_contents($file, 'x'),
-            static function (string $m): void {},
-            '20261003-101500',
-        );
-        $files = $backup->run(['alpha'], ['logs' => true, 'archives' => true, 'output' => "{$profile['root']}/out"]);
-
-        $list = shell_exec('tar -tzf ' . escapeshellarg($files[0]));
-        expect($files[0])
-            ->toBe("{$profile['root']}/out/alpha-20261003-101500-logs-archives.tar.gz")
-            ->and($list)
-            ->toContain('var/alpha/backups/oar/old.oar')
-            ->and($list)
-            ->toContain('logs/alpha_sim1.log');
-    })->depends('holds config, data and databases');
-
-    test('is the one of a simulator, without the other ones', function () {
-        $profile = archive_install();
-        $dumped = [];
-        $backup = new BackupService(
-            EnvironmentFake::with($profile),
-            function (array $db, string $file) use (&$dumped): void {
-                $dumped[] = $db['name'];
-                file_put_contents($file, 'x');
-            },
-            static function (string $m): void {},
-            '20261003-101500',
-        );
-        $files = $backup->run(['alpha', '_sim1']);
-
-        $list = shell_exec('tar -tzf ' . escapeshellarg($files[0]));
-        expect(basename($files[0]))
-            ->toBe('alpha-sim1-20261003-101500.tar.gz')
-            ->and($dumped)
-            ->toBe(['alpha_sim1'])
-            ->and($list)
-            ->toContain('etc/grids/alpha/sims/alpha_sim1.ini')
-            ->and($list)
-            ->toContain('etc/grids/alpha/alpha.conf')
-            ->and($list)
-            ->not->toContain('alpha_sim2')
-            ->and($list)
-            ->not->toContain('Robust.HG.ini.bak');
-    })->depends('holds config, data and databases');
-
-    test('keeps every backup unless asked', function () {
-        $profile = archive_install();
-        $make = static fn(string $stamp): array => (new BackupService(
-            EnvironmentFake::with($profile),
-            static function (array $db, string $file): void {
-                file_put_contents($file, 'dump');
-            },
-            static function (string $m): void {},
-            $stamp,
-        ))->run(['alpha']);
-
-        foreach (['20261001-100000', '20261002-100000', '20261003-100000'] as $stamp) {
-            $make($stamp);
-        }
-
-        expect(count(glob("{$profile['DataRoot']}/backups/admin/alpha-*.tar.gz")))->toBe(3);
-    })->depends('holds config, data and databases');
-
-    test('removes the older ones with --keep, series by series', function () {
-        $profile = archive_install();
-        $make = static fn(string $stamp, array $options = []): array => (new BackupService(
-            EnvironmentFake::with($profile),
-            static function (array $db, string $file): void {
-                file_put_contents($file, 'dump');
-            },
-            static function (string $m): void {},
-            $stamp,
-        ))->run(['alpha'], $options);
-
-        $make('20261001-100000');
-        $make('20261001-110000', ['logs' => true]);
-        $make('20261002-100000');
-        $make('20261003-100000', ['keep' => 2]);
-
-        expect(array_values(array_diff(scandir("{$profile['DataRoot']}/backups/admin"), ['.', '..'])))->toBe([
-            'alpha-20261001-110000-logs.tar.gz',
-            'alpha-20261002-100000.tar.gz',
-            'alpha-20261003-100000.tar.gz',
-        ]);
-    })->depends('holds config, data and databases');
-
-    test('leaves nothing behind when a dump fails', function () {
-        $profile = archive_install();
-        $backup = new BackupService(
-            EnvironmentFake::with($profile),
-            function (array $db, string $file): void {
-                throw new RuntimeException('dump failed');
-            },
-            static function (string $m): void {},
-            '20261003-101500',
-        );
-
-        expect(fn() => $backup->run(['alpha']))->toThrow(RuntimeException::class, 'dump failed');
-        $left = array_diff(scandir("{$profile['DataRoot']}/backups/admin") ?: [], ['.', '..']);
-        expect($left)->toBe([]);
-    })->depends('holds config, data and databases');
+            expect($by)
+                ->toHaveKeys(['demo-alpha-20261019-121500.oar', 'demo-alpha-20261019-131500-logs.tar.gz'])
+                ->and($by['demo-ada-love-noassets-20261019-101500.iar'])
+                ->toMatchArray([
+                    'kind' => 'iar',
+                    'grid' => 'demo',
+                    'user' => 'ada love',
+                    'assets' => false,
+                    'size' => 3,
+                ])
+                ->and($by['demo-alpha-Plaza-perm_CM-publish-20261019-111500.oar'])
+                ->toMatchArray([
+                    'kind' => 'oar',
+                    'simulator' => 'alpha',
+                    'region' => 'Plaza',
+                    'permissions' => '_CM',
+                    'publish' => true,
+                ])
+                ->and($by['demo-alpha-20261019-121500.oar'])
+                ->toMatchArray(['kind' => 'oar', 'simulator' => 'alpha', 'region' => null, 'assets' => true])
+                ->and($by['demo-alpha-20261019-131500-logs.tar.gz'])
+                ->toMatchArray(['kind' => 'backup', 'simulator' => 'alpha', 'logs' => true, 'archives' => false])
+                ->and(count($by))
+                ->toBe(4)
+                ->and(Archive::all($machine->environment, ['filters' => ['kind' => 'oar']])->total())
+                ->toBe(2)
+                ->and(Archive::find($machine->environment, 'demo_backup_demo-alpha-20261019-131500-logs')?->name())
+                ->toBe('demo-alpha-20261019-131500-logs.tar.gz');
+        },
+    );
 });

@@ -12,6 +12,7 @@ use OpenSim\Assets\ConverterInterface;
 use OpenSim\Assets\ImagickTextRenderer;
 use OpenSim\Assets\TextRendererInterface;
 use OpenSim\Assets\WebAssets;
+use OpenSim\Models\Archive;
 use OpenSim\Models\Asset;
 use OpenSim\Models\Avatar;
 use OpenSim\Models\Estate;
@@ -58,7 +59,12 @@ use OpenSim\Scheduling\Scheduler;
 final class Api
 {
     /** The resources of the machine, by the name they have in an address. */
-    public const RESOURCES = ['grids' => Grid::class, 'simulators' => Simulator::class, 'services' => Service::class];
+    public const RESOURCES = [
+        'grids' => Grid::class,
+        'simulators' => Simulator::class,
+        'services' => Service::class,
+        'archives' => Archive::class,
+    ];
 
     /** The resources of a grid: read in its databases and its files, at `/grids/{grid}/{type}`. */
     public const GRID_RESOURCES = [

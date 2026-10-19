@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 'OpenSim engine'
-  version: fd51d1d
+  version: b9ef0d1
   license:
     name: AGPL-3.0-or-later
     identifier: AGPL-3.0-or-later
@@ -29,6 +29,9 @@ tags:
       `get-grid-info` is the /get_grid_info that Robust answers: the engine reads it, it does not provide one.
 
       `kind` says who fixes the format of a web service: `fixed` (OpenSimulator or the viewers: only the address is the grid's to choose, and the format is described in this contract as an endpoint of its own) or `standard` (the engine's own; `standard` is its address, `legacy` the script that answered it before). `endpoint` is where the engine serves it.
+  -
+    name: 'The machine: archives'
+    description: 'The inventories (`iar`) and the regions (`oar`) the consoles of the simulators saved, in the data folder of their grid, and the backups of the setup (`backup`: the configuration, the data and the databases of a grid or of a simulator, `.tar.gz`). A file says what is in it by its name; they are read here, made by `opensim save iar|oar` and `opensim backup`.'
   -
     name: 'A grid: avatars'
     description: 'Read from the databases of the grid, each in the one of its service. An avatar is made with its account, its password, its inventory and its default outfit. Its name does not change.'
@@ -471,6 +474,100 @@ paths:
                 properties:
                   data:
                     $ref: '#/components/schemas/Services'
+        404:
+          description: 'There is none with this id'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /archives:
+    get:
+      operationId: listArchives
+      tags:
+        - 'The machine: archives'
+      summary: 'The archives and the backups of the grids of this machine, searched, filtered, sorted and paged'
+      parameters:
+        -
+          name: search
+          in: query
+          schema:
+            type: string
+        -
+          name: sort
+          in: query
+          description: 'A column, `-` before it for the descending order'
+          schema:
+            type: string
+        -
+          name: 'page[number]'
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        -
+          name: 'page[size]'
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+        -
+          name: 'filter[kind]'
+          in: query
+          schema:
+            type: string
+            enum:
+              - iar
+              - oar
+              - backup
+      responses:
+        200:
+          description: 'A page of the archives'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Archives'
+                  meta:
+                    type: object
+        404:
+          description: 'The grid is not known here'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        503:
+          description: 'What the list is read from is not available'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  '/archives/{id}':
+    get:
+      operationId: getArchive
+      tags:
+        - 'The machine: archives'
+      summary: 'One of the archives by its id'
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: 'The resource'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Archives'
         404:
           description: 'There is none with this id'
           content:
@@ -3879,6 +3976,94 @@ components:
                 - string
                 - 'null'
               description: 'Where its address comes from: provider, simulator, live (the running grid), config, default (where the helpers answer)'
+        links:
+          type: object
+          properties:
+            self:
+              type: string
+    Archives:
+      type: object
+      description: 'The archives and the backups of the grids of this machine'
+      required:
+        - type
+        - id
+        - attributes
+      properties:
+        type:
+          const: archives
+        id:
+          type: string
+        attributes:
+          type: object
+          properties:
+            name:
+              type: string
+              description: 'The name of the file'
+            slug:
+              type: string
+              description: 'The grid, the kind and the name without its extension'
+            grid:
+              type: string
+              description: 'The nick of its grid'
+            kind:
+              type: string
+              description: 'iar, oar or backup'
+            file:
+              type: string
+              description: 'Its path'
+            size:
+              type: integer
+              description: Bytes
+            modified:
+              type:
+                - integer
+                - 'null'
+              description: 'Unix time of the last change of the file'
+            stamp:
+              type:
+                - integer
+                - 'null'
+              description: 'Unix time the name says it was made'
+            user:
+              type:
+                - string
+                - 'null'
+              description: 'Whose inventory, for an iar'
+            simulator:
+              type:
+                - string
+                - 'null'
+              description: 'The simulator, for an oar or a backup of a simulator'
+            region:
+              type:
+                - string
+                - 'null'
+              description: 'The region, for an oar of one region'
+            assets:
+              type:
+                - boolean
+                - 'null'
+              description: 'With the assets (false when the name says noassets), for an iar or an oar'
+            permissions:
+              type:
+                - string
+                - 'null'
+              description: 'The permissions kept (`perm`), for an iar or an oar'
+            publish:
+              type:
+                - boolean
+                - 'null'
+              description: 'Saved to be published, for an oar'
+            logs:
+              type:
+                - boolean
+                - 'null'
+              description: 'With the logs, for a backup'
+            archives:
+              type:
+                - boolean
+                - 'null'
+              description: 'With the archives of the users, for a backup'
         links:
           type: object
           properties:

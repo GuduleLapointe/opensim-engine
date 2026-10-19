@@ -2,6 +2,7 @@
 
 ### Unreleased
 
+- new: `Models\Archive` and the resource `archives`: the inventories, regions and backups of the grids, read from their names (`GET /archives`)
 - new: `GET /grids/{grid}/health` (`Api::health()`): the addresses of a grid asked now, the PHP it needs, the files it reads
 - new: `Economy\Currency` is an instance configured by `CurrencySettings` (from the files of the grid); `Services\CurrencyServer` answers the currency and the land tools of the viewers and the simulators; `Services\DefaultDestinations`: a grid with no guide has its popular places and the places shown in search
 - new: the contract describes every endpoint (`Api\Formats`, `Endpoints`): the search, the registration, the offline messages, the currency, the land tools, the pages of the helpers, `get_grid_info`; `Service::endpoint()` says where the engine serves each; `register` and `offline` are of a fixed format
