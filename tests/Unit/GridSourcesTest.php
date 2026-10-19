@@ -335,54 +335,55 @@ describe('the elements of get_grid_info', function () {
 });
 
 describe('the login address of a grid', function () {
-    /** The answer of a grid that changed its domain name: asked at the old one, it says the new one. */
-    function moved_grid_answer(): string
+    /** The answer of a grid asked at an address that is not the one it says for itself. */
+    function renamed_grid_answer(): string
     {
-        return '<?xml version="1.0"?><gridinfo><gridname>Speculoos</gridname><gridnick>speculoos</gridnick><login>http://speculoos.world:8002/</login></gridinfo>';
+        return '<?xml version="1.0"?><gridinfo><gridname>Example</gridname><gridnick>example</gridnick><login>http://grid.example.org:8002/</login></gridinfo>';
     }
 
     test('is the one the grid says, not the address it was reached at', function () {
         $machine = new Machine();
-        $machine->http['http://speculoos.co.uk:8002/get_grid_info'] = moved_grid_answer();
+        $machine->http['http://old.example.org:8002/get_grid_info'] = renamed_grid_answer();
 
-        $grid = Grid::announced($machine->environment, 'speculoos.co.uk', 8002);
+        $grid = Grid::announced($machine->environment, 'old.example.org', 8002);
 
         expect($grid->loginUrl())
-            ->toBe('http://speculoos.world:8002')
+            ->toBe('http://grid.example.org:8002')
             ->and($grid->uri())
-            ->toBe('speculoos.world:8002')
+            ->toBe('grid.example.org:8002')
             ->and([$grid->baseHostname(), $grid->publicPort()])
-            ->toBe(['speculoos.world', 8002])
+            ->toBe(['grid.example.org', 8002])
             ->and($grid->regionUri('Welcome', '128/128/22'))
-            ->toBe('speculoos.world:8002/Welcome/128/128/22')
+            ->toBe('grid.example.org:8002/Welcome/128/128/22')
             ->and($grid->regionUri('Welcome'))
-            ->toBe('speculoos.world:8002/Welcome');
+            ->toBe('grid.example.org:8002/Welcome');
     });
 
     test(
-        'follows the grid that moved for a grid described here, and is what was described when it does not answer',
+        'is the one a grid described here says, and none when it does not answer: no other address is tried',
         function () {
             $machine = new Machine();
             $machine->write(
-                $machine->etc . '/grids/speculoos/speculoos.conf',
-                "[Grid]\nGridName = Speculoos\nRemote = true\nBaseHostname = speculoos.co.uk\nPublicPort = 8002\n",
+                $machine->etc . '/grids/example/example.conf',
+                "[Grid]\nGridName = Example\nRemote = true\nBaseHostname = grid.example.org\nPublicPort = 8002\n",
             );
-            $grid = Grid::find($machine->environment, 'speculoos');
 
-            expect($grid->loginUrl())
-                ->toBe('http://speculoos.co.uk:8002')
-                ->and($grid->uri())
-                ->toBe('speculoos.co.uk:8002');
+            $silent = Grid::find($machine->environment, 'example');
+            expect($silent->loginUrl())
+                ->toBeNull()
+                ->and($silent->uri())
+                ->toBeNull()
+                ->and($silent->baseHostname())
+                ->toBe('grid.example.org');
 
-            $machine->http['http://speculoos.co.uk:8002/get_grid_info'] = moved_grid_answer();
-            $moved = Grid::find($machine->environment, 'speculoos');
-
-            expect($moved->loginUrl())
-                ->toBe('http://speculoos.world:8002')
-                ->and($moved->uri())
-                ->toBe('speculoos.world:8002')
-                ->and($moved->baseHostname())
-                ->toBe('speculoos.co.uk');
+            // The failure is kept for a short while: the grid is asked again when that time is over
+            $machine->http['http://grid.example.org:8002/get_grid_info'] = renamed_grid_answer();
+            $machine->clock->now += OpenSim\Network\GridInfoCache::FAILED_TTL + 1;
+            $answering = Grid::find($machine->environment, 'example');
+            expect($answering->loginUrl())
+                ->toBe('http://grid.example.org:8002')
+                ->and($answering->uri())
+                ->toBe('grid.example.org:8002');
         },
     );
 

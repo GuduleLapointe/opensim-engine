@@ -7,7 +7,7 @@ declare(strict_types=1);
  * kept for a while. The databases are in memory (SQLite); the conversion is a fake, ImageMagick is not needed.
  */
 
-use OpenSim\Assets\AssetCache;
+use OpenSim\Support\FileCache;
 use OpenSim\Assets\ConverterInterface;
 use OpenSim\Assets\WebAssets;
 use OpenSim\Config\GridConfig;
@@ -217,8 +217,8 @@ describe('assets for the web', function () {
         $clock = new ClockFake();
         $web = new WebAssets(
             $grid,
-            new AssetCache("$folder/images", 100, $clock),
-            new AssetCache("$folder/sources", 100, $clock),
+            new FileCache("$folder/images", 100, $clock),
+            new FileCache("$folder/sources", 100, $clock),
             asset_converter($calls),
             $http,
             $placeholder,
@@ -300,7 +300,7 @@ describe('assets for the web', function () {
 describe('the cache of assets', function () {
     test('keeps the data with what is known of it, and forgets it when it is empty or old', function () {
         $clock = new ClockFake();
-        $cache = new AssetCache(test_tmp() . '/asset-cache-' . bin2hex(random_bytes(4)), 60, $clock);
+        $cache = new FileCache(test_tmp() . '/asset-cache-' . bin2hex(random_bytes(4)), 60, $clock);
 
         expect($cache->put('a/b c', 'data', ['type' => 7]))
             ->toBeTrue()

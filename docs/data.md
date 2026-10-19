@@ -78,10 +78,17 @@ $grid->service('currency')->url();   // the economy it tells, then currency.php
 
 ## The login address of a grid
 
-`$grid->loginUrl()` is the login URL the grid says, whatever address it was reached at: a grid that changed its domain name says the
-new one when it is asked at the old one, and the new one is its login. For another grid that knows it, `$grid->uri()` is its host
-and port and `$grid->regionUri('Welcome', '128/128/22')` the address of one of its regions, formed from that login. The running
-grid says it at get_grid_info, else its config, else the description kept of it. The engine adds no port the grid does not give.
+What a grid says of itself at get_grid_info is the truth about it, whatever address it was reached at: a grid that changed its domain
+name says the new one when it is asked at the old one, and the new one is its login. `$grid->loginUrl()` is that login, `$grid->uri()`
+its host and port, `$grid->regionUri('Welcome', '128/128/22')` the address of one of its regions, and the address of a visitor of
+another grid follows it (`Avatar::visitor($config, $id, $grids)`: `first.last@host:port` of the login their grid says, not of the
+address OpenSimulator kept when they came).
+
+The answers are kept for a few minutes (`Network\GridInfoCache`, 300 seconds, a failure 30), because they are asked all the time;
+`gridInfo()` and the rest read the kept answer. Nothing older is served and no address is tried in place of another: when the time is
+over the grid is asked again, and if it does not answer it is a failure (`loginUrl()` of a grid that runs elsewhere is null). Where
+the information is saved the grid is asked whatever is kept (`read($login, fresh: true)`), and what is saved is what it says. The
+engine adds no port the grid does not give.
 
 ## Addresses of a grid
 

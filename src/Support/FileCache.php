@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace OpenSim\Assets;
+namespace OpenSim\Support;
 
 use OpenSim\Runtime\ClockInterface;
 
 /**
- * A folder of files kept for a while: the data of an asset as the grid gave it, or converted, with what is known of it. A file
+ * A folder of files kept for a while: data, with what is known of it (the data of an asset as the grid gave it or converted, the answer of a grid). A file
  * that is empty or older than the time to live is not kept.
  */
-final class AssetCache
+final class FileCache
 {
     public function __construct(
         private readonly string $directory,

@@ -23,7 +23,8 @@ final class EnvironmentFake
         $processes ??= new ProcessTableFake();
 
         return new Environment(
-            new Layout($layout),
+            // The cache of a test is its own: what a test keeps is not what another finds
+            new Layout($layout + ['CacheRoot' => sys_get_temp_dir() . '/environment-fake-' . bin2hex(random_bytes(4))]),
             $processes,
             new LauncherFake($processes),
             new ConsoleFactoryFake(),

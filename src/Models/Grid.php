@@ -15,6 +15,7 @@ use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\LocationFinder;
 use OpenSim\Provisioning\Slug;
 use OpenSim\Hypergrid\Destination;
+use OpenSim\Network\GridInfoCache;
 use OpenSim\Network\GridInfoReader;
 use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\Result;
@@ -61,7 +62,6 @@ final class Grid extends InstalledModel
         'robustIni' => '',
         'coreDirectory' => '',
         'baseHostname' => 'localhost',
-        'login' => '',
         'publicPort' => 8002,
         'privatePort' => 8003,
         'databaseHost' => 'localhost',
@@ -482,19 +482,16 @@ final class Grid extends InstalledModel
     }
 
     /**
-     * The login URL of the grid: the one it says, whatever address it was reached at (a grid that changed its domain name says the new
-     * one, and the new one is its login). The running grid says it at get_grid_info, its config when it does not answer, the
-     * description kept of it when it has no config; failing that, the host and the port it is described at.
+     * The login URL of the grid: the one it says, whatever address it was reached at (a grid that changed its domain name says the
+     * new one, and the new one is its login). The running grid says it at get_grid_info; a grid of this machine that does not answer
+     * has the one of its config. A grid that runs elsewhere and does not answer has none: it is a failure, the address it was
+     * described at is not tried in its place and no old one is given.
      */
     public function loginUrl(): ?string
     {
         $said = Destination::loginUrl($this->gridInfo()['login'] ?? '');
-        if ($said !== null) {
+        if ($said !== null || $this->isRemote() || $this->in(self::ANNOUNCED)) {
             return $said;
-        }
-        $kept = Destination::loginUrl((string) $this->get('login'));
-        if ($kept !== null) {
-            return $kept;
         }
 
         return $this->hostPort() !== null ? Destination::loginUrl((string) $this->hostPort()) : null;
@@ -590,7 +587,6 @@ final class Grid extends InstalledModel
                 'name' => $said['gridname'] ?? '',
                 'baseHostname' => $login['host'],
                 'publicPort' => $login['port'] ?? ($login['scheme'] === 'https' ? 443 : 80),
-                'login' => (string) Destination::loginUrl((string) ($said['login'] ?? '')),
                 'announcement' => $said,
             ],
             [self::ANNOUNCED],
@@ -664,9 +660,10 @@ final class Grid extends InstalledModel
         if ($this->isPlanned()) {
             return $this->info = [[], false];
         }
+        // Asked where the grid is described at, at most once in a while (see GridInfoCache); no answer is no answer: no other address is tried
         $login = $this->service('get-grid-info')?->url() ?? "http://{$this->baseHostname()}:{$this->publicPort()}";
-        $live = GridInfoReader::read($login, $this->environment->http);
-        if ($live !== []) {
+        $live = (new GridInfoCache($this->environment))->read($login);
+        if ($live !== null) {
             return $this->info = [$live, true];
         }
         $controller = $this->isStandalone() ? ($this->simulators()[0] ?? null)?->controller() : $this->robust();

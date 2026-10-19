@@ -11,6 +11,8 @@ use OpenSim\Data\Database;
 use OpenSim\Exceptions\ChannelUnavailable;
 use OpenSim\Provisioning\AccountWriter;
 use OpenSim\Provisioning\GridAccounts;
+use OpenSim\Hypergrid\Destination;
+use OpenSim\Network\GridInfoCache;
 use OpenSim\Provisioning\Slug;
 use OpenSim\Support\Bitmask;
 
@@ -507,11 +509,19 @@ final class Avatar extends Model
     }
 
     /** A visitor of another grid, from its id in GridUser: <uuid>;<home of the grid>;<First Last>. */
-    public static function visitor(GridConfig $config, string $userId): static
+    public static function visitor(GridConfig $config, string $userId, ?GridInfoCache $grids = null): static
     {
         $parts = explode(';', $userId);
         $name = preg_split('/\s+/', trim($parts[2] ?? ''), 2) ?: [];
         $grid = preg_replace('#^[a-z]+://|/+$#i', '', trim($parts[1] ?? '')) ?? '';
+        // The grid of a visitor is what its get_grid_info says, not the address OpenSimulator kept when they came (it never refreshes
+        // the visitors it knows): when the grid does not answer, what was kept is all there is
+        if (
+            $grids !== null &&
+            ($login = Destination::loginParts((string) $grids->login(trim($parts[1] ?? '')))) !== null
+        ) {
+            $grid = $login['host'] . ($login['port'] !== null ? ':' . $login['port'] : '');
+        }
 
         return new static($config, [
             'PrincipalID' => strtolower($parts[0]),
@@ -534,7 +544,7 @@ final class Avatar extends Model
      * @return list<static>
      * @throws \InvalidArgumentException when it is neither a name nor a UUID
      */
-    public static function lookup(GridConfig $config, string $target): array
+    public static function lookup(GridConfig $config, string $target, ?GridInfoCache $grids = null): array
     {
         $target = trim($target);
         $people = [];
@@ -543,7 +553,7 @@ final class Avatar extends Model
             $local = self::find($config, $uuid);
             $local !== null && ($people[] = $local);
             foreach (self::visits($config, "$uuid;%") as $userId) {
-                $people[] = static::visitor($config, $userId);
+                $people[] = static::visitor($config, $userId, $grids);
             }
 
             // A UUID is enough to ban someone who never came here
@@ -568,7 +578,7 @@ final class Avatar extends Model
             )
             as $userId
         ) {
-            $people[] = static::visitor($config, $userId);
+            $people[] = static::visitor($config, $userId, $grids);
         }
 
         return $people;

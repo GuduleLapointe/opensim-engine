@@ -10,6 +10,7 @@ use OpenSim\Models\Asset;
 use OpenSim\Models\Grid;
 use OpenSim\Models\Image;
 use OpenSim\Network\GridInfoReader;
+use OpenSim\Support\FileCache;
 use OpenSim\Text\Uuid;
 
 /**
@@ -31,8 +32,8 @@ final class WebAssets
      */
     public function __construct(
         private readonly Grid $grid,
-        private readonly AssetCache $converted,
-        private readonly AssetCache $sources,
+        private readonly FileCache $converted,
+        private readonly FileCache $sources,
         private readonly ConverterInterface $converter,
         private readonly ?\Closure $http = null,
         private readonly ?string $placeholder = null,
@@ -46,8 +47,8 @@ final class WebAssets
 
         return new self(
             $grid,
-            new AssetCache("$folder/images", 86400, $grid->environment()->clock),
-            new AssetCache("$folder/sources", 86400, $grid->environment()->clock),
+            new FileCache("$folder/images", 86400, $grid->environment()->clock),
+            new FileCache("$folder/sources", 86400, $grid->environment()->clock),
             $converter ?? new ImagickConverter(),
             $grid->environment()->http,
         );
