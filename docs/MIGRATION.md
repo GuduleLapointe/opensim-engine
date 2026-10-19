@@ -72,7 +72,24 @@ The profile arrays (`['EtcRoot' => ..., 'DataRoot' => ...]`) are gone: whatever 
 
 `Health::grid_info()` and `Grid::announcement()` are `Network\GridInfoReader::read()`; a grid gives its own with `Grid::gridInfo()`.
 
-The web services of a grid (search, currency, land purchase, registration, offline messages, message of the day, guide, images of a text) are in the catalog of `Models\Service`: where the config of the grid puts each, whether its format is fixed by OpenSimulator and the viewers (`query`, `currency`, `landtool`: only the address is free) or the engine's (`standard`: the old script is its `legacy` name).
+The web services of a grid (search, currency, land purchase, registration, offline messages, message of the day, guide, images of a text) are in the catalog of `Models\Service`: where the config of the grid puts each, whether its format is fixed by OpenSimulator and the viewers (`query`, `register`, `offline`, `currency`, `landtool`: only the address is free) or the engine's (`standard`: the old script is its `legacy` name), and `endpoint`, where the engine serves it.
+
+## The scripts of the helpers
+
+Each script is an endpoint of `Api\Handler`, in the contract (`docs/api/`). The helpers keep the addresses the grid gave, and call the engine:
+
+| Script | Endpoint of the engine | Format |
+| --- | --- | --- |
+| `query.php` | `POST /grids/{grid}/search/query?gk=` | XML-RPC of OpenSimSearch (fixed) |
+| `register.php` | `GET /grids/{grid}/search/register?host=&port=&service=` | fixed |
+| `parser.php`, `eventsparser.php` | `POST /tasks/search-parse/runs`, `/tasks/events-parse/runs` (or the tasks, run by the scheduler) | JSON:API |
+| `offline.php` | `POST /grids/{grid}/offline-messages/SaveMessage/` and `RetrieveMessages/` | XML of the module V1 (fixed) |
+| `currency.php`, `landtool.php` | `POST /grids/{grid}/currency.php`, `landtool.php` | XML-RPC of the viewers (fixed) |
+| `motd.php` | `GET /grids/{grid}/motd` | plain text |
+| `guide.php` | `GET /grids/{grid}/destinations` (resources, or the lines of the boards with `format=list`) | JSON:API |
+| `textgen.php` | `GET /text-images`, `Api\Legacy::textgen()` for the old parameters | PNG |
+
+On a host that serves one grid, `new Handler($api, $factory, $factory, grid: 'nick')` drops the `/grids/{grid}`. The application calls `$handler->terminate()` once the response is sent.
 
 ## Functions
 

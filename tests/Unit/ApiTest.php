@@ -336,6 +336,13 @@ describe('The contract', function () {
                     '/grids/{grid}/estates',
                     '/grids/{grid}/destinations',
                     '/grids/{grid}/motd',
+                    '/grids/{grid}/search/register',
+                    '/grids/{grid}/search/query',
+                    '/grids/{grid}/currency.php',
+                    '/grids/{grid}/landtool.php',
+                    '/grids/{grid}/offline-messages/SaveMessage/',
+                    '/grids/{grid}/offline-messages/RetrieveMessages/',
+                    '/get_grid_info',
                     '/text-images',
                     '/fonts',
                     '/tasks',
@@ -549,4 +556,84 @@ describe('The documentation of the API', function () {
             ->toContain('Redoc.init')
             ->toContain('"openapi": "3.1.0"');
     })->skip(fn() => !is_file(dirname(__DIR__, 2) . '/dev/api-docs.php'), 'the script is not there');
+});
+
+describe('The endpoints of a fixed format', function () {
+    test('describe the methods the services answer, no more and no fewer', function () {
+        $db = test_pdo();
+        $money = new OpenSim\Economy\Currency(
+            new OpenSim\Economy\CurrencySettings(scriptKey: 'key'),
+            static fn() => null,
+        );
+        $server = new OpenSim\Services\CurrencyServer($money, '');
+
+        expect(array_keys((new OpenSim\Services\SearchQuery($db, 'regionsregister'))->methods()))
+            ->toBe(array_keys(OpenSim\Api\Formats::SEARCH))
+            ->and(array_keys($server->currencyMethods()))
+            ->toBe(array_keys(OpenSim\Api\Formats::CURRENCY))
+            ->and(array_keys($server->landMethods()))
+            ->toBe(array_keys(OpenSim\Api\Formats::LAND))
+            ->and(array_keys(OpenSim\Api\Formats::OFFLINE))
+            ->toBe(['SaveMessage', 'RetrieveMessages']);
+    })->skip(fn() => test_pdo() === null, 'TEST_DATABASE is not set in tests/.env');
+
+    test('are in the contract with the methods and examples of their calls', function () {
+        $paths = Contract::document()['paths'];
+        $query = $paths['/grids/{grid}/search/query']['post'];
+        $currency = $paths['/grids/{grid}/currency.php']['post'];
+
+        expect(array_keys($query['requestBody']['content']['text/xml']['examples']))
+            ->toBe(array_keys(OpenSim\Api\Formats::SEARCH))
+            ->and($query['description'])
+            ->toContain('### `dir_places_query`', '| `text` | string |')
+            ->and($query['requestBody']['content']['text/xml']['examples']['dir_places_query']['value'])
+            ->toContain('<methodName>dir_places_query</methodName>', '<name>text</name>')
+            ->and($query['responses']['200']['content']['text/xml']['examples']['dir_places_query']['value'])
+            ->toContain('<name>parcel_id</name>')
+            ->and(array_column($query['parameters'], 'name'))
+            ->toBe(['grid', 'gk'])
+            ->and(array_keys($currency['requestBody']['content']['text/xml']['examples']))
+            ->toBe([
+                'getCurrencyQuote',
+                'buyCurrency',
+                'simulatorUserBalanceRequest',
+                'regionMoveMoney',
+                'simulatorClaimUserRequest',
+            ])
+            ->and(array_column($paths['/grids/{grid}/search/register']['get']['parameters'], 'name'))
+            ->toBe(['grid', 'host', 'port', 'service'])
+            ->and($paths['/grids/{grid}/destinations']['get']['parameters'][1]['name'] ?? null)
+            ->toBe('format')
+            ->and(array_keys($paths['/grids/{grid}/destinations']['get']['responses']['200']['content']))
+            ->toContain('text/plain');
+    });
+
+    test('are all in the contract, whatever the handler serves besides the resources', function () {
+        $paths = Contract::document()['paths'];
+        $served = [
+            ['get', '/openapi.json', false],
+            ['post', '/tasks/{id}/runs', true],
+            ['get', '/grids/{grid}/assets/{id}.{format}', true],
+            ['get', '/text-images', true],
+            ['get', '/grids/{grid}/motd', true],
+            ['get', '/grids/{grid}/search/register', true],
+            ['post', '/grids/{grid}/search/query', true],
+            ['post', '/grids/{grid}/offline-messages/SaveMessage/', true],
+            ['post', '/grids/{grid}/offline-messages/RetrieveMessages/', true],
+            ['post', '/grids/{grid}/currency.php', true],
+            ['post', '/grids/{grid}/landtool.php', true],
+        ];
+        foreach ($served as [$method, $path, $documented]) {
+            expect(isset($paths[$path][$method]))->toBe($documented, "$method $path");
+        }
+        // The services of the catalog whose address is a page or a feed have a page of their own in the contract
+        expect(array_keys($paths))->toContain(
+            '/search',
+            '/welcome',
+            '/guide',
+            '/profile/{name}',
+            '/grid_status',
+            '/grid_status.rss',
+        );
+    });
 });

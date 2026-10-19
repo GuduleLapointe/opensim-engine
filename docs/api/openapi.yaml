@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 'OpenSim engine'
-  version: 8db4b12
+  version: abe98c0
   license:
     name: AGPL-3.0-or-later
     identifier: AGPL-3.0-or-later
@@ -28,7 +28,7 @@ tags:
 
       `get-grid-info` is the /get_grid_info that Robust answers: the engine reads it, it does not provide one.
 
-      `kind` says who fixes the format of a web service: `fixed` (OpenSimulator or the viewers: only the address is the grid's to choose) or `standard` (the engine's own; `standard` is its address, `legacy` the script that answered it before).
+      `kind` says who fixes the format of a web service: `fixed` (OpenSimulator or the viewers: only the address is the grid's to choose, and the format is described in this contract as an endpoint of its own) or `standard` (the engine's own; `standard` is its address, `legacy` the script that answered it before). `endpoint` is where the engine serves it.
   -
     name: 'A grid: avatars'
     description: 'Read from the databases of the grid, each in the one of its service. An avatar is made with its account, its password, its inventory and its default outfit. Its name does not change.'
@@ -49,13 +49,28 @@ tags:
     description: 'The places the guide of the grid shows, by category, in the order of its source (`GuideSource` of `[Helpers]`: a file or a URL of "Name|Region URL" lines). The same list feeds the page of the guide and the boards of the scripts.'
   -
     name: 'The application: tasks'
-    description: 'Cron and pseudo cron: each task has a name and an interval, runs when due, never twice at once, and a failure waits for its next turn. Asked to run, a task runs now.'
+    description: 'Cron and pseudo cron: each task has a name and an interval, runs when due, never twice at once, and a failure waits for its next turn. Asked to run, a task runs now. The search registers two: `search-parse` (once a minute: reads the snapshots of the registered simulators that are due) and `events-parse` (every 55 minutes: reads the calendar of events).'
   -
     name: 'The application: forms'
     description: 'The fields of the forms (grid, remote-grid, simulator, region), in the standard format of the forms: name, label, type, default, options, condition, follows, group. Whoever shows a form (the terminal, a web page) reads them from here; the engine itself uses them to work out what is not answered.'
   -
     name: 'The application: fonts'
     description: 'The names to give as `font` of a text image (`/text-images`).'
+  -
+    name: 'A grid: search'
+    description: "The search of the grid, made by the helpers: the simulators register to it and tell it their regions (a snapshot the helpers read), the viewers ask it for places, popular places, land for sale, events and classifieds. The format is the one of the module OpenSimSearch of the simulators; the address is the grid's to choose (`SearchURL` of `[Search]` and `DATA_SRV_*` of `[DataSnapshot]` in OpenSim.ini). A search can be shared by several grids: `gk`, the gatekeeper of the grid that asks, tells for which the search is made (the viewers do not send it)."
+  -
+    name: 'A grid: economy'
+    description: 'The currency and the land tools of the grid, as the viewers and the money modules call them: XML-RPC at `currency.php` and `landtool.php` under the economy address the grid gives its viewers (`economy` of `[GridInfoService]`). Nothing is served without the key of the grid (`MoneyScriptAccessKey` of `[MoneyServer]`): a quote is tied to its purchase with it and to the address of who asked. An avatar proves who they are with their secure session, a region with its secret.'
+  -
+    name: 'A grid: offline messages'
+    description: 'The messages for the avatars who are not there, with the module V1 of the simulators (`OfflineMessageModule = OfflineMessageModule`, `OfflineMessageURL` of `[Messaging]`), which posts them here in XML. The messages are kept in the table of the offline messages of Robust, the one its module V2 uses; an avatar who asked for it in their viewer also gets them by email. The other choice is the module V2 and the service of Robust, which needs none of this: with the helpers, the messages are mailed on request and none is lost; with Robust, nothing more is run, no mail is sent and 25 messages are kept per avatar.'
+  -
+    name: 'Pages of the helpers'
+    description: 'The pages the helpers show to the people, in HTML, at the addresses the grid gives (`GridInfoService` and `LoginService` in Robust.ini). They are made from the resources of this API: the guide shows `/grids/{grid}/destinations`, the profile an avatar.'
+  -
+    name: Robust
+    description: 'What Robust itself serves, which the engine reads.'
 paths:
   /grids:
     get:
@@ -1245,7 +1260,7 @@ paths:
       operationId: listDestinations
       tags:
         - 'A grid: destinations'
-      summary: 'The destinations of the guide of a grid'
+      summary: 'The destinations of the guide of a grid, as resources or as the lines of the boards'
       parameters:
         -
           name: grid
@@ -1254,6 +1269,15 @@ paths:
           description: 'The nick of the grid'
           schema:
             type: string
+        -
+          name: format
+          in: query
+          required: false
+          description: '`list` gives the lines the boards of the scripts read, in plain text'
+          schema:
+            type: string
+            enum:
+              - list
       responses:
         200:
           description: 'The destinations'
@@ -1268,12 +1292,23 @@ paths:
                       $ref: '#/components/schemas/Destinations'
                   meta:
                     type: object
+            text/plain:
+              schema:
+                type: string
+              examples:
+                list:
+                  value: |
+                    Popular places
+                    Rose garden|grid.example.org:8002/Welcome/128/128/25
+                    Places in the search
+                    Library|grid.example.org:8002/Welcome/64/64/22
         404:
           description: 'The application has none, or the grid is not known here'
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+      description: 'The list of the guide. `GuideSource` of `[Helpers]` (a file or an address of "Name|Region URL" lines, a name alone starting a category) is the list; a grid that gives none has the places its search knows, ten popular places and ten places shown in search, in two sections. With `format=list` (or `Accept: text/plain`) it is the lines themselves, as the boards of the scripts read them.'
   '/grids/{grid}/destinations/{id}':
     get:
       operationId: getDestination
@@ -1682,6 +1717,1761 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+  '/grids/{grid}/search/register':
+    get:
+      operationId: registerSimulator
+      tags:
+        - 'A grid: search'
+      summary: 'A simulator tells the search it is online, or that it is gone'
+      description: 'What the module of search of a simulator calls (`DATA_SRV_<grid>` of `[DataSnapshot]` is the address): a GET with the host and the port **of the simulator**, not those of the grid. The answer is nothing: the simulator waits for it to go on starting. The helpers read its snapshot once the answer is sent, after a pause for its regions to load, and again soon after; one that does not answer is read less and less often, then forgotten. `offline` forgets it and what it told.'
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+        -
+          name: host
+          in: query
+          required: true
+          description: "The host of the simulator (not the grid's)"
+          schema:
+            type: string
+            example: sim.example.org
+        -
+          name: port
+          in: query
+          required: true
+          description: "The HTTP port of the simulator (not the grid's)"
+          schema:
+            type: integer
+            example: 9000
+        -
+          name: service
+          in: query
+          required: true
+          description: '`online` when the simulator starts, `offline` when it stops'
+          schema:
+            type: string
+            example: online
+      responses:
+        200:
+          description: 'Registered (or unregistered); nothing is said'
+        400:
+          description: 'The host, the port or the service is missing or wrong'
+          content:
+            text/plain:
+              schema:
+                type: string
+        404:
+          description: 'The grid is not known here'
+          content:
+            text/plain:
+              schema:
+                type: string
+        503:
+          description: 'The grid has no search database, or it cannot be reached'
+          content:
+            text/plain:
+              schema:
+                type: string
+  '/grids/{grid}/search/query':
+    post:
+      operationId: searchQuery
+      tags:
+        - 'A grid: search'
+      summary: 'The questions of the viewers and of the simulators to the search'
+      description: |
+        XML-RPC, as the module OpenSimSearch speaks it: the body is a method call with one struct, the answer a struct with `success`, `errorMessage` and the rows in `data` (nothing in `data` when there is no result or it failed). The grid has the status of a failure only when the request is not understood or the search is not there.
+
+        ### `dir_places_query`
+
+        The places (parcels shown in search) whose name or description has the words.
+
+        **Request** (the struct)
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `text` | string | The words, separated by spaces |
+        | `flags` | integer | The rating the viewer wants: bits 24 (PG), 25 (Mature), 26 (Adult); bit 10 asks the order by traffic |
+        | `category` | integer | The category of the places, 0 for any |
+        | `query_start` | integer | The row to start from, 101 are given at most |
+
+        **Answer** (each row of `data`)
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `parcel_id` | string | The identifier the viewer shows the place by |
+        | `name` | string | The name of the parcel |
+        | `for_sale` | string | Always False: the land for sale is another question |
+        | `auction` | string | Always False |
+        | `dwell` | number | Its traffic |
+        | `regionname` | string | The region it is in; the other columns of the parcel and of its region come with it |
+
+        ### `dir_popular_query`
+
+        The popular places, by traffic.
+
+        **Request** (the struct)
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `text` | string | Words of the name, empty for all |
+        | `flags` | integer | Bit 12 asks the places that have a picture; bits 24 to 26 the rating |
+        | `query_start` | integer | The row to start from, 100 are given at most |
+        | `include_hypergrid` | string | `false` keeps the places of the other grids out |
+        | `include_landsales` | string | `true` adds the land for sale |
+        | `gatekeeper_url` | string | The grid the search is made for, when the address does not say it (`gk`) |
+
+        **Answer** (each row of `data`)
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `parcel_id` | string | The identifier of the place |
+        | `name` | string | The name |
+        | `dwell` | number | Its traffic |
+        | `gatekeeperURL` | string | The grid it belongs to |
+        | `regionname` | string | The region it is in |
+        | `regionUUID` | string | The UUID of the region |
+        | `landingpoint` | string | Where an avatar lands |
+        | `imageUUID` | string | Its picture |
+
+        ### `dir_land_query`
+
+        The land for sale.
+
+        **Request** (the struct)
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `flags` | integer | Bits 24 to 26 the rating; 20 asks a price limit, 21 an area limit; the order is bit 15 (ascending), 16 (price), 18 (area), 19 (name), by price per meter by default |
+        | `type` | integer | The kind of land: 4294967295 for any, bits 3 and 4 for the mainland or an estate, auctions are not listed |
+        | `price` | integer | The highest price, when flags asks it |
+        | `area` | integer | The smallest area, when flags asks it |
+        | `query_start` | integer | The row to start from, 101 are given at most |
+
+        **Answer** (each row of `data`)
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `parcel_id` | string | The identifier of the parcel |
+        | `name` | string | Its name |
+        | `auction` | string | Always false |
+        | `for_sale` | string | Always true |
+        | `sale_price` | integer | Its price |
+        | `landing_point` | string | Where an avatar lands |
+        | `region_UUID` | string | The region it is in |
+        | `area` | integer | Its area in square meters |
+
+        ### `dir_events_query`
+
+        The events of a day, or the ones to come.
+
+        **Request** (the struct)
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `text` | string | `day\|category\|words`: the day is a number of days from today, or `u` for the events to come and in progress; the category 0 for any |
+        | `flags` | integer | Bits 24 to 26: the rating |
+        | `query_start` | integer | The row to start from, 101 are given at most |
+
+        **Answer** (each row of `data`)
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `owner_id` | string | Who organizes it |
+        | `name` | string | Its title |
+        | `event_id` | integer | Its identifier |
+        | `date` | string | When it starts, in Pacific time (`m/d h:i A`), as the viewers show it |
+        | `unix_time` | integer | When it starts, Unix time |
+        | `event_flags` | integer | The rating: 0 PG, 1 Mature, 2 Adult |
+        | `landing_point` | string | Where it is on the map of the world (`x,y,z`) |
+
+        ### `dir_classified_query`
+
+        The classifieds of the profiles, by price of the listing.
+
+        **Request** (the struct)
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `text` | string | Words of the name or of the description |
+        | `flags` | integer | Bits 2 (PG), 3 (Mature), 6 (Adult) |
+        | `category` | integer | The category, 0 for any |
+        | `query_start` | integer | The row to start from, 101 are given at most |
+
+        **Answer** (each row of `data`)
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `classifiedid` | string | The UUID of the classified |
+        | `name` | string | Its title |
+        | `classifiedflags` | integer | Its flags |
+        | `creation_date` | integer | Unix time |
+        | `expiration_date` | integer | Unix time |
+        | `priceforlisting` | integer | What the listing costs |
+
+        ### `event_info_query`
+
+        One event, with all it says.
+
+        **Request** (the struct)
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `eventID` | integer | The identifier of the event |
+
+        **Answer** (each row of `data`)
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `event_id` | integer | Its identifier |
+        | `creator` | string | Who made it |
+        | `name` | string | Its title |
+        | `category` | string | Its category by name (Discussion, Sports, Live Music, Commercial, Nightlife/Entertainment, Games/Contests, Pageants, Education, Arts and Culture, Charity/Support Groups, Miscellaneous) |
+        | `description` | string | What it is |
+        | `date` | string | When it starts, server time |
+        | `dateUTC` | integer | When it starts, Unix time |
+        | `duration` | integer | Minutes |
+        | `covercharge` | integer | Whether there is a cover charge |
+        | `coveramount` | integer | How much |
+        | `simname` | string | Where it is, as a link; without the grid when it is the grid that asks (`gk`) |
+        | `globalposition` | string | Where on the map of the world |
+        | `eventflags` | integer | The rating |
+
+        ### `classifieds_info_query`
+
+        One classified, with all it says.
+
+        **Request** (the struct)
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `classifiedID` | string | The UUID of the classified |
+
+        **Answer** (each row of `data`)
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `classifieduuid` | string | Its UUID |
+        | `creatoruuid` | string | Who made it |
+        | `creationdate` | integer | Unix time |
+        | `expirationdate` | integer | Unix time |
+        | `category` | string | Its category |
+        | `name` | string | Its title |
+        | `description` | string | What it is |
+        | `parceluuid` | string | The parcel it points to |
+        | `parentestate` | integer | The estate |
+        | `snapshotuuid` | string | Its picture |
+        | `simname` | string | The region |
+        | `posglobal` | string | Where |
+        | `parcelname` | string | The parcel |
+        | `classifiedflags` | integer | Its flags |
+        | `priceforlisting` | integer | What the listing costs |
+
+        ### `avatar_publish_update`
+
+        The "show in search" box of a profile, which OpenSimulator ignores and the module tells here with the secure session of the avatar.
+
+        **Request** (the struct)
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `avatar_id` | string | The UUID of the avatar |
+        | `secure_session_id` | string | Its secure session, which only the simulator it is connected to holds |
+        | `allow_publish` | string | `true` to show the profile in search |
+
+        **Answer**: `success`, with the reason in `errorMessage` when it failed.
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+        -
+          name: gk
+          in: query
+          required: false
+          description: 'The gatekeeper of the grid the search is made for (`grid.example.org:8002`), when the search is shared: only its places are answered'
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          text/xml:
+            schema:
+              type: string
+              description: 'XML-RPC method call'
+            examples:
+              dir_places_query:
+                summary: dir_places_query
+                value: |-
+                  <?xml version="1.0"?>
+                  <methodCall>
+                  <methodName>dir_places_query</methodName>
+                  <params>
+                  <param>
+                  <value><struct>
+                  <member><name>text</name>
+                  <value><string>rose garden</string></value>
+                  </member>
+                  <member><name>flags</name>
+                  <value><int>33554432</int></value>
+                  </member>
+                  <member><name>category</name>
+                  <value><int>0</int></value>
+                  </member>
+                  <member><name>query_start</name>
+                  <value><int>0</int></value>
+                  </member>
+                  </struct></value>
+                  </param>
+                  </params>
+                  </methodCall>
+              dir_popular_query:
+                summary: dir_popular_query
+                value: |-
+                  <?xml version="1.0"?>
+                  <methodCall>
+                  <methodName>dir_popular_query</methodName>
+                  <params>
+                  <param>
+                  <value><struct>
+                  <member><name>text</name>
+                  <value><string></string></value>
+                  </member>
+                  <member><name>flags</name>
+                  <value><int>4096</int></value>
+                  </member>
+                  <member><name>query_start</name>
+                  <value><int>0</int></value>
+                  </member>
+                  <member><name>include_hypergrid</name>
+                  <value><string>true</string></value>
+                  </member>
+                  <member><name>include_landsales</name>
+                  <value><string>false</string></value>
+                  </member>
+                  <member><name>gatekeeper_url</name>
+                  <value><string></string></value>
+                  </member>
+                  </struct></value>
+                  </param>
+                  </params>
+                  </methodCall>
+              dir_land_query:
+                summary: dir_land_query
+                value: |-
+                  <?xml version="1.0"?>
+                  <methodCall>
+                  <methodName>dir_land_query</methodName>
+                  <params>
+                  <param>
+                  <value><struct>
+                  <member><name>flags</name>
+                  <value><int>0</int></value>
+                  </member>
+                  <member><name>type</name>
+                  <value><int>4294967295</int></value>
+                  </member>
+                  <member><name>price</name>
+                  <value><int>0</int></value>
+                  </member>
+                  <member><name>area</name>
+                  <value><int>0</int></value>
+                  </member>
+                  <member><name>query_start</name>
+                  <value><int>0</int></value>
+                  </member>
+                  </struct></value>
+                  </param>
+                  </params>
+                  </methodCall>
+              dir_events_query:
+                summary: dir_events_query
+                value: |-
+                  <?xml version="1.0"?>
+                  <methodCall>
+                  <methodName>dir_events_query</methodName>
+                  <params>
+                  <param>
+                  <value><struct>
+                  <member><name>text</name>
+                  <value><string>u|0|jazz</string></value>
+                  </member>
+                  <member><name>flags</name>
+                  <value><int>0</int></value>
+                  </member>
+                  <member><name>query_start</name>
+                  <value><int>0</int></value>
+                  </member>
+                  </struct></value>
+                  </param>
+                  </params>
+                  </methodCall>
+              dir_classified_query:
+                summary: dir_classified_query
+                value: |-
+                  <?xml version="1.0"?>
+                  <methodCall>
+                  <methodName>dir_classified_query</methodName>
+                  <params>
+                  <param>
+                  <value><struct>
+                  <member><name>text</name>
+                  <value><string>shop</string></value>
+                  </member>
+                  <member><name>flags</name>
+                  <value><int>4</int></value>
+                  </member>
+                  <member><name>category</name>
+                  <value><int>0</int></value>
+                  </member>
+                  <member><name>query_start</name>
+                  <value><int>0</int></value>
+                  </member>
+                  </struct></value>
+                  </param>
+                  </params>
+                  </methodCall>
+              event_info_query:
+                summary: event_info_query
+                value: |-
+                  <?xml version="1.0"?>
+                  <methodCall>
+                  <methodName>event_info_query</methodName>
+                  <params>
+                  <param>
+                  <value><struct>
+                  <member><name>eventID</name>
+                  <value><int>1</int></value>
+                  </member>
+                  </struct></value>
+                  </param>
+                  </params>
+                  </methodCall>
+              classifieds_info_query:
+                summary: classifieds_info_query
+                value: |-
+                  <?xml version="1.0"?>
+                  <methodCall>
+                  <methodName>classifieds_info_query</methodName>
+                  <params>
+                  <param>
+                  <value><struct>
+                  <member><name>classifiedID</name>
+                  <value><string>cccccccc-cccc-4ccc-8ccc-cccccccccccc</string></value>
+                  </member>
+                  </struct></value>
+                  </param>
+                  </params>
+                  </methodCall>
+              avatar_publish_update:
+                summary: avatar_publish_update
+                value: |-
+                  <?xml version="1.0"?>
+                  <methodCall>
+                  <methodName>avatar_publish_update</methodName>
+                  <params>
+                  <param>
+                  <value><struct>
+                  <member><name>avatar_id</name>
+                  <value><string>dddddddd-dddd-4ddd-8ddd-dddddddddddd</string></value>
+                  </member>
+                  <member><name>secure_session_id</name>
+                  <value><string>eeeeeeee-5555-4555-8555-eeeeeeeeeeee</string></value>
+                  </member>
+                  <member><name>allow_publish</name>
+                  <value><string>true</string></value>
+                  </member>
+                  </struct></value>
+                  </param>
+                  </params>
+                  </methodCall>
+      responses:
+        200:
+          description: 'The answer of the method'
+          content:
+            text/xml:
+              schema:
+                type: string
+              examples:
+                dir_places_query:
+                  summary: dir_places_query
+                  value: |
+                    <?xml version="1.0" encoding="utf-8" ?>
+                    <params>
+                    <param>
+                    <value><struct>
+                    <member><name>success</name>
+                    <value><boolean>1</boolean></value>
+                    </member>
+                    <member><name>errorMessage</name>
+                    <value><string></string></value>
+                    </member>
+                    <member><name>data</name>
+                    <value><array>
+                    <data>
+                    <value><struct>
+                    <member><name>parcel_id</name>
+                    <value><string>44444444-4444-4444-8444-444444444444</string></value>
+                    </member>
+                    <member><name>name</name>
+                    <value><string>Rose garden</string></value>
+                    </member>
+                    <member><name>for_sale</name>
+                    <value><string>False</string></value>
+                    </member>
+                    <member><name>auction</name>
+                    <value><string>False</string></value>
+                    </member>
+                    <member><name>dwell</name>
+                    <value><double>12.5</double></value>
+                    </member>
+                    <member><name>regionname</name>
+                    <value><string>Welcome</string></value>
+                    </member>
+                    </struct></value>
+                    </data>
+                    </array></value>
+                    </member>
+                    </struct></value>
+                    </param>
+                    </params>
+                dir_popular_query:
+                  summary: dir_popular_query
+                  value: |
+                    <?xml version="1.0" encoding="utf-8" ?>
+                    <params>
+                    <param>
+                    <value><struct>
+                    <member><name>success</name>
+                    <value><boolean>1</boolean></value>
+                    </member>
+                    <member><name>errorMessage</name>
+                    <value><string></string></value>
+                    </member>
+                    <member><name>data</name>
+                    <value><array>
+                    <data>
+                    <value><struct>
+                    <member><name>parcel_id</name>
+                    <value><string>44444444-4444-4444-8444-444444444444</string></value>
+                    </member>
+                    <member><name>name</name>
+                    <value><string>Rose garden</string></value>
+                    </member>
+                    <member><name>dwell</name>
+                    <value><double>12.5</double></value>
+                    </member>
+                    <member><name>gatekeeperURL</name>
+                    <value><string>http://grid.example.org:8002</string></value>
+                    </member>
+                    <member><name>regionname</name>
+                    <value><string>Welcome</string></value>
+                    </member>
+                    <member><name>regionUUID</name>
+                    <value><string>11111111-1111-4111-8111-111111111111</string></value>
+                    </member>
+                    <member><name>landingpoint</name>
+                    <value><string>128/128/25</string></value>
+                    </member>
+                    <member><name>imageUUID</name>
+                    <value><string>77777777-7777-4777-8777-777777777777</string></value>
+                    </member>
+                    </struct></value>
+                    </data>
+                    </array></value>
+                    </member>
+                    </struct></value>
+                    </param>
+                    </params>
+                dir_land_query:
+                  summary: dir_land_query
+                  value: |
+                    <?xml version="1.0" encoding="utf-8" ?>
+                    <params>
+                    <param>
+                    <value><struct>
+                    <member><name>success</name>
+                    <value><boolean>1</boolean></value>
+                    </member>
+                    <member><name>errorMessage</name>
+                    <value><string></string></value>
+                    </member>
+                    <member><name>data</name>
+                    <value><array>
+                    <data>
+                    <value><struct>
+                    <member><name>parcel_id</name>
+                    <value><string>44444444-4444-4444-8444-444444444444</string></value>
+                    </member>
+                    <member><name>name</name>
+                    <value><string>Empty lot</string></value>
+                    </member>
+                    <member><name>auction</name>
+                    <value><string>false</string></value>
+                    </member>
+                    <member><name>for_sale</name>
+                    <value><string>true</string></value>
+                    </member>
+                    <member><name>sale_price</name>
+                    <value><int>250</int></value>
+                    </member>
+                    <member><name>landing_point</name>
+                    <value><string>128/128/25</string></value>
+                    </member>
+                    <member><name>region_UUID</name>
+                    <value><string>11111111-1111-4111-8111-111111111111</string></value>
+                    </member>
+                    <member><name>area</name>
+                    <value><int>1024</int></value>
+                    </member>
+                    </struct></value>
+                    </data>
+                    </array></value>
+                    </member>
+                    </struct></value>
+                    </param>
+                    </params>
+                dir_events_query:
+                  summary: dir_events_query
+                  value: |
+                    <?xml version="1.0" encoding="utf-8" ?>
+                    <params>
+                    <param>
+                    <value><struct>
+                    <member><name>success</name>
+                    <value><boolean>1</boolean></value>
+                    </member>
+                    <member><name>errorMessage</name>
+                    <value><string></string></value>
+                    </member>
+                    <member><name>data</name>
+                    <value><array>
+                    <data>
+                    <value><struct>
+                    <member><name>owner_id</name>
+                    <value><string>00000000-0000-0000-0000-000000000001</string></value>
+                    </member>
+                    <member><name>name</name>
+                    <value><string>Jazz night</string></value>
+                    </member>
+                    <member><name>event_id</name>
+                    <value><int>1</int></value>
+                    </member>
+                    <member><name>date</name>
+                    <value><string>11/14 03:13 PM</string></value>
+                    </member>
+                    <member><name>unix_time</name>
+                    <value><int>1700003600</int></value>
+                    </member>
+                    <member><name>event_flags</name>
+                    <value><int>0</int></value>
+                    </member>
+                    <member><name>landing_point</name>
+                    <value><string>256010,256020,30</string></value>
+                    </member>
+                    </struct></value>
+                    </data>
+                    </array></value>
+                    </member>
+                    </struct></value>
+                    </param>
+                    </params>
+                dir_classified_query:
+                  summary: dir_classified_query
+                  value: |
+                    <?xml version="1.0" encoding="utf-8" ?>
+                    <params>
+                    <param>
+                    <value><struct>
+                    <member><name>success</name>
+                    <value><boolean>1</boolean></value>
+                    </member>
+                    <member><name>errorMessage</name>
+                    <value><string></string></value>
+                    </member>
+                    <member><name>data</name>
+                    <value><array>
+                    <data>
+                    <value><struct>
+                    <member><name>classifiedid</name>
+                    <value><string>cccccccc-cccc-4ccc-8ccc-cccccccccccc</string></value>
+                    </member>
+                    <member><name>name</name>
+                    <value><string>Shop here</string></value>
+                    </member>
+                    <member><name>classifiedflags</name>
+                    <value><int>4</int></value>
+                    </member>
+                    <member><name>creation_date</name>
+                    <value><int>1700000000</int></value>
+                    </member>
+                    <member><name>expiration_date</name>
+                    <value><int>1707776000</int></value>
+                    </member>
+                    <member><name>priceforlisting</name>
+                    <value><int>50</int></value>
+                    </member>
+                    </struct></value>
+                    </data>
+                    </array></value>
+                    </member>
+                    </struct></value>
+                    </param>
+                    </params>
+                event_info_query:
+                  summary: event_info_query
+                  value: |
+                    <?xml version="1.0" encoding="utf-8" ?>
+                    <params>
+                    <param>
+                    <value><struct>
+                    <member><name>success</name>
+                    <value><boolean>1</boolean></value>
+                    </member>
+                    <member><name>errorMessage</name>
+                    <value><string></string></value>
+                    </member>
+                    <member><name>data</name>
+                    <value><array>
+                    <data>
+                    <value><struct>
+                    <member><name>event_id</name>
+                    <value><int>1</int></value>
+                    </member>
+                    <member><name>creator</name>
+                    <value><string>00000000-0000-0000-0000-000000000001</string></value>
+                    </member>
+                    <member><name>name</name>
+                    <value><string>Jazz night</string></value>
+                    </member>
+                    <member><name>category</name>
+                    <value><string>Live Music</string></value>
+                    </member>
+                    <member><name>description</name>
+                    <value><string>Live jazz</string></value>
+                    </member>
+                    <member><name>date</name>
+                    <value><string>2026-11-14 23:13:20</string></value>
+                    </member>
+                    <member><name>dateUTC</name>
+                    <value><int>1700003600</int></value>
+                    </member>
+                    <member><name>duration</name>
+                    <value><int>60</int></value>
+                    </member>
+                    <member><name>covercharge</name>
+                    <value><int>0</int></value>
+                    </member>
+                    <member><name>coveramount</name>
+                    <value><int>0</int></value>
+                    </member>
+                    <member><name>simname</name>
+                    <value><string>Welcome (grid.example.org:8002)</string></value>
+                    </member>
+                    <member><name>globalposition</name>
+                    <value><string>128,128,25</string></value>
+                    </member>
+                    <member><name>eventflags</name>
+                    <value><int>0</int></value>
+                    </member>
+                    </struct></value>
+                    </data>
+                    </array></value>
+                    </member>
+                    </struct></value>
+                    </param>
+                    </params>
+                classifieds_info_query:
+                  summary: classifieds_info_query
+                  value: |
+                    <?xml version="1.0" encoding="utf-8" ?>
+                    <params>
+                    <param>
+                    <value><struct>
+                    <member><name>success</name>
+                    <value><boolean>1</boolean></value>
+                    </member>
+                    <member><name>errorMessage</name>
+                    <value><string></string></value>
+                    </member>
+                    <member><name>data</name>
+                    <value><array>
+                    <data>
+                    <value><struct>
+                    <member><name>classifieduuid</name>
+                    <value><string>cccccccc-cccc-4ccc-8ccc-cccccccccccc</string></value>
+                    </member>
+                    <member><name>creatoruuid</name>
+                    <value><string>dddddddd-dddd-4ddd-8ddd-dddddddddddd</string></value>
+                    </member>
+                    <member><name>creationdate</name>
+                    <value><int>1700000000</int></value>
+                    </member>
+                    <member><name>expirationdate</name>
+                    <value><int>1707776000</int></value>
+                    </member>
+                    <member><name>category</name>
+                    <value><string>3</string></value>
+                    </member>
+                    <member><name>name</name>
+                    <value><string>Shop here</string></value>
+                    </member>
+                    <member><name>description</name>
+                    <value><string>Best shop</string></value>
+                    </member>
+                    <member><name>parceluuid</name>
+                    <value><string>22222222-2222-4222-8222-222222222222</string></value>
+                    </member>
+                    <member><name>parentestate</name>
+                    <value><int>1</int></value>
+                    </member>
+                    <member><name>snapshotuuid</name>
+                    <value><string>77777777-7777-4777-8777-777777777777</string></value>
+                    </member>
+                    <member><name>simname</name>
+                    <value><string>Welcome</string></value>
+                    </member>
+                    <member><name>posglobal</name>
+                    <value><string>1,1,1</string></value>
+                    </member>
+                    <member><name>parcelname</name>
+                    <value><string>Mall</string></value>
+                    </member>
+                    <member><name>classifiedflags</name>
+                    <value><int>4</int></value>
+                    </member>
+                    <member><name>priceforlisting</name>
+                    <value><int>50</int></value>
+                    </member>
+                    </struct></value>
+                    </data>
+                    </array></value>
+                    </member>
+                    </struct></value>
+                    </param>
+                    </params>
+                avatar_publish_update:
+                  summary: avatar_publish_update
+                  value: |
+                    <?xml version="1.0" encoding="utf-8" ?>
+                    <params>
+                    <param>
+                    <value><struct>
+                    <member><name>success</name>
+                    <value><boolean>1</boolean></value>
+                    </member>
+                    <member><name>errorMessage</name>
+                    <value><string></string></value>
+                    </member>
+                    <member><name>data</name>
+                    <value><array>
+                    <data>
+                    <value><array>
+                    <data>
+                    </data>
+                    </array></value>
+                    </data>
+                    </array></value>
+                    </member>
+                    </struct></value>
+                    </param>
+                    </params>
+        400:
+          description: 'The body is not an XML-RPC request'
+          content:
+            text/xml:
+              schema:
+                type: string
+        403:
+          description: 'The caller does not hold the secure session of the avatar (avatar_publish_update)'
+          content:
+            text/xml:
+              schema:
+                type: string
+        404:
+          description: 'The grid is not known here'
+          content:
+            text/xml:
+              schema:
+                type: string
+        503:
+          description: 'The grid has no database for it, or no key for its currency'
+          content:
+            text/xml:
+              schema:
+                type: string
+  '/grids/{grid}/currency.php':
+    post:
+      operationId: currency
+      tags:
+        - 'A grid: economy'
+      summary: 'The currency: quotes, purchases, balances and transfers'
+      description: |
+        XML-RPC at `currency.php` of the economy address of the grid. The viewer asks the quote and buys; the simulators ask the balance of the avatars who are on them, move the money of a purchase, and claim the avatars that arrive. The answer is a struct with `success`, and the reason (`errorMessage`, `errorURI`) when it is false.
+
+        ### `getCurrencyQuote`
+
+        The viewer asks what an amount of currency costs.
+
+        **Request** (the struct)
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `agentId` | string | The avatar |
+        | `secureSessionId` | string | Its secure session |
+        | `currencyBuy` | integer | The amount |
+
+        **Answer**
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `success` | boolean | Whether the avatar proved who they are |
+        | `currency` | object | `estimatedCost` (in cents) and `currencyBuy` (the amount, rounded to the pack of the module when it has some) |
+        | `confirm` | string | What ties this quote to the purchase: the key of the grid and the address of whoever asked |
+        | `errorMessage` | string | Why not, when it failed |
+        | `errorURI` | string | The page of the helpers the viewer opens |
+
+        ### `buyCurrency`
+
+        The viewer buys currency.
+
+        **Request** (the struct)
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `agentId` | string | The avatar |
+        | `secureSessionId` | string | Its secure session |
+        | `currencyBuy` | integer | The amount |
+        | `confirm` | string | The value the quote gave |
+
+        **Answer**
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `success` | boolean | Whether the currency was added; when it was not, the module of the currency of the grid says what to do (Gloebit: finish on its site, Podex: use its terminals) |
+        | `errorMessage` | string | Why not |
+        | `errorURI` | string | What the viewer opens |
+
+        ### `simulatorUserBalanceRequest`
+
+        A simulator asks the balance of an avatar who is on it.
+
+        **Request** (the struct)
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `agentId` | string | The avatar |
+        | `secureSessionId` | string | Its secure session: the funds are for the one who holds it |
+
+        **Answer**
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `success` | boolean | Whether the avatar could be authenticated |
+        | `agentId` | string | The avatar |
+        | `funds` | integer | Its balance |
+
+        ### `regionMoveMoney`
+
+        A region moves money from an avatar to another (a purchase, a gift, a fee).
+
+        **Request** (the struct)
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `agentId` | string | Who pays |
+        | `destId` | string | Who is paid |
+        | `secureSessionId` | string | The secure session of the payer |
+        | `regionId` | string | The region that asks |
+        | `secret` | string | The secret of the region, which the grid gave it |
+        | `cash` | integer | The amount |
+        | `transactionType` | integer | The kind of transaction (5001 gift, 5002 object sale...) |
+        | `flags` | integer | Its flags |
+        | `description` | string | What it is for |
+        | `aggregatePermInventory` | integer | Permissions of what is sold |
+        | `aggregatePermNextOwner` | integer | Permissions of what is sold |
+
+        **Answer**
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `success` | boolean | Whether the money moved |
+        | `agentId` | string | The payer |
+        | `funds` | integer | The balance of the payer before |
+        | `funds2` | integer | The same |
+        | `currencySecret` | string | A space: nothing |
+
+        ### `simulatorClaimUserRequest`
+
+        A region claims an avatar: it is the one they are on now.
+
+        **Request** (the struct)
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `agentId` | string | The avatar |
+        | `secureSessionId` | string | Its secure session |
+        | `regionId` | string | The region |
+        | `secret` | string | The secret of the region |
+
+        **Answer**
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `success` | boolean | Whether the region is now the one of the avatar |
+        | `agentId` | string | The avatar |
+        | `funds` | integer | Its balance |
+        | `currencySecret` | string | A space: nothing |
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          text/xml:
+            schema:
+              type: string
+              description: 'XML-RPC method call'
+            examples:
+              getCurrencyQuote:
+                summary: getCurrencyQuote
+                value: |-
+                  <?xml version="1.0"?>
+                  <methodCall>
+                  <methodName>getCurrencyQuote</methodName>
+                  <params>
+                  <param>
+                  <value><struct>
+                  <member><name>agentId</name>
+                  <value><string>aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa</string></value>
+                  </member>
+                  <member><name>secureSessionId</name>
+                  <value><string>eeeeeeee-5555-4555-8555-eeeeeeeeeeee</string></value>
+                  </member>
+                  <member><name>currencyBuy</name>
+                  <value><int>1000</int></value>
+                  </member>
+                  </struct></value>
+                  </param>
+                  </params>
+                  </methodCall>
+              buyCurrency:
+                summary: buyCurrency
+                value: |-
+                  <?xml version="1.0"?>
+                  <methodCall>
+                  <methodName>buyCurrency</methodName>
+                  <params>
+                  <param>
+                  <value><struct>
+                  <member><name>agentId</name>
+                  <value><string>aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa</string></value>
+                  </member>
+                  <member><name>secureSessionId</name>
+                  <value><string>eeeeeeee-5555-4555-8555-eeeeeeeeeeee</string></value>
+                  </member>
+                  <member><name>currencyBuy</name>
+                  <value><int>1000</int></value>
+                  </member>
+                  <member><name>confirm</name>
+                  <value><string>5ebe2294ecd0e0f08eab7690d2a6ee69</string></value>
+                  </member>
+                  </struct></value>
+                  </param>
+                  </params>
+                  </methodCall>
+              simulatorUserBalanceRequest:
+                summary: simulatorUserBalanceRequest
+                value: |-
+                  <?xml version="1.0"?>
+                  <methodCall>
+                  <methodName>simulatorUserBalanceRequest</methodName>
+                  <params>
+                  <param>
+                  <value><struct>
+                  <member><name>agentId</name>
+                  <value><string>aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa</string></value>
+                  </member>
+                  <member><name>secureSessionId</name>
+                  <value><string>eeeeeeee-5555-4555-8555-eeeeeeeeeeee</string></value>
+                  </member>
+                  </struct></value>
+                  </param>
+                  </params>
+                  </methodCall>
+              regionMoveMoney:
+                summary: regionMoveMoney
+                value: |-
+                  <?xml version="1.0"?>
+                  <methodCall>
+                  <methodName>regionMoveMoney</methodName>
+                  <params>
+                  <param>
+                  <value><struct>
+                  <member><name>agentId</name>
+                  <value><string>aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa</string></value>
+                  </member>
+                  <member><name>destId</name>
+                  <value><string>bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb</string></value>
+                  </member>
+                  <member><name>secureSessionId</name>
+                  <value><string>eeeeeeee-5555-4555-8555-eeeeeeeeeeee</string></value>
+                  </member>
+                  <member><name>regionId</name>
+                  <value><string>cccccccc-3333-4333-8333-cccccccccccc</string></value>
+                  </member>
+                  <member><name>secret</name>
+                  <value><string>region-secret</string></value>
+                  </member>
+                  <member><name>cash</name>
+                  <value><int>50</int></value>
+                  </member>
+                  <member><name>transactionType</name>
+                  <value><int>5001</int></value>
+                  </member>
+                  <member><name>flags</name>
+                  <value><int>0</int></value>
+                  </member>
+                  <member><name>description</name>
+                  <value><string>Pay</string></value>
+                  </member>
+                  <member><name>aggregatePermInventory</name>
+                  <value><int>0</int></value>
+                  </member>
+                  <member><name>aggregatePermNextOwner</name>
+                  <value><int>0</int></value>
+                  </member>
+                  </struct></value>
+                  </param>
+                  </params>
+                  </methodCall>
+              simulatorClaimUserRequest:
+                summary: simulatorClaimUserRequest
+                value: |-
+                  <?xml version="1.0"?>
+                  <methodCall>
+                  <methodName>simulatorClaimUserRequest</methodName>
+                  <params>
+                  <param>
+                  <value><struct>
+                  <member><name>agentId</name>
+                  <value><string>aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa</string></value>
+                  </member>
+                  <member><name>secureSessionId</name>
+                  <value><string>eeeeeeee-5555-4555-8555-eeeeeeeeeeee</string></value>
+                  </member>
+                  <member><name>regionId</name>
+                  <value><string>cccccccc-3333-4333-8333-cccccccccccc</string></value>
+                  </member>
+                  <member><name>secret</name>
+                  <value><string>region-secret</string></value>
+                  </member>
+                  </struct></value>
+                  </param>
+                  </params>
+                  </methodCall>
+      responses:
+        200:
+          description: 'The answer of the method'
+          content:
+            text/xml:
+              schema:
+                type: string
+              examples:
+                getCurrencyQuote:
+                  summary: getCurrencyQuote
+                  value: |
+                    <?xml version="1.0" encoding="utf-8" ?>
+                    <params>
+                    <param>
+                    <value><struct>
+                    <member><name>success</name>
+                    <value><boolean>1</boolean></value>
+                    </member>
+                    <member><name>currency</name>
+                    <value><array>
+                    <data>
+                    </data>
+                    </array></value>
+                    </member>
+                    <member><name>confirm</name>
+                    <value><string>5ebe2294ecd0e0f08eab7690d2a6ee69</string></value>
+                    </member>
+                    <member><name>errorMessage</name>
+                    <value><string></string></value>
+                    </member>
+                    <member><name>errorURI</name>
+                    <value><string></string></value>
+                    </member>
+                    </struct></value>
+                    </param>
+                    </params>
+                buyCurrency:
+                  summary: buyCurrency
+                  value: |
+                    <?xml version="1.0" encoding="utf-8" ?>
+                    <params>
+                    <param>
+                    <value><struct>
+                    <member><name>success</name>
+                    <value><boolean>1</boolean></value>
+                    </member>
+                    <member><name>errorMessage</name>
+                    <value><string></string></value>
+                    </member>
+                    <member><name>errorURI</name>
+                    <value><string></string></value>
+                    </member>
+                    </struct></value>
+                    </param>
+                    </params>
+                simulatorUserBalanceRequest:
+                  summary: simulatorUserBalanceRequest
+                  value: |
+                    <?xml version="1.0" encoding="utf-8" ?>
+                    <params>
+                    <param>
+                    <value><struct>
+                    <member><name>success</name>
+                    <value><boolean>1</boolean></value>
+                    </member>
+                    <member><name>agentId</name>
+                    <value><string>aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa</string></value>
+                    </member>
+                    <member><name>funds</name>
+                    <value><int>100</int></value>
+                    </member>
+                    </struct></value>
+                    </param>
+                    </params>
+                regionMoveMoney:
+                  summary: regionMoveMoney
+                  value: |
+                    <?xml version="1.0" encoding="utf-8" ?>
+                    <params>
+                    <param>
+                    <value><struct>
+                    <member><name>success</name>
+                    <value><boolean>1</boolean></value>
+                    </member>
+                    <member><name>agentId</name>
+                    <value><string>aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa</string></value>
+                    </member>
+                    <member><name>funds</name>
+                    <value><int>200</int></value>
+                    </member>
+                    <member><name>funds2</name>
+                    <value><int>200</int></value>
+                    </member>
+                    <member><name>currencySecret</name>
+                    <value><string> </string></value>
+                    </member>
+                    </struct></value>
+                    </param>
+                    </params>
+                simulatorClaimUserRequest:
+                  summary: simulatorClaimUserRequest
+                  value: |
+                    <?xml version="1.0" encoding="utf-8" ?>
+                    <params>
+                    <param>
+                    <value><struct>
+                    <member><name>success</name>
+                    <value><boolean>1</boolean></value>
+                    </member>
+                    <member><name>agentId</name>
+                    <value><string>aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa</string></value>
+                    </member>
+                    <member><name>funds</name>
+                    <value><int>100</int></value>
+                    </member>
+                    <member><name>currencySecret</name>
+                    <value><string> </string></value>
+                    </member>
+                    </struct></value>
+                    </param>
+                    </params>
+        400:
+          description: 'The body is not an XML-RPC request'
+          content:
+            text/xml:
+              schema:
+                type: string
+        403:
+          description: 'The caller does not hold the secure session of the avatar (avatar_publish_update)'
+          content:
+            text/xml:
+              schema:
+                type: string
+        404:
+          description: 'The grid is not known here'
+          content:
+            text/xml:
+              schema:
+                type: string
+        503:
+          description: 'The grid has no database for it, or no key for its currency'
+          content:
+            text/xml:
+              schema:
+                type: string
+  '/grids/{grid}/landtool.php':
+    post:
+      operationId: landTool
+      tags:
+        - 'A grid: economy'
+      summary: 'The purchase of land: what it costs and the currency it needs'
+      description: |
+        XML-RPC at `landtool.php` of the economy address of the grid. The land itself is paid afterwards, by the region.
+
+        ### `preflightBuyLandPrep`
+
+        The viewer asks what buying land would cost, before it does.
+
+        **Request** (the struct)
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `agentId` | string | The avatar |
+        | `secureSessionId` | string | Its secure session |
+        | `currencyBuy` | integer | The currency it lacks |
+        | `billableArea` | integer | The area of the land |
+
+        **Answer**
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `success` | boolean | Whether the avatar proved who they are |
+        | `currency` | object | `estimatedCost` |
+        | `membership` | object | No upgrade: `upgrade` false, `action` the page of the helpers, `levels` |
+        | `landUse` | object | `upgrade` false, `action` the page of the helpers |
+        | `confirm` | string | What ties the quote to the purchase |
+
+        ### `buyLandPrep`
+
+        The viewer buys the currency it lacks for the land; the land itself is paid afterwards, by the region (`regionMoveMoney`).
+
+        **Request** (the struct)
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `agentId` | string | The avatar |
+        | `secureSessionId` | string | Its secure session |
+        | `currencyBuy` | integer | The currency it buys |
+        | `estimatedCost` | integer | What the quote said |
+        | `billableArea` | integer | The area of the land |
+        | `confirm` | string | The value the quote gave |
+
+        **Answer**
+
+        | Field | Type | |
+        | --- | --- | --- |
+        | `success` | boolean | Whether the currency was added |
+        | `errorMessage` | string | Why not |
+        | `errorURI` | string | The page of the helpers |
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          text/xml:
+            schema:
+              type: string
+              description: 'XML-RPC method call'
+            examples:
+              preflightBuyLandPrep:
+                summary: preflightBuyLandPrep
+                value: |-
+                  <?xml version="1.0"?>
+                  <methodCall>
+                  <methodName>preflightBuyLandPrep</methodName>
+                  <params>
+                  <param>
+                  <value><struct>
+                  <member><name>agentId</name>
+                  <value><string>aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa</string></value>
+                  </member>
+                  <member><name>secureSessionId</name>
+                  <value><string>eeeeeeee-5555-4555-8555-eeeeeeeeeeee</string></value>
+                  </member>
+                  <member><name>currencyBuy</name>
+                  <value><int>500</int></value>
+                  </member>
+                  <member><name>billableArea</name>
+                  <value><int>256</int></value>
+                  </member>
+                  </struct></value>
+                  </param>
+                  </params>
+                  </methodCall>
+              buyLandPrep:
+                summary: buyLandPrep
+                value: |-
+                  <?xml version="1.0"?>
+                  <methodCall>
+                  <methodName>buyLandPrep</methodName>
+                  <params>
+                  <param>
+                  <value><struct>
+                  <member><name>agentId</name>
+                  <value><string>aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa</string></value>
+                  </member>
+                  <member><name>secureSessionId</name>
+                  <value><string>eeeeeeee-5555-4555-8555-eeeeeeeeeeee</string></value>
+                  </member>
+                  <member><name>currencyBuy</name>
+                  <value><int>500</int></value>
+                  </member>
+                  <member><name>estimatedCost</name>
+                  <value><int>200</int></value>
+                  </member>
+                  <member><name>billableArea</name>
+                  <value><int>256</int></value>
+                  </member>
+                  <member><name>confirm</name>
+                  <value><string>5ebe2294ecd0e0f08eab7690d2a6ee69</string></value>
+                  </member>
+                  </struct></value>
+                  </param>
+                  </params>
+                  </methodCall>
+      responses:
+        200:
+          description: 'The answer of the method'
+          content:
+            text/xml:
+              schema:
+                type: string
+              examples:
+                preflightBuyLandPrep:
+                  summary: preflightBuyLandPrep
+                  value: |
+                    <?xml version="1.0" encoding="utf-8" ?>
+                    <params>
+                    <param>
+                    <value><struct>
+                    <member><name>success</name>
+                    <value><boolean>1</boolean></value>
+                    </member>
+                    <member><name>currency</name>
+                    <value><array>
+                    <data>
+                    </data>
+                    </array></value>
+                    </member>
+                    <member><name>membership</name>
+                    <value><array>
+                    <data>
+                    </data>
+                    </array></value>
+                    </member>
+                    <member><name>landUse</name>
+                    <value><array>
+                    <data>
+                    </data>
+                    </array></value>
+                    </member>
+                    <member><name>confirm</name>
+                    <value><string>5ebe2294ecd0e0f08eab7690d2a6ee69</string></value>
+                    </member>
+                    </struct></value>
+                    </param>
+                    </params>
+                buyLandPrep:
+                  summary: buyLandPrep
+                  value: |
+                    <?xml version="1.0" encoding="utf-8" ?>
+                    <params>
+                    <param>
+                    <value><struct>
+                    <member><name>success</name>
+                    <value><boolean>1</boolean></value>
+                    </member>
+                    <member><name>errorMessage</name>
+                    <value><string></string></value>
+                    </member>
+                    <member><name>errorURI</name>
+                    <value><string></string></value>
+                    </member>
+                    </struct></value>
+                    </param>
+                    </params>
+        400:
+          description: 'The body is not an XML-RPC request'
+          content:
+            text/xml:
+              schema:
+                type: string
+        403:
+          description: 'The caller does not hold the secure session of the avatar (avatar_publish_update)'
+          content:
+            text/xml:
+              schema:
+                type: string
+        404:
+          description: 'The grid is not known here'
+          content:
+            text/xml:
+              schema:
+                type: string
+        503:
+          description: 'The grid has no database for it, or no key for its currency'
+          content:
+            text/xml:
+              schema:
+                type: string
+  '/grids/{grid}/offline-messages/SaveMessage/':
+    post:
+      operationId: offlineSaveMessage
+      tags:
+        - 'A grid: offline messages'
+      summary: 'A message for an avatar who is not there is kept'
+      description: |-
+        What the module V1 of the simulators posts to `<OfflineMessageURL>/SaveMessage/`.
+
+        **Request**: The `GridInstantMessage` of OpenSimulator, in XML (`fromAgentID`, `fromAgentName`, `toAgentID`, `dialog`, `message`, ...).
+
+        **Answer**: `<boolean>true</boolean>` when it was kept, `<error>` when it was not.
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          text/xml:
+            schema:
+              type: string
+              description: XML
+            examples:
+              example:
+                value: |-
+                  <?xml version="1.0" encoding="utf-8"?>
+                  <GridInstantMessage xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><fromAgentID>bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb</fromAgentID><fromAgentName>Ada Love</fromAgentName><toAgentID>aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa</toAgentID><dialog>0</dialog><fromGroup>false</fromGroup><message>Hello</message></GridInstantMessage>
+      responses:
+        200:
+          description: '`<boolean>true</boolean>` when it was kept, `<error>` when it was not'
+          content:
+            text/xml:
+              schema:
+                type: string
+        400:
+          description: 'The body is empty, or is not XML'
+          content:
+            text/xml:
+              schema:
+                type: string
+        404:
+          description: 'The grid is not known here, or the method is not one of the module'
+          content:
+            text/xml:
+              schema:
+                type: string
+        503:
+          description: 'The grid has no database for the offline messages, or it cannot be reached'
+          content:
+            text/xml:
+              schema:
+                type: string
+  '/grids/{grid}/offline-messages/RetrieveMessages/':
+    post:
+      operationId: offlineRetrieveMessages
+      tags:
+        - 'A grid: offline messages'
+      summary: 'The messages kept for an avatar who comes back are given, and forgotten'
+      description: |-
+        What the module V1 of the simulators posts to `<OfflineMessageURL>/RetrieveMessages/`.
+
+        **Request**: The UUID of the avatar: `<UUID><Guid>...</Guid></UUID>`.
+
+        **Answer**: An `ArrayOfGridInstantMessage` with the messages, in the XML they were kept in.
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          text/xml:
+            schema:
+              type: string
+              description: XML
+            examples:
+              example:
+                value: '<UUID><Guid>aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa</Guid></UUID>'
+      responses:
+        200:
+          description: 'An `ArrayOfGridInstantMessage` with the messages, in the XML they were kept in'
+          content:
+            text/xml:
+              schema:
+                type: string
+        400:
+          description: 'The body is empty, or is not XML'
+          content:
+            text/xml:
+              schema:
+                type: string
+        404:
+          description: 'The grid is not known here, or the method is not one of the module'
+          content:
+            text/xml:
+              schema:
+                type: string
+        503:
+          description: 'The grid has no database for the offline messages, or it cannot be reached'
+          content:
+            text/xml:
+              schema:
+                type: string
+  /search:
+    get:
+      operationId: pageSearch
+      tags:
+        - 'Pages of the helpers'
+      summary: 'The web search of the grid'
+      description: 'The page the viewers open for the search. The address is `search` of `[GridInfoService]` and `SearchURL` of `[LoginService]`, which the setup keeps equal.'
+      parameters: []
+      responses:
+        200:
+          description: 'The page'
+          content:
+            text/html:
+              schema:
+                type: string
+  /welcome:
+    get:
+      operationId: pageWelcome
+      tags:
+        - 'Pages of the helpers'
+      summary: 'The welcome page of the grid'
+      description: 'The page the viewers show at login. The address is `welcome` of `[GridInfoService]`.'
+      parameters: []
+      responses:
+        200:
+          description: 'The page'
+          content:
+            text/html:
+              schema:
+                type: string
+  /guide:
+    get:
+      operationId: pageGuide
+      tags:
+        - 'Pages of the helpers'
+      summary: 'The destination guide'
+      description: 'The page the viewers open for the destinations (`DestinationGuide` of `[LoginService]`), made from `/grids/{grid}/destinations`.'
+      parameters: []
+      responses:
+        200:
+          description: 'The page'
+          content:
+            text/html:
+              schema:
+                type: string
+  '/profile/{name}':
+    get:
+      operationId: pageProfile
+      tags:
+        - 'Pages of the helpers'
+      summary: 'The profile of an avatar'
+      description: 'The page the viewers open for a profile (`web_profile_url` of `[GridInfoService]`, `[AGENT_NAME]` standing for the name).'
+      parameters:
+        -
+          name: name
+          in: path
+          required: true
+          description: 'The name of the avatar'
+          schema:
+            type: string
+      responses:
+        200:
+          description: 'The page'
+          content:
+            text/html:
+              schema:
+                type: string
+  /grid_status:
+    get:
+      operationId: pageGridStatus
+      tags:
+        - 'Pages of the helpers'
+      summary: 'The status of the grid'
+      description: 'A light page, in HTML or plain text, from which the viewer takes one line of global status by keyword (ONLINE green, OFFLINE red, DEGRADED or MAINTENANCE orange). The address is `GridStatus` of `[GridInfoService]`.'
+      parameters: []
+      responses:
+        200:
+          description: 'The page'
+          content:
+            text/html:
+              schema:
+                type: string
+  /grid_status.rss:
+    get:
+      operationId: feedGridStatus
+      tags:
+        - 'Pages of the helpers'
+      summary: 'The feed of the status of the grid'
+      description: 'The RSS feed the viewers read for the news of the grid (`GridStatusRSS` of `[GridInfoService]`).'
+      responses:
+        200:
+          description: 'The feed'
+          content:
+            application/rss+xml:
+              schema:
+                type: string
+  /get_grid_info:
+    get:
+      operationId: getGridInfo
+      tags:
+        - Robust
+      summary: 'What the grid says of itself'
+      description: 'Served by Robust at its public port, not by the engine, which reads it (`Grid::gridInfo()`). The elements are the keys of `[GridInfoService]` of Robust.ini, **every one**, the free ones included: `gridname`, `gridnick`, `login` (the address of the grid, which is the truth about it whatever address it was reached at), `economy`, `search`, `welcome`... What a grid says is kept for a day when it is verified.'
+      servers:
+        -
+          url: '{login}'
+          description: 'The login address of the grid'
+          variables:
+            login:
+              default: 'http://grid.example.org:8002'
+      responses:
+        200:
+          description: 'The elements of `[GridInfoService]`'
+          content:
+            text/xml:
+              schema:
+                type: string
+              examples:
+                example:
+                  value: |-
+                    <?xml version="1.0"?>
+                    <gridinfo><gridname>Demo World</gridname><gridnick>demo</gridnick><login>http://grid.example.org:8002/</login><economy>https://web.example.org/helpers</economy><search>https://web.example.org/search</search></gridinfo>
 components:
   schemas:
     Problem:
@@ -2010,6 +3800,11 @@ components:
                 - string
                 - 'null'
               description: 'Its address in the standard of the engine, when it has one'
+            endpoint:
+              type:
+                - string
+                - 'null'
+              description: 'Where the engine serves it (the standard address, or the one of the fixed format), when it does'
             source:
               type:
                 - string

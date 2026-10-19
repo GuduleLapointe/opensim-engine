@@ -2,6 +2,9 @@
 
 ### Unreleased
 
+- new: `Economy\Currency` is an instance configured by `CurrencySettings` (from the files of the grid); `Services\CurrencyServer` answers the currency and the land tools of the viewers and the simulators; `Services\DefaultDestinations`: a grid with no guide has its popular places and the places shown in search
+- new: the contract describes every endpoint (`Api\Formats`, `Endpoints`): the search, the registration, the offline messages, the currency, the land tools, the pages of the helpers, `get_grid_info`; `Service::endpoint()` says where the engine serves each; `register` and `offline` are of a fixed format
+- new: `Api\Legacy::textgen()`: the old parameters of the images of a text
 - new: the offline messages are a choice of the setup (`offline`: the helpers with the module V1, Robust with the module V2, or both), `opensim enable|disable <grid> offline [helpers|robust]`; the grid says it as `OfflineMessages` in its conf; the health page does not ask the helpers for the module V2
 - new: `Services\OfflineMessages` (the module V1: save, retrieve, mail), `Services\SearchRegistry`, `SearchParser`, `EventsParser`, `SearchQuery`, `SearchTasks`, `XmlRpc`: the registration of simulators, the snapshots, the events and the questions of the viewers, served by `Api\Handler`
 - new: standard endpoints `/grids/{grid}/motd`, `/grids/{grid}/destinations` (the guide), `/text-images`, `/fonts`; `Grid::motd()`, `destinations()`, `Text\DestinationList`, `Assets\ImagickTextRenderer`; `Handler` takes `grid:` for a host that serves one grid

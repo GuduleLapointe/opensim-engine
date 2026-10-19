@@ -105,7 +105,7 @@ final class Contract
             'scope' => 'machine',
             'summary' => 'The services of the grids of this machine',
             'description' =>
-                "What the simulators and the users of a grid ask for: the assets, the profiles, the login, the search. A service is served by a Robust of the grid, by the simulator of a standalone, or by a web site (the helpers) at an address the config of the grid gives.\n\n`get-grid-info` is the /get_grid_info that Robust answers: the engine reads it, it does not provide one.\n\n`kind` says who fixes the format of a web service: `fixed` (OpenSimulator or the viewers: only the address is the grid's to choose) or `standard` (the engine's own; `standard` is its address, `legacy` the script that answered it before).",
+                "What the simulators and the users of a grid ask for: the assets, the profiles, the login, the search. A service is served by a Robust of the grid, by the simulator of a standalone, or by a web site (the helpers) at an address the config of the grid gives.\n\n`get-grid-info` is the /get_grid_info that Robust answers: the engine reads it, it does not provide one.\n\n`kind` says who fixes the format of a web service: `fixed` (OpenSimulator or the viewers: only the address is the grid's to choose, and the format is described in this contract as an endpoint of its own) or `standard` (the engine's own; `standard` is its address, `legacy` the script that answered it before). `endpoint` is where the engine serves it.",
             'attributes' => [
                 'key' => ['string', 'What it is for: asset, inventory, profile, search...'],
                 'name' => ['string', 'The name shown'],
@@ -131,6 +131,10 @@ final class Contract
                 'kind' => ['string?', 'fixed or standard, for a web service'],
                 'legacy' => ['string?', 'The script that answered it before the standard'],
                 'standard' => ['string?', 'Its address in the standard of the engine, when it has one'],
+                'endpoint' => [
+                    'string?',
+                    'Where the engine serves it (the standard address, or the one of the fixed format), when it does',
+                ],
                 'source' => [
                     'string?',
                     'Where its address comes from: provider, simulator, live (the running grid), config, default (where the helpers answer)',
@@ -375,7 +379,7 @@ final class Contract
             'scope' => 'application',
             'summary' => 'The tasks the application runs now and then',
             'description' =>
-                'Cron and pseudo cron: each task has a name and an interval, runs when due, never twice at once, and a failure waits for its next turn. Asked to run, a task runs now.',
+                'Cron and pseudo cron: each task has a name and an interval, runs when due, never twice at once, and a failure waits for its next turn. Asked to run, a task runs now. The search registers two: `search-parse` (once a minute: reads the snapshots of the registered simulators that are due) and `events-parse` (every 55 minutes: reads the calendar of events).',
             'attributes' => [
                 'label' => ['string', 'What it is for'],
                 'every' => ['integer', 'Seconds between two runs'],
@@ -675,6 +679,14 @@ final class Contract
             ],
         ];
 
+        $endpoints = Endpoints::document($scopes);
+        $tags = [...$tags, ...$endpoints['tags']];
+        $paths = [...$paths, ...$endpoints['paths']];
+        isset($paths['/grids/{grid}/destinations']['get']) &&
+            ($paths['/grids/{grid}/destinations']['get'] = Endpoints::destinations(
+                $paths['/grids/{grid}/destinations']['get'],
+            ));
+
         return [
             'openapi' => '3.1.0',
             'info' => [
@@ -792,7 +804,7 @@ final class Contract
     }
 
     /** @return array<string,mixed> */
-    private static function gridParameter(): array
+    public static function gridParameter(): array
     {
         return [
             'name' => 'grid',

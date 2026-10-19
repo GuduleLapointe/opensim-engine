@@ -146,9 +146,9 @@ final class Service extends InstalledModel
             'port' => self::PRIVATE,
             'setting' => ['Messaging', 'OfflineMessageURL'],
             'database' => Database::Offline,
-            'kind' => self::STANDARD,
+            'kind' => self::FIXED,
             'legacy' => 'offline',
-            'standard' => 'POST /offline-messages',
+            'endpoint' => 'POST /offline-messages/{method}/',
         ],
         'profile' => [
             'connectors' => ['UserProfilesServiceConnector'],
@@ -220,6 +220,7 @@ final class Service extends InstalledModel
             'default' => 'query',
             'kind' => self::FIXED,
             'legacy' => 'query',
+            'endpoint' => 'POST /search/query',
         ],
         'search' => [
             'connectors' => [],
@@ -263,6 +264,7 @@ final class Service extends InstalledModel
             'database' => Database::Economy,
             'kind' => self::FIXED,
             'legacy' => 'currency',
+            'endpoint' => 'POST /currency.php',
         ],
         'landtool' => [
             'connectors' => [],
@@ -276,6 +278,7 @@ final class Service extends InstalledModel
             'database' => null,
             'kind' => self::FIXED,
             'legacy' => 'landtool',
+            'endpoint' => 'POST /landtool.php',
         ],
         'register' => [
             'connectors' => [],
@@ -283,9 +286,9 @@ final class Service extends InstalledModel
             'setting' => ['DataSnapshot', 'DATA_SRV_*'],
             'default' => 'register',
             'database' => Database::Search,
-            'kind' => self::STANDARD,
+            'kind' => self::FIXED,
             'legacy' => 'register',
-            'standard' => 'POST /search/hosts',
+            'endpoint' => 'GET /search/register',
         ],
         'motd' => [
             'connectors' => [],
@@ -622,6 +625,15 @@ final class Service extends InstalledModel
         return self::CATALOG[$this->key]['standard'] ?? null;
     }
 
+    /**
+     * Where the engine serves it (`POST /search/query`, `GET /motd`), under the API mount or, on a host that serves one grid, without
+     * `/grids/{grid}`: the standard address, or the one of the fixed format; null when the engine does not serve it (Robust does).
+     */
+    public function endpoint(): ?string
+    {
+        return self::CATALOG[$this->key]['endpoint'] ?? (self::CATALOG[$this->key]['standard'] ?? null);
+    }
+
     /** The port it is reached on: self::PRIVATE or self::PUBLIC. */
     public function port(): string
     {
@@ -822,6 +834,7 @@ final class Service extends InstalledModel
             'kind' => $this->kind(),
             'legacy' => $this->legacy(),
             'standard' => $this->standard(),
+            'endpoint' => $this->endpoint(),
             'source' => $this->source(),
         ];
     }

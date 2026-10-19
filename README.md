@@ -88,7 +88,8 @@ A grid has one or several Robust instances, each serving some of its services; a
 | `OpenSim\Data` | `Database` (the databases of a grid), `Connections`, `OSPDO`, `Collection` |
 | `OpenSim\Provisioning` | planners and provisioners: they answer "what would this be" before "make it" |
 | `OpenSim\Scheduling` | `Scheduler`, `Task`: cron and pseudo cron |
-| `OpenSim\Api` | `Api`, `Contract`, `Problem`, `Handler`: the resources as JSON:API, the errors as RFC 9457, served as a PSR-15 handler |
+| `OpenSim\Api` | `Api`, `Contract`, `Problem`, `Handler`: the resources as JSON:API, the errors as RFC 9457, served as a PSR-15 handler; `Formats` and `Endpoints` describe what OpenSimulator and the viewers call; `Legacy` gives the old scripts the standard |
+| `OpenSim\Services` | the services the helpers serve: the search (`SearchQuery`, `SearchRegistry`, `SearchParser`, `EventsParser`), the offline messages, the currency and the land tools, XML-RPC |
 | `OpenSim\Archives`, `Health`, `Hypergrid`, `Network`, `Security`, `Forms`, `Testing` | archives, health checks, hypergrid links, ports, escaping, forms, fakes |
 
 `OpenSim\Testing\Machine` is a machine that is a folder (a grid `demo`, two simulators), `EnvironmentFake::with($layout)` an environment that touches nothing: the suite runs anywhere (`composer test`).

@@ -649,6 +649,12 @@ final class Api
         return $grid === null ? self::RESOURCES[$type] ?? null : self::GRID_RESOURCES[$type] ?? null;
     }
 
+    /** @return list<string> the fonts the machine has to draw a text */
+    public function fontNames(): array
+    {
+        return $this->renderer()->fonts();
+    }
+
     private function renderer(): TextRendererInterface
     {
         return $this->texts ?? new ImagickTextRenderer();

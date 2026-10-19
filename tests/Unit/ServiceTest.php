@@ -180,8 +180,8 @@ describe('web services of a grid', function () {
                 'search' => ['https://play.example.org/search', Service::PAGE, null],
                 'currency' => ['https://play.example.org/helpers/currency.php', Service::FIXED, 'currency'],
                 'landtool' => ['https://play.example.org/helpers/landtool.php', Service::FIXED, 'landtool'],
-                'register' => ['https://play.example.org/helpers/register.php', Service::STANDARD, 'register'],
-                'offline' => ['https://play.example.org/helpers/offline.php', Service::STANDARD, 'offline'],
+                'register' => ['https://play.example.org/helpers/register.php', Service::FIXED, 'register'],
+                'offline' => ['https://play.example.org/helpers/offline.php', Service::FIXED, 'offline'],
                 'motd' => ['https://play.example.org/helpers/motd.php', Service::STANDARD, 'motd'],
                 'guide' => ['https://play.example.org/guide', Service::STANDARD, 'guide'],
                 'grid-status-rss' => ['https://play.example.org/status.rss', Service::FIXED, null],
@@ -279,10 +279,19 @@ describe('web services of a grid', function () {
                     'kind' => 'standard',
                     'legacy' => 'motd',
                     'standard' => 'GET /motd',
+                    'endpoint' => 'GET /motd',
                     'source' => 'config',
                 ])
                 ->and(web_grid()->service('query')->standard())
                 ->toBeNull()
+                ->and(web_grid()->service('query')->endpoint())
+                ->toBe('POST /search/query')
+                ->and(web_grid()->service('register')->endpoint())
+                ->toBe('GET /search/register')
+                ->and(web_grid()->service('offline')->kind())
+                ->toBe('fixed')
+                ->and(web_grid()->service('currency')->endpoint())
+                ->toBe('POST /currency.php')
                 ->and(web_grid()->service('parser')->standard())
                 ->toBe('POST /tasks/search-parse/runs');
         },

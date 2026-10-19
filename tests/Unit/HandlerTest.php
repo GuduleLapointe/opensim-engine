@@ -548,3 +548,55 @@ describe('The API handler, for the default guide', function () {
         expect((string) $accepted->getBody())->toBe((string) $lines->getBody());
     });
 })->skip(fn() => test_pdo() === null, 'TEST_DATABASE is not set in tests/.env');
+
+describe('The old scripts', function () {
+    test('textgen.php gives the standard text image what it took, urldecode twice and fontsize included', function () {
+        $drawn = [];
+        $api = new Api((new Machine())->environment, texts: text_renderer($drawn));
+
+        $plain = OpenSim\Api\Legacy::textgen($api, [
+            'string' => 'Hello%20World',
+            'fontsize' => '60',
+            'textcolor' => 'red',
+            'backgroundcolor' => 'blue',
+        ]);
+        $quoted = OpenSim\Api\Legacy::textgen($api, [
+            'string' => "It\\'s",
+            'font' => 'DejaVu-Sans',
+            'size' => '90',
+            'color' => 'black',
+            'background' => 'white',
+            'download' => '1',
+        ]);
+        $inpage = OpenSim\Api\Legacy::textgen($api, ['string' => 'A', 'download' => '1', 'inpage' => '1']);
+        $default = OpenSim\Api\Legacy::textgen($api, []);
+
+        expect($plain->body())
+            ->toBe('png:Hello World')
+            ->and($drawn[0])
+            ->toBe(['Hello World', 'Impact', 60, 'red', 'blue'])
+            ->and($quoted->headers['Content-Disposition'])
+            ->toBe('attachment; filename="Its.png"')
+            ->and($drawn[1])
+            ->toBe(["It's", 'DejaVu-Sans', 90, 'black', 'white'])
+            ->and(isset($inpage->headers['Content-Disposition']))
+            ->toBeFalse()
+            ->and($default->body())
+            ->toBe('png:Impact');
+    });
+
+    test('textgen.php lists the fonts as JSON or as lines', function () {
+        $drawn = [];
+        $api = new Api((new Machine())->environment, texts: text_renderer($drawn));
+
+        $json = OpenSim\Api\Legacy::textgen($api, ['json' => '']);
+        $list = OpenSim\Api\Legacy::textgen($api, ['list' => '1']);
+
+        expect($json->headers['Content-Type'])
+            ->toBe('application/json')
+            ->and($json->body())
+            ->toBe('["Impact","DejaVu-Sans"]')
+            ->and($list->body())
+            ->toBe("Impact\nDejaVu-Sans");
+    });
+});
