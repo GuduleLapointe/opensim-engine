@@ -3,6 +3,7 @@
 namespace OpenSim\Provisioning;
 
 use OpenSim\Console\InstanceConsoleService;
+use OpenSim\Models\Avatar;
 use OpenSim\Models\Grid;
 use OpenSim\Runtime\ShellService;
 
@@ -21,10 +22,10 @@ final class GridAccounts
 
     public function __construct(private DatabaseService $database, private UiInterface $ui) {}
 
-    /** What a name of a person is made of: first and last name, as OpenSimulator has it. */
+    /** What a name of a person is made of (see Avatar::validName()). */
     public static function validName(string $name): bool
     {
-        return preg_match('/^[A-Za-z0-9._-]+ [A-Za-z0-9._-]+$/', $name) === 1;
+        return Avatar::validName($name);
     }
 
     /**

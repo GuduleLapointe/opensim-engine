@@ -2,6 +2,7 @@
 
 namespace OpenSim\Provisioning;
 
+use OpenSim\Models\Avatar;
 use Symfony\Component\Yaml\Yaml;
 
 /**
@@ -154,19 +155,16 @@ final class SetupFile
 
         $owner = $data['owner'] ?? null;
         if (is_array($owner)) {
-            if (!GridAccounts::validName(trim((string) ($owner['name'] ?? '')))) {
+            if (!Avatar::validName(trim((string) ($owner['name'] ?? '')))) {
                 $problems[] = 'owner.name is a first and a last name, e.g. Jane Doe';
             }
             // The password, or its hash and salt as Robust keeps them (what the setup writes in its own file)
-            $hashed =
-                preg_match('/^[0-9a-f]{32}$/i', (string) ($owner['password_hash'] ?? '')) === 1 &&
-                preg_match('/^[0-9a-zA-Z]{1,64}$/', (string) ($owner['password_salt'] ?? '')) === 1;
-            if (!$hashed && strlen((string) ($owner['password'] ?? '')) < 6) {
-                $problems[] =
-                    'owner.password has at least 6 characters (or owner.password_hash and owner.password_salt)';
+            $hashed = Avatar::validPasswordHash((string) ($owner['password_hash'] ?? ''), (string) ($owner['password_salt'] ?? ''));
+            if (!$hashed && ($problem = Avatar::validatePassword($owner['password'] ?? '')) !== null) {
+                $problems[] = "owner.password is $problem (or owner.password_hash and owner.password_salt)";
             }
             $email = trim((string) ($owner['email'] ?? ''));
-            if ($email !== '' && !preg_match('/^[^\s"\'\\\\]+@[^\s"\'\\\\]+$/', $email)) {
+            if ($email !== '' && !Avatar::validEmail($email)) {
                 $problems[] = 'owner.email is an address, or nothing';
             }
         }

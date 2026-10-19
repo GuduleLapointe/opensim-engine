@@ -8,7 +8,6 @@ use OpenSim\Config\ConnectionString;
 use OpenSim\Console\ConsoleInterface;
 use OpenSim\Controllers\OpenSimController;
 use OpenSim\Data\Collection;
-use OpenSim\Provisioning\GridAccounts;
 use OpenSim\Provisioning\Slug;
 use OpenSim\Runtime\Core;
 use OpenSim\Runtime\Environment;
@@ -118,7 +117,7 @@ final class Simulator extends InstalledModel
                 'name' => 'estate_owner',
                 'group' => 'estate',
                 'label' => _('Estate owner (an account of the grid)'),
-                'callback' => [self::class, 'validateOwner'],
+                'callback' => [Avatar::class, 'validateName'],
             ]);
         } elseif ($accounts !== []) {
             $fields[] = [
@@ -140,7 +139,8 @@ final class Simulator extends InstalledModel
                 'name' => 'new_name',
                 'group' => 'estate',
                 'label' => _('Name of the new account (First Last)'),
-                'callback' => [self::class, 'validateNewAvatar'],
+                'callback' => [Avatar::class, 'validateNewName'],
+                'normalize' => [Avatar::class, 'normalizeName'],
             ] + $new,
         );
         $fields[] = $fresh(
@@ -149,7 +149,7 @@ final class Simulator extends InstalledModel
                 'group' => 'estate',
                 'type' => 'secret',
                 'label' => _('Password of the new account'),
-                'callback' => [self::class, 'validatePassword'],
+                'callback' => [Avatar::class, 'validatePassword'],
             ] + $new,
         );
         $fields[] =
@@ -160,7 +160,7 @@ final class Simulator extends InstalledModel
                 'type' => 'string',
                 'required' => false,
                 'label' => _('Email of the new account (optional)'),
-                'callback' => [self::class, 'validateEmail'],
+                'callback' => [Avatar::class, 'validateEmail'],
             ] + $new;
 
         return $fields;
@@ -174,40 +174,9 @@ final class Simulator extends InstalledModel
             : _('invalid (letters, digits, space -)');
     }
 
-    /**
-     * The name of an account that is made: two words of letters, digits and hyphens. The dot and the at sign are the hypergrid's
-     * (First.Last@grid), the underscore is taken for a space in many places of OpenSimulator.
-     */
-    public static function validateNewAvatar(mixed $value): ?string
-    {
-        return preg_match('/^[A-Za-z0-9-]+ [A-Za-z0-9-]+$/', trim((string) $value)) === 1 ? null : _('invalid (First Last)');
-    }
 
-    /** The name of an account: first and last name. */
-    public static function validateOwner(mixed $value): ?string
-    {
-        return GridAccounts::validName(trim((string) $value)) ? null : _('invalid (First Last)');
-    }
 
-    /** The password of an account to make. */
-    public static function validatePassword(mixed $value): ?string
-    {
-        // The double quote stays out: the implementations and the console do not agree on it
-        return match (true) {
-            preg_match('/["\r\n]/', (string) $value) === 1 => _('invalid (no double quote)'),
-            strlen((string) $value) < 6 => _('too short (6 min)'),
-            default => null,
-        };
-    }
 
-    /** The email of an account to make, or nothing. */
-    public static function validateEmail(mixed $value): ?string
-    {
-        return trim((string) $value) === '' ||
-            preg_match('/^[^\s"\'\\\\]+@[^\s"\'\\\\]+$/', trim((string) $value)) === 1
-            ? null
-            : _('invalid');
-    }
 
     /**
      * Where it is reached, `host:port`: what identifies it. The port is the one it listens on, the host the one its regions announce

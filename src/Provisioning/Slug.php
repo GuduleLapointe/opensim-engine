@@ -89,6 +89,26 @@ final class Slug
         return $out !== false ? $out : $value;
     }
 
+    /**
+     * A name in Latin letters, whatever alphabet it is written in: transliterated, then what a name cannot have removed (the words kept
+     * apart by one space). A name that is ASCII already is returned as it is, for the rules of its model to say what is wrong with it.
+     *
+     * @param string $kept the punctuation the name may have besides letters, digits and the space
+     */
+    public static function latin(string $value, string $kept = ''): string
+    {
+        if ($value === '' || preg_match('/[^\x00-\x7F]/', $value) !== 1) {
+            return $value;
+        }
+        $ascii = self::ascii($value);
+        // The compatibility forms (a superscript n) become letters
+        class_exists(\Normalizer::class) && ($ascii = \Normalizer::normalize($ascii, \Normalizer::FORM_KD) ?: $ascii);
+        $clean = (string) preg_replace('/[^A-Za-z0-9 ' . preg_quote($kept, '/') . ']/', '', $ascii);
+        $clean = trim((string) preg_replace('/ +/', ' ', $clean));
+
+        return $clean !== '' ? $clean : $value;
+    }
+
     private static function words(string $name, string $glue): string
     {
         $ascii = strtolower((string) preg_replace('/([a-z0-9])([A-Z])/', '$1 $2', self::ascii($name)));

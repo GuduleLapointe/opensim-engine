@@ -115,7 +115,14 @@ final class Grid extends InstalledModel
         $cores = $options['cores'] ?? [];
 
         return [
-            ['name' => 'name', 'group' => 'grid', 'type' => 'string', 'required' => true, 'label' => _('Grid name')],
+            [
+                'name' => 'name',
+                'group' => 'grid',
+                'type' => 'string',
+                'required' => true,
+                'label' => _('Grid name'),
+                'normalize' => [self::class, 'normalizeName'],
+            ],
             [
                 // The nick names the folder, the database and the instances: it is not changed afterwards
                 'name' => 'nick',
@@ -157,6 +164,7 @@ final class Grid extends InstalledModel
                 'type' => 'string',
                 'required' => true,
                 'label' => _('Base hostname'),
+                'callback' => [self::class, 'validateHostname'],
             ],
             [
                 'name' => 'public_port',
@@ -216,6 +224,7 @@ final class Grid extends InstalledModel
                 'type' => 'string',
                 'required' => true,
                 'label' => _('Web URL'),
+                'callback' => [self::class, 'validateWebUrl'],
             ],
             [
                 'name' => 'helpers',
@@ -409,6 +418,61 @@ final class Grid extends InstalledModel
                 'label' => _('Does the grid use Hypergrid?'),
             ],
         ];
+    }
+
+    /** The name of a grid in Latin letters without accents (the viewers lose the accents), every alphabet transliterated. */
+    public static function normalizeName(string $name): string
+    {
+        return Slug::latin($name, '.-');
+    }
+
+    /** A host name or an IPv6 address in brackets: labels of letters (unicode too), digits and hyphens. */
+    private const HOST = '[\p{L}\p{N}](?:[\p{L}\p{N}-]*[\p{L}\p{N}])?(?:\.[\p{L}\p{N}](?:[\p{L}\p{N}-]*[\p{L}\p{N}])?)*|\[[0-9A-Fa-f:.]+\]';
+
+    /** The host name of a grid. */
+    public static function validateHostname(mixed $value): ?string
+    {
+        return preg_match('~^(?:' . self::HOST . ')$~u', trim((string) $value)) === 1 ? null : _('invalid (host name)');
+    }
+
+    /** The web address of a grid: http or https, the host, a port and a path if any. */
+    public static function validateWebUrl(mixed $value): ?string
+    {
+        return preg_match('~^https?://(?:' . self::HOST . ')(?::\d{1,5})?(?:/\S*)?$~iu', trim((string) $value)) === 1
+            ? null
+            : _('invalid (https://host)');
+    }
+
+    /** A host name is lower case. It is not transliterated: a domain name can be in unicode. */
+    public static function normalizeHostname(string $host): string
+    {
+        return mb_strtolower(trim($host));
+    }
+
+    /**
+     * The host and the port a login address says, with or without the scheme (host, host:port, http://host:port/); nothing for what it
+     * does not say. http is the only scheme handled for now: https is told, anything else is not an address.
+     *
+     * @return array{0:array{hostname?:string,public_port?:int},1:?string} what the address says, the problem
+     */
+    public static function parseLoginUri(string $uri): array
+    {
+        $uri = trim($uri);
+        if ($uri === '') {
+            return [[], null];
+        }
+        $pattern = '~^(?:(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*)://)?(?P<host>' . self::HOST . ')(?::(?P<port>\d{1,5}))?/?$~u';
+        if (
+            preg_match($pattern, $uri, $m) !== 1 ||
+            (($m['port'] ?? '') !== '' && ((int) $m['port'] < 1 || (int) $m['port'] > 65535)) ||
+            (($m['scheme'] ?? '') !== '' && !in_array(strtolower($m['scheme']), ['http', 'https'], true))
+        ) {
+            return [[], _('invalid (host:port)')];
+        }
+        $found = ['hostname' => self::normalizeHostname($m['host'])];
+        ($m['port'] ?? '') !== '' && ($found['public_port'] = (int) $m['port']);
+
+        return [$found, (strtolower($m['scheme'] ?? '') ?: 'http') === 'http' ? null : _('https not supported')];
     }
 
     /** A port number. */

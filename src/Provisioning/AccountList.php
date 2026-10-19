@@ -2,6 +2,8 @@
 
 namespace OpenSim\Provisioning;
 
+use OpenSim\Models\Avatar;
+
 /**
  * A list of accounts to make, given as CSV (first, last, email, password, with or without a header line) or
  * as JSON (a list of objects with the same keys), as a third party gives it.
@@ -31,14 +33,11 @@ final class AccountList
             $problem = null;
             $hash = strtolower(trim((string) ($row['password_hash'] ?? '')));
             $salt = trim((string) ($row['password_salt'] ?? ''));
-            if (
-                $hash !== '' &&
-                (preg_match('/^[0-9a-f]{32}$/', $hash) !== 1 || preg_match('/^[0-9a-zA-Z]{1,64}$/', $salt) !== 1)
-            ) {
+            if ($hash !== '' && !Avatar::validPasswordHash($hash, $salt)) {
                 $problem = 'password_hash is the 32 hexadecimal characters Robust keeps, with its password_salt';
-            } elseif (!GridAccounts::validName("$first $last")) {
+            } elseif (!Avatar::validName("$first $last")) {
                 $problem = "name \"$first $last\" must be a first and a last name of letters, digits, . _ and -";
-            } elseif ($email !== '' && preg_match('/^[^\s\'"\\\;]+@[^\s\'"\\\;]+$/', $email) !== 1) {
+            } elseif ($email !== '' && !Avatar::validEmail($email)) {
                 $problem = "email \"$email\" is not an address";
             } elseif (isset($seen[strtolower("$first $last")])) {
                 $problem = "$first $last is in the list twice";

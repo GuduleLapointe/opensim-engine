@@ -242,8 +242,15 @@ describe('A region', function () {
         },
     );
 
-    test('is a transliterated name: an accent is not refused', function () {
-        expect(region_planner()->problems(['name' => 'Noël']))->toBe([])->and(Region::validateName('Noël'))->toBeNull();
+    test('is a transliterated name: an accent is corrected, and the person confirms', function () {
+        expect(region_planner()->problems(['name' => 'Noël']))
+            ->toBe(['name' => 'transliterated'])
+            ->and(region_planner()->fields()->corrections(['name' => 'Noël']))
+            ->toBe(['name' => 'Noel'])
+            ->and(region_planner()->problems(['name' => 'Noel']))
+            ->toBe([])
+            ->and(Region::validateName('Noël'))
+            ->toBeNull();
 
         $plan = new SimulatorPlan();
         region_planner()->apply($plan, ['name' => 'Noël']);

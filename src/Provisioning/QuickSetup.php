@@ -2,6 +2,7 @@
 
 namespace OpenSim\Provisioning;
 
+use OpenSim\Forms\FieldSet;
 use OpenSim\Models\Grid;
 use OpenSim\Runtime\Environment;
 
@@ -36,39 +37,23 @@ final class QuickSetup
     public static function plan(Environment $environment, array $answers): array
     {
         $problems = [];
+        $corrected = [];
         $type = strtolower(trim((string) ($answers['type'] ?? '')));
         if ($type !== '' && !in_array($type, self::TYPES, true)) {
             $problems['type'] = _('invalid');
         }
         $standalone = $type === 'standalone';
 
-        // A name is Latin letters without accents, in every alphabet: what is not is replaced, and the person validates the change by
-        // sending the form again (the value that comes back is the replaced one). What is not right after that stays an error.
-        $corrected = [];
-        foreach (['name' => '.-', 'avatar' => '-'] as $key => $kept) {
-            $given = trim((string) ($answers[$key] ?? ''));
-            $latin = self::latin($given, $kept);
-            if ($latin !== $given) {
-                $corrected[$key] = $answers[$key] = $latin;
-            }
-        }
-
-        // The grid
-        $gridAnswers = ['standalone' => $standalone];
-        // The hypergrid is on unless it is said to be off
-        $hypergrid = filter_var($answers['hypergrid'] ?? true, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
-        $hypergrid === null
-            ? ($problems['hypergrid'] = _('invalid'))
-            : ($gridAnswers['hypergrid'] = $hypergrid);
+        // The grid. What is right or wrong, and what is corrected, is said by the fields of the models: the answers go to them as given,
+        // and the plan is made of the corrected ones (the person confirms a correction by sending the form again).
+        $gridAnswers = ['standalone' => $standalone, 'hypergrid' => $answers['hypergrid'] ?? true];
         trim((string) ($answers['name'] ?? '')) !== '' && ($gridAnswers['name'] = trim((string) $answers['name']));
-        [$uri, $uriProblem] = self::loginUri((string) ($answers['login_uri'] ?? ''));
+        [$uri, $uriProblem] = Grid::parseLoginUri((string) ($answers['login_uri'] ?? ''));
         $uriProblem !== null && ($problems['login_uri'] = $uriProblem);
         $gridAnswers += $uri;
         $planner = GridPlanner::forMachine($environment);
-        foreach ($planner->problems($gridAnswers) as $field => $message) {
-            $problems[self::QUESTIONS[$field] ?? $field] ??= $message;
-        }
-        $plan = $planner->plan($gridAnswers);
+        $fixes = self::review($planner->fields(), $planner->problems($gridAnswers), $gridAnswers, $problems, $corrected);
+        $plan = $planner->plan($fixes + $gridAnswers);
 
         // Its first simulator, with its region, and the avatar that owns the estate
         $ui = new NullUi();
@@ -82,21 +67,11 @@ final class QuickSetup
             'new_password' => (string) ($answers['password'] ?? ''),
             'new_email' => trim((string) ($answers['email'] ?? '')),
         ];
-        foreach ($simulators->problems($owner) as $field => $message) {
-            $problems[self::QUESTIONS[$field] ?? $field] ??= $message;
-        }
-        $simulator = $simulators->plan($owner);
+        $fixes = self::review($simulators->fields(), $simulators->problems($owner), $owner, $problems, $corrected);
+        $simulator = $simulators->plan($fixes + $owner);
         $regions = RegionPlanner::forSimulator($simulator, $grid, $database, defaultName: $region);
-        // The region of a standalone is named by the person: its name is checked as a region's
-        foreach ($standalone ? $regions->problems(['name' => $region]) : [] as $field => $message) {
-            $problems[self::QUESTIONS[$field] ?? $field] ??= $message;
-        }
+        self::review($regions->fields(), $regions->problems(['name' => $region]), ['name' => $region], $problems, $corrected);
         $regions->apply($simulator, ['name' => $region]);
-
-        // What was replaced is told, unless it is wrong all the same (then it is the error that is)
-        foreach (array_keys($corrected) as $key) {
-            $problems[$key] ??= _('transliterated');
-        }
 
         return [
             'valid' => $problems === [],
@@ -108,51 +83,26 @@ final class QuickSetup
     }
 
     /**
-     * A name in Latin letters: every alphabet transliterated, then what a name cannot have removed (the words kept apart by one space).
-     * A name that is Latin already is left as it is, for the validation to say what is wrong with it.
+     * Takes what the fields of a model say of some answers: the problems and the corrections, under the name of the question they
+     * answer. Nothing is decided here, the models' fields do.
      *
-     * @param string $kept the punctuation a name may have besides letters, digits and the space
+     * @param array<string,string> $fieldProblems what the planner found, by field
+     * @param array<string,mixed> $given
+     * @param array<string,string> $problems the problems of the questions, completed
+     * @param array<string,string> $corrected the corrections of the questions, completed
+     * @return array<string,string> the corrected values, by field
      */
-    private static function latin(string $value, string $kept): string
+    private static function review(FieldSet $fields, array $fieldProblems, array $given, array &$problems, array &$corrected): array
     {
-        if ($value === '' || preg_match('/[^\x00-\x7F]/', $value) !== 1) {
-            return $value;
+        foreach ($fieldProblems as $field => $message) {
+            $problems[self::QUESTIONS[$field] ?? $field] ??= $message;
         }
-        $ascii = Slug::ascii($value);
-        // The compatibility forms (a superscript n) become letters
-        class_exists(\Normalizer::class) && ($ascii = \Normalizer::normalize($ascii, \Normalizer::FORM_KD) ?: $ascii);
-        $clean = trim((string) preg_replace('/ +/', ' ', (string) preg_replace('/[^A-Za-z0-9 ' . preg_quote($kept, '/') . ']/', '', $ascii)));
-
-        return $clean !== '' ? $clean : $value;
-    }
-
-    /**
-     * The host and the port a login address says, with or without the scheme (host, host:port, http://host:port); nothing for what it does
-     * not say (the planner proposes it). Anything else is not an address.
-     *
-     * @return array{0:array<string,mixed>,1:?string} the answers for the grid, the problem
-     */
-    private static function loginUri(string $uri): array
-    {
-        $uri = trim($uri);
-        if ($uri === '') {
-            return [[], null];
-        }
-        $label = '[\\p{L}\\p{N}](?:[\\p{L}\\p{N}-]*[\\p{L}\\p{N}])?';
-        $pattern = "~^(?:(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*)://)?(?P<host>$label(?:\\.$label)*|\\[[0-9A-Fa-f:.]+\\])(?::(?P<port>\\d{1,5}))?/?$~u";
-        if (preg_match($pattern, $uri, $m) !== 1 || (isset($m['port']) && $m['port'] !== '' && ((int) $m['port'] < 1 || (int) $m['port'] > 65535))) {
-            return [[], _('invalid (host:port)')];
-        }
-        if (($m['scheme'] ?? '') !== '' && !in_array(strtolower($m['scheme']), ['http', 'https'], true)) {
-            return [[], _('invalid (host:port)')];
-        }
-        $found = ['hostname' => mb_strtolower($m['host'])];
-        ($m['port'] ?? '') !== '' && ($found['public_port'] = (int) $m['port']);
-        if ((strtolower($m['scheme'] ?? '') ?: 'http') !== 'http') {
-            return [$found, _('https not supported')];
+        $fixes = $fields->corrections($given);
+        foreach ($fixes as $field => $value) {
+            $corrected[self::QUESTIONS[$field] ?? $field] = $value;
         }
 
-        return [$found, null];
+        return $fixes;
     }
 
     /**

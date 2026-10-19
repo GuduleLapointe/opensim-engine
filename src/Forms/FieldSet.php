@@ -17,6 +17,8 @@ namespace OpenSim\Forms;
  *   required     true when an answer is needed
  *   callback     checks the value: callable(mixed $value, array $answers, array $field): ?string, a message when it is wrong
  *                (`validation` is the same, as OpenSim_Field names it)
+ *   normalize    the value in the form the model wants: callable(string $value): string. The callback checks that form; a value that
+ *                changes is a correction the person confirms (see corrections()), told as "transliterated" when nothing else is wrong
  *   condition    [field => value or list of values]: shown only when every one of these answers has one of these values
  *   follows      [field, ...]: the default of this field is worked out from these ones, and follows them while the field is not
  *                changed (a form keeps only what the person changed or confirmed of the others)
@@ -111,13 +113,49 @@ final class FieldSet
 
                 continue;
             }
+            if (($field['type'] ?? '') === 'boolean' && !is_bool($value) && filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) === null) {
+                $problems[$name] = _('invalid');
+
+                continue;
+            }
+            $checked = self::normalized($field, $value);
             $callback = $field['callback'] ?? ($field['validation'] ?? null);
-            if (is_callable($callback) && ($message = $callback($value, $answers, $field)) !== null) {
+            if (is_callable($callback) && ($message = $callback($checked, $answers, $field)) !== null) {
                 $problems[$name] = (string) $message;
+            } elseif (is_string($value) && $checked !== trim($value)) {
+                $problems[$name] = _('transliterated');
             }
         }
 
         return $problems;
+    }
+
+    /**
+     * The values the model corrects, by field: the ones that are not in the form it wants. The form shows them, and what comes back
+     * is the corrected value (the person confirms it by sending it again).
+     *
+     * @param array<string,mixed> $answers
+     * @return array<string,string> name => corrected value
+     */
+    public function corrections(array $answers): array
+    {
+        $corrections = [];
+        foreach ($this->fields as $name => $field) {
+            $value = $answers[$name] ?? null;
+            if (is_string($value) && trim($value) !== '' && ($normalized = self::normalized($field, $value)) !== trim($value)) {
+                $corrections[$name] = $normalized;
+            }
+        }
+
+        return $corrections;
+    }
+
+    /** A value in the form its field wants, the value itself when the field does not say. */
+    private static function normalized(array $field, mixed $value): mixed
+    {
+        $normalize = $field['normalize'] ?? null;
+
+        return is_callable($normalize) && is_string($value) ? $normalize(trim($value)) : $value;
     }
 
     /** Whether two values are the same answer: a yes is true, a number written is the number. */

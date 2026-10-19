@@ -101,7 +101,7 @@ final class Features
     {
         $result = ['error' => null, 'simulators' => [], 'grid' => false, 'robust' => false, 'notes' => []];
         $prefix = rtrim(trim($options['prefix'] ?? ''), '/');
-        if ($prefix !== '' && !preg_match('#^https?://[^\s/]+#i', $prefix)) {
+        if ($prefix !== '' && Grid::validateWebUrl($prefix) !== null) {
             $result[
                 'error'
             ] = "'$prefix' is not an address, give the start of the address of the services (https://www.example.org/helpers)";

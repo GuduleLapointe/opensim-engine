@@ -947,6 +947,7 @@ final class Region extends Model
                 'required' => true,
                 'label' => _('Region name'),
                 'callback' => [self::class, 'validateName'],
+                'normalize' => [self::class, 'normalizeName'],
                 'condition' => $made,
                 'enable' => !$fixed,
             ],
@@ -992,9 +993,26 @@ final class Region extends Model
         ];
     }
 
-    /** The name of a region. An accent is not refused, it is transliterated (Noël becomes Noel). */
+    /**
+     * The reason a name cannot be given to a region, null when it is fine: letters, digits, space, dot and hyphen. The underscore is
+     * out: Robust takes it for a space (Ma Region and Ma_Region would be the same Region_Ma_Region).
+     */
+    public static function nameProblem(string $name): ?string
+    {
+        return preg_match('/^[A-Za-z0-9][A-Za-z0-9 .-]{0,49}$/', trim($name)) === 1
+            ? null
+            : _('invalid (letters, digits, space . -)');
+    }
+
+    /** The name of a region, typed. An accent is not refused, it is transliterated (Noël becomes Noel). */
     public static function validateName(mixed $value): ?string
     {
-        return RegionName::problem(Slug::ascii((string) $value));
+        return self::nameProblem(Slug::ascii((string) $value));
+    }
+
+    /** The name in Latin letters without accents (the viewers lose the accents), every alphabet transliterated. */
+    public static function normalizeName(string $name): string
+    {
+        return Slug::latin($name, '.-');
     }
 }

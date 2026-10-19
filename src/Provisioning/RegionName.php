@@ -2,6 +2,8 @@
 
 namespace OpenSim\Provisioning;
 
+use OpenSim\Models\Region;
+
 /**
  * The name of a region: what is accepted, and how Robust finds its flags in
  * its config.
@@ -11,9 +13,7 @@ final class RegionName
     /** The reason a name is refused, null when it is fine. */
     public static function problem(string $name): ?string
     {
-        return preg_match('/^[A-Za-z0-9][A-Za-z0-9 .-]{0,49}$/', trim($name)) === 1
-            ? null
-            : 'invalid (letters, digits, space . -)';
+        return Region::nameProblem($name);
     }
 
     /** The key of [GridService] giving the flags of a region: Robust looks for its name with the spaces replaced by underscores. */

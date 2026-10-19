@@ -297,6 +297,67 @@ final class Avatar extends Model
         return Connections::pdo($this->config, 'UserAccountService') === null ? [] : ['database'];
     }
 
+    /** What the name of an account that exists is made of, as OpenSimulator has it: a first and a last name. */
+    public static function validName(string $name): bool
+    {
+        return preg_match('/^[A-Za-z0-9._-]+ [A-Za-z0-9._-]+$/', $name) === 1;
+    }
+
+    /** The name of an account, typed: the form of an account that exists. */
+    public static function validateName(mixed $value): ?string
+    {
+        return self::validName(trim((string) $value)) ? null : _('invalid (First Last)');
+    }
+
+    /**
+     * Whether a name can be given to an account that is made: two words of letters, digits and hyphens. The dot and the at sign are the
+     * hypergrid's (First.Last@grid), the underscore is taken for a space in many places of OpenSimulator.
+     */
+    public static function validNewName(string $name): bool
+    {
+        return preg_match('/^[A-Za-z0-9-]+ [A-Za-z0-9-]+$/', $name) === 1;
+    }
+
+    /** The name of an account that is made, typed. */
+    public static function validateNewName(mixed $value): ?string
+    {
+        return self::validNewName(trim((string) $value)) ? null : _('invalid (First Last)');
+    }
+
+    /** The name in Latin letters without accents (the viewers lose the accents), every alphabet transliterated. */
+    public static function normalizeName(string $name): string
+    {
+        return Slug::latin($name, '-');
+    }
+
+    /** The password of an account that is made. The double quote is out: the implementations and the console do not agree on it. */
+    public static function validatePassword(mixed $value): ?string
+    {
+        return match (true) {
+            preg_match('/["\r\n]/', (string) $value) === 1 => _('invalid (no double quote)'),
+            strlen((string) $value) < 6 => _('too short (6 min)'),
+            default => null,
+        };
+    }
+
+    /** Whether an email is an address: no space, quote or backslash around the at sign. */
+    public static function validEmail(string $email): bool
+    {
+        return preg_match('/^[^\s"\'\\\\]+@[^\s"\'\\\\]+$/', $email) === 1;
+    }
+
+    /** The email of an account that is made, or nothing. */
+    public static function validateEmail(mixed $value): ?string
+    {
+        return trim((string) $value) === '' || self::validEmail(trim((string) $value)) ? null : _('invalid');
+    }
+
+    /** Whether a hash and a salt are the ones Robust keeps for a password: 32 hexadecimal characters, and a salt of letters and digits. */
+    public static function validPasswordHash(string $hash, string $salt): bool
+    {
+        return preg_match('/^[0-9a-f]{32}$/i', $hash) === 1 && preg_match('/^[0-9a-zA-Z]{1,64}$/', $salt) === 1;
+    }
+
     /**
      * Make an avatar: its account, its password, its inventory with the default outfit, and its home when it is given. Each is
      * written in the database of its service (the accounts, the passwords, the inventories may be in different ones), the account
@@ -312,7 +373,7 @@ final class Avatar extends Model
         [$first, $last] = isset($values['name'])
             ? array_pad(explode(' ', trim((string) $values['name']), 2), 2, '')
             : [(string) ($values['firstName'] ?? ''), (string) ($values['lastName'] ?? '')];
-        if (!GridAccounts::validName("$first $last")) {
+        if (!self::validName("$first $last")) {
             throw new \InvalidArgumentException(
                 "'$first $last' is not the name of an avatar: a first and a last name, letters, digits and . _ -",
             );

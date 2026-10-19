@@ -99,7 +99,7 @@ describe('A set of fields', function () {
                     'private_port' => 8003,
                     'center' => '8002,8002',
                     'hostname' => 'h',
-                    'web_url' => 'w',
+                    'web_url' => 'https://w.example.org',
                     'console_port' => 8004,
                     'database_host' => 'h',
                     'database_name' => 'd',
