@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 'OpenSim engine'
-  version: b9ef0d1
+  version: '3799976'
   license:
     name: AGPL-3.0-or-later
     identifier: AGPL-3.0-or-later
@@ -16,13 +16,13 @@ servers:
 security: []
 tags:
   -
-    name: 'The machine: grids'
+    name: Grids
     description: 'A grid run from this machine, only described here (a grid joined on another machine), or a standalone (one simulator that serves it all).'
   -
-    name: 'The machine: simulators'
+    name: Simulators
     description: 'A simulator is identified by its address (host:port); its slug has its grid (`vonda_welcome`).'
   -
-    name: 'The machine: services'
+    name: Services
     description: |-
       What the simulators and the users of a grid ask for: the assets, the profiles, the login, the search. A service is served by a Robust of the grid, by the simulator of a standalone, or by a web site (the helpers) at an address the config of the grid gives.
 
@@ -30,60 +30,104 @@ tags:
 
       `kind` says who fixes the format of a web service: `fixed` (OpenSimulator or the viewers: only the address is the grid's to choose, and the format is described in this contract as an endpoint of its own) or `standard` (the engine's own; `standard` is its address, `legacy` the script that answered it before). `endpoint` is where the engine serves it.
   -
-    name: 'The machine: archives'
+    name: Archives
     description: 'The inventories (`iar`) and the regions (`oar`) the consoles of the simulators saved, in the data folder of their grid, and the backups of the setup (`backup`: the configuration, the data and the databases of a grid or of a simulator, `.tar.gz`). A file says what is in it by its name; they are read here, made by `opensim save iar|oar` and `opensim backup`.'
   -
-    name: 'A grid: avatars'
+    name: Avatars
     description: 'Read from the databases of the grid, each in the one of its service. An avatar is made with its account, its password, its inventory and its default outfit. Its name does not change.'
   -
-    name: 'A grid: regions'
+    name: Regions
     description: 'The regions the grid knows (its table of regions) and the ones its simulators describe.'
   -
-    name: 'A grid: parcels'
+    name: Parcels
     description: 'The land of every simulator of the grid, read in the database of each.'
   -
-    name: 'A grid: estates'
+    name: Estates
     description: 'The estates of the grid when its Robust serves them, else the ones of each simulator.'
   -
-    name: 'A grid: assets'
+    name: Assets
     description: 'What the grid keeps in its asset service: textures, sounds, notecards, scripts, objects... A record never carries its data: an image of any type (texture, TGA, JPEG) is asked as a picture (`/grids/{grid}/assets/{id}.{format}`, the grid keeps textures as JPEG 2000 and the engine converts them and keeps the result for a day), the other types as they are.'
   -
-    name: 'A grid: destinations'
+    name: Destinations
     description: 'The places the guide of the grid shows, by category, in the order of its source (`GuideSource` of `[Helpers]`: a file or a URL of "Name|Region URL" lines). The same list feeds the page of the guide and the boards of the scripts.'
   -
-    name: 'The application: tasks'
+    name: Tasks
     description: 'Cron and pseudo cron: each task has a name and an interval, runs when due, never twice at once, and a failure waits for its next turn. Asked to run, a task runs now. The search registers two: `search-parse` (once a minute: reads the snapshots of the registered simulators that are due) and `events-parse` (every 55 minutes: reads the calendar of events).'
   -
-    name: 'The application: forms'
+    name: Forms
     description: 'The fields of the forms (grid, remote-grid, simulator, region), in the standard format of the forms: name, label, type, default, options, condition, follows, group. Whoever shows a form (the terminal, a web page) reads them from here; the engine itself uses them to work out what is not answered.'
   -
-    name: 'The application: fonts'
+    name: Fonts
     description: 'The names to give as `font` of a text image (`/text-images`).'
   -
-    name: 'A grid: search'
+    name: Search
     description: "The search of the grid, made by the helpers: the simulators register to it and tell it their regions (a snapshot the helpers read), the viewers ask it for places, popular places, land for sale, events and classifieds. The format is the one of the module OpenSimSearch of the simulators; the address is the grid's to choose (`SearchURL` of `[Search]` and `DATA_SRV_*` of `[DataSnapshot]` in OpenSim.ini). A search can be shared by several grids: `gk`, the gatekeeper of the grid that asks, tells for which the search is made (the viewers do not send it)."
   -
-    name: 'A grid: economy'
+    name: Economy
     description: 'The currency and the land tools of the grid, as the viewers and the money modules call them: XML-RPC at `currency.php` and `landtool.php` under the economy address the grid gives its viewers (`economy` of `[GridInfoService]`). Nothing is served without the key of the grid (`MoneyScriptAccessKey` of `[MoneyServer]`): a quote is tied to its purchase with it and to the address of who asked. An avatar proves who they are with their secure session, a region with its secret.'
   -
-    name: 'A grid: offline messages'
+    name: 'Offline messages'
     description: 'The messages for the avatars who are not there, with the module V1 of the simulators (`OfflineMessageModule = OfflineMessageModule`, `OfflineMessageURL` of `[Messaging]`), which posts them here in XML. The messages are kept in the table of the offline messages of Robust, the one its module V2 uses; an avatar who asked for it in their viewer also gets them by email. The other choice is the module V2 and the service of Robust, which needs none of this: with the helpers, the messages are mailed on request and none is lost; with Robust, nothing more is run, no mail is sent and 25 messages are kept per avatar.'
   -
-    name: 'A grid: health'
+    name: Health
     description: 'Whether the grid and its web services answer as they should.'
   -
-    name: 'Pages of the helpers'
+    name: 'Message of the day'
+    description: 'The text the viewers show at login.'
+  -
+    name: 'Text images'
+    description: 'Pictures of a text, for the signs and the boards in world.'
+  -
+    name: Pages
     description: 'The pages the helpers show to the people, in HTML, at the addresses the grid gives (`GridInfoService` and `LoginService` in Robust.ini). They are made from the resources of this API: the guide shows `/grids/{grid}/destinations`, the profile an avatar.'
   -
-    name: Robust
+    name: 'Grid info'
     description: 'What Robust itself serves, which the engine reads.'
+x-tagGroups:
+  -
+    name: Machine
+    tags:
+      - Grids
+      - Simulators
+      - Services
+      - Archives
+  -
+    name: Grid
+    tags:
+      - Avatars
+      - Regions
+      - Parcels
+      - Estates
+      - Assets
+      - Destinations
+      - 'Message of the day'
+      - Search
+      - Economy
+      - 'Offline messages'
+      - Health
+  -
+    name: Application
+    tags:
+      - Tasks
+      - Forms
+      - Fonts
+      - 'Text images'
+  -
+    name: Helpers
+    tags:
+      - Pages
+  -
+    name: Robust
+    tags:
+      - 'Grid info'
 paths:
   /grids:
     get:
       operationId: listGrids
       tags:
-        - 'The machine: grids'
-      summary: 'The grids of this machine, searched, filtered, sorted and paged'
+        - Grids
+      summary: 'List grids'
+      description: 'The grids of this machine, searched, filtered, sorted and paged.'
       parameters:
         -
           name: search
@@ -162,8 +206,9 @@ paths:
     get:
       operationId: getGrid
       tags:
-        - 'The machine: grids'
-      summary: 'One of the grids by its id'
+        - Grids
+      summary: 'Get grid'
+      description: 'One of the grids by its id.'
       parameters:
         -
           name: id
@@ -190,8 +235,8 @@ paths:
     patch:
       operationId: updateGrid
       tags:
-        - 'The machine: grids'
-      summary: 'Change one'
+        - Grids
+      summary: 'Change grid'
       parameters:
         -
           name: id
@@ -244,8 +289,9 @@ paths:
     get:
       operationId: listSimulators
       tags:
-        - 'The machine: simulators'
-      summary: 'The simulators of this machine, searched, filtered, sorted and paged'
+        - Simulators
+      summary: 'List simulators'
+      description: 'The simulators of this machine, searched, filtered, sorted and paged.'
       parameters:
         -
           name: search
@@ -300,8 +346,9 @@ paths:
     get:
       operationId: getSimulator
       tags:
-        - 'The machine: simulators'
-      summary: 'One of the simulators by its id'
+        - Simulators
+      summary: 'Get simulator'
+      description: 'One of the simulators by its id.'
       parameters:
         -
           name: id
@@ -328,8 +375,8 @@ paths:
     patch:
       operationId: updateSimulator
       tags:
-        - 'The machine: simulators'
-      summary: 'Change one'
+        - Simulators
+      summary: 'Change simulator'
       parameters:
         -
           name: id
@@ -382,8 +429,9 @@ paths:
     get:
       operationId: listServices
       tags:
-        - 'The machine: services'
-      summary: 'The services of the grids of this machine, searched, filtered, sorted and paged'
+        - Services
+      summary: 'List services'
+      description: 'The services of the grids of this machine, searched, filtered, sorted and paged.'
       parameters:
         -
           name: search
@@ -455,8 +503,9 @@ paths:
     get:
       operationId: getService
       tags:
-        - 'The machine: services'
-      summary: 'One of the services by its id'
+        - Services
+      summary: 'Get service'
+      description: 'One of the services by its id.'
       parameters:
         -
           name: id
@@ -484,8 +533,9 @@ paths:
     get:
       operationId: listArchives
       tags:
-        - 'The machine: archives'
-      summary: 'The archives and the backups of the grids of this machine, searched, filtered, sorted and paged'
+        - Archives
+      summary: 'List archives'
+      description: 'The archives and the backups of the grids of this machine, searched, filtered, sorted and paged.'
       parameters:
         -
           name: search
@@ -549,8 +599,9 @@ paths:
     get:
       operationId: getArchive
       tags:
-        - 'The machine: archives'
-      summary: 'One of the archives by its id'
+        - Archives
+      summary: 'Get archive'
+      description: 'One of the archives by its id.'
       parameters:
         -
           name: id
@@ -578,8 +629,9 @@ paths:
     get:
       operationId: listAvatars
       tags:
-        - 'A grid: avatars'
-      summary: 'The avatars of a grid, searched, filtered, sorted and paged'
+        - Avatars
+      summary: 'List avatars'
+      description: 'The avatars of a grid, searched, filtered, sorted and paged.'
       parameters:
         -
           name: grid
@@ -672,8 +724,8 @@ paths:
     post:
       operationId: createAvatar
       tags:
-        - 'A grid: avatars'
-      summary: 'Make one'
+        - Avatars
+      summary: 'Make avatar'
       parameters:
         -
           name: grid
@@ -721,8 +773,9 @@ paths:
     get:
       operationId: getAvatar
       tags:
-        - 'A grid: avatars'
-      summary: 'One of the avatars by its id'
+        - Avatars
+      summary: 'Get avatar'
+      description: 'One of the avatars by its id.'
       parameters:
         -
           name: grid
@@ -756,8 +809,8 @@ paths:
     patch:
       operationId: updateAvatar
       tags:
-        - 'A grid: avatars'
-      summary: 'Change one'
+        - Avatars
+      summary: 'Change avatar'
       parameters:
         -
           name: grid
@@ -816,8 +869,8 @@ paths:
     delete:
       operationId: deleteAvatar
       tags:
-        - 'A grid: avatars'
-      summary: 'Delete one'
+        - Avatars
+      summary: 'Delete avatar'
       parameters:
         -
           name: grid
@@ -851,8 +904,9 @@ paths:
     get:
       operationId: listRegions
       tags:
-        - 'A grid: regions'
-      summary: 'The regions of a grid, searched, filtered, sorted and paged'
+        - Regions
+      summary: 'List regions'
+      description: 'The regions of a grid, searched, filtered, sorted and paged.'
       parameters:
         -
           name: grid
@@ -930,8 +984,9 @@ paths:
     get:
       operationId: getRegion
       tags:
-        - 'A grid: regions'
-      summary: 'One of the regions by its id'
+        - Regions
+      summary: 'Get region'
+      description: 'One of the regions by its id.'
       parameters:
         -
           name: grid
@@ -965,8 +1020,8 @@ paths:
     patch:
       operationId: updateRegion
       tags:
-        - 'A grid: regions'
-      summary: 'Change one'
+        - Regions
+      summary: 'Change region'
       parameters:
         -
           name: grid
@@ -1026,8 +1081,9 @@ paths:
     get:
       operationId: listParcels
       tags:
-        - 'A grid: parcels'
-      summary: 'The parcels of a grid, searched, filtered, sorted and paged'
+        - Parcels
+      summary: 'List parcels'
+      description: 'The parcels of a grid, searched, filtered, sorted and paged.'
       parameters:
         -
           name: grid
@@ -1097,8 +1153,9 @@ paths:
     get:
       operationId: getParcel
       tags:
-        - 'A grid: parcels'
-      summary: 'One of the parcels by its id'
+        - Parcels
+      summary: 'Get parcel'
+      description: 'One of the parcels by its id.'
       parameters:
         -
           name: grid
@@ -1133,8 +1190,9 @@ paths:
     get:
       operationId: listEstates
       tags:
-        - 'A grid: estates'
-      summary: 'The estates of a grid, searched, filtered, sorted and paged'
+        - Estates
+      summary: 'List estates'
+      description: 'The estates of a grid, searched, filtered, sorted and paged.'
       parameters:
         -
           name: grid
@@ -1196,8 +1254,9 @@ paths:
     get:
       operationId: getEstate
       tags:
-        - 'A grid: estates'
-      summary: 'One of the estates by its id'
+        - Estates
+      summary: 'Get estate'
+      description: 'One of the estates by its id.'
       parameters:
         -
           name: grid
@@ -1232,8 +1291,9 @@ paths:
     get:
       operationId: listAssets
       tags:
-        - 'A grid: assets'
-      summary: 'The assets of a grid, searched, filtered, sorted and paged'
+        - Assets
+      summary: 'List assets'
+      description: 'The assets of a grid, searched, filtered, sorted and paged.'
       parameters:
         -
           name: grid
@@ -1323,8 +1383,9 @@ paths:
     get:
       operationId: getAsset
       tags:
-        - 'A grid: assets'
-      summary: 'One of the assets by its id'
+        - Assets
+      summary: 'Get asset'
+      description: 'One of the assets by its id.'
       parameters:
         -
           name: grid
@@ -1359,8 +1420,9 @@ paths:
     get:
       operationId: listDestinations
       tags:
-        - 'A grid: destinations'
-      summary: 'The destinations of the guide of a grid, as resources or as the lines of the boards'
+        - Destinations
+      summary: 'List destinations'
+      description: 'The list of the guide. `GuideSource` of `[Helpers]` (a file or an address of "Name|Region URL" lines, a name alone starting a category) is the list; a grid that gives none has the places its search knows, ten popular places and ten places shown in search, in two sections. With `format=list` (or `Accept: text/plain`) it is the lines themselves, as the boards of the scripts read them.'
       parameters:
         -
           name: grid
@@ -1408,13 +1470,13 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
-      description: 'The list of the guide. `GuideSource` of `[Helpers]` (a file or an address of "Name|Region URL" lines, a name alone starting a category) is the list; a grid that gives none has the places its search knows, ten popular places and ten places shown in search, in two sections. With `format=list` (or `Accept: text/plain`) it is the lines themselves, as the boards of the scripts read them.'
   '/grids/{grid}/destinations/{id}':
     get:
       operationId: getDestination
       tags:
-        - 'A grid: destinations'
-      summary: 'One of the destinations by its id'
+        - Destinations
+      summary: 'Get destination'
+      description: 'One of the destinations by its id.'
       parameters:
         -
           name: grid
@@ -1449,8 +1511,9 @@ paths:
     get:
       operationId: listTasks
       tags:
-        - 'The application: tasks'
-      summary: 'The tasks the application runs now and then'
+        - Tasks
+      summary: 'List tasks'
+      description: 'The tasks the application runs now and then.'
       parameters: []
       responses:
         200:
@@ -1476,8 +1539,9 @@ paths:
     get:
       operationId: getTask
       tags:
-        - 'The application: tasks'
-      summary: 'One of the tasks by its id'
+        - Tasks
+      summary: 'Get task'
+      description: 'One of the tasks by its id.'
       parameters:
         -
           name: id
@@ -1505,8 +1569,9 @@ paths:
     get:
       operationId: listForms
       tags:
-        - 'The application: forms'
-      summary: 'What a setup asks'
+        - Forms
+      summary: 'List forms'
+      description: 'What a setup asks.'
       parameters: []
       responses:
         200:
@@ -1532,8 +1597,9 @@ paths:
     get:
       operationId: getForm
       tags:
-        - 'The application: forms'
-      summary: 'One of the forms by its id'
+        - Forms
+      summary: 'Get form'
+      description: 'One of the forms by its id.'
       parameters:
         -
           name: id
@@ -1561,8 +1627,9 @@ paths:
     get:
       operationId: listFonts
       tags:
-        - 'The application: fonts'
-      summary: 'The fonts the machine has to draw a text'
+        - Fonts
+      summary: 'List fonts'
+      description: 'The fonts the machine has to draw a text.'
       parameters: []
       responses:
         200:
@@ -1588,8 +1655,9 @@ paths:
     get:
       operationId: getFont
       tags:
-        - 'The application: fonts'
-      summary: 'One of the fonts by its id'
+        - Fonts
+      summary: 'Get font'
+      description: 'One of the fonts by its id.'
       parameters:
         -
           name: id
@@ -1617,8 +1685,9 @@ paths:
     get:
       operationId: getAssetMedia
       tags:
-        - 'A grid: assets'
-      summary: 'An asset as a page shows it: an image of any type as a picture in the format asked'
+        - Assets
+      summary: 'Asset as a picture'
+      description: 'An asset as a page shows it: an image of any type as a picture in the format asked.'
       parameters:
         -
           name: grid
@@ -1671,8 +1740,8 @@ paths:
     get:
       operationId: getMotd
       tags:
-        - 'A grid: motd'
-      summary: 'The message of the day the viewers show at login'
+        - 'Message of the day'
+      summary: 'Message of the day'
       description: 'Plain text: `WelcomeMessage` of `[LoginService]`, else a welcome to the grid. `<USERNAME>` stands for the name of the avatar, replaced when `username` is given. This is what `MessageUrl` of the Robust config can point to.'
       parameters:
         -
@@ -1706,8 +1775,8 @@ paths:
     get:
       operationId: getTextImage
       tags:
-        - 'The application: text images'
-      summary: 'The picture of a text, the texture of a prim'
+        - 'Text images'
+      summary: 'Text as an image'
       description: 'A 1024 pixels square PNG with the text centered, to put on a prim where dynamic textures are not allowed, or to lighten the simulator. The fonts the machine has are listed at `/fonts`; one it does not have is replaced by DejaVu-Sans.'
       parameters:
         -
@@ -1782,8 +1851,9 @@ paths:
     post:
       operationId: runTask
       tags:
-        - 'The application: tasks'
-      summary: 'Run a task now, whether it is due or not'
+        - Tasks
+      summary: 'Run a task'
+      description: 'Run a task now, whether it is due or not.'
       parameters:
         -
           name: id
@@ -1821,8 +1891,8 @@ paths:
     get:
       operationId: getHealth
       tags:
-        - 'A grid: health'
-      summary: 'Whether every address of the grid answers as it should'
+        - Health
+      summary: 'Health of the grid'
       description: 'The addresses the config of the grid gives (the services of Robust, the web services, the pages), what the grid says of itself at `get_grid_info`, and the ones that are expected and not given, asked now: a service that must refuse a call without data refuses it, and answers one that makes sense. The PHP extensions the engine needs and the files it reads come with them. `level` is `error` when something does not answer as it should, `ok` when all that is asked does, `none` when there is nothing to ask. The groups are the sections of the files of the grid; each row has the address, the status (the HTTP code, or the error), the time in milliseconds and its own level.'
       parameters:
         -
@@ -1856,8 +1926,8 @@ paths:
     get:
       operationId: registerSimulator
       tags:
-        - 'A grid: search'
-      summary: 'A simulator tells the search it is online, or that it is gone'
+        - Search
+      summary: 'Register a simulator'
       description: 'What the module of search of a simulator calls (`DATA_SRV_<grid>` of `[DataSnapshot]` is the address): a GET with the host and the port **of the simulator**, not those of the grid. The answer is nothing: the simulator waits for it to go on starting. The helpers read its snapshot once the answer is sent, after a pause for its regions to load, and again soon after; one that does not answer is read less and less often, then forgotten. `offline` forgets it and what it told.'
       parameters:
         -
@@ -1916,10 +1986,10 @@ paths:
     post:
       operationId: searchQuery
       tags:
-        - 'A grid: search'
-      summary: 'The questions of the viewers and of the simulators to the search'
+        - Search
+      summary: 'Search questions'
       description: |
-        XML-RPC, as the module OpenSimSearch speaks it: the body is a method call with one struct, the answer a struct with `success`, `errorMessage` and the rows in `data` (nothing in `data` when there is no result or it failed). The grid has the status of a failure only when the request is not understood or the search is not there.
+        The questions of the viewers and of the simulators to the search. XML-RPC, as the module OpenSimSearch speaks it: the body is a method call with one struct, the answer a struct with `success`, `errorMessage` and the rows in `data` (nothing in `data` when there is no result or it failed). The grid has the status of a failure only when the request is not understood or the search is not there.
 
         ### `dir_places_query`
 
@@ -2746,10 +2816,10 @@ paths:
     post:
       operationId: currency
       tags:
-        - 'A grid: economy'
-      summary: 'The currency: quotes, purchases, balances and transfers'
+        - Economy
+      summary: Currency
       description: |
-        XML-RPC at `currency.php` of the economy address of the grid. The viewer asks the quote and buys; the simulators ask the balance of the avatars who are on them, move the money of a purchase, and claim the avatars that arrive. The answer is a struct with `success`, and the reason (`errorMessage`, `errorURI`) when it is false.
+        Quotes, purchases, balances and transfers. XML-RPC at `currency.php` of the economy address of the grid. The viewer asks the quote and buys; the simulators ask the balance of the avatars who are on them, move the money of a purchase, and claim the avatars that arrive. The answer is a struct with `success`, and the reason (`errorMessage`, `errorURI`) when it is false.
 
         ### `getCurrencyQuote`
 
@@ -3166,10 +3236,10 @@ paths:
     post:
       operationId: landTool
       tags:
-        - 'A grid: economy'
-      summary: 'The purchase of land: what it costs and the currency it needs'
+        - Economy
+      summary: 'Land tools'
       description: |
-        XML-RPC at `landtool.php` of the economy address of the grid. The land itself is paid afterwards, by the region.
+        The purchase of land: what it costs and the currency it needs. XML-RPC at `landtool.php` of the economy address of the grid. The land itself is paid afterwards, by the region.
 
         ### `preflightBuyLandPrep`
 
@@ -3377,10 +3447,10 @@ paths:
     post:
       operationId: offlineSaveMessage
       tags:
-        - 'A grid: offline messages'
-      summary: 'A message for an avatar who is not there is kept'
+        - 'Offline messages'
+      summary: 'Save a message'
       description: |-
-        What the module V1 of the simulators posts to `<OfflineMessageURL>/SaveMessage/` (the last slash is theirs, it is accepted with or without).
+        A message for an avatar who is not there is kept. What the module V1 of the simulators posts to `<OfflineMessageURL>/SaveMessage/` (the last slash is theirs, it is accepted with or without).
 
         **Request**: The `GridInstantMessage` of OpenSimulator, in XML (`fromAgentID`, `fromAgentName`, `toAgentID`, `dialog`, `message`, ...).
 
@@ -3434,10 +3504,10 @@ paths:
     post:
       operationId: offlineRetrieveMessages
       tags:
-        - 'A grid: offline messages'
-      summary: 'The messages kept for an avatar who comes back are given, and forgotten'
+        - 'Offline messages'
+      summary: 'Retrieve messages'
       description: |-
-        What the module V1 of the simulators posts to `<OfflineMessageURL>/RetrieveMessages/` (the last slash is theirs, it is accepted with or without).
+        The messages kept for an avatar who comes back are given, and forgotten. What the module V1 of the simulators posts to `<OfflineMessageURL>/RetrieveMessages/` (the last slash is theirs, it is accepted with or without).
 
         **Request**: The UUID of the avatar: `<UUID><Guid>...</Guid></UUID>`.
 
@@ -3489,8 +3559,8 @@ paths:
     get:
       operationId: pageSearch
       tags:
-        - 'Pages of the helpers'
-      summary: 'The web search of the grid'
+        - Pages
+      summary: 'Web search'
       description: 'The page the viewers open for the search. The address is `search` of `[GridInfoService]` and `SearchURL` of `[LoginService]`, which the setup keeps equal.'
       parameters: []
       responses:
@@ -3506,8 +3576,8 @@ paths:
     get:
       operationId: pageWelcome
       tags:
-        - 'Pages of the helpers'
-      summary: 'The welcome page of the grid'
+        - Pages
+      summary: Welcome
       description: 'The page the viewers show at login. The address is `welcome` of `[GridInfoService]`.'
       parameters: []
       responses:
@@ -3523,8 +3593,8 @@ paths:
     get:
       operationId: pageGuide
       tags:
-        - 'Pages of the helpers'
-      summary: 'The destination guide'
+        - Pages
+      summary: 'Destination guide'
       description: 'The page the viewers open for the destinations (`DestinationGuide` of `[LoginService]`), made from `/grids/{grid}/destinations`.'
       parameters: []
       responses:
@@ -3540,8 +3610,8 @@ paths:
     get:
       operationId: pageProfile
       tags:
-        - 'Pages of the helpers'
-      summary: 'The profile of an avatar'
+        - Pages
+      summary: Profile
       description: 'The page the viewers open for a profile (`web_profile_url` of `[GridInfoService]`, `[AGENT_NAME]` standing for the name).'
       parameters:
         -
@@ -3564,8 +3634,8 @@ paths:
     get:
       operationId: pageHealth
       tags:
-        - 'Pages of the helpers'
-      summary: 'The health page'
+        - Pages
+      summary: 'Health page'
       description: 'A management page: the same checks as `/grids/{grid}/health`, for a person to read. It is not a page of the viewers, and not public.'
       parameters: []
       responses:
@@ -3581,8 +3651,8 @@ paths:
     get:
       operationId: pageGridStatus
       tags:
-        - 'Pages of the helpers'
-      summary: 'The status of the grid'
+        - Pages
+      summary: 'Grid status'
       description: 'A light page, in HTML or plain text, from which the viewer takes one line of global status by keyword (ONLINE green, OFFLINE red, DEGRADED or MAINTENANCE orange). The address is `GridStatus` of `[GridInfoService]`.'
       parameters: []
       responses:
@@ -3598,8 +3668,8 @@ paths:
     get:
       operationId: feedGridStatus
       tags:
-        - 'Pages of the helpers'
-      summary: 'The feed of the status of the grid'
+        - Pages
+      summary: 'Grid status feed'
       description: 'The RSS feed the viewers read for the news of the grid (`GridStatusRSS` of `[GridInfoService]`).'
       responses:
         200:
@@ -3614,8 +3684,8 @@ paths:
     get:
       operationId: getGridInfo
       tags:
-        - Robust
-      summary: 'What the grid says of itself'
+        - 'Grid info'
+      summary: 'Grid info'
       description: 'Served by Robust at its public port, not by the engine, which reads it (`Grid::gridInfo()`). The elements are the keys of `[GridInfoService]` of Robust.ini, **every one**, the free ones included: `gridname`, `gridnick`, `login` (the address of the grid, which is the truth about it whatever address it was reached at), `economy`, `search`, `welcome`... What a grid says is kept for a day when it is verified.'
       servers:
         -

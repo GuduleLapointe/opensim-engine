@@ -15,48 +15,54 @@ namespace OpenSim\Api;
 final class Endpoints
 {
     /**
-     * @param array<string,string> $scopes the names of the scopes of the tags
-     * @return array{paths:array<string,mixed>,tags:list<array{name:string,description:string}>}
+     * @return array{paths:array<string,mixed>,tags:list<array{name:string,description:string}>,groups:array<string,list<string>>}
      */
-    public static function document(array $scopes): array
+    public static function document(): array
     {
-        $grid = $scopes['grid'];
         $paths = [];
         $tags = [
             [
-                'name' => "$grid: search",
+                'name' => 'Search',
                 'description' =>
                     'The search of the grid, made by the helpers: the simulators register to it and tell it their regions (a snapshot the helpers read), the viewers ask it for places, popular places, land for sale, events and classifieds. The format is the one of the module OpenSimSearch of the simulators; the address is the grid\'s to choose (`SearchURL` of `[Search]` and `DATA_SRV_*` of `[DataSnapshot]` in OpenSim.ini). A search can be shared by several grids: `gk`, the gatekeeper of the grid that asks, tells for which the search is made (the viewers do not send it).',
             ],
             [
-                'name' => "$grid: economy",
+                'name' => 'Economy',
                 'description' =>
                     'The currency and the land tools of the grid, as the viewers and the money modules call them: XML-RPC at `currency.php` and `landtool.php` under the economy address the grid gives its viewers (`economy` of `[GridInfoService]`). Nothing is served without the key of the grid (`MoneyScriptAccessKey` of `[MoneyServer]`): a quote is tied to its purchase with it and to the address of who asked. An avatar proves who they are with their secure session, a region with its secret.',
             ],
             [
-                'name' => "$grid: offline messages",
+                'name' => 'Offline messages',
                 'description' =>
                     'The messages for the avatars who are not there, with the module V1 of the simulators (`OfflineMessageModule = OfflineMessageModule`, `OfflineMessageURL` of `[Messaging]`), which posts them here in XML. The messages are kept in the table of the offline messages of Robust, the one its module V2 uses; an avatar who asked for it in their viewer also gets them by email. The other choice is the module V2 and the service of Robust, which needs none of this: with the helpers, the messages are mailed on request and none is lost; with Robust, nothing more is run, no mail is sent and 25 messages are kept per avatar.',
             ],
             [
-                'name' => "$grid: health",
+                'name' => 'Health',
                 'description' => 'Whether the grid and its web services answer as they should.',
             ],
             [
-                'name' => 'Pages of the helpers',
+                'name' => 'Message of the day',
+                'description' => 'The text the viewers show at login.',
+            ],
+            [
+                'name' => 'Text images',
+                'description' => 'Pictures of a text, for the signs and the boards in world.',
+            ],
+            [
+                'name' => 'Pages',
                 'description' =>
                     'The pages the helpers show to the people, in HTML, at the addresses the grid gives (`GridInfoService` and `LoginService` in Robust.ini). They are made from the resources of this API: the guide shows `/grids/{grid}/destinations`, the profile an avatar.',
             ],
             [
-                'name' => 'Robust',
+                'name' => 'Grid info',
                 'description' => 'What Robust itself serves, which the engine reads.',
             ],
         ];
 
         $paths['/grids/{grid}/health']['get'] = [
             'operationId' => 'getHealth',
-            'tags' => ["$grid: health"],
-            'summary' => 'Whether every address of the grid answers as it should',
+            'tags' => ['Health'],
+            'summary' => 'Health of the grid',
             'description' =>
                 'The addresses the config of the grid gives (the services of Robust, the web services, the pages), what the grid says of itself at `get_grid_info`, and the ones that are expected and not given, asked now: a service that must refuse a call without data refuses it, and answers one that makes sense. The PHP extensions the engine needs and the files it reads come with them. `level` is `error` when something does not answer as it should, `ok` when all that is asked does, `none` when there is nothing to ask. The groups are the sections of the files of the grid; each row has the address, the status (the HTTP code, or the error), the time in milliseconds and its own level.',
             'parameters' => [Contract::gridParameter()],
@@ -111,8 +117,8 @@ final class Endpoints
         ];
         $paths['/grids/{grid}/search/register']['get'] = [
             'operationId' => 'registerSimulator',
-            'tags' => ["$grid: search"],
-            'summary' => 'A simulator tells the search it is online, or that it is gone',
+            'tags' => ['Search'],
+            'summary' => 'Register a simulator',
             'description' =>
                 'What the module of search of a simulator calls (`DATA_SRV_<grid>` of `[DataSnapshot]` is the address): a GET with the host and the port **of the simulator**, not those of the grid. The answer is nothing: the simulator waits for it to go on starting. The helpers read its snapshot once the answer is sent, after a pause for its regions to load, and again soon after; one that does not answer is read less and less often, then forgotten. `offline` forgets it and what it told.',
             'parameters' => [Contract::gridParameter(), ...self::query(Formats::REGISTER)],
@@ -126,27 +132,27 @@ final class Endpoints
 
         $paths['/grids/{grid}/search/query']['post'] = self::xmlRpc(
             'searchQuery',
-            "$grid: search",
-            'The questions of the viewers and of the simulators to the search',
-            'XML-RPC, as the module OpenSimSearch speaks it: the body is a method call with one struct, the answer a struct with `success`, `errorMessage` and the rows in `data` (nothing in `data` when there is no result or it failed). The grid has the status of a failure only when the request is not understood or the search is not there.',
+            'Search',
+            'Search questions',
+            'The questions of the viewers and of the simulators to the search. XML-RPC, as the module OpenSimSearch speaks it: the body is a method call with one struct, the answer a struct with `success`, `errorMessage` and the rows in `data` (nothing in `data` when there is no result or it failed). The grid has the status of a failure only when the request is not understood or the search is not there.',
             Formats::SEARCH,
             [Contract::gridParameter(), self::gatekeeper()],
             true,
         );
         $paths['/grids/{grid}/currency.php']['post'] = self::xmlRpc(
             'currency',
-            "$grid: economy",
-            'The currency: quotes, purchases, balances and transfers',
-            'XML-RPC at `currency.php` of the economy address of the grid. The viewer asks the quote and buys; the simulators ask the balance of the avatars who are on them, move the money of a purchase, and claim the avatars that arrive. The answer is a struct with `success`, and the reason (`errorMessage`, `errorURI`) when it is false.',
+            'Economy',
+            'Currency',
+            'Quotes, purchases, balances and transfers. XML-RPC at `currency.php` of the economy address of the grid. The viewer asks the quote and buys; the simulators ask the balance of the avatars who are on them, move the money of a purchase, and claim the avatars that arrive. The answer is a struct with `success`, and the reason (`errorMessage`, `errorURI`) when it is false.',
             Formats::CURRENCY,
             [Contract::gridParameter()],
             false,
         );
         $paths['/grids/{grid}/landtool.php']['post'] = self::xmlRpc(
             'landTool',
-            "$grid: economy",
-            'The purchase of land: what it costs and the currency it needs',
-            'XML-RPC at `landtool.php` of the economy address of the grid. The land itself is paid afterwards, by the region.',
+            'Economy',
+            'Land tools',
+            'The purchase of land: what it costs and the currency it needs. XML-RPC at `landtool.php` of the economy address of the grid. The land itself is paid afterwards, by the region.',
             Formats::LAND,
             [Contract::gridParameter()],
             false,
@@ -155,9 +161,9 @@ final class Endpoints
         foreach (Formats::OFFLINE as $method => $format) {
             $paths["/grids/{grid}/offline-messages/$method"]['post'] = [
                 'operationId' => "offline$method",
-                'tags' => ["$grid: offline messages"],
-                'summary' => $format['summary'],
-                'description' => "What the module V1 of the simulators posts to `<OfflineMessageURL>/$method/` (the last slash is theirs, it is accepted with or without).\n\n**Request**: {$format['request']}.\n\n**Answer**: {$format['answer']}.",
+                'tags' => ['Offline messages'],
+                'summary' => $method === 'SaveMessage' ? 'Save a message' : 'Retrieve messages',
+                'description' => "{$format['summary']}. What the module V1 of the simulators posts to `<OfflineMessageURL>/$method/` (the last slash is theirs, it is accepted with or without).\n\n**Request**: {$format['request']}.\n\n**Answer**: {$format['answer']}.",
                 'parameters' => [Contract::gridParameter()],
                 'requestBody' => [
                     'required' => true,
@@ -184,7 +190,7 @@ final class Endpoints
 
         $page = static fn(string $id, string $summary, string $description, array $parameters = []): array => [
             'operationId' => $id,
-            'tags' => ['Pages of the helpers'],
+            'tags' => ['Pages'],
             'summary' => $summary,
             'description' => $description,
             'parameters' => $parameters,
@@ -198,22 +204,22 @@ final class Endpoints
         ];
         $paths['/search']['get'] = $page(
             'pageSearch',
-            'The web search of the grid',
+            'Web search',
             'The page the viewers open for the search. The address is `search` of `[GridInfoService]` and `SearchURL` of `[LoginService]`, which the setup keeps equal.',
         );
         $paths['/welcome']['get'] = $page(
             'pageWelcome',
-            'The welcome page of the grid',
+            'Welcome',
             'The page the viewers show at login. The address is `welcome` of `[GridInfoService]`.',
         );
         $paths['/guide']['get'] = $page(
             'pageGuide',
-            'The destination guide',
+            'Destination guide',
             'The page the viewers open for the destinations (`DestinationGuide` of `[LoginService]`), made from `/grids/{grid}/destinations`.',
         );
         $paths['/profile/{name}']['get'] = $page(
             'pageProfile',
-            'The profile of an avatar',
+            'Profile',
             'The page the viewers open for a profile (`web_profile_url` of `[GridInfoService]`, `[AGENT_NAME]` standing for the name).',
             [
                 [
@@ -227,18 +233,18 @@ final class Endpoints
         );
         $paths['/health']['get'] = $page(
             'pageHealth',
-            'The health page',
+            'Health page',
             'A management page: the same checks as `/grids/{grid}/health`, for a person to read. It is not a page of the viewers, and not public.',
         );
         $paths['/grid_status']['get'] = $page(
             'pageGridStatus',
-            'The status of the grid',
+            'Grid status',
             'A light page, in HTML or plain text, from which the viewer takes one line of global status by keyword (ONLINE green, OFFLINE red, DEGRADED or MAINTENANCE orange). The address is `GridStatus` of `[GridInfoService]`.',
         );
         $paths['/grid_status.rss']['get'] = [
             'operationId' => 'feedGridStatus',
-            'tags' => ['Pages of the helpers'],
-            'summary' => 'The feed of the status of the grid',
+            'tags' => ['Pages'],
+            'summary' => 'Grid status feed',
             'description' =>
                 'The RSS feed the viewers read for the news of the grid (`GridStatusRSS` of `[GridInfoService]`).',
             'responses' => [
@@ -251,8 +257,8 @@ final class Endpoints
         ];
         $paths['/get_grid_info']['get'] = [
             'operationId' => 'getGridInfo',
-            'tags' => ['Robust'],
-            'summary' => 'What the grid says of itself',
+            'tags' => ['Grid info'],
+            'summary' => 'Grid info',
             'description' =>
                 'Served by Robust at its public port, not by the engine, which reads it (`Grid::gridInfo()`). The elements are the keys of `[GridInfoService]` of Robust.ini, **every one**, the free ones included: `gridname`, `gridnick`, `login` (the address of the grid, which is the truth about it whatever address it was reached at), `economy`, `search`, `welcome`... What a grid says is kept for a day when it is verified.',
             'servers' => [
@@ -281,7 +287,14 @@ final class Endpoints
             ],
         ];
 
-        return ['paths' => $paths, 'tags' => $tags];
+        $groups = [
+            'Grid' => ['Message of the day', 'Search', 'Economy', 'Offline messages', 'Health'],
+            'Application' => ['Text images'],
+            'Helpers' => ['Pages'],
+            'Robust' => ['Grid info'],
+        ];
+
+        return ['paths' => $paths, 'tags' => $tags, 'groups' => $groups];
     }
 
     /**
@@ -292,7 +305,6 @@ final class Endpoints
      */
     public static function destinations(array $operation): array
     {
-        $operation['summary'] .= ', as resources or as the lines of the boards';
         $operation['description'] =
             'The list of the guide. `GuideSource` of `[Helpers]` (a file or an address of "Name|Region URL" lines, a name alone starting a category) is the list; a grid that gives none has the places its search knows, ten popular places and ten places shown in search, in two sections. With `format=list` (or `Accept: text/plain`) it is the lines themselves, as the boards of the scripts read them.';
         $operation['parameters'][] = [

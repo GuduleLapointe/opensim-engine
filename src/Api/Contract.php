@@ -466,11 +466,14 @@ final class Contract
             ],
         ];
         $tags = [];
-        $scopes = ['machine' => 'The machine', 'grid' => 'A grid', 'application' => 'The application'];
+        $scopes = ['machine' => 'Machine', 'grid' => 'Grid', 'application' => 'Application'];
+        $groups = [];
         foreach (self::RESOURCES as $type => $resource) {
             $schema = self::schemaName($type);
             $one = self::schemaName(rtrim($type, 's'));
-            $tag = $scopes[$resource['scope']] . ': ' . $type;
+            $tag = ucfirst(str_replace('-', ' ', $type));
+            $word = strtolower(str_replace('-', ' ', rtrim($type, 's')));
+            $groups[$scopes[$resource['scope']]][] = $tag;
             $tags[] = ['name' => $tag, 'description' => $resource['description']];
             $schemas[$schema] = self::schema($type);
             $base = $resource['scope'] === 'grid' ? "/grids/{grid}/$type" : "/$type";
@@ -479,7 +482,8 @@ final class Contract
                 $paths[$base]['get'] = [
                     'operationId' => "list$schema",
                     'tags' => [$tag],
-                    'summary' => $resource['summary'] . ', searched, filtered, sorted and paged',
+                    'summary' => "List $type",
+                    'description' => $resource['summary'] . ', searched, filtered, sorted and paged.',
                     'parameters' => [...$parameters, ...self::listParameters($resource['filters'])],
                     'responses' => [
                         '200' => self::documentResponse("A page of the $type", $schema, true),
@@ -491,7 +495,8 @@ final class Contract
                 $paths[$base]['get'] = [
                     'operationId' => "list$schema",
                     'tags' => [$tag],
-                    'summary' => $resource['summary'],
+                    'summary' => "List $type",
+                    'description' => $resource['summary'] . '.',
                     'parameters' => $parameters,
                     'responses' => [
                         '200' => self::documentResponse("The $type", $schema, true),
@@ -502,7 +507,8 @@ final class Contract
             $paths["$base/{id}"]['get'] = [
                 'operationId' => "get$one",
                 'tags' => [$tag],
-                'summary' => 'One of the ' . $type . ' by its id',
+                'summary' => "Get $word",
+                'description' => 'One of the ' . $type . ' by its id.',
                 'parameters' => [...$parameters, self::idParameter()],
                 'responses' => [
                     '200' => self::documentResponse('The resource', $schema, false),
@@ -513,7 +519,7 @@ final class Contract
                 $paths[$base]['post'] = [
                     'operationId' => "create$one",
                     'tags' => [$tag],
-                    'summary' => 'Make one',
+                    'summary' => "Make $word",
                     'parameters' => $parameters,
                     'requestBody' => [
                         'required' => true,
@@ -532,7 +538,7 @@ final class Contract
                 $paths["$base/{id}"]['patch'] = [
                     'operationId' => "update$one",
                     'tags' => [$tag],
-                    'summary' => 'Change one',
+                    'summary' => "Change $word",
                     'parameters' => [...$parameters, self::idParameter()],
                     'requestBody' => [
                         'required' => true,
@@ -550,7 +556,7 @@ final class Contract
                 $paths["$base/{id}"]['delete'] = [
                     'operationId' => "delete$one",
                     'tags' => [$tag],
-                    'summary' => 'Delete one',
+                    'summary' => "Delete $word",
                     'parameters' => [...$parameters, self::idParameter()],
                     'responses' => [
                         '204' => ['description' => 'Deleted'],
@@ -562,8 +568,9 @@ final class Contract
         }
         $paths['/grids/{grid}/assets/{id}.{format}']['get'] = [
             'operationId' => 'getAssetMedia',
-            'tags' => [$scopes['grid'] . ': assets'],
-            'summary' => 'An asset as a page shows it: an image of any type as a picture in the format asked',
+            'tags' => ['Assets'],
+            'summary' => 'Asset as a picture',
+            'description' => 'An asset as a page shows it: an image of any type as a picture in the format asked.',
             'parameters' => [
                 self::gridParameter(),
                 self::idParameter(),
@@ -594,8 +601,8 @@ final class Contract
         ];
         $paths['/grids/{grid}/motd']['get'] = [
             'operationId' => 'getMotd',
-            'tags' => [$scopes['grid'] . ': motd'],
-            'summary' => 'The message of the day the viewers show at login',
+            'tags' => ['Message of the day'],
+            'summary' => 'Message of the day',
             'description' =>
                 'Plain text: `WelcomeMessage` of `[LoginService]`, else a welcome to the grid. `<USERNAME>` stands for the name of the avatar, replaced when `username` is given. This is what `MessageUrl` of the Robust config can point to.',
             'parameters' => [
@@ -618,8 +625,8 @@ final class Contract
         ];
         $paths['/text-images']['get'] = [
             'operationId' => 'getTextImage',
-            'tags' => [$scopes['application'] . ': text images'],
-            'summary' => 'The picture of a text, the texture of a prim',
+            'tags' => ['Text images'],
+            'summary' => 'Text as an image',
             'description' =>
                 'A 1024 pixels square PNG with the text centered, to put on a prim where dynamic textures are not allowed, or to lighten the simulator. The fonts the machine has are listed at `/fonts`; one it does not have is replaced by DejaVu-Sans.',
             'parameters' => [
@@ -676,8 +683,9 @@ final class Contract
         ];
         $paths['/tasks/{id}/runs']['post'] = [
             'operationId' => 'runTask',
-            'tags' => [$scopes['application'] . ': tasks'],
-            'summary' => 'Run a task now, whether it is due or not',
+            'tags' => ['Tasks'],
+            'summary' => 'Run a task',
+            'description' => 'Run a task now, whether it is due or not.',
             'parameters' => [self::idParameter()],
             'responses' => [
                 '200' => [
@@ -705,9 +713,12 @@ final class Contract
             ],
         ];
 
-        $endpoints = Endpoints::document($scopes);
+        $endpoints = Endpoints::document();
         $tags = [...$tags, ...$endpoints['tags']];
         $paths = [...$paths, ...$endpoints['paths']];
+        foreach ($endpoints['groups'] as $group => $names) {
+            $groups[$group] = [...$groups[$group] ?? [], ...$names];
+        }
         isset($paths['/grids/{grid}/destinations']['get']) &&
             ($paths['/grids/{grid}/destinations']['get'] = Endpoints::destinations(
                 $paths['/grids/{grid}/destinations']['get'],
@@ -726,6 +737,12 @@ final class Contract
             // Who may ask is the application's to decide: this layer asks nobody for anything
             'security' => [],
             'tags' => $tags,
+            // The sections of the documentation: the machine, a grid, the application, the helpers, Robust
+            'x-tagGroups' => array_map(
+                static fn(string $name, array $tags): array => ['name' => $name, 'tags' => $tags],
+                array_keys($groups),
+                array_values($groups),
+            ),
             'paths' => $paths,
             'components' => ['schemas' => $schemas],
         ];
