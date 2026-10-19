@@ -21,7 +21,15 @@ use OpenSim\Models\Region;
 use OpenSim\Models\Service;
 use OpenSim\Models\Simulator;
 use OpenSim\Runtime\Environment;
+use OpenSim\Data\Connections;
+use OpenSim\Data\Database;
 use OpenSim\Provisioning\Slug;
+use OpenSim\Services\Failure;
+use OpenSim\Services\SearchParser;
+use OpenSim\Services\SearchQuery;
+use OpenSim\Services\SearchRegistry;
+use OpenSim\Services\SearchTables;
+use OpenSim\Services\XmlRpc;
 use OpenSim\Scheduling\Scheduler;
 
 /**
@@ -53,11 +61,20 @@ final class Api
         'assets' => Asset::class,
     ];
 
+    /** Seconds a simulator that registers is given to load its regions before its snapshot is read. */
+    public const REGISTER_DELAY = 30;
+
     /** The forms the engine knows (what a setup asks), by name. */
     public const FORMS = ['grid', 'remote-grid', 'simulator', 'region'];
 
     /** @var \Closure(Grid):?GridConfig the config of a grid, from its folder unless the caller says otherwise */
     private \Closure $config;
+
+    /** @var list<\Closure():void> what is done once the answer is sent (see finish()) */
+    private array $after = [];
+
+    /** @var array<string,true> the search databases whose tables are checked */
+    private static array $prepared = [];
 
     /**
      * @param ?Scheduler $scheduler the tasks of the application, none when it has none
@@ -73,7 +90,7 @@ final class Api
         $this->config =
             $config ??
             static fn(Grid $grid): ?GridConfig => $grid->directory() !== '' && is_dir($grid->directory())
-                ? GridConfig::fromFolder($grid->directory())
+                ? GridConfig::fromFolder($grid->directory(), ['Helpers' => 'Helpers.ini'])
                 : null;
     }
 
@@ -333,6 +350,112 @@ final class Api
                 ? ['Content-Disposition' => 'attachment; filename="' . ($name === '' ? 'text' : $name) . '.png"']
                 : [],
         );
+    }
+
+    /**
+     * The registration of a simulator to the search: it tells that it is online (it starts, its regions are to be read) or offline
+     * (it stops). What OpenSimSearch calls is fixed: a GET with the `host` and the `port` of the simulator (not those of the grid) and
+     * the `service`. The answer is nothing; the simulator waits for it to go on starting, so the snapshot is read once it is sent
+     * (see finish()).
+     *
+     * @param array<string,mixed> $query `host`, `port`, `service` (`online` or `offline`)
+     */
+    public function register(string $grid, array $query): Response
+    {
+        $host = trim((string) ($query['host'] ?? ''));
+        $port = (int) ($query['port'] ?? 0);
+        $service = (string) ($query['service'] ?? '');
+        try {
+            if ($host === '' || $port <= 0) {
+                throw new Failure('Bad request: missing simulator host and/or port', 400);
+            }
+            if (!in_array($service, ['online', 'offline'], true)) {
+                throw new Failure('Bad request: service is online or offline', 400);
+            }
+            [$db, $regions] = $this->searchDatabase($grid);
+            $registry = new SearchRegistry($db, $regions, $this->environment->clock);
+            if ($service === 'offline') {
+                $registry->unregister($host, $port);
+            } else {
+                $registry->register($host, $port);
+                // A simulator registers while it starts: its regions are loaded a little later, and it keeps the snapshot it makes
+                // when they are. It is read then, and again soon after
+                $this->after[] = function () use ($db, $regions, $registry, $host, $port): void {
+                    $this->environment->clock->sleep(self::REGISTER_DELAY);
+                    (new SearchParser($registry, $db, $regions, $this->environment->http))->parse();
+                    $registry->again($host, $port);
+                };
+            }
+        } catch (Failure $failure) {
+            return Response::binary($failure->getMessage() . "\n", 'text/plain; charset=utf-8', $failure->status);
+        } catch (\Throwable $error) {
+            return Response::binary("Internal error\n", 'text/plain; charset=utf-8', 500);
+        }
+
+        return Response::binary('', 'text/plain; charset=utf-8');
+    }
+
+    /**
+     * The questions of the viewers to the search of a grid (OpenSimSearch): XML-RPC, the methods and the answers fixed by the
+     * viewers. The search can be shared by several grids: `gk` in the address, which the viewers do not send, says for which grid
+     * the search is made.
+     *
+     * @param array<string,mixed> $query `gk`, the gatekeeper of the grid that asks
+     */
+    public function searchQuery(string $grid, string $body, array $query = []): Response
+    {
+        try {
+            [$db, $regions, $config] = $this->searchDatabase($grid);
+            $profiles = Connections::pdo($config, Database::Profiles);
+            $methods = new SearchQuery(
+                $db,
+                $regions,
+                $profiles?->connected ? $profiles : null,
+                Connections::pdo($config, 'UserAccountService'),
+                Connections::pdo($config, 'PresenceService'),
+                isset($query['gk']) ? (string) $query['gk'] : null,
+                $this->environment->clock,
+            );
+        } catch (Failure $failure) {
+            return XmlRpc::failure($failure);
+        }
+
+        return (new XmlRpc($methods->methods()))->call($body);
+    }
+
+    /**
+     * What waits for the answer to be sent: a simulator that registers is read, then the tasks that are due run. The application calls
+     * it once the response is on its way (a PSR-15 handler cannot).
+     */
+    public function finish(): void
+    {
+        while (($todo = array_shift($this->after)) !== null) {
+            $todo();
+        }
+        $this->scheduler?->tick();
+    }
+
+    /**
+     * The search database of a grid, with its tables.
+     *
+     * @return array{0:\OpenSim\Data\OSPDO,1:string,2:GridConfig} the database, the table of the regions, the config of the grid
+     * @throws Failure 503 when the grid has no search database or it cannot be reached
+     */
+    private function searchDatabase(string $nick): array
+    {
+        $grid = Grid::find($this->environment, $nick) ?? throw new Failure("There is no grid called '$nick'", 404);
+        $config = ($this->config)($grid) ?? throw new Failure("There is no config for the grid '$nick'", 404);
+        $db = Connections::pdo($config, Database::Search);
+        if ($db === null || !$db->connected) {
+            throw new Failure('Bad configuration: the search database is not available', 503);
+        }
+        $key = (string) Connections::key($config, Database::Search);
+        if (!isset(self::$prepared[$key])) {
+            SearchTables::ensure($db);
+            self::$prepared[$key] = true;
+        }
+
+        return [$db, \OpenSim\Models\Region::searchTable($db), $config];
     }
 
     /** Run a task now, whether it is due or not. */

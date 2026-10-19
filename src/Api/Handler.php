@@ -60,6 +60,12 @@ final class Handler implements RequestHandlerInterface
         return $answer->status === 204 ? $response : $response->withBody($this->streams->createStream($answer->body()));
     }
 
+    /** Once the response is sent: what waited for it (a simulator that registered is read) and the tasks that are due. */
+    public function terminate(): void
+    {
+        $this->api->finish();
+    }
+
     private function dispatch(ServerRequestInterface $request): Response
     {
         $path = $request->getUri()->getPath();
@@ -81,7 +87,8 @@ final class Handler implements RequestHandlerInterface
         if (
             $grid === null &&
             $this->grid !== null &&
-            (isset(Api::GRID_RESOURCES[$tail[0] ?? '']) || in_array($tail[0] ?? '', ['destinations', 'motd'], true))
+            (isset(Api::GRID_RESOURCES[$tail[0] ?? '']) ||
+                in_array($tail[0] ?? '', ['destinations', 'motd', 'search'], true))
         ) {
             $grid = $this->grid;
         }
@@ -99,6 +106,10 @@ final class Handler implements RequestHandlerInterface
             $routes = ['GET' => fn() => $this->api->media($grid, $m[1], $m[2], $this->converter, $width)];
         } elseif ($tail === ['text-images']) {
             $routes = ['GET' => fn() => $this->api->textImage($query)];
+        } elseif ($grid !== null && $tail === ['search', 'register']) {
+            $routes = ['GET' => fn() => $this->api->register($grid, $query)];
+        } elseif ($grid !== null && $tail === ['search', 'query']) {
+            $routes = ['POST' => fn() => $this->api->searchQuery($grid, (string) $request->getBody(), $query)];
         } elseif ($grid !== null && $tail === ['motd']) {
             $routes = ['GET' => fn() => $this->api->motd($grid, (string) ($query['username'] ?? ''))];
         } elseif (count($tail) === 1 && $tail[0] !== '') {

@@ -400,3 +400,113 @@ describe('The API handler, for the images of a text', function () {
             ->toBe(404);
     });
 });
+
+describe('The API handler, for the search', function () {
+    test('registers a simulator, and reads its snapshot once the answer is sent', function () {
+        $db = search_database();
+        Connections::using(static fn($what) => $what === OpenSim\Data\Database::Search ? $db : null);
+        $machine = new Machine();
+        $machine->http['http://sim.example.org:9000/?method=collector'] = search_snapshot();
+        $handler = api_handler(machine: $machine);
+
+        $answer = api_ask(
+            $handler,
+            'GET',
+            '/api/grids/demo/search/register?host=sim.example.org&port=9000&service=online',
+        );
+        $registered = $db->get_var('SELECT COUNT(*) FROM hostsregister');
+        $before = $db->get_var('SELECT COUNT(*) FROM regionsregister');
+        $handler->terminate();
+
+        expect($answer->getStatusCode())
+            ->toBe(200)
+            ->and((string) $answer->getBody())
+            ->toBe('')
+            ->and([$registered, $before])
+            ->toBe([1, 0])
+            ->and($db->get_var('SELECT COUNT(*) FROM regionsregister'))
+            ->toBe(1)
+            ->and($machine->clock->slept)
+            ->toBe([30.0]);
+
+        $gone = api_ask(
+            $handler,
+            'GET',
+            '/api/grids/demo/search/register?host=sim.example.org&port=9000&service=offline',
+        );
+
+        expect($gone->getStatusCode())
+            ->toBe(200)
+            ->and($db->get_var('SELECT COUNT(*) FROM hostsregister'))
+            ->toBe(0)
+            ->and($db->get_var('SELECT COUNT(*) FROM parcels'))
+            ->toBe(0);
+    });
+
+    test(
+        'refuses a registration that does not say which simulator, which service, or that has no search database',
+        function () {
+            $db = search_database();
+            Connections::using(static fn($what) => $what === OpenSim\Data\Database::Search ? $db : null);
+            $handler = api_handler();
+
+            $noPort = api_ask($handler, 'GET', '/api/grids/demo/search/register?host=sim.example.org&service=online');
+            $noService = api_ask(
+                $handler,
+                'GET',
+                '/api/grids/demo/search/register?host=sim.example.org&port=9000&service=maybe',
+            );
+            $post = api_ask($handler, 'POST', '/api/grids/demo/search/register');
+            Connections::using(static fn() => null);
+            $noDatabase = api_ask(
+                $handler,
+                'GET',
+                '/api/grids/demo/search/register?host=sim.example.org&port=9000&service=online',
+            );
+
+            expect($noPort->getStatusCode())
+                ->toBe(400)
+                ->and((string) $noPort->getBody())
+                ->toContain('missing simulator host and/or port')
+                ->and($noService->getStatusCode())
+                ->toBe(400)
+                ->and($post->getHeaderLine('Allow'))
+                ->toBe('GET')
+                ->and($noDatabase->getStatusCode())
+                ->toBe(503)
+                ->and((string) $noDatabase->getBody())
+                ->toContain('search database is not available');
+        },
+    );
+
+    test('answers the questions of the viewers in XML-RPC, for the grid the gk argument says', function () {
+        [$db] = searched();
+        Connections::using(static fn($what) => $what === OpenSim\Data\Database::Search ? $db : null);
+        $handler = api_handler(grid: 'demo');
+        $ask = static function (string $gk) use ($handler): ResponseInterface {
+            $factory = new Psr17Factory();
+            $request = $factory
+                ->createServerRequest('POST', "/api/search/query?gk=$gk")
+                ->withQueryParams(['gk' => $gk])
+                ->withBody($factory->createStream(rpc_xml('dir_places_query', ['text' => 'rose'])));
+
+            return $handler->handle($request);
+        };
+
+        $ours = $ask('grid.example.org:8002');
+        $theirs = $ask('other.example.org:8002');
+
+        expect($ours->getStatusCode())
+            ->toBe(200)
+            ->and($ours->getHeaderLine('Content-Type'))
+            ->toBe('text/xml')
+            ->and((string) $ours->getBody())
+            ->toContain('Rose garden')
+            ->and((string) $theirs->getBody())
+            ->toContain('No results')
+            ->and(api_ask($handler, 'GET', '/api/search/query')->getHeaderLine('Allow'))
+            ->toBe('POST')
+            ->and((string) api_ask($handler, 'POST', '/api/search/query', raw: 'not xml')->getBody())
+            ->toContain('no XML-RPC request');
+    });
+})->skip(fn() => test_pdo() === null, 'TEST_DATABASE is not set in tests/.env');
