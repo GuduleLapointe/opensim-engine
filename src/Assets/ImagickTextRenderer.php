@@ -6,7 +6,7 @@ namespace OpenSim\Assets;
 
 /**
  * Draws a text with ImageMagick (the extension `imagick`): the text centered on a 1024 pixels square, in the font, the size and the
- * colors asked. A font the machine does not have is replaced by DejaVu-Sans, or by the default font when it has not that either.
+ * colors asked. A font the machine does not have is replaced by DejaVu-Sans, or by the first font the machine has when it has not that either.
  */
 final class ImagickTextRenderer implements TextRendererInterface
 {
@@ -26,7 +26,7 @@ final class ImagickTextRenderer implements TextRendererInterface
                 ? $font
                 : (in_array(self::FALLBACK_FONT, $fonts, true)
                     ? self::FALLBACK_FONT
-                    : null);
+                    : ($fonts[0] ?? null));
             $name !== null && $draw->setFont($name);
             $draw->setFontSize($size);
             $draw->setFillColor($color);
