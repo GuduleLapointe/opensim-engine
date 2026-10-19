@@ -995,13 +995,14 @@ final class Region extends Model
     }
 
     /**
-     * The rule of the name of a region, the one of Second Life (Linden Lab, naming private regions): letters and digits, 3 to 25
-     * characters, three words at most. No punctuation: the viewer takes the dot for a host name, and Robust takes the underscore for
-     * a space (Ma Region and Ma_Region would be the same Region_Ma_Region).
+     * The rule of the name of a region, from the one of Second Life (Linden Lab, naming private regions): letters and digits, three
+     * words at most, 3 characters at least (the map search needs 3), 50 at most (the column holds 128). No punctuation: the viewer
+     * takes the dot for a host name, and Robust takes the underscore for a space (Ma Region and Ma_Region would be the same
+     * Region_Ma_Region).
      */
     private static function nameRule(): NameRule
     {
-        return new NameRule(min: 3, max: 25, words: 3);
+        return new NameRule(min: 3, max: 50, words: 3);
     }
 
     /** The name of a region, typed. An accent is not refused, it is transliterated (Noël becomes Noel). */

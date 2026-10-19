@@ -63,7 +63,7 @@ describe('Avatar', function () {
 });
 
 describe('Region', function () {
-    test('has the name rule of Second Life: letters and digits, 3 to 25 characters, three words at most, corrected when it has accents', function () {
+    test('has the name rule of Second Life: letters and digits, 3 to 50 characters, three words at most, corrected when it has accents', function () {
         expect(Region::validateName('Ma Region 2'))
             ->toBeNull()
             ->and(Region::validateName('Ma_Region'))
@@ -74,8 +74,10 @@ describe('Region', function () {
             ->toBe('invalid (letters, digits, space)')
             ->and(Region::validateName('Ab'))
             ->toBe('too short (3 min)')
-            ->and(Region::validateName(str_repeat('a', 26)))
-            ->toBe('too long (25 max)')
+            ->and(Region::validateName(str_repeat('a', 25)))
+            ->toBeNull()
+            ->and(Region::validateName(str_repeat('a', 51)))
+            ->toBe('too long (50 max)')
             ->and(Region::validateName('Aaa Bbb Ccc Ddd'))
             ->toBe('too many words (3 max)')
             ->and(Region::validateName(''))
