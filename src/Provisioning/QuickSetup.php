@@ -45,7 +45,7 @@ final class QuickSetup
         // A name is Latin letters without accents, in every alphabet: what is not is replaced, and the person validates the change by
         // sending the form again (the value that comes back is the replaced one). What is not right after that stays an error.
         $corrected = [];
-        foreach (['name' => '.-', 'avatar' => ''] as $key => $kept) {
+        foreach (['name' => '.-', 'avatar' => '-'] as $key => $kept) {
             $given = trim((string) ($answers[$key] ?? ''));
             $latin = self::latin($given, $kept);
             if ($latin !== $given) {

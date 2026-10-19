@@ -175,12 +175,12 @@ final class Simulator extends InstalledModel
     }
 
     /**
-     * The name of an account that is made: two words of letters and digits. The dot, the hyphen and the underscore are not
-     * accepted, they separate the first and the last name (First.Last) or are taken for a space.
+     * The name of an account that is made: two words of letters, digits and hyphens. The dot and the at sign are the hypergrid's
+     * (First.Last@grid), the underscore is taken for a space in many places of OpenSimulator.
      */
     public static function validateNewAvatar(mixed $value): ?string
     {
-        return preg_match('/^[A-Za-z0-9]+ [A-Za-z0-9]+$/', trim((string) $value)) === 1 ? null : _('invalid (First Last)');
+        return preg_match('/^[A-Za-z0-9-]+ [A-Za-z0-9-]+$/', trim((string) $value)) === 1 ? null : _('invalid (First Last)');
     }
 
     /** The name of an account: first and last name. */

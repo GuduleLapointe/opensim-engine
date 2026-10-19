@@ -255,10 +255,14 @@ describe('quick setup, the names and the host', function () {
 });
 
 describe('quick setup, what separates and what is a space', function () {
-    test('refuses the dot, the hyphen and the underscore in the name of an avatar: they separate or replace the words', function (string $name) {
+    test('refuses the dot, the at sign and the underscore in the name of an avatar: the hypergrid\'s, and taken for a space', function (string $name) {
         expect(QuickSetup::plan((new Machine())->environment, quick_answers(['avatar' => $name]))['problems'])
             ->toBe(['avatar' => 'invalid (First Last)']);
-    })->with(['a dot' => 'Ada.Love Smith', 'a hyphen' => 'Ada-Love Smith', 'an underscore' => 'Ada_Love Smith', 'three words' => 'Ada Love Smith', 'one word' => 'Ada']);
+    })->with(['a dot' => 'Ada.Love Smith', 'an at sign' => 'Ada@Love Smith', 'an underscore' => 'Ada_Love Smith', 'three words' => 'Ada Love Smith', 'one word' => 'Ada']);
+
+    test('accepts the hyphen in the name of an avatar', function () {
+        expect(QuickSetup::plan((new Machine())->environment, quick_answers(['avatar' => 'Ada-Marie Love-Smith']))['problems'])->toBe([]);
+    });
 
     test('refuses the underscore in the name of a region: it is a space for Robust', function () {
         expect(QuickSetup::plan((new Machine())->environment, quick_answers(['type' => 'standalone', 'name' => 'My_Island']))['problems'])
