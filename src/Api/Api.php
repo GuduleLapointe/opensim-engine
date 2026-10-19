@@ -27,6 +27,7 @@ use OpenSim\Data\Database;
 use OpenSim\Provisioning\Slug;
 use OpenSim\Economy\Currency;
 use OpenSim\Health\Health;
+use OpenSim\Runtime\GridMonitor;
 use OpenSim\Economy\CurrencySettings;
 use OpenSim\Services\CurrencyServer;
 use OpenSim\Services\Failure;
@@ -525,6 +526,119 @@ final class Api
             ),
             $ip,
         );
+    }
+
+    /**
+     * The addresses of a grid: the ones it gives its viewers and its simulators (login, economy, search, registration, offline
+     * messages, message of the day, guide...), each with where it comes from, and the ones the helpers need to know first.
+     */
+    public function addresses(string $grid): Response
+    {
+        $instance = self::path('addresses', null, $grid);
+        try {
+            $found = Grid::find($this->environment, $grid) ?? throw NotFound::for("grid called '$grid'");
+            $addresses = $found->addresses();
+            $sources = [];
+            foreach (array_keys($addresses) as $key) {
+                $sources[$key] = $found->service($key)?->source();
+            }
+        } catch (\Throwable $error) {
+            return Response::problem(Problem::from($error, $instance));
+        }
+
+        return Response::document([
+            'data' => [
+                'type' => 'addresses',
+                'id' => $found->nick(),
+                'attributes' => [
+                    'login' => $found->loginUrl(),
+                    'uri' => $found->uri(),
+                    'helpers' => $found->helpersUrl(),
+                    'economy' => $found->economy(),
+                    'search' => $found->searchUrl(),
+                    'searchApi' => $found->searchApi(),
+                    'register' => $found->registerUrl(),
+                    'offline' => $found->offlineUrl(),
+                    'addresses' => $addresses,
+                    'sources' => $sources,
+                ],
+                'links' => ['self' => $instance],
+            ],
+        ]);
+    }
+
+    /**
+     * What a grid says of itself (`get_grid_info`), every element it gave, the free ones included: as it said them when it was last
+     * verified, else what its config says (`live` tells which).
+     */
+    public function info(string $grid): Response
+    {
+        $instance = self::path('info', null, $grid);
+        try {
+            $found = Grid::find($this->environment, $grid) ?? throw NotFound::for("grid called '$grid'");
+        } catch (\Throwable $error) {
+            return Response::problem(Problem::from($error, $instance));
+        }
+
+        return Response::document([
+            'data' => [
+                'type' => 'info',
+                'id' => $found->nick(),
+                'attributes' => [
+                    'live' => $found->gridInfoIsLive(),
+                    'login' => $found->loginUrl(),
+                    'uri' => $found->uri(),
+                    'elements' => (object) $found->gridInfo(),
+                ],
+                'links' => ['self' => $instance],
+            ],
+        ]);
+    }
+
+    /**
+     * The state of a grid at a glance: its Robust, its simulators, its regions, who is in world. `format=text` gives the lines of
+     * `opensim status`, `format=png` a picture of them for a prim.
+     *
+     * @param array<string,mixed> $query `format` (json, text or png); for png, `size` of the font, `color`, `background`
+     */
+    public function monitor(string $grid, array $query = []): Response
+    {
+        $instance = self::path('monitor', null, $grid);
+        try {
+            $found = Grid::find($this->environment, $grid) ?? throw NotFound::for("grid called '$grid'");
+            $monitor = GridMonitor::of($found, ($this->config)($found));
+            $text = GridMonitor::text($monitor);
+            $format = (string) ($query['format'] ?? 'json');
+            if ($format === 'text') {
+                return Response::binary($text, 'text/plain; charset=utf-8');
+            }
+            if ($format === 'png') {
+                $longest = max(array_map('strlen', explode("\n", $text)));
+                $png =
+                    $this->renderer()->render(
+                        $text,
+                        'DejaVu-Sans-Mono',
+                        (int) ($query['size'] ?? max(10, min(80, (int) (1000 / max(1, $longest * 0.62))))),
+                        (string) ($query['color'] ??
+                            (['ok' => '#88ff88', 'degraded' => '#ffcc44', 'down' => '#ff6666'][$monitor['level']] ??
+                                'white')),
+                        (string) ($query['background'] ?? 'black'),
+                    ) ?? throw ChannelUnavailable::for('draw the status', 'this server has no Imagick (php-imagick)');
+
+                return Response::binary($png, 'image/png');
+            }
+        } catch (\Throwable $error) {
+            return Response::problem(Problem::from($error, $instance));
+        }
+
+        return Response::document([
+            'data' => [
+                'type' => 'monitor',
+                'id' => $found->nick(),
+                'attributes' => $monitor,
+                'links' => ['self' => $instance],
+            ],
+        ]);
     }
 
     /**

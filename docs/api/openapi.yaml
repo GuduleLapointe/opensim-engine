@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 'OpenSim engine'
-  version: '3799976'
+  version: '9087e13'
   license:
     name: AGPL-3.0-or-later
     identifier: AGPL-3.0-or-later
@@ -72,6 +72,12 @@ tags:
     name: Health
     description: 'Whether the grid and its web services answer as they should.'
   -
+    name: Addresses
+    description: 'Where the services of the grid are, and what the grid says of itself. The engine reads them from the files of the grid and from its `get_grid_info`, and gives them to the helpers, the manager and the plugins, which do not read the config again.'
+  -
+    name: Monitor
+    description: 'The state of the grid at a glance: its Robust, its simulators (on this machine and elsewhere), its regions, who is in world. As data, as the lines of `opensim status`, or as a picture for a prim. The diagnosis, address by address, is the health.'
+  -
     name: 'Message of the day'
     description: 'The text the viewers show at login.'
   -
@@ -100,11 +106,13 @@ x-tagGroups:
       - Estates
       - Assets
       - Destinations
+      - Addresses
       - 'Message of the day'
       - Search
       - Economy
       - 'Offline messages'
       - Health
+      - Monitor
   -
     name: Application
     tags:
@@ -113,7 +121,7 @@ x-tagGroups:
       - Fonts
       - 'Text images'
   -
-    name: Helpers
+    name: 'Helpers pages'
     tags:
       - Pages
   -
@@ -1883,6 +1891,168 @@ paths:
                 $ref: '#/components/schemas/Problem'
         500:
           description: 'The task failed: the message says why'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  '/grids/{grid}/addresses':
+    get:
+      operationId: getAddresses
+      tags:
+        - Addresses
+      summary: Addresses
+      description: "The addresses of the grid: the ones it gives its viewers and its simulators, each with where it comes from (`provider`: a Robust or a simulator that serves it, `simulator`, `live`: what the grid says at `get_grid_info`, `config`, `default`: the helpers' habit). `helpers` is where the helpers are, `economy` the address `currency.php` and `landtool.php` are under, `search` the web search, `searchApi` the one the simulators ask (`query`). These are links, not identities: the identity of the grid is its `uri`."
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+      responses:
+        200:
+          description: 'The addresses'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      type: { const: addresses }
+                      id: { type: string }
+                      attributes: { type: object, properties: { login: { type: [string, 'null'], description: 'The login address, as the grid says it' }, uri: { type: [string, 'null'], description: 'Its host and port' }, helpers: { type: [string, 'null'] }, economy: { type: [string, 'null'] }, search: { type: [string, 'null'] }, searchApi: { type: [string, 'null'] }, register: { type: [string, 'null'] }, offline: { type: [string, 'null'] }, addresses: { type: object, description: 'Every address, by the key of its service', additionalProperties: { type: string } }, sources: { type: object, description: 'Where each comes from', additionalProperties: { type: [string, 'null'] } } } }
+        404:
+          description: 'The grid is not known here'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  '/grids/{grid}/info':
+    get:
+      operationId: getInfo
+      tags:
+        - Addresses
+      summary: 'What the grid says'
+      description: '**Every** element the grid gave at its `get_grid_info`, the free ones included (what is not standard is passed on), as it said them when it was last verified; `live` is false when the grid was not verified and the elements are what its config says. Nothing is asked here: a verification is joining a grid, starting it, or `Grid::refreshInfo()`.'
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+      responses:
+        200:
+          description: 'The elements of the grid'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      type: { const: info }
+                      id: { type: string }
+                      attributes: { type: object, properties: { live: { type: boolean }, login: { type: [string, 'null'] }, uri: { type: [string, 'null'] }, elements: { type: object, additionalProperties: { type: string } } } }
+        404:
+          description: 'The grid is not known here'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  '/grids/{grid}/monitor':
+    get:
+      operationId: getMonitor
+      tags:
+        - Monitor
+      summary: 'Status of the grid'
+      description: 'The state of the grid at a glance. `level` is `ok`, `degraded` (a simulator is down, a region is offline), `down` (its Robust does not run) or `unknown`. The instances are the ones of this machine, with what they use; the simulators add the ones that run elsewhere, which the regions of the grid tell about. `format=text` gives the lines of `opensim status`, `format=png` a picture of them (a square, the text colored by the level) to put on a prim; it takes the same `/text-images` fonts and colors.'
+      parameters:
+        -
+          name: grid
+          in: path
+          required: true
+          description: 'The nick of the grid'
+          schema:
+            type: string
+        -
+          name: format
+          in: query
+          required: false
+          description: 'The form of the answer'
+          schema:
+            type: string
+            enum:
+              - json
+              - text
+              - png
+            default: json
+        -
+          name: size
+          in: query
+          required: false
+          description: 'png: the size of the font, from the width of the lines by default'
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+        -
+          name: color
+          in: query
+          required: false
+          description: 'png: the color of the text, from the level by default'
+          schema:
+            type: string
+        -
+          name: background
+          in: query
+          required: false
+          description: 'png: the color of the background'
+          schema:
+            type: string
+            default: black
+      responses:
+        200:
+          description: 'The status'
+          content:
+            application/vnd.api+json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      type: { const: monitor }
+                      id: { type: string }
+                      attributes: { type: object, properties: { grid: { type: string }, name: { type: string }, level: { type: string, enum: [ok, degraded, down, unknown] }, login: { type: [string, 'null'] }, instances: { type: array, items: { type: object }, description: 'name, type (robust or simulator), running, pid, cpu, memory, rss' }, simulators: { type: array, items: { type: object }, description: 'name, uri, local, running, regions, online' }, regions: { type: object, description: 'total and online' }, users: { type: [object, 'null'], description: 'The numbers of the grid (members, in world...)' }, up: { type: integer }, down: { type: integer }, summary: { type: string } } }
+            text/plain:
+              schema:
+                type: string
+              examples:
+                status:
+                  value: |
+                    OK - Demo World
+                    NAME        TYPE       STATE  REGIONS  %CPU  %MEM
+                    demo        robust     up     -        0.3   1.2
+                    demo_alpha  simulator  up     3/3      2.1   6.4
+                    2 up - regions 3/3 - in world 4 - cpu 2.4% - mem 7.6% - rss 812345
+            image/png:
+              schema:
+                type: string
+                format: binary
+        404:
+          description: 'The grid is not known here'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        503:
+          description: 'The machine cannot draw: php-imagick is missing (png)'
           content:
             application/problem+json:
               schema:
