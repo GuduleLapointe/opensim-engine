@@ -90,6 +90,19 @@ make it less valid, a verification that fails leaves it as it is), then it is go
 grid: a grid that runs elsewhere and was never verified, or whose time is over, has no login (`loginUrl()` is null). The engine adds no
 port the grid does not give.
 
+## Cache
+
+`Data\Cache` keeps what takes a search to know (an answer of a grid, a row of a database, a file): in memory for the session, so the
+same call is never searched twice, and in a store for a while when it is given a time to live. The store is the `oshelpers_cache` table
+of the search database of the grid, the one the helpers and the aggregator use (`Cache::for($environment, $config)`), else files in the
+cache folder of the install (`Cache::for($environment)`).
+
+    $cache->set('region.' . $uuid, $row);             // this session only
+    $cache->set('region.' . $uuid, $row, 86400);      // a day, for every request (0 for ever)
+    $row = $cache->remember('region.' . $uuid, fn() => Region::find($config, $uuid)?->detail(), 3600);
+
+A search that found nothing is held for the session as well. A database that fails is left alone, the memory goes on.
+
 ## Addresses of a grid
 
 `$grid->addresses()` gives every address the grid gives or has by default, by the key of the service: `currency`, `landtool`,

@@ -2,6 +2,7 @@
 
 ### Unreleased
 
+- new: `Data\Cache`: what takes a search to know is searched once per session (memory), and kept for a while when given a time to live, in the `oshelpers_cache` table of the search database or in files; `GridInfoCache` is built on it
 - new: `Network\GridInfoCache`: what a grid said when it was verified (joining it, starting it, `Grid::refreshInfo()`) is kept for a day and read from there, nothing is asked at each call; `Grid::loginUrl()` and `regionUri()`: the login the grid said is the one, whatever address it was reached at, none for a grid that runs elsewhere and was not verified; the address of a visitor follows it
 - new: `Result::isTrue()`, `isFalse()`; `isSuccess()` and `isError()` are no more contraries (null is neither); `Support\Bitmask`; `Connections::test()`; `Destination::loginUrl()`, `sanitizePlus()`; `wantsList` and `skillsList` of an avatar
 - new: `Text\Uuid::isNullKey()` (the two keys for nobody) and `isEmpty()`

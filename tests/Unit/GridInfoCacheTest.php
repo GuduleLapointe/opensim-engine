@@ -8,6 +8,8 @@ declare(strict_types=1);
  */
 
 use OpenSim\Config\GridConfig;
+use OpenSim\Data\Cache;
+use OpenSim\Data\DatabaseCacheStore;
 use OpenSim\Models\Avatar;
 use OpenSim\Network\GridInfoCache;
 use OpenSim\Testing\Machine;
@@ -132,6 +134,54 @@ describe('the answers of the grids', function () {
                 ->toBeNull();
         },
     );
+});
+
+describe('the answers of the grids, kept as a cache', function () {
+    test('are read from memory by every cache of the session: nothing is asked twice', function () {
+        $answers = ['http://grid.example.org:8002/get_grid_info' => GRID_SAYS];
+        $asked = [];
+        $environment = grid_info_world($answers, $asked)->environment;
+        (new GridInfoCache($environment))->verify('http://grid.example.org:8002');
+
+        expect((new GridInfoCache($environment))->login('grid.example.org:8002', verify: true))
+            ->toBe('http://grid.example.org:8002')
+            ->and($asked)
+            ->toHaveCount(1);
+    });
+
+    test('are not asked again for a while from a grid that did not answer, unless a verification asks', function () {
+        $answers = [];
+        $asked = [];
+        $machine = grid_info_world($answers, $asked);
+        $cache = new GridInfoCache($machine->environment);
+
+        expect($cache->login('down.example.org:8002', verify: true))->toBeNull();
+        expect($cache->login('down.example.org:8002', verify: true))->toBeNull()->and($asked)->toHaveCount(1);
+        $cache->verify('down.example.org:8002');
+        expect($asked)->toHaveCount(2);
+        $machine->clock->now += GridInfoCache::SILENT + 1;
+        $answers['http://down.example.org:8002/get_grid_info'] = GRID_SAYS;
+        expect($cache->login('down.example.org:8002', verify: true))->toBe('http://grid.example.org:8002');
+    });
+
+    test('are kept in the search database of the grid when a cache over it is given', function () {
+        $answers = ['http://grid.example.org:8002/get_grid_info' => GRID_SAYS];
+        $asked = [];
+        $machine = grid_info_world($answers, $asked);
+        Cache::flush();
+        $pdo = test_pdo();
+        $cache = new GridInfoCache(
+            $machine->environment,
+            cache: new Cache(new DatabaseCacheStore($pdo), $machine->clock),
+        );
+        $cache->verify('http://grid.example.org:8002');
+        Cache::flush();
+
+        expect($cache->saved('http://grid.example.org:8002')['mood'])
+            ->toBe('free')
+            ->and($pdo->query('SELECT COUNT(*) FROM oshelpers_cache')->fetchColumn())
+            ->toBeGreaterThan(0);
+    })->skip(fn() => test_pdo() === null, 'TEST_DATABASE is not set in tests/.env');
 });
 
 describe('the address of a visitor', function () {

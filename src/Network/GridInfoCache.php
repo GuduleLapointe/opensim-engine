@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace OpenSim\Network;
 
+use OpenSim\Data\Cache;
 use OpenSim\Hypergrid\Destination;
 use OpenSim\Runtime\Environment;
-use OpenSim\Support\FileCache;
 
 /**
  * What the grids said of themselves at `/get_grid_info` when they were verified, kept. What a grid says is the truth about it,
@@ -16,18 +16,27 @@ use OpenSim\Support\FileCache;
  * kept (`saved()`, `login()`). The grids do not change every minute, what was kept is valid for a day, and a grid that is offline
  * for hours does not make it less valid: a failed verification leaves it as it is. The time is over once a day, then it is gone, and
  * whoever verifies next keeps the new answer. No other address is tried in place of the one of a grid.
+ *
+ * What is kept is in a Cache: in memory for the session, and in its store for the day (the files of the install, or the search
+ * database of the grid when the caller gives `Cache::for($environment, $config)`). A grid that did not answer is not asked again
+ * by `login()` for ten minutes.
  */
 final class GridInfoCache
 {
     /** Seconds what a grid said is valid, from the moment it was verified. */
     public const TTL = 86400;
 
-    private FileCache $files;
+    /** Seconds before a grid that did not answer is asked again by `login()`. */
+    public const SILENT = 600;
 
-    public function __construct(private readonly Environment $environment, int $ttl = self::TTL)
-    {
-        $root = $environment->layout->cacheRoot() ?: sys_get_temp_dir() . '/opensim-cache';
-        $this->files = new FileCache($root . '/grid-info', $ttl, $environment->clock);
+    private Cache $cache;
+
+    public function __construct(
+        private readonly Environment $environment,
+        private readonly int $ttl = self::TTL,
+        ?Cache $cache = null,
+    ) {
+        $this->cache = $cache ?? Cache::for($environment);
     }
 
     /**
@@ -37,9 +46,9 @@ final class GridInfoCache
      */
     public function saved(string $login): ?array
     {
-        $kept = $this->files->get($this->key($login));
+        $kept = $this->cache->get('grid-info.' . $this->key($login));
 
-        return $kept === null ? null : (array) json_decode($kept['data'], true);
+        return is_array($kept) ? $kept : null;
     }
 
     /**
@@ -53,8 +62,11 @@ final class GridInfoCache
         $asked = Destination::loginUrl($login);
         $said = $asked === null ? [] : GridInfoReader::read($asked, $this->environment->http);
         if ($said === []) {
+            $asked === null || $this->cache->set('grid-info-silent.' . $this->key($asked), true, self::SILENT);
+
             return null;
         }
+        $this->cache->forget('grid-info-silent.' . $this->key($asked));
         $this->save($asked, $said);
         if (($official = Destination::loginUrl($said['login'] ?? '')) !== null) {
             $this->save($official, $said);
@@ -66,7 +78,7 @@ final class GridInfoCache
     /** @param array<string,string> $said */
     public function save(string $login, array $said): void
     {
-        $this->files->put($this->key($login), json_encode($said, JSON_UNESCAPED_SLASHES) ?: '[]');
+        $this->cache->set('grid-info.' . $this->key($login), $said, $this->ttl);
     }
 
     /**
@@ -80,7 +92,9 @@ final class GridInfoCache
         if ($asked === null) {
             return null;
         }
-        $said = $this->saved($asked) ?? ($verify ? $this->verify($asked) : null);
+        $said =
+            $this->saved($asked) ??
+            ($verify && !$this->cache->has('grid-info-silent.' . $this->key($asked)) ? $this->verify($asked) : null);
 
         return $said === null ? null : Destination::loginUrl($said['login'] ?? '') ?? $asked;
     }
