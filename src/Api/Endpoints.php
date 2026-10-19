@@ -464,7 +464,7 @@ final class Endpoints
             'tags' => ['Setup'],
             'summary' => 'Quick setup',
             'description' =>
-                'The setup that a few answers stand for. A grid has its Robust and a first simulator, `Welcome`, with its region; a standalone is one simulator that is the whole grid, with the name that was given. Everything the answers do not say is what the planners propose (ports, database, folders, options), so an empty request gives the proposals. `setup` is in the format of the setup files (`opensim import`), the password of the avatar is kept hashed in it. `problems` names the questions that are wrong or missing.',
+                'The setup that a few answers stand for. A grid has its Robust and a first simulator, `Welcome`, with its region; a standalone is one simulator that is the whole grid, with the name that was given. Everything the answers do not say is what the planners propose (ports, database, folders, options), so an empty request gives the proposals. `setup` is in the format of the setup files (`opensim import`), the password of the avatar is kept hashed in it. `problems` names the questions that are wrong or missing, `rows` lists every value the setup defines.',
             'requestBody' => [
                 'required' => false,
                 'content' => [
@@ -506,6 +506,18 @@ final class Endpoints
                             'additionalProperties' => ['type' => 'string'],
                         ],
                         'setup' => ['type' => 'object', 'description' => 'The grid, its simulator, its owner'],
+                        'rows' => [
+                            'type' => 'array',
+                            'description' => 'Every value the setup defines, to show before it is applied: the section (grid, simulator, region, owner), the label and the value',
+                            'items' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'section' => ['type' => 'string'],
+                                    'label' => ['type' => 'string'],
+                                    'value' => ['type' => 'string'],
+                                ],
+                            ],
+                        ],
                     ]),
                 ],
                 '400' => Contract::problem('The body is not a JSON document'),

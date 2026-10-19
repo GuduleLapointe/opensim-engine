@@ -115,6 +115,46 @@ describe('quick setup, what is wrong', function () {
             ->toHaveKey('hypergrid');
     });
 
+    test('takes a login address as a host and a port, with or without http, and nothing else', function (string $uri, ?string $host, ?int $port) {
+        $result = QuickSetup::plan((new Machine())->environment, quick_answers(['login_uri' => $uri]));
+
+        if ($host === null) {
+            expect($result['problems'])->toHaveKey('login_uri');
+
+            return;
+        }
+        expect($result['problems'])
+            ->not->toHaveKey('login_uri')
+            ->and($result['setup']['grid']['hostname'])
+            ->toBe($host)
+            ->and($result['setup']['grid']['public_port'])
+            ->toBe($port ?? $result['setup']['grid']['public_port']);
+    })->with([
+        'a host' => ['login.example.org', 'login.example.org', null],
+        'a host and a port' => ['login.example.org:8102', 'login.example.org', 8102],
+        'with http' => ['http://login.example.org:8102/', 'login.example.org', 8102],
+        'an address' => ['127.0.0.1:9000', '127.0.0.1', 9000],
+        'a typo of the scheme' => ['htp:/login.example.org:8102', null, null],
+        'another scheme' => ['ftp://login.example.org', null, null],
+        'a space' => ['login example.org', null, null],
+        'a port out of range' => ['login.example.org:99999', null, null],
+        'https, not handled yet' => ['https://login.example.org', null, null],
+    ]);
+
+    test('lists every value it defines, by section, for whoever shows the setup', function () {
+        $rows = QuickSetup::plan((new Machine())->environment, quick_answers())['rows'];
+        $labels = array_column($rows, 'label');
+
+        expect(array_values(array_unique(array_column($rows, 'section'))))
+            ->toBe(['grid', 'simulator', 'region', 'owner'])
+            ->and($labels)
+            ->toContain('Grid name', 'Login URI', 'Hypergrid', 'Grid database', 'Simulator', 'Region', 'Port', 'Avatar')
+            ->and($rows[1])
+            ->toBe(['section' => 'grid', 'label' => 'Login URI', 'value' => 'http://login.example.org:8102'])
+            ->and(json_encode($rows))
+            ->not->toContain('secret123');
+    });
+
     test('keeps a login address that has no scheme or no port', function () {
         $grid = QuickSetup::plan((new Machine())->environment, quick_answers(['login_uri' => 'login.example.org']))['setup']['grid'];
 
