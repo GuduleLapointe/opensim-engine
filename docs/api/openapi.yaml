@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 'OpenSim engine'
-  version: de6b732
+  version: 32883d0
   license:
     name: AGPL-3.0-or-later
     identifier: AGPL-3.0-or-later
@@ -1375,6 +1375,14 @@ paths:
               - png
               - gif
               - webp
+        -
+          name: width
+          in: query
+          required: false
+          description: 'Resize the picture to this width, in pixels'
+          schema:
+            type: integer
+            minimum: 1
       responses:
         200:
           description: 'The picture, or the asset as it is'

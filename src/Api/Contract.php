@@ -515,6 +515,13 @@ final class Contract
                     'required' => true,
                     'schema' => ['type' => 'string', 'enum' => ['jpg', 'png', 'gif', 'webp']],
                 ],
+                [
+                    'name' => 'width',
+                    'in' => 'query',
+                    'required' => false,
+                    'description' => 'Resize the picture to this width, in pixels',
+                    'schema' => ['type' => 'integer', 'minimum' => 1],
+                ],
             ],
             'responses' => [
                 '200' => [

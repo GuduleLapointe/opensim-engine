@@ -22,6 +22,8 @@ The suite needs nothing of the machine it runs on: `composer test` (Pest). The f
 
 The resources are the models'; `Api` names them and writes the documents, `Contract` is the OpenAPI document and the text of the documentation (the descriptions of the attributes are written there). `composer docs` makes `docs/api/` (JSON, YAML and a page, Redoc); the tests fail when the pages are not the ones of the contract, or when a model gives an attribute the contract does not know. A new resource is a model, an entry of `Contract::RESOURCES` and of `Api::RESOURCES` or `Api::GRID_RESOURCES`.
 
+`Api\Handler` is the API as a PSR-15 handler (`new Handler($api, $responseFactory, $streamFactory, base: '/api')`): the engine requires the PSR interfaces only, the application brings the implementation of the messages (the tests use nyholm/psr7). Its addresses are the ones of the contract, which it serves at `/openapi.json`.
+
 ## Formatting
 
 Prettier with the PHP plugin (`.prettierrc.json`, `.editorconfig`), no PHP binary needed. The plugin has a known bug: it drops the parentheses of `($a ? $b : $c) ?: $d`, which then does not compile; write it in two statements. `php -l` every file it changed.

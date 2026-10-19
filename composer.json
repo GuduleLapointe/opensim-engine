@@ -26,7 +26,10 @@
         "magicoli/kick-inside": "^0.1.0",
         "symfony/yaml": "^7.4",
         "nubs/random-name-generator": "^2.2",
-        "laminas/laminas-escaper": "^2.12@stable"
+        "laminas/laminas-escaper": "^2.12@stable",
+        "psr/http-message": "^2.0",
+        "psr/http-factory": "^1.1",
+        "psr/http-server-handler": "^1.0"
     },
     "require-dev": {
         "dealerdirect/phpcodesniffer-composer-installer": "^1.2",
@@ -35,7 +38,8 @@
         "phpcompatibility/php-compatibility": "dev-develop",
         "squizlabs/php_codesniffer": "^4.0",
         "magicoli/bash-tools": "^1.0.7",
-        "magicoli/build-tools": "^0.1.2"
+        "magicoli/build-tools": "^0.1.2",
+        "nyholm/psr7": "^1.8"
     },
     "repositories": [
         {
