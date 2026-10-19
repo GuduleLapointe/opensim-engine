@@ -10,6 +10,9 @@ final class Uuid
     /** The keys OpenSimulator has for nobody: all zeros (the global `NULL_KEY`), and zeros ending with a one. */
     public const NULL_KEYS = ['00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000001'];
 
+    /** What a UUID looks like, to check one or to find them in a text. */
+    public const PATTERN = '[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}';
+
     /** Whether it is one of the keys for nobody. */
     public static function isNullKey(mixed $uuid): bool
     {
@@ -49,10 +52,7 @@ final class Uuid
         if ($strict) {
             return (bool) preg_match('/^[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i', $uuid);
         } else {
-            return (bool) preg_match(
-                '/^[0-9A-F]{8,8}-[0-9A-F]{4,4}-[0-9A-F]{4,4}-[0-9A-F]{4,4}-[0-9A-F]{12,12}$/i',
-                $uuid,
-            );
+            return preg_match('/^' . self::PATTERN . '$/', $uuid) === 1;
         }
     }
 }

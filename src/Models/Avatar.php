@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Models;
 
+use OpenSim\Text\Uuid;
 use OpenSim\Config\GridConfig;
 use OpenSim\Data\Collection;
 use OpenSim\Data\Connections;
@@ -28,6 +29,9 @@ final class Avatar extends Model
 {
     /** The level of the accounts that are gods (administrators). */
     public const GOD_LEVEL = 200;
+
+    /** What the name of a new account may have besides letters and digits. */
+    private const NEW_NAME_PUNCTUATION = '-';
 
     /** What is read of an account, a visit and a profile. */
     private const ACCOUNT_COLUMNS = 'u.PrincipalID, u.FirstName, u.LastName, u.Email, u.Created, u.UserLevel, u.UserFlags, u.UserTitle, u.active';
@@ -315,7 +319,9 @@ final class Avatar extends Model
      */
     public static function validNewName(string $name): bool
     {
-        return preg_match('/^[A-Za-z0-9-]+ [A-Za-z0-9-]+$/', $name) === 1;
+        $word = '[A-Za-z0-9' . preg_quote(self::NEW_NAME_PUNCTUATION, '/') . ']+';
+
+        return preg_match("/^$word $word$/", $name) === 1;
     }
 
     /** The name of an account that is made, typed. */
@@ -327,7 +333,7 @@ final class Avatar extends Model
     /** The name in Latin letters without accents (the viewers lose the accents), every alphabet transliterated. */
     public static function normalizeName(string $name): string
     {
-        return Slug::latin($name, '-');
+        return Slug::latin($name, self::NEW_NAME_PUNCTUATION);
     }
 
     /** The password of an account that is made. The double quote is out: the implementations and the console do not agree on it. */
@@ -384,7 +390,7 @@ final class Avatar extends Model
             throw new \InvalidArgumentException("the avatar '$first $last' needs a password");
         }
         $uuid = isset($values['uuid']) ? strtolower((string) $values['uuid']) : null;
-        if ($uuid !== null && preg_match('/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/', $uuid) !== 1) {
+        if ($uuid !== null && !Uuid::isValid($uuid)) {
             throw new \InvalidArgumentException("'$uuid' is not a UUID");
         }
 
@@ -609,7 +615,7 @@ final class Avatar extends Model
     {
         $target = trim($target);
         $people = [];
-        if (self::isUuid($target)) {
+        if (Uuid::isValid($target)) {
             $uuid = strtolower($target);
             $local = self::find($config, $uuid);
             $local !== null && ($people[] = $local);
@@ -785,11 +791,6 @@ final class Avatar extends Model
         return '`' . str_replace('`', '``', $name) . '`';
     }
 
-    private static function isUuid(string $text): bool
-    {
-        return preg_match('/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i', $text) === 1;
-    }
-
     /**
      * The avatars of the grid.
      *
@@ -840,7 +841,7 @@ final class Avatar extends Model
         if ($accounts === null) {
             return null;
         }
-        if (preg_match('/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i', $id)) {
+        if (Uuid::isValid($id)) {
             $where = ' WHERE u.PrincipalID = :a';
             $params = ['a' => strtolower($id)];
         } elseif (preg_match('/^([^\s.@]+)[\s.]([^\s.@]+)$/', trim($id), $m)) {

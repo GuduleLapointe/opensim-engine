@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Models;
 
+use OpenSim\Text\Uuid;
 use OpenSim\Exceptions\ChannelUnavailable;
 use OpenSim\Config\GridConfig;
 use OpenSim\Data\Collection;
@@ -438,7 +439,7 @@ final class Parcel extends Model
                 $applied[$name] = $value;
             } elseif (
                 in_array($name, ['region', 'owner'], true) &&
-                preg_match('/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i', (string) $value)
+                Uuid::isValid((string) $value)
             ) {
                 $where[] = ($name === 'region' ? 'RegionUUID' : 'OwnerUUID') . " = :$name";
                 $params[$name] = strtolower((string) $value);

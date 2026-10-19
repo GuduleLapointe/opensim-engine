@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Models;
 
+use OpenSim\Text\Uuid;
 use OpenSim\Config\ConnectionString;
 use OpenSim\Config\GridConfig;
 use OpenSim\Data\Collection;
@@ -320,7 +321,7 @@ final class Estate extends Model
             );
         }
         foreach (['owner', 'region'] as $name) {
-            if (isset($filters[$name]) && self::isUuid((string) $filters[$name])) {
+            if (isset($filters[$name]) && Uuid::isValid((string) $filters[$name])) {
                 $value = strtolower((string) $filters[$name]);
                 $applied[$name] = $value;
                 $rows = array_filter(
@@ -563,13 +564,8 @@ final class Estate extends Model
         return array_values((array) ($this->row[$name] ?? []));
     }
 
-    private static function isUuid(string $text): bool
-    {
-        return preg_match('/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i', $text) === 1;
-    }
-
     private static function uuidOf(string $text): string
     {
-        return self::isUuid($text) ? strtolower($text) : throw new \InvalidArgumentException("'$text' is not a UUID");
+        return Uuid::isValid($text) ? strtolower($text) : throw new \InvalidArgumentException("'$text' is not a UUID");
     }
 }

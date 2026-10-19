@@ -68,7 +68,7 @@ final class WebAssets
         $id = strtolower($id);
         $width = $width !== null && $width > 0 ? $width : null;
         $name = $width !== null ? "$id-$width.$format" : "$id.$format";
-        if (preg_match('/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/', $id) !== 1 || Uuid::isNullKey($id)) {
+        if (!Uuid::isValid($id)) {
             return $this->nothing();
         }
         if (($done = $this->converted->get($name)) !== null) {

@@ -15,6 +15,7 @@ use OpenSim\Data\Database;
 use OpenSim\Services\DefaultDestinations;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\LocationFinder;
+use OpenSim\Provisioning\NameRule;
 use OpenSim\Provisioning\Slug;
 use OpenSim\Hypergrid\Destination;
 use OpenSim\Network\GridInfoCache;
@@ -423,7 +424,7 @@ final class Grid extends InstalledModel
     /** The name of a grid in Latin letters without accents (the viewers lose the accents), every alphabet transliterated. */
     public static function normalizeName(string $name): string
     {
-        return Slug::latin($name, '.-');
+        return (new NameRule('.-'))->normalize($name);
     }
 
     /** A host name or an IPv6 address in brackets: labels of letters (unicode too), digits and hyphens. */
@@ -464,7 +465,7 @@ final class Grid extends InstalledModel
         $pattern = '~^(?:(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*)://)?(?P<host>' . self::HOST . ')(?::(?P<port>\d{1,5}))?/?$~u';
         if (
             preg_match($pattern, $uri, $m) !== 1 ||
-            (($m['port'] ?? '') !== '' && ((int) $m['port'] < 1 || (int) $m['port'] > 65535)) ||
+            (($m['port'] ?? '') !== '' && self::validatePort($m['port']) !== null) ||
             (($m['scheme'] ?? '') !== '' && !in_array(strtolower($m['scheme']), ['http', 'https'], true))
         ) {
             return [[], _('invalid (host:port)')];
@@ -478,7 +479,9 @@ final class Grid extends InstalledModel
     /** A port number. */
     public static function validatePort(mixed $value): ?string
     {
-        return ctype_digit(trim((string) $value)) ? null : _('Enter a port number.');
+        $port = trim((string) $value);
+
+        return ctype_digit($port) && (int) $port >= 1 && (int) $port <= 65535 ? null : _('Enter a port number.');
     }
 
     /** A number of free blocks between regions. */

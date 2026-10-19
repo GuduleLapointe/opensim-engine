@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Runtime;
 
+use OpenSim\Text\Uuid;
 use OpenSim\Controllers\OpenSimController;
 
 /**
@@ -15,7 +16,6 @@ use OpenSim\Controllers\OpenSimController;
  */
 final class UserCounter
 {
-    private const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 
     public function __construct(private readonly Environment $environment) {}
 
@@ -58,7 +58,7 @@ final class UserCounter
         $total = 0;
         $regions = 0;
         foreach (glob("$directory/*.ini") ?: [] as $file) {
-            preg_match_all('/^\s*RegionUUID\s*=\s*"?([0-9a-fA-F-]{36})/m', (string) file_get_contents($file), $uuids);
+            preg_match_all('/^\s*RegionUUID\s*=\s*"?(' . Uuid::PATTERN . ')/m', (string) file_get_contents($file), $uuids);
             foreach ($uuids[1] as $uuid) {
                 $body = ($this->environment->http ?? self::fetch(...))("http://127.0.0.1:$port/monitorstats/$uuid");
                 if ($body === null || !preg_match('#<AgentCountMonitor>(\d+)</AgentCountMonitor>#', $body, $m)) {
@@ -111,14 +111,14 @@ final class UserCounter
             return 0;
         }
         // A row: two names, then the id (the log lines the console shows between them are not rows)
-        $row = '/^[^\s\[]+\s+\S+\s+' . self::UUID . '/m';
+        $row = '/^[^\s\[]+\s+\S+\s+' . Uuid::PATTERN . '/m';
         $rows = preg_match_all($row, $text);
         // Root agents the rows do not show (a list that is not the one expected): no answer
         if ($rows === 0) {
             return null;
         }
 
-        return $rows - (int) preg_match_all('/^[^\s\[]+\s+\S+\s+' . self::UUID . '\s+(NPC|Child)/m', $text);
+        return $rows - (int) preg_match_all('/^[^\s\[]+\s+\S+\s+' . Uuid::PATTERN . '\s+(NPC|Child)/m', $text);
     }
 
     private static function fetch(string $url): ?string

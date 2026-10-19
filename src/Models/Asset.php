@@ -279,7 +279,7 @@ class Asset extends Model
 
     public static function find(GridConfig $config, string $id): ?static
     {
-        if (preg_match('/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i', $id) !== 1) {
+        if (!Uuid::isValid($id)) {
             return null;
         }
         $pdo = Connections::pdo($config, Database::Assets);
@@ -300,7 +300,7 @@ class Asset extends Model
      */
     public static function fromService(GridConfig $config, string $address, string $id, \Closure $http): ?static
     {
-        if (preg_match('/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i', $id) !== 1) {
+        if (!Uuid::isValid($id)) {
             return null;
         }
         $body = $http(rtrim($address, '/') . '/assets/' . strtolower($id));

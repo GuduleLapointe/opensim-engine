@@ -37,10 +37,10 @@ function robust_generated(GridPlan $plan)
 
 describe('RegionName', function () {
     test('accepts what a region can be called and refuses the rest', function () {
-        expect(RegionName::problem('Welcome'))->toBeNull();
-        expect(RegionName::problem('Welcome Area 2'))->toBeNull();
-        expect(RegionName::problem(''))->not->toBeNull();
-        expect(RegionName::problem('Bad"name'))->not->toBeNull();
+        expect(Region::nameProblem('Welcome'))->toBeNull();
+        expect(Region::nameProblem('Welcome Area 2'))->toBeNull();
+        expect(Region::nameProblem(''))->not->toBeNull();
+        expect(Region::nameProblem('Bad"name'))->not->toBeNull();
     });
 
     test('is the key of the flags', function () {
@@ -188,10 +188,10 @@ describe('landing region of a grid', function () {
 
 describe('A name to propose', function () {
     test('is an alliteration the caller accepts', function () {
-        $name = \OpenSim\Provisioning\RandomName::make(static fn(string $v): ?string => RegionName::problem($v));
+        $name = \OpenSim\Provisioning\RandomName::make(static fn(string $v): ?string => Region::nameProblem($v));
 
         expect($name)->toMatch('/^(\S+) (\S+)$/');
-        expect(RegionName::problem($name))->toBeNull();
+        expect(Region::nameProblem($name))->toBeNull();
         expect(strtolower($name[0]))->toBe(strtolower(explode(' ', $name)[1][0]));
     });
 

@@ -11,6 +11,9 @@ use OpenSim\Forms\FieldSet;
 use OpenSim\Models\Avatar;
 use OpenSim\Models\Grid;
 use OpenSim\Models\Region;
+use OpenSim\Models\Simulator;
+use OpenSim\Provisioning\NameRule;
+use OpenSim\Text\Uuid;
 
 describe('Avatar', function () {
     test('has the name of an account that exists as OpenSimulator has it, and a new one without the dot, the at sign and the underscore', function () {
@@ -60,11 +63,13 @@ describe('Avatar', function () {
 });
 
 describe('Region', function () {
-    test('has a name of letters, digits, space, dot and hyphen, which is corrected when it has accents', function () {
-        expect(Region::nameProblem('Ma Region-2.0'))
+    test('has a name of letters, digits, space and hyphen, which is corrected when it has accents', function () {
+        expect(Region::nameProblem('Ma Region-2'))
             ->toBeNull()
             ->and(Region::nameProblem('Ma_Region'))
-            ->toBe('invalid (letters, digits, space . -)')
+            ->toBe('invalid (letters, digits, space -)')
+            ->and(Region::nameProblem('Ma.Region'))
+            ->toBe('invalid (letters, digits, space -)')
             ->and(Region::nameProblem(''))
             ->not->toBeNull()
             ->and(Region::normalizeName('Noël'))
@@ -112,5 +117,37 @@ describe('Grid', function () {
             ])
             ->and($fields->corrections(['name' => 'Café']))
             ->toBe(['name' => 'Cafe']);
+    });
+});
+
+describe('NameRule', function () {
+    test('is written once: the check, the message and the correction come from the punctuation and the length', function () {
+        $rule = new NameRule('.-', 5);
+
+        expect($rule->problem('A.b-c'))
+            ->toBeNull()
+            ->and($rule->problem('Too long'))
+            ->toBe('invalid (letters, digits, space . -)')
+            ->and($rule->problem('a_b'))
+            ->toBe('invalid (letters, digits, space . -)')
+            ->and($rule->normalize('Café'))
+            ->toBe('Cafe')
+            ->and(Simulator::validateName('Noël Un'))
+            ->toBeNull()
+            ->and(Simulator::validateName('Un.Deux'))
+            ->toBe('invalid (letters, digits, space -)');
+    });
+});
+
+describe('Uuid', function () {
+    test('is the one check of a UUID, the null key being nobody', function () {
+        expect(Uuid::isValid('AAAAAAAA-0000-0000-0000-000000000001'))
+            ->toBeTrue()
+            ->and(Uuid::isValid('aaaaaaaa-0000-0000-0000-00000000000'))
+            ->toBeFalse()
+            ->and(Uuid::isValid('00000000-0000-0000-0000-000000000000'))
+            ->toBeFalse()
+            ->and(preg_match('/^' . Uuid::PATTERN . '$/', 'aaaaaaaa-0000-0000-0000-000000000001'))
+            ->toBe(1);
     });
 });

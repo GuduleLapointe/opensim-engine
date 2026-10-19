@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace OpenSim\Models;
 
+use OpenSim\Text\Uuid;
+use OpenSim\Provisioning\NameRule;
 use OpenSim\Config\ConfigReader;
 use OpenSim\Config\GridConfig;
 use OpenSim\Config\GridFileService;
@@ -448,7 +450,7 @@ final class Region extends Model
         }
         $uuid = $configured?->uuid() ?? $key;
         $registered = null;
-        if (preg_match('/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i', $uuid) === 1) {
+        if (Uuid::isValid($uuid)) {
             try {
                 $registered = static::find($config, $uuid);
             } catch (ChannelUnavailable) {
@@ -746,7 +748,7 @@ final class Region extends Model
         if ($pdo === null) {
             return null;
         }
-        $isUuid = preg_match('/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i', $id) === 1;
+        $isUuid = Uuid::isValid($id);
         $rows = $pdo->get_results(
             'SELECT ' .
                 self::COLUMNS .
@@ -994,14 +996,18 @@ final class Region extends Model
     }
 
     /**
-     * The reason a name cannot be given to a region, null when it is fine: letters, digits, space, dot and hyphen. The underscore is
-     * out: Robust takes it for a space (Ma Region and Ma_Region would be the same Region_Ma_Region).
+     * The rule of the name of a region. The dot is out: the viewer takes it for a host name. So is the underscore: Robust takes it
+     * for a space (Ma Region and Ma_Region would be the same Region_Ma_Region).
      */
+    private static function nameRule(): NameRule
+    {
+        return new NameRule('-', 50);
+    }
+
+    /** The reason a name cannot be given to a region, null when it is fine. */
     public static function nameProblem(string $name): ?string
     {
-        return preg_match('/^[A-Za-z0-9][A-Za-z0-9 .-]{0,49}$/', trim($name)) === 1
-            ? null
-            : _('invalid (letters, digits, space . -)');
+        return self::nameRule()->problem($name);
     }
 
     /** The name of a region, typed. An accent is not refused, it is transliterated (Noël becomes Noel). */
@@ -1013,6 +1019,6 @@ final class Region extends Model
     /** The name in Latin letters without accents (the viewers lose the accents), every alphabet transliterated. */
     public static function normalizeName(string $name): string
     {
-        return Slug::latin($name, '.-');
+        return self::nameRule()->normalize($name);
     }
 }

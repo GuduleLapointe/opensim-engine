@@ -244,7 +244,7 @@ final class RegionPlanner
     private function nameProblem(string $name): ?string
     {
         $name = Slug::ascii($name);
-        if (($problem = RegionName::problem($name)) !== null) {
+        if (($problem = Region::nameProblem($name)) !== null) {
             return $problem;
         }
         $grid = $this->context['grid'];

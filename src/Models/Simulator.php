@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Models;
 
+use OpenSim\Provisioning\NameRule;
 use OpenSim\Config\ConnectionString;
 use OpenSim\Console\ConsoleInterface;
 use OpenSim\Controllers\OpenSimController;
@@ -169,9 +170,7 @@ final class Simulator extends InstalledModel
     /** The name of a simulator. An accent is not refused, it is transliterated (Noël becomes Noel). */
     public static function validateName(mixed $value): ?string
     {
-        return preg_match('/^[A-Za-z0-9][A-Za-z0-9 -]*$/', trim(Slug::ascii((string) $value))) === 1
-            ? null
-            : _('invalid (letters, digits, space -)');
+        return (new NameRule('-'))->problem(Slug::ascii((string) $value));
     }
 
 
