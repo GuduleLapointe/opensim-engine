@@ -152,22 +152,7 @@ final class QuickSetup
                 array_keys($built['options']),
                 array_values($built['options']),
             ),
-            'warnings' => self::hostnameWarnings($built['plan']->baseHostname ?? ''),
         ];
-    }
-
-    /**
-     * What is risky in the name of the machine. A name of the local network (`.local`, mDNS) resolves to the link-local IPv6 address of
-     * the machine, which .NET tries first and which does not answer: every call of Robust to the web site of the grid (the message of
-     * the day at its start) waits for its timeout of 100 seconds.
-     *
-     * @return list<string>
-     */
-    private static function hostnameWarnings(string $host): array
-    {
-        return str_ends_with(strtolower($host), '.local')
-            ? [sprintf(_('%s is a name of the local network (mDNS): OpenSim may wait 100 seconds at each start for the web site of the grid. Use a real domain name, or localhost for a test.'), $host)]
-            : [];
     }
 
     /** The types as the API tells them: the kind is the business of the scenario. */
