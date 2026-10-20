@@ -14,6 +14,11 @@
 
 declare(strict_types=1);
 
+// What PHP and the libraries say about themselves goes to the error output, never in the answer; the deprecations of a library are not
+// for whoever reads the answer
+ini_set('display_errors', 'stderr');
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
+
 use OpenSim\Api\Api;
 use OpenSim\Api\Cli;
 use OpenSim\Api\Router;

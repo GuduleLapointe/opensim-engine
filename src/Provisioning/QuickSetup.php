@@ -380,6 +380,20 @@ final class QuickSetup
         if ($plan->binDir === '' || !is_dir($plan->binDir)) {
             return ['action' => 'abort', 'error' => sprintf(_('No OpenSim core found in %s.'), $environment->layout->coreRoot())];
         }
+        // The place must be one the setup can write in: the nearest folder that exists
+        $existing = $plan->gridDir;
+        while ($existing !== dirname($existing) && !file_exists($existing)) {
+            $existing = dirname($existing);
+        }
+        if (!is_dir($existing) || !is_writable($existing)) {
+            return [
+                'action' => 'abort',
+                'error' => sprintf(
+                    _('Cannot write in %s: run the setup as a user who can, or set EtcRoot in opensim.conf to a folder that can be written.'),
+                    $existing,
+                ),
+            ];
+        }
         // The files and the folders only: the databases, the account of the avatar and the start come after
         $plan->enable = $plan->start = $simulator->enable = $simulator->start = $simulator->createOwner = false;
         $ui = new NullUi();
@@ -390,6 +404,14 @@ final class QuickSetup
             $errors = array_column(array_filter($ui->said, static fn(array $said): bool => $said[0] === 'error'), 1);
 
             return ['action' => 'abort', 'error' => implode("\n", $errors ?: [$failed->getMessage()])];
+        }
+        // Written is written: the files are there, or the setup says they are not
+        $missing = array_values(array_filter(
+            [(new GridConf())->path($plan), $plan->standalone ? '' : $plan->robustIni(), $simulator->iniPath()],
+            static fn(string $file): bool => $file !== '' && !is_file($file),
+        ));
+        if ($missing !== []) {
+            return ['action' => 'abort', 'error' => sprintf(_('These files were not written: %s'), implode(', ', $missing))];
         }
         $notes = array_column(array_filter($ui->said, static fn(array $said): bool => $said[0] === 'warn'), 1);
 

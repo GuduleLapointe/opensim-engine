@@ -617,6 +617,22 @@ describe('quick setup, the scenario', function () {
             ->toHaveCount(1);
     });
 
+    test('says it cannot write, and writes nothing, when the place is not one it can write in', function () {
+        $machine = new Machine();
+        quick_core($machine);
+        $review = quick_until($machine, 'review');
+        // The folder of the grids is a file: nothing can be made in it
+        rename("{$machine->etc}/grids", "{$machine->etc}/grids.kept");
+        file_put_contents("{$machine->etc}/grids", 'not a folder');
+
+        $done = quick_step($machine, $review);
+
+        expect($done['action'])
+            ->toBe('abort')
+            ->and($done['error'])
+            ->toContain('Cannot write in', "{$machine->etc}/grids");
+    });
+
     test('is asked and answered through the API like the other operations', function () {
         $router = new Router(new Api((new Machine())->environment));
         $first = json_decode($router->post('/setups/steps', ['data' => ['type' => 'steps', 'attributes' => []]])->body(), true)['data'];
