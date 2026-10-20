@@ -1,19 +1,19 @@
 <?php
 /**
- * Configuring a grid or a simulator that exists changes the values the setup manages and nothing else: what the operator
- * added (settings, sections), and what the setup only proposes, stay.
+ * The config of a grid that is made, from the example of the core and the presets of its options, and of a simulator that is
+ * configured again: what the operator added stays.
  */
 
+use OpenSim\Config\ConfigReader;
+use OpenSim\Controllers\RobustController;
 use OpenSim\Models\Grid;
 use OpenSim\Provisioning\GridOptions;
-use OpenSim\Controllers\RobustController;
 use OpenSim\Provisioning\GridPlan;
-use OpenSim\Provisioning\RobustConfig;
 use OpenSim\Provisioning\SimulatorConfig;
 use OpenSim\Provisioning\SimulatorPlan;
 use OpenSim\Testing\EnvironmentFake;
 
-describe('Configuring a grid that exists', function () {
+describe('A grid that is made', function () {
     /** A grid plan over a folder that has the Robust.HG.ini.example of a distribution. */
     $plan = function (): GridPlan {
         $root = test_tmp() . '/configure-' . bin2hex(random_bytes(4));
@@ -44,16 +44,13 @@ describe('Configuring a grid that exists', function () {
             $plan = $plan();
             $plan->helpers = true;
             $plan->helpersPath = '/helpers';
-            $text = (new RobustConfig())->generate($plan);
-            file_put_contents($plan->robustIni(), $text);
-            $options = fn(): GridOptions => new GridOptions(Grid::planned(EnvironmentFake::with(), $plan), layered: true);
+            $made = robust_made($plan);
+            $options = fn(): GridOptions => new GridOptions(
+                Grid::planned(EnvironmentFake::with(), $plan),
+                layered: true,
+                extra: $plan->variables(),
+            );
 
-            // The config of a grid says nothing of them: they are the options'
-            expect($text)->not->toMatch('/^\s*search\s*=/m');
-
-            $options()->enable('search');
-            $options()->enable('helpers');
-            $made = (string) file_get_contents($plan->robustIni());
             expect($made)
                 ->toContain('search = "${Const|WebURL}/search"')
                 ->toContain('SearchURL = "${Const|WebURL}/search"')
@@ -76,184 +73,78 @@ describe('Configuring a grid that exists', function () {
         },
     );
 
-    test('tells the gatekeeper of a hypergrid in the grid info, and keeps the one the grid has', function () use (
+    test('tells the gatekeeper of a hypergrid in the grid info, and nothing of it when it is not one', function () use (
         $plan,
     ) {
-        $plan = $plan();
-        $plan->enableHypergrid = true;
+        $hypergrid = $plan();
+        $hypergrid->enableHypergrid = true;
         file_put_contents(
-            "{$plan->binDir}/Robust.HG.ini.example",
+            "{$hypergrid->binDir}/Robust.HG.ini.example",
             "[GridInfoService]\n    ; gatekeeper = \${Const|BaseURL}:\${Const|PublicPort}/\n",
         );
-        $robust = new RobustConfig();
 
-        $text = $robust->generate($plan);
-        expect($text)->toMatch('/^\s*gatekeeper = \$\{Const\|BaseURL\}:\$\{Const\|PublicPort\}$/m');
-
-        file_put_contents(
-            $plan->robustIni(),
-            str_replace(
-                'gatekeeper = ${Const|BaseURL}:${Const|PublicPort}',
-                'gatekeeper = http://hg.example.org:8002',
-                $text,
-            ),
-        );
-        expect($robust->generate($plan))->toContain('gatekeeper = http://hg.example.org:8002');
+        expect(robust_made($hypergrid))->toMatch('/^\s*gatekeeper = \$\{Const\|BaseURL\}:\$\{Const\|PublicPort\}$/m');
 
         // Not a hypergrid: nothing to tell
-        $plan->enableHypergrid = false;
-        file_put_contents("{$plan->binDir}/Robust.ini.example", "[GridInfoService]\n    ; gatekeeper = x\n");
-        expect($robust->generate($plan))->not->toMatch('/^\s*gatekeeper\s*=/m');
+        $plain = $plan();
+        $plain->enableHypergrid = false;
+        file_put_contents("{$plain->binDir}/Robust.ini.example", "[GridInfoService]\n    ; gatekeeper = x\n");
+        expect(robust_made($plain))->not->toMatch('/^\s*gatekeeper\s*=/m')->not->toContain('GatekeeperURI');
     });
 
-    test(
-        'serves the connectors that have their counterpart in the simulators, in a grid it makes and not in one that exists',
-        function () use ($plan) {
-            $connectors = <<<'INI'
-            [ServiceList]
-                AssetServiceConnector = "x"
-                ; OfflineIMServiceConnector = "${Const|PrivatePort}/OpenSim.Addons.OfflineIM.dll:OfflineIMServiceRobustConnector"
-                ; GroupsServiceConnector = "${Const|PrivatePort}/OpenSim.Addons.Groups.dll:GroupsServiceRobustConnector"
-                ; BakedTextureService = "${Const|PrivatePort}/OpenSim.Server.Handlers.dll:XBakesConnector"
-                ; UserProfilesServiceConnector = "${Const|PublicPort}/OpenSim.Server.Handlers.dll:UserProfilesConnector"
-                ; EstateDataService = "${Const|PrivatePort}/OpenSim.Server.Handlers.dll:EstateDataRobustConnector"
-                ; HGGroupsServiceConnector = "${Const|PublicPort}/OpenSim.Addons.Groups.dll:HGGroupsServiceRobustConnector"
-            INI;
-            $served = static fn(string $robustIni): array => RobustController::connectorsIn($robustIni);
-            $make = function (bool $helpers, bool $hypergrid) use ($plan, $connectors): GridPlan {
-                $grid = $plan();
-                $grid->helpers = $helpers;
-                $grid->enableHypergrid = $hypergrid;
-                file_put_contents(
-                    $grid->binDir . '/' . ($hypergrid ? 'Robust.HG.ini.example' : 'Robust.ini.example'),
-                    $connectors,
-                );
-
-                return $grid;
-            };
-
-            // A grid alone, without helpers: the bakes, the estates (the profiles and the offline messages are the options')
-            $alone = $make(false, false);
-            file_put_contents($alone->robustIni(), (new RobustConfig())->generate($alone));
-            expect($served($alone->robustIni()))->toBe(['AssetServiceConnector', 'BakedTextureService', 'EstateDataService']);
-
-            // With helpers: the groups too
-            $helpers = $make(true, false);
-            file_put_contents($helpers->robustIni(), (new RobustConfig())->generate($helpers));
-            expect($served($helpers->robustIni()))
-                ->toContain('GroupsServiceConnector')
-                ->not->toContain('HGGroupsServiceConnector', 'OfflineIMServiceConnector');
-
-            // A hypergrid: the groups of the hypergrid
-            $hypergrid = $make(false, true);
-            file_put_contents($hypergrid->robustIni(), (new RobustConfig())->generate($hypergrid));
-            expect($served($hypergrid->robustIni()))
-                ->toContain('GroupsServiceConnector', 'HGGroupsServiceConnector')
-                ->not->toContain('OfflineIMServiceConnector');
-
-            // A grid that exists is not changed: what its operator commented stays so
-            $existing = $make(true, true);
-            file_put_contents($existing->robustIni(), $connectors);
-            $text = (new RobustConfig())->generate($existing);
-            file_put_contents($existing->robustIni(), $text);
-            expect($served($existing->robustIni()))->toBe(['AssetServiceConnector']);
-        },
-    );
-
-    test(
-        'gives the search of the web to both settings that say it when only one is given, and keeps two that differ',
-        function () use ($plan) {
-            $plan = $plan();
-            $robust = new RobustConfig();
-
-            // Nothing given: nothing made up
-            $text = $robust->generate($plan);
-            expect($text)->not->toMatch('/^\s*search\s*=/m');
-
-            // search only: SearchURL of the login service gets it
+    test('serves the connectors that have their counterpart in the simulators, the ones of the options too', function () use (
+        $plan,
+    ) {
+        $connectors = <<<'INI'
+        [ServiceList]
+            AssetServiceConnector = "x"
+            ; OfflineIMServiceConnector = "${Const|PrivatePort}/OpenSim.Addons.OfflineIM.dll:OfflineIMServiceRobustConnector"
+            ; GroupsServiceConnector = "${Const|PrivatePort}/OpenSim.Addons.Groups.dll:GroupsServiceRobustConnector"
+            ; BakedTextureService = "${Const|PrivatePort}/OpenSim.Server.Handlers.dll:XBakesConnector"
+            ; UserProfilesServiceConnector = "${Const|PublicPort}/OpenSim.Server.Handlers.dll:UserProfilesConnector"
+            ; EstateDataService = "${Const|PrivatePort}/OpenSim.Server.Handlers.dll:EstateDataRobustConnector"
+            ; HGGroupsServiceConnector = "${Const|PublicPort}/OpenSim.Addons.Groups.dll:HGGroupsServiceRobustConnector"
+        INI;
+        $served = function (bool $helpers, bool $hypergrid) use ($plan, $connectors): array {
+            $grid = $plan();
+            $grid->helpers = $helpers;
+            $grid->enableHypergrid = $hypergrid;
             file_put_contents(
-                $plan->robustIni(),
-                str_replace(
-                    '[GridInfoService]',
-                    "[GridInfoService]\n    search = \"https://play.example.org/search\"",
-                    $text,
-                ),
+                $grid->binDir . '/' . ($hypergrid ? 'Robust.HG.ini.example' : 'Robust.ini.example'),
+                $connectors,
             );
-            $both = $robust->generate($plan);
-            expect($both)
-                ->toContain('SearchURL = "https://play.example.org/search"')
-                ->and($both)
-                ->toContain('search = "https://play.example.org/search"');
+            robust_made($grid);
 
-            // SearchURL only: search gets it
-            file_put_contents(
-                $plan->robustIni(),
-                str_replace('SearchURL = ""', 'SearchURL = "https://play.example.org/find"', $text),
-            );
-            $both = $robust->generate($plan);
-            expect($both)
-                ->toContain('SearchURL = "https://play.example.org/find"')
-                ->and($both)
-                ->toContain('search = "https://play.example.org/find"');
+            return RobustController::connectorsIn($grid->robustIni());
+        };
 
-            // Two values: the operator's, none is replaced
-            file_put_contents(
-                $plan->robustIni(),
-                str_replace(
-                    ['SearchURL = ""', '[GridInfoService]'],
-                    [
-                        'SearchURL = "https://a.example.org/"',
-                        "[GridInfoService]\n    search = \"https://b.example.org/\"",
-                    ],
-                    $text,
-                ),
-            );
-            $kept = $robust->generate($plan);
-            expect($kept)
-                ->toContain('SearchURL = "https://a.example.org/"')
-                ->and($kept)
-                ->toContain('search = "https://b.example.org/"');
-        },
-    );
+        // A grid alone, without helpers: the bakes, the estates, the profiles, the offline messages of Robust
+        expect($served(false, false))->toBe([
+            'AssetServiceConnector',
+            'OfflineIMServiceConnector',
+            'BakedTextureService',
+            'UserProfilesServiceConnector',
+            'EstateDataService',
+        ]);
 
-    test(
-        'changes the values the setup manages and keeps the settings and the sections of the operator, and the ones the distribution has',
-        function () use ($plan) {
-            $plan = $plan();
-            $robust = new RobustConfig();
-            file_put_contents($plan->robustIni(), $robust->generate($plan));
-            // The operator adds a setting, a section, and changes what the setup only proposes
-            file_put_contents(
-                $plan->robustIni(),
-                str_replace(
-                    'WelcomeMessage = "Welcome to Alpha, <USERNAME>!"',
-                    'WelcomeMessage = "Hello, <USERNAME>"',
-                    (string) file_get_contents($plan->robustIni()),
-                ) . "\n[Gloebit]\nGLBEnvironment = sandbox\n",
-            );
-            // The grid is configured again with another host
-            $plan->baseHostname = 'new.example.org';
-            $text = $robust->generate($plan);
+        // With helpers: the groups too, and the offline messages are the helpers'
+        expect($served(true, false))
+            ->toContain('GroupsServiceConnector')
+            ->not->toContain('HGGroupsServiceConnector', 'OfflineIMServiceConnector');
 
-            expect($text)
-                ->toContain('BaseHostname = "new.example.org"')
-                ->not->toContain('BaseHostname = "play.example.org"')
-                ->toContain('WelcomeMessage = "Hello, <USERNAME>"')
-                ->toContain("[Gloebit]\nGLBEnvironment = sandbox")
-                ->toContain('FromTheDistribution = "yes"');
-        },
-    );
+        // A hypergrid: the groups of the hypergrid
+        expect($served(false, true))->toContain('GroupsServiceConnector', 'HGGroupsServiceConnector');
+    });
 
-    test(
-        'starts from the distribution, and proposes what it proposes, for a grid that has nothing yet',
-        function () use ($plan) {
-            $text = (new RobustConfig())->generate($plan());
+    test('starts from the distribution, and proposes what it proposes', function () use ($plan) {
+        $text = robust_made($plan());
 
-            expect($text)
-                ->toContain('WelcomeMessage = "Welcome to Alpha, <USERNAME>!"')
-                ->toContain('LibraryName = "Alpha Library"');
-        },
-    );
+        expect($text)
+            ->toContain('WelcomeMessage = "Welcome to Alpha, <USERNAME>!"')
+            ->toContain('LibraryName = "Alpha Library"')
+            ->toContain('BaseHostname = "play.example.org"')
+            ->toContain('FromTheDistribution = "yes"');
+    });
 });
 
 describe('Configuring a simulator that exists', function () {
@@ -336,53 +227,65 @@ describe('Configuring a simulator that exists', function () {
 
 describe('What a grid tells its simulators of the connectors its Robust serves', function () {
     test('is the counterpart of each: the bakes, the groups, the groups of the hypergrid', function () {
-        $lines = static fn(array $connectors, bool $standalone = false): string => (new GridOptions(
-            Grid::described(EnvironmentFake::with(), ['connectors' => $connectors, 'standalone' => $standalone]),
-        ))->layer();
+        $layer = static function (bool $helpers, bool $hypergrid, bool $standalone = false): string {
+            $plan = new GridPlan();
+            $plan->gridDir = $plan->etcDirectory = test_tmp() . '/layer-' . bin2hex(random_bytes(4));
+            $plan->gridNick = 'alpha';
+            $plan->gridName = 'Alpha';
+            $plan->webUrl = 'https://play.example.org';
+            $plan->helpers = $helpers;
+            $plan->enableHypergrid = $hypergrid;
+            $plan->standalone = $standalone;
+            $environment = EnvironmentFake::with();
+            $plan->options = (new GridOptions(Grid::planned($environment, $plan)))->selection([]);
 
-        $none = $lines([]);
-        expect($none)->not->toContain('[XBakes]')->not->toContain('[Groups]');
+            return (new GridOptions(Grid::planned($environment, $plan)))->layer();
+        };
 
-        $alone = $lines(['BakedTextureService', 'GroupsServiceConnector']);
+        $none = $layer(false, false);
+        expect($none)->toContain('[XBakes]')->not->toContain('[Groups]');
+
+        $alone = $layer(true, false);
         expect($alone)
             ->toContain("[XBakes]\nURL = \"\${Const|PrivURL}:\${Const|PrivatePort}\"")
             ->toContain('ServicesConnectorModule = "Groups Remote Service Connector"')
             ->toContain('GroupsServerURI = "${Const|PrivURL}:${Const|PrivatePort}"')
             ->not->toContain('LocalService');
 
-        $hypergrid = $lines(['GroupsServiceConnector', 'HGGroupsServiceConnector']);
+        $hypergrid = $layer(false, true);
         expect($hypergrid)
             ->toContain('ServicesConnectorModule = "Groups HG Service Connector"')
-            ->toContain('LocalService = remote')
-            ->not->toContain('[XBakes]');
+            ->toContain('LocalService = remote');
 
-        // A standalone keeps them in the simulator itself
-        $local = $lines(['GroupsServiceConnector'], standalone: true);
+        // A standalone keeps them in the simulator itself, and has no Robust to keep the bakes
+        $local = $layer(true, false, standalone: true);
         expect($local)
             ->toContain('ServicesConnectorModule = "Groups Local Service Connector"')
             ->not->toContain('GroupsServerURI')
-            ->and($lines(['GroupsServiceConnector', 'HGGroupsServiceConnector'], standalone: true))
+            ->not->toContain('[XBakes]')
+            ->and($layer(false, true, standalone: true))
             ->toContain('Groups HG Service Connector', 'LocalService = local');
     });
 
-    test('is the estates of the grid, in the config of the architecture, when Robust serves them', function () {
+    test('is the estates of the grid, in the config of the architecture', function () {
         $dir = test_tmp() . '/estates-' . bin2hex(random_bytes(4));
         mkdir("$dir/config-include", 0o755, true);
-        $common =
-            "[EstateDataStore]\n    ;LocalServiceModule = \"OpenSim.Services.Connectors.dll:EstateDataRemoteConnector\"\n\n[EstateService]\n    EstateServerURI = \"x\"\n";
-        $patched = static fn(): string => (new ReflectionMethod(
-            \OpenSim\Provisioning\GridShared::class,
-            'patched',
-        ))->invoke(new \OpenSim\Provisioning\GridShared(), $common, $dir, 'config-include/GridCommon.ini');
-
-        file_put_contents("$dir/Robust.HG.ini", "[ServiceList]\n    ; EstateDataService = \"x\"\n");
-        expect($patched())->toContain(
-            ';LocalServiceModule = "OpenSim.Services.Connectors.dll:EstateDataRemoteConnector"',
+        file_put_contents(
+            "$dir/config-include/GridCommon.ini",
+            "[EstateDataStore]\n    ;LocalServiceModule = \"OpenSim.Services.Connectors.dll:EstateDataRemoteConnector\"\n\n[EstateService]\n    EstateServerURI = \"x\"\n",
         );
+        file_put_contents("$dir/Robust.HG.ini", "[ServiceList]\n    ; EstateDataService = \"x\"\n");
+        $plan = new GridPlan();
+        $plan->gridDir = $plan->etcDirectory = $dir;
+        $plan->gridNick = 'alpha';
+        $plan->gridName = 'Alpha';
 
-        file_put_contents("$dir/Robust.HG.ini", "[ServiceList]\n    EstateDataService = \"x\"\n");
-        expect($patched())
+        (new GridOptions(Grid::planned(EnvironmentFake::with(), $plan), layered: true))->enable('estates');
+
+        expect(file_get_contents("$dir/config-include/GridCommon.ini"))
             ->toContain('    LocalServiceModule = "OpenSim.Services.Connectors.dll:EstateDataRemoteConnector"')
-            ->not->toContain(';LocalServiceModule');
+            ->not->toContain(';LocalServiceModule')
+            ->and(file_get_contents("$dir/Robust.HG.ini"))
+            ->toContain('EstateDataService = "x"');
     });
 });

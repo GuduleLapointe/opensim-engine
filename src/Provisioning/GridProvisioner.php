@@ -27,19 +27,12 @@ final class GridProvisioner
     {
         $this->makeDirs($plan);
         $this->copyCoreData($plan);
-        $conf = (new GridConf())->write($plan);
-        $this->ui->note(sprintf(_('Wrote %s'), $conf));
         // A standalone has no Robust: its simulator serves the grid
         $plan->standalone || $this->writeRobust($plan);
         $this->writeHelpers($plan);
         $this->copyConfigInclude($plan);
         $this->applyOptions($plan, $environment);
         $this->writeMaster($plan);
-
-        $logConfig = $plan->standalone ? null : (new RobustLogConfig())->write($plan);
-        if ($logConfig !== null) {
-            $this->ui->note(sprintf(_('Wrote %s'), $logConfig));
-        }
 
         // What was asked is kept, to make the same grid again from a file (opensim import)
         SetupFile::record($plan->gridDir, static fn(array $data): array => SetupFile::withGrid($data, $plan));
@@ -182,14 +175,11 @@ final class GridProvisioner
         $shared->merge($plan->etcDirectory, $plan->binDir, $plan->enableHypergrid, standalone: $plan->standalone);
         $shared->prepare($plan->etcDirectory, $plan->binDir, $plan->enableHypergrid, $plan->standalone);
         $this->ui->note(_('Copied config-include defaults.'));
-        if ($plan->standalone && ($services = (new GridServices())->writeStandalone($plan)) !== null) {
-            $this->ui->note(sprintf(_('Wrote %s'), $services));
-        }
     }
     /** The options of the grid (see GridOptions): each one the setup chose is laid over the files. */
     private function applyOptions(GridPlan $plan, Environment $environment): void
     {
-        $options = new GridOptions(Grid::planned($environment, $plan), layered: true);
+        $options = new GridOptions(Grid::planned($environment, $plan), layered: true, extra: $plan->variables());
         $report = function (string $name, array $result): void {
             $result['error'] === null ||
                 $this->ui->warn(sprintf(_('The option %s was not applied: %s'), $name, $result['error']));
@@ -246,14 +236,12 @@ final class GridProvisioner
             }
         }
     }
+    /** The Robust config of the grid starts as the example of the core: the presets say the rest. */
     private function writeRobust(GridPlan $plan): void
     {
-        $path = $plan->robustIni();
-        if (is_file($path)) {
-            @copy($path, "$path~"); // backup
-        }
-        file_put_contents($path, (new RobustConfig())->generate($plan));
-        $this->ui->note(sprintf(_('Wrote %s'), $path));
+        $example = $plan->binDir . '/' . ($plan->enableHypergrid ? 'Robust.HG.ini.example' : 'Robust.ini.example');
+        IniEditor::load($example)->save($plan->robustIni());
+        $this->ui->note(sprintf(_('Wrote %s'), $plan->robustIni()));
     }
     private function makeDirs(GridPlan $plan): void
     {

@@ -27,10 +27,12 @@ use OpenSim\Config\TextFileService;
  * Label = "Cross-grid search"        what it is called (the setup lists it)
  * Description = "..."
  * Offer = true                       listed in the setup (false: applied by itself when the grid can have it)
+ * Show = false                       not told in the report of the setup (the plumbing of the grid)
  * Default = true                     on unless the setup says otherwise
  * Answer = search                    the name of the answer in the setup (the name of the folder)
  * Group = economy                    alternatives: one at a time, the name of the folder is `<group>-<variant>`
  * Fallback = true                    the one of its group that is on when no other is
+ * Order = 10                         when it is laid over the files, the lowest first (default 50)
  * Requires = helpers, !standalone    what the grid must be or have: helpers, standalone, hypergrid, connector:<Name>, service:<name>
  * Uses = helpers                     what a grid made by the setup must have for the option to be of any use (helpers)
  * Modules = opensimsearch            modules of the install it needs (EnabledModules, the package of the core)
@@ -43,6 +45,9 @@ use OpenSim\Config\TextFileService;
  * Existing = Gloebit/Enabled         written only where the file already has the setting
  * Clear = Messaging/OfflineMessageURL  taken off when the grid has no value for it (a {{variable}} with nothing to say)
  * Keep = DataSnapshot/index_sims     left in place when the option is disabled (something else may use them)
+ *
+ * In a file, `;; @if standalone, !hypergrid` ... `;; @end` keeps the lines between for a grid that is one and is not the other (the
+ * words of Requires). A setting with the value `{{off}}` is commented out.
  *
  * [Variables]                        values the other presets can put in their files: `docroot = /var/www/html` is `{{docroot}}`
  * ```
@@ -84,6 +89,12 @@ final class OptionTemplate
         return $this->value('Description');
     }
 
+    /** Whether the report of the setup tells it is on: the plumbing of the grid is not told. */
+    public function shown(): bool
+    {
+        return $this->flag('Show', true);
+    }
+
     /** Whether the setup lists it. */
     public function offered(): bool
     {
@@ -122,6 +133,12 @@ final class OptionTemplate
         return $group !== '' && str_starts_with($this->name(), "$group-")
             ? substr($this->name(), strlen($group) + 1)
             : $this->name();
+    }
+
+    /** When it is laid over the files, the lowest first (the base of the grid comes before the options). */
+    public function order(): int
+    {
+        return (int) ($this->value('Order') !== '' ? $this->value('Order') : 50);
     }
 
     /** @return list<string> what the grid must be or have, `!` before a word for the opposite */
@@ -225,14 +242,12 @@ final class OptionTemplate
      * @param  bool $enable false: only the key has to be known (to comment the setting out)
      * @return list<array{0:string,1:string,2:string}> section, key, value (as written: quotes kept; empty to switch on as it is)
      */
-    public function settings(string $file, array $variables, bool $enable = true): array
+    public function settings(string $file, array $variables, bool $enable = true, ?callable $fact = null): array
     {
-        $path = "{$this->directory}/$file";
-        $text = is_file($path) ? TextFileService::read($path) : '';
         $settings = [];
         $section = '';
         $seen = [];
-        foreach (explode("\n", TextFileService::unix($text)) as $line) {
+        foreach ($this->lines($file, $fact) as $line) {
             if (preg_match('/^\s*\[(.+?)\]\s*$/', $line, $m)) {
                 $section = trim($m[1]);
 
@@ -242,7 +257,8 @@ final class OptionTemplate
                 continue;
             }
             $key = self::fill($m[1], $variables);
-            $value = $enable ? self::fill($m[2], $variables) : $m[2];
+            // `{{off}}`: the setting is commented out
+            $value = !$enable || $m[2] === '{{off}}' ? $m[2] : self::fill($m[2], $variables);
             $id = strtolower("$section|$key");
             if ($key === null || $value === null || isset($seen[$id])) {
                 continue;
@@ -269,11 +285,10 @@ final class OptionTemplate
      *
      * @param array<string,string> $variables
      */
-    public function text(string $file, array $variables): string
+    public function text(string $file, array $variables, ?callable $fact = null): string
     {
-        $path = "{$this->directory}/$file";
         $lines = [];
-        foreach (explode("\n", is_file($path) ? TextFileService::unix(TextFileService::read($path)) : '') as $line) {
+        foreach ($this->lines($file, $fact) as $line) {
             $filled = self::fill($line, $variables);
             $filled === null || ($lines[] = $filled);
         }
@@ -281,20 +296,49 @@ final class OptionTemplate
         return implode("\n", $lines);
     }
 
-    /** The text of a file, as the settings it holds once the grid's own are put in: what it lays over the file of the grid. */
-    public function render(string $file, array $variables): string
+    /**
+     * The lines of a file that apply: a block between `;; @if <words>` and `;; @end` is left out, with its two lines, when one of the
+     * words does not hold (`standalone`, `!hypergrid`, see GridOptions::fact()).
+     *
+     * @param ?callable(string):bool $fact whether a word holds; none: every block applies
+     * @return list<string>
+     */
+    private function lines(string $file, ?callable $fact): array
     {
-        $text = '';
-        $section = null;
-        foreach ($this->settings($file, $variables) as [$name, $key, $value]) {
-            if ($name !== $section) {
-                $text .= ($section === null ? '' : "\n") . "[$name]\n";
-                $section = $name;
+        $path = "{$this->directory}/$file";
+        $lines = [];
+        $blocks = [];
+        foreach (explode("\n", is_file($path) ? TextFileService::unix(TextFileService::read($path)) : '') as $line) {
+            if (preg_match('/^\s*;;\s*@if\s+(.+?)\s*$/', $line, $m) === 1) {
+                $blocks[] = $fact === null || self::holds($m[1], $fact);
+
+                continue;
             }
-            $text .= $value === '' ? "$key =\n" : "$key = $value\n";
+            if (preg_match('/^\s*;;\s*@end\s*$/', $line) === 1) {
+                array_pop($blocks);
+
+                continue;
+            }
+            in_array(false, $blocks, true) || ($lines[] = $line);
         }
 
-        return $text;
+        return $lines;
+    }
+
+    /**
+     * Whether every word of a list (`standalone, !hypergrid`) holds.
+     *
+     * @param callable(string):bool $fact
+     */
+    public static function holds(string $words, callable $fact): bool
+    {
+        foreach (array_filter(array_map('trim', explode(',', $words)), 'strlen') as $word) {
+            if ($fact(strtolower(ltrim($word, '!'))) === str_starts_with($word, '!')) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

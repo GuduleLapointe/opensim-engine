@@ -9,7 +9,6 @@ use OpenSim\Config\InstanceSettings;
 use OpenSim\Models\Grid;
 use OpenSim\Models\Region;
 use OpenSim\Provisioning\GridPlan;
-use OpenSim\Provisioning\RobustConfig;
 use OpenSim\Testing\EnvironmentFake;
 
 /**
@@ -27,7 +26,7 @@ function robust_generated(GridPlan $plan)
         "[Const]\n[GridService]\n    ; Region_Welcome_Area = \"DefaultRegion, DefaultHGRegion\"\n",
     );
     $plan->binDir = $bin;
-    $ini = (new RobustConfig())->generate($plan);
+    $ini = robust_made($plan);
     unlink("$bin/Robust.HG.ini.example");
     rmdir($bin);
 

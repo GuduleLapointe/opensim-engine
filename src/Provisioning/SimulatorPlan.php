@@ -11,6 +11,8 @@ use OpenSim\Config\GridConfig;
  */
 final class SimulatorPlan
 {
+    use PlanVariables;
+
     // The grid it joins.
     public string $gridNick = '';
     public string $gridName = '';
@@ -141,6 +143,24 @@ final class SimulatorPlan
         $plan->dbPass = $this->dbPass;
 
         return $plan;
+    }
+
+    protected function derived(): array
+    {
+        return [
+            'connection_string' => $this->connectionString(),
+            'bin_dir' => $this->binDir(),
+            'config_dir' => $this->configDir(),
+            'regions_dir' => $this->regionsDir(),
+            'region_file' => preg_replace('/[^A-Za-z0-9._-]/', '', $this->regionName) ?: 'region',
+            'architecture_file' => $this->configDir() . '/config-include/' . ($this->standalone ? 'Standalone' : 'Grid') . ($this->hypergrid ? 'Hypergrid' : '') . '.ini',
+            // A grid with a master (SimulatorMaster) has the rest: its simulators say only what makes them their own
+            'master' => SimulatorMaster::exists($this->gridDir) ? 'true' : '',
+            'console_rest' => $this->consolePort > 0 && $this->consoleMode === 'rest' ? 'true' : '',
+            'console_screen' => $this->consolePort > 0 && $this->consoleMode !== 'rest' ? 'true' : '',
+            'standalone_owner' => $this->standalone && $this->createOwner ? 'true' : '',
+            'lsl_host' => SimulatorConfig::lslHost($this),
+        ];
     }
 
     /** The plan as plain values, to hand it to the process that writes it. */

@@ -6,7 +6,6 @@
  */
 
 use OpenSim\Provisioning\GridPlan;
-use OpenSim\Provisioning\RobustConfig;
 
 describe('Robust config with CRLF', function () {
     test('has none left', function () {
@@ -19,7 +18,7 @@ describe('Robust config with CRLF', function () {
         $plan->baseHostname = 'localhost';
         $plan->binDir = $bin;
 
-        $ini = (new RobustConfig())->generate($plan);
+        $ini = robust_made($plan);
 
         expect($ini)->not->toContain("\r");
         expect($ini)->toContain('MapTileDirectory = ');

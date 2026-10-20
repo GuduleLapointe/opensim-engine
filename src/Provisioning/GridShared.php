@@ -5,7 +5,6 @@ namespace OpenSim\Provisioning;
 use OpenSim\Config\GridFileService;
 use OpenSim\Config\IniEditor;
 use OpenSim\Config\TextFileService;
-use OpenSim\Controllers\RobustController;
 
 /**
  * The architecture files a grid shares between its simulators (its
@@ -109,92 +108,25 @@ final class GridShared
 
     /**
      * Our corrections of a file of a folder, in memory: what the distribution assumes (paths relative to the core, which is
-     * read-only, a storage of its own) made what the folder needs.
+     * read-only, a storage of its own) made what the folder needs. They are the settings of the preset `config-include`.
      */
     private function patched(string $text, string $dir, string $file): string
     {
-        foreach ($this->patches($dir, $file) as $pattern => $replacement) {
-            $text = (string) preg_replace($pattern, $replacement, $text);
+        $option = (new Presets())->options()['config-include'] ?? null;
+        if ($option === null || !in_array($file, $option->files(), true)) {
+            return $text;
         }
-        if ($file === 'config-include/osslEnable.ini') {
-            $ini = new IniEditor($text);
-            $ini->get('OSSL', 'AllowOSFunctions') === 'true' || $ini->set('OSSL', 'AllowOSFunctions', 'true');
-            $text = $ini->toString();
-        }
-
-        return $text;
-    }
-
-    /** Whether the Robust config of a grid folder serves a connector of [ServiceList]. */
-    private static function robustServes(string $dir, string $connector): bool
-    {
-        foreach (['Robust.HG.ini', 'Robust.ini'] as $file) {
-            if (is_file("$dir/$file")) {
-                return in_array($connector, RobustController::connectorsIn("$dir/$file"), true);
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @return array<string,string> pattern => replacement, for a file of the folder
-     */
-    private function patches(string $dir, string $file): array
-    {
-        $include = "$dir/config-include";
-        $patches = match ($file) {
-            'config-include/GridHypergrid.ini', 'config-include/Grid.ini' => [
-                '/^(\s*Include-Common\s*=\s*)"?config-include\/GridCommon\.ini"?/m' =>
-                    '$1"' . $include . '/GridCommon.ini"',
-            ],
-            'config-include/StandaloneHypergrid.ini', 'config-include/Standalone.ini' => [
-                '/^(\s*Include-Common\s*=\s*)"?config-include\/StandaloneCommon\.ini"?/m' =>
-                    '$1"' . $include . '/StandaloneCommon.ini"',
-            ],
-            'config-include/StandaloneCommon.ini' => [
-                // The database of the simulator is its own, not the SQLite file of the distribution
-                '/^(\s*Include-Storage\s*=.*)$/m' => ';$1',
-                '/^(\s*Include-FlotsamCache\s*=\s*)"?config-include\/FlotsamCache\.ini"?/m' =>
-                    '$1"' . $include . '/FlotsamCache.ini"',
-            ],
-            'config-include/GridCommon.ini' => [
-                // The estates are the grid's when its Robust serves them (the simulators ask it, instead of keeping their own)
-                ...self::robustServes($dir, 'EstateDataService')
-                    ? [
-                        '/^(\s*);(\s*LocalServiceModule\s*=\s*"OpenSim\.Services\.Connectors\.dll:EstateDataRemoteConnector")/m' =>
-                            '$1$2',
-                    ]
-                    : [],
-                '/^(\s*Include-Storage\s*=.*)$/m' => ';$1',
-                '/^(\s*Include-FlotsamCache\s*=\s*)"?config-include\/FlotsamCache\.ini"?/m' =>
-                    '$1"' . $include . '/FlotsamCache.ini"',
-                '/^(\s*MapTileDirectory\s*=\s*)"?\.\/maptiles"?[ \t]*$/m' => '$1"${Const|CacheDirectory}/maptiles"',
-            ],
-            'config-include/osslDefaultEnable.ini' => [
-                '/^(\s*Include-osslEnable\s*=\s*)"?config-include\/osslEnable\.ini"?/m' =>
-                    '$1"' . $include . '/osslEnable.ini"',
-            ],
-            'config-include/FlotsamCache.ini' => [
-                '/^(\s*CacheDirectory\s*=\s*)\.?\/?assetcache[ \t]*$/m' => '$1"${Const|CacheDirectory}/assetcache"',
-            ],
-            default => [],
-        };
         // The assets and the library the grid has are read from its own, not from the core: from its data folder when it has one,
         // else from its folder
         $own = $this->dataDirectory ?? $dir;
-        if (str_starts_with($file, 'config-include/')) {
-            if (is_file("$own/assets/AssetSets.xml")) {
-                $patches['/^(\s*AssetLoaderArgs\s*=\s*)"?\.?\/?assets\/AssetSets\.xml"?[ \t]*$/m'] =
-                    '$1"' . $own . '/assets/AssetSets.xml"';
-            }
-            if (is_file("$own/inventory/Libraries.xml")) {
-                $patches['/^(\s*DefaultLibrary\s*=\s*)"?\.?\/?inventory\/Libraries\.xml"?[ \t]*$/m'] =
-                    '$1"' . $own . '/inventory/Libraries.xml"';
-            }
-        }
+        $ini = new IniEditor($text);
+        GridOptions::layText($ini, $option, $file, [
+            'include_directory' => "$dir/config-include",
+            'assets_file' => is_file("$own/assets/AssetSets.xml") ? "$own/assets/AssetSets.xml" : '',
+            'library_file' => is_file("$own/inventory/Libraries.xml") ? "$own/inventory/Libraries.xml" : '',
+        ]);
 
-        return $patches;
+        return $ini->toString();
     }
 
     /**
@@ -241,37 +173,11 @@ final class GridShared
             if (!str_starts_with($file, 'config-include/') || !is_file("$gridDir/$file")) {
                 continue;
             }
-            $written[] = $this->patch("$gridDir/$file", $this->patches($gridDir, $file));
+            $written[] = $this->patch("$gridDir/$file", $gridDir, $file);
         }
-        $written[] = $this->enableOssl("$dir/osslEnable.ini");
         $written = array_values(array_filter($written));
 
         return array_values(array_unique($written));
-    }
-
-    /**
-     * OSSL is part of the standard config: the functions are on, with the permissions of the defaults of the
-     * core (osSetParcelDetails, which the region initialization script needs, is for the owner and the
-     * managers of the estate).
-     *
-     * @return ?string the path when written
-     */
-    private function enableOssl(string $path): ?string
-    {
-        if (!is_file($path)) {
-            return null;
-        }
-        $ini = IniEditor::load($path);
-        $before = $ini->toString();
-        if ($ini->get('OSSL', 'AllowOSFunctions') !== 'true') {
-            $ini->set('OSSL', 'AllowOSFunctions', 'true');
-        }
-        if ($ini->toString() === $before) {
-            return null;
-        }
-        $ini->save($path);
-
-        return $path;
     }
 
     /** The file in the core (relative to its bin folder), as it is or as an example. */
@@ -287,21 +193,17 @@ final class GridShared
     }
 
     /**
-     * Apply replacements to a file, written only when something changed.
+     * Apply our corrections to a file, written only when something changed.
      *
-     * @param array<string,string> $replacements pattern => replacement
      * @return ?string the path when written
      */
-    private function patch(string $path, array $replacements): ?string
+    private function patch(string $path, string $dir, string $file): ?string
     {
         if (!is_file($path)) {
             return null;
         }
         $before = GridFileService::read($path);
-        $after = $before;
-        foreach ($replacements as $pattern => $replacement) {
-            $after = (string) preg_replace($pattern, $replacement, $after);
-        }
+        $after = $this->patched($before, $dir, $file);
         if ($after === $before) {
             return null;
         }

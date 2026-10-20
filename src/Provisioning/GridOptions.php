@@ -33,11 +33,13 @@ final class GridOptions
     /**
      * @param ?bool $layered whether the OpenSim.ini of the grid holds the settings of its simulators (it has a master, see
      *                       SimulatorMaster); null: it does when the master is there
+     * @param array<string,string> $extra more variables for the files: what a setup collected (see GridPlan::variables())
      */
     public function __construct(
         private Grid $grid,
         private ?Presets $presets = null,
         private ?bool $layered = null,
+        private array $extra = [],
     ) {}
 
     /**
@@ -178,15 +180,14 @@ final class GridOptions
             }
         }
 
-        return array_values(
-            array_keys(
-                array_filter(
-                    $chosen,
-                    static fn(OptionTemplate $option, string $name): bool => $option->group() === '' || $byGroup[$option->group()] === $name,
-                    ARRAY_FILTER_USE_BOTH,
-                ),
-            ),
+        $chosen = array_filter(
+            $chosen,
+            static fn(OptionTemplate $option, string $name): bool => $option->group() === '' || $byGroup[$option->group()] === $name,
+            ARRAY_FILTER_USE_BOTH,
         );
+        uksort($chosen, static fn(string $a, string $b): int => [$chosen[$a]->order(), $a] <=> [$chosen[$b]->order(), $b]);
+
+        return array_keys($chosen);
     }
 
     /**
@@ -212,7 +213,7 @@ final class GridOptions
             if ($option === null || !in_array('OpenSim.ini', $option->files(), true)) {
                 continue;
             }
-            foreach ($option->settings('OpenSim.ini', $variables) as [$section, $key, $value]) {
+            foreach ($option->settings('OpenSim.ini', $variables, true, fn(string $word): bool => $this->fact($word, '')) as [$section, $key, $value]) {
                 if ($value !== '' && !$option->lists('Existing', $section, $key)) {
                     $ini->set($section, $key, $value);
                 }
@@ -335,13 +336,15 @@ final class GridOptions
             $word === 'standalone' => $this->grid->isStandalone(),
             $word === 'hypergrid' => $this->grid->isHypergrid(),
             $word === 'helpers' => $prefix !== '' || $this->grid->hasHelpers(),
+            $word === 'master' => $this->layered(),
             str_starts_with($word, 'service:') => $prefix !== '' || $this->grid->helperUrl(substr($word, 8)) !== '',
             str_starts_with($word, 'connector:') => in_array(
                 strtolower(substr($word, 10)),
                 array_map('strtolower', $this->grid->connectors()),
                 true,
             ),
-            default => false,
+            // A word that is the name of a variable holds when it has something to say
+            default => !in_array($this->variables($prefix)[$word] ?? '', ['', 'false', '0'], true),
         };
     }
 
@@ -364,7 +367,7 @@ final class GridOptions
             $defaults[$name] = $option;
             $option->group() === '' || ($taken[$option->group()] = true);
         }
-        ksort($defaults);
+        uksort($defaults, static fn(string $a, string $b): int => [$from[$a]->order(), $a] <=> [$from[$b]->order(), $b]);
 
         return $defaults;
     }
@@ -382,7 +385,7 @@ final class GridOptions
         $economy = $this->servicesFile();
         $current = $economy !== null && is_file($economy) ? IniEditor::load($economy)->get('GridInfoService', 'economy') : null;
         $currency = $this->grid->helperUrl('currency');
-        $variables = [
+        $variables = $this->extra + [
             'grid_name' => $this->grid->name(),
             'grid_nick' => $this->grid->nick(),
             'data_service' => SimulatorConfig::dataServiceNameOf($this->grid->nick(), $this->grid->name()),
@@ -422,6 +425,7 @@ final class GridOptions
      */
     private function lay(OptionTemplate $option, bool $on, array $variables, array &$result): void
     {
+        $fact = fn(string $word): bool => $this->fact($word, '');
         foreach ($option->files() as $file) {
             $simulators = $file === 'OpenSim.ini';
             $services = preg_match('/^Robust(\.HG)?\.ini$/i', $file) === 1;
@@ -434,7 +438,7 @@ final class GridOptions
                 }
                 $path = $this->root() . "/$name";
                 if (!is_file($path)) {
-                    $on && $this->copy($option, $file, $path, $variables, $result);
+                    $on && $this->copy($option, $file, $path, $variables, $fact, $result);
 
                     continue;
                 }
@@ -442,12 +446,12 @@ final class GridOptions
                     continue;
                 }
             }
-            $settings = $option->settings($file, $variables, $on);
+            $settings = $option->settings($file, $variables, $on, $fact);
             // What the grid has no value for, and the option says to take off when it has none
             $cleared = $on
                 ? array_values(array_filter(
                     array_udiff(
-                        $option->settings($file, $variables, false),
+                        $option->settings($file, $variables, false, $fact),
                         $settings,
                         static fn(array $a, array $b): int => strcasecmp("$a[0]/$a[1]", "$b[0]/$b[1]"),
                     ),
@@ -484,12 +488,25 @@ final class GridOptions
      * @param array<string,string> $variables
      * @param array{error:?string,simulators:list<string>,grid:bool,robust:bool,files:list<string>,notes:list<string>} $result
      */
-    private function copy(OptionTemplate $option, string $file, string $path, array $variables, array &$result): void
+    private function copy(OptionTemplate $option, string $file, string $path, array $variables, callable $fact, array &$result): void
     {
         is_dir(dirname($path)) || @mkdir(dirname($path), 0o755, true);
-        file_put_contents($path, $option->text($file, $variables));
+        file_put_contents($path, $option->text($file, $variables, $fact));
         preg_match('/\.ini$/i', $path) === 1 || @chmod($path, 0o644);
         $result['files'][] = $path;
+    }
+
+    /**
+     * Lay the settings of a file of a preset over an ini, with the rules the preset says for them.
+     *
+     * @param array<string,string> $variables
+     * @param ?callable(string):bool $fact whether a word of a block holds; none: every block applies
+     */
+    public static function layText(IniEditor $ini, OptionTemplate $option, string $file, array $variables, ?callable $fact = null): void
+    {
+        foreach ($option->settings($file, $variables, true, $fact) as [$section, $key, $value]) {
+            self::put($ini, $option, $section, $key, $value, false);
+        }
     }
 
     /** Set a setting of an option in a file, with the rules the option says for it. */
@@ -505,7 +522,11 @@ final class GridOptions
         if ($only && !$ini->mentions($section, $key)) {
             return;
         }
-        $value === '' ? $ini->uncomment($key) : $ini->set($section, $key, $value);
+        match ($value) {
+            '' => $ini->uncomment($key),
+            '{{off}}' => $ini->comment($section, $key),
+            default => $ini->set($section, $key, $value),
+        };
     }
 
     /** Take a setting of an option off a file: commented out with its value. */

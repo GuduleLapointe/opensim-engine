@@ -317,9 +317,38 @@ describe('The options of a grid that is made', function () {
         $without = (new GridOptions(Grid::planned($machine->environment, demo_plan($machine, false))))->selection([]);
 
         expect($with)
-            ->toBe(['helpers', 'offline-helpers', 'ossl-extended', 'profiles', 'search', 'webroot-helpers', 'webserver-caddy'])
+            // The base of the grid first, in the order of the presets, then the others by name
+            ->toBe([
+                'grid',
+                'robust',
+                'identity',
+                'hypergrid',
+                'robust-log',
+                'bakes',
+                'estates',
+                'groups-hypergrid',
+                'helpers',
+                'offline-helpers',
+                'ossl-extended',
+                'profiles',
+                'search',
+                'webroot-helpers',
+                'webserver-caddy',
+            ])
             ->and($without)
-            ->toBe(['offline-robust', 'ossl-extended', 'profiles']);
+            ->toBe([
+                'grid',
+                'robust',
+                'identity',
+                'hypergrid',
+                'robust-log',
+                'bakes',
+                'estates',
+                'groups-hypergrid',
+                'offline-robust',
+                'ossl-extended',
+                'profiles',
+            ]);
     });
 
     test('follow the answers: by the name of the option, by the answer it takes, by a group and its variant', function () {

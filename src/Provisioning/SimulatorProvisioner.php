@@ -28,7 +28,7 @@ final class SimulatorProvisioner
     public function apply(SimulatorPlan $plan, Environment $environment): void
     {
         if ($plan->remoteGrid !== null) {
-            $this->ui->note(sprintf(_('Wrote %s'), (new GridConf())->writeRemote($plan->remoteGrid)));
+            $this->ui->note(sprintf(_('Wrote %s'), (new GridConf())->writeRemote($plan->remoteGrid, new Presets([], $environment->layout->etcRoot()))));
         }
         $grid = Grid::find($environment, $plan->gridNick);
         if ($grid === null) {
@@ -87,9 +87,9 @@ final class SimulatorProvisioner
                 $this->ui->note(sprintf(_('Wrote %s'), $file));
             }
         }
-        $this->ui->note(sprintf(_('Wrote %s'), (new SimulatorConfig())->write($plan)));
+        $this->ui->note(sprintf(_('Wrote %s'), (new SimulatorConfig())->write($plan, new Presets([], $environment->layout->etcRoot()))));
         if ($plan->createRegion) {
-            $region = (new SimulatorConfig())->writeRegion($plan);
+            $region = (new SimulatorConfig())->writeRegion($plan, new Presets([], $environment->layout->etcRoot()));
             $this->ui->note(
                 $region !== null
                     ? sprintf(_('Wrote %s'), $region)
@@ -412,7 +412,7 @@ final class SimulatorProvisioner
     private function applyRegion(SimulatorPlan $plan, Environment $environment, Grid $grid): void
     {
         is_dir($plan->regionsDir()) || @mkdir($plan->regionsDir(), 0o755, true);
-        $region = (new SimulatorConfig())->writeRegion($plan);
+        $region = (new SimulatorConfig())->writeRegion($plan, new Presets([], $environment->layout->etcRoot()));
         $this->ui->note(
             $region !== null
                 ? sprintf(_('Wrote %s'), $region)

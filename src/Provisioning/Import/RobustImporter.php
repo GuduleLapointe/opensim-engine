@@ -5,8 +5,9 @@ namespace OpenSim\Provisioning\Import;
 use OpenSim\Config\IniEditor;
 use OpenSim\Config\ConfigReader;
 use OpenSim\Config\ConnectionString;
+use OpenSim\Models\Grid;
+use OpenSim\Provisioning\GridOptions;
 use OpenSim\Provisioning\GridPlan;
-use OpenSim\Provisioning\RobustConfig;
 use OpenSim\Provisioning\Slug;
 use OpenSim\Runtime\Environment;
 
@@ -207,9 +208,31 @@ final class RobustImporter
         return '/' . implode('/', $parts);
     }
 
-    /** The standard config of the kit for a plan: what the setup writes (see RobustConfig). */
-    public static function generate(GridPlan $plan): string
+    /** The standard config of the kit for a plan: the example of the core with the presets of the grid laid over it. */
+    public static function generate(GridPlan $plan, Environment $environment): string
     {
-        return (new RobustConfig())->generate($plan);
+        $folder = sys_get_temp_dir() . '/robust-standard-' . bin2hex(random_bytes(4));
+        is_dir($folder) || mkdir($folder, 0o755, true);
+        $standard = GridPlan::fromArray(['gridDir' => $folder, 'etcDirectory' => $folder] + $plan->toArray());
+        IniEditor::load($standard->binDir . '/' . ($standard->enableHypergrid ? 'Robust.HG.ini.example' : 'Robust.ini.example'))->save(
+            $standard->robustIni(),
+        );
+        $options = new GridOptions(Grid::planned($environment, $standard), layered: true, extra: $plan->variables());
+        foreach ($options->selection([]) as $name) {
+            $options->enable($name);
+        }
+        $text = (string) file_get_contents($standard->robustIni());
+        foreach (
+            new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($folder, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST,
+            )
+            as $item
+        ) {
+            $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
+        }
+        rmdir($folder);
+
+        return $text;
     }
 }

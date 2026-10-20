@@ -15,10 +15,8 @@ use OpenSim\Models\Grid;
 use OpenSim\Models\Simulator;
 use OpenSim\OpenSim;
 use OpenSim\Provisioning\GridOptions;
-use OpenSim\Provisioning\GridConf;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\GridPlanner;
-use OpenSim\Provisioning\GridServices;
 use OpenSim\Provisioning\GridShared;
 use OpenSim\Provisioning\SetupFile;
 use OpenSim\Provisioning\SimulatorConfig;
@@ -46,8 +44,9 @@ function standalone_folder(bool $hypergrid = true): array
     file_put_contents(
         "$bin/config-include/StandaloneCommon.ini",
         <<<'INI'
-        [Includes]
+        [DatabaseService]
             Include-Storage = "config-include/storage/SQLiteStandalone.ini";
+        [Modules]
             Include-FlotsamCache = "config-include/FlotsamCache.ini"
         [Hypergrid]
             ; GatekeeperURI = "${Const|BaseURL}:${Const|PublicPort}"
@@ -104,8 +103,12 @@ describe('The grid of a standalone', function () {
             'database_password' => 'secret',
         ]);
         $plan->etcDirectory = $plan->gridDir = test_tmp() . '/soloconf-' . bin2hex(random_bytes(4)) . '/amy';
+        mkdir($plan->gridDir, 0o755, true);
+        (new GridOptions(Grid::planned((new Machine())->environment, $plan), layered: true, extra: $plan->variables()))->enable(
+            'grid',
+        );
 
-        $conf = ConfigReader::file((new GridConf())->write($plan))['Grid'];
+        $conf = ConfigReader::file($plan->gridDir . '/amy.conf')['Grid'];
 
         expect($conf)->toMatchArray([
             'Standalone' => 'true',
@@ -136,7 +139,7 @@ describe('The shared files of a standalone', function () {
         $text = file_get_contents("$dir/config-include/StandaloneCommon.ini");
 
         expect($text)
-            ->toContain(';    Include-Storage = "config-include/storage/SQLiteStandalone.ini"')
+            ->toMatch('/^\s*;Include-Storage = "config-include\/storage\/SQLiteStandalone\.ini"/m')
             ->toContain('Include-FlotsamCache = "' . $dir . '/config-include/FlotsamCache.ini"')
             ->and(file_get_contents("$dir/config-include/StandaloneHypergrid.ini"))
             ->toContain('Include-Common = "' . $dir . '/config-include/StandaloneCommon.ini"');
@@ -158,6 +161,17 @@ function standalone_services_plan(string $dir, string $bin, array $set = []): Gr
     return $plan;
 }
 
+/** Lay the presets of a plan over the folder of a standalone, as the setup does. */
+function standalone_made(GridPlan $plan): void
+{
+    $options = new GridOptions(Grid::planned((new Machine())->environment, $plan), layered: true, extra: $plan->variables());
+    $plan->options = $options->selection([]);
+    $options = new GridOptions(Grid::planned((new Machine())->environment, $plan), layered: true, extra: $plan->variables());
+    foreach ($plan->options as $name) {
+        $options->enable($name);
+    }
+}
+
 describe('The services of a standalone', function () {
     test('tell the viewers its names, its helpers and its gatekeeper, in its own common settings', function () {
         [$dir, $bin] = standalone_folder();
@@ -169,18 +183,11 @@ describe('The services of a standalone', function () {
             'search' => 'internal',
         ]);
 
-        $written = (new GridServices())->writeStandalone($plan);
-        // What the viewers are told of the helpers, the search and the profiles are the options'
-        $options = new GridOptions(Grid::planned((new Machine())->environment, $plan), layered: true);
-        foreach (['helpers', 'search', 'profiles'] as $option) {
-            $options->enable($option);
-        }
+        standalone_made($plan);
         $ini = ConfigReader::load("$dir/config-include/StandaloneCommon.ini", expand: false);
         $pages = new Services('/helpers');
 
-        expect($written)
-            ->toBe("$dir/config-include/StandaloneCommon.ini")
-            ->and($ini['GridInfoService'])
+        expect($ini['GridInfoService'])
             ->toMatchArray([
                 'gridname' => 'Solo World',
                 'gridnick' => 'solo',
@@ -204,7 +211,7 @@ describe('The services of a standalone', function () {
         [$dir, $bin] = standalone_folder(false);
         (new GridShared())->merge($dir, $bin, false, standalone: true);
 
-        (new GridServices())->writeStandalone(standalone_services_plan($dir, $bin, ['enableHypergrid' => false]));
+        standalone_made(standalone_services_plan($dir, $bin, ['enableHypergrid' => false]));
         $ini = ConfigReader::load("$dir/config-include/StandaloneCommon.ini", expand: false);
 
         expect($ini['GridInfoService'])
@@ -215,29 +222,10 @@ describe('The services of a standalone', function () {
             ->not->toHaveKey('MessageUrl');
     });
 
-    test('keep what the operator set in the welcome message, and are written once', function () {
-        [$dir, $bin] = standalone_folder();
-        (new GridShared())->merge($dir, $bin, true, standalone: true);
-        $plan = standalone_services_plan($dir, $bin, ['enableHypergrid' => true]);
-        (new GridServices())->writeStandalone($plan);
-        $common = "$dir/config-include/StandaloneCommon.ini";
-        $text = str_replace('Welcome to Solo World, <USERNAME>!', 'Hello!', file_get_contents($common));
-        file_put_contents($common, $text);
-
-        $again = (new GridServices())->writeStandalone($plan);
-
-        expect($again)
-            ->toBeNull()
-            ->and(file_get_contents($common))
-            ->toContain('WelcomeMessage = "Hello!"');
-    });
-
     test('are found by the helpers where a standalone has them', function () {
         [$dir, $bin] = standalone_folder();
         (new GridShared())->merge($dir, $bin, true, standalone: true);
-        (new GridServices())->writeStandalone(
-            standalone_services_plan($dir, $bin, ['helpers' => true, 'helpersPath' => '/helpers']),
-        );
+        standalone_made(standalone_services_plan($dir, $bin, ['helpers' => true, 'helpersPath' => '/helpers']));
         (new SimulatorMaster())->ensure($dir, $bin);
 
         expect(HelpersConfig::webUrl($dir))

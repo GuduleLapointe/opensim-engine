@@ -240,7 +240,10 @@ final class QuickSetup
             'simulator' => $simulator,
             'standalone' => $standalone,
             'chosen' => $chosen,
-            'labels' => array_map(static fn(OptionTemplate $t): string => $t->label(), (new Presets([], $environment->layout->etcRoot()))->options()),
+            'labels' => array_map(
+                static fn(OptionTemplate $t): string => $t->label(),
+                array_filter((new Presets([], $environment->layout->etcRoot()))->options(), static fn(OptionTemplate $t): bool => $t->shown()),
+            ),
             'types' => $types,
             'options' => $options,
         ];
@@ -945,7 +948,7 @@ final class QuickSetup
         $add('options', 'Helpers', $plan->helpers ? "yes, served at {$plan->webUrl}{$plan->helpersPath}" : 'no');
         // The presets that are on, asked or not
         foreach ($plan->options as $name) {
-            $add('options', $labels[$name] ?? $name, 'yes');
+            isset($labels[$name]) && $add('options', $labels[$name], 'yes');
         }
         $add('options', 'Destination guide', $yes($plan->helpers));
         $add('options', 'Grid status', $yes($plan->helpers));

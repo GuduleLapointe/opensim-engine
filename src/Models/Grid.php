@@ -666,16 +666,7 @@ final class Grid extends InstalledModel
                 'cacheDirectory' => $plan->cacheDirectory,
                 'logsDirectory' => $plan->logsDirectory,
                 // What its Robust serves: as written when it is, else as the setup will write it
-                'connectors' => $plan->standalone
-                    ? array_values(
-                        array_intersect(
-                            \OpenSim\Provisioning\RobustConfig::connectors($plan->helpers, $plan->enableHypergrid),
-                            ['GroupsServiceConnector', 'HGGroupsServiceConnector'],
-                        ),
-                    )
-                    : (is_file($robustIni)
-                        ? RobustController::connectorsIn($robustIni)
-                        : \OpenSim\Provisioning\RobustConfig::connectors($plan->helpers, $plan->enableHypergrid)),
+                'connectors' => !$plan->standalone && is_file($robustIni) ? RobustController::connectorsIn($robustIni) : [],
                 'search' => $plan->search,
                 'offline' => $plan->offline,
                 'options' => $plan->options === [] ? null : $plan->options,
@@ -1145,7 +1136,7 @@ final class Grid extends InstalledModel
         return $this->get('options');
     }
 
-    /** Whether Robust serves a connector of [ServiceList] (the keys the distribution comments: see RobustConfig::connectors()). */
+    /** Whether Robust serves a connector of [ServiceList] (the keys the distribution comments). */
     public function serves(string $connector): bool
     {
         return in_array($connector, $this->connectors(), true);

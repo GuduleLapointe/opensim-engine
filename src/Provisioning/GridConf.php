@@ -21,72 +21,27 @@ final class GridConf
      *
      * @param array<string,mixed> $grid Grid::describe()
      */
-    public function writeRemote(array $grid): string
+    public function writeRemote(array $grid, ?Presets $presets = null): string
     {
-        $lines = [
-            '[Grid]',
-            'Remote = true',
-            "GridName = {$grid['name']}",
-            "GridNick = {$grid['nick']}",
-            "slug = {$grid['slug']}",
-            "BaseHostname = {$grid['baseHostname']}",
-            "PublicPort = {$grid['publicPort']}",
-            "PrivatePort = {$grid['privatePort']}",
-            'Hypergrid = ' . ($grid['hypergrid'] ? 'true' : 'false'),
-            ...($grid['preset'] ?? '') !== '' ? ['Preset = ' . $grid['preset']] : [],
-            'DataDirectory = "' . $grid['dataDirectory'] . '"',
-            'CacheDirectory = "' . $grid['cacheDirectory'] . '"',
-            'LogsDirectory = "' . $grid['logsDirectory'] . '"',
-            '',
-        ];
+        $option = ($presets ?? new Presets())->options()['remote-grid'] ?? throw new \RuntimeException('The preset remote-grid is not there.');
         $path = "{$grid['directory']}/{$grid['nick']}.conf";
         is_dir(dirname($path)) || @mkdir(dirname($path), 0o755, true);
-        file_put_contents($path, implode("\n", $lines));
-
-        return $path;
-    }
-
-    public function write(GridPlan $plan): string
-    {
-        $version = preg_replace('/^opensim-/', '', basename($plan->coreDirectory)) ?? '';
-        $runtime = version_compare($version, '0.9.3.0', '>=') ? 'dotnet' : 'mono';
-
-        $lines = [
-            '[Grid]',
-            "Runtime = $runtime",
-            "GridName = {$plan->gridName}",
-            "GridNick = {$plan->gridNick}",
-            "slug = {$plan->gridSlug}",
-            "OpensimVersion = $version",
-            "CoreDirectory = {$plan->coreDirectory}",
-            'EtcDirectory = "' . $plan->etcDirectory . '"',
-            'DataDirectory = "' . $plan->dataDirectory . '"',
-            'CacheDirectory = "' . $plan->cacheDirectory . '"',
-            'LogsDirectory = "' . $plan->logsDirectory . '"',
-            "RegionSpacing = {$plan->regionSpacing}",
-            "Center = {$plan->center}",
-            "OfflineMessages = {$plan->offline}",
-            'Options = ' . implode(', ', $plan->options),
-            ...$plan->standalone
-                ? [
-                    ';; A standalone: its simulator serves the grid itself, its address and its database are its own',
-                    'Standalone = true',
-                    'Hypergrid = ' . ($plan->enableHypergrid ? 'true' : 'false'),
-                    "BaseHostname = {$plan->baseHostname}",
-                    "WebUrl = {$plan->webUrl}",
-                    "PublicPort = {$plan->publicPort}",
-                    "DatabaseHost = {$plan->dbHost}",
-                    "DatabaseName = {$plan->dbName}",
-                    "DatabaseUser = {$plan->dbUser}",
-                    "DatabasePassword = {$plan->dbPass}",
-                ]
-                : [],
-            '',
-        ];
-
-        $path = $this->path($plan);
-        is_dir(dirname($path)) || @mkdir(dirname($path), 0o755, true);
-        file_put_contents($path, implode("\n", $lines));
+        file_put_contents(
+            $path,
+            $option->text($option->files()[0], [
+                'grid_name' => (string) $grid['name'],
+                'grid_nick' => (string) $grid['nick'],
+                'grid_slug' => (string) $grid['slug'],
+                'base_hostname' => (string) $grid['baseHostname'],
+                'public_port' => (string) $grid['publicPort'],
+                'private_port' => (string) $grid['privatePort'],
+                'hypergrid' => $grid['hypergrid'] ? 'true' : 'false',
+                'preset' => (string) ($grid['preset'] ?? ''),
+                'data_directory' => (string) $grid['dataDirectory'],
+                'cache_directory' => (string) $grid['cacheDirectory'],
+                'logs_directory' => (string) $grid['logsDirectory'],
+            ]),
+        );
 
         return $path;
     }

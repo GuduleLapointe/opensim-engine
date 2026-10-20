@@ -9,6 +9,8 @@ use OpenSim\Config\ConnectionString;
  */
 final class GridPlan
 {
+    use PlanVariables;
+
     public string $gridName = '';
     public string $gridNick = '';
     public string $gridSlug = '';
@@ -102,5 +104,18 @@ final class GridPlan
     public function connectionString(): string
     {
         return (string) ConnectionString::for($this->dbHost, $this->dbName, $this->dbUser, $this->dbPass);
+    }
+
+    protected function derived(): array
+    {
+        $version = preg_replace('/^opensim-/', '', basename($this->coreDirectory)) ?? '';
+
+        return [
+            'connection_string' => $this->connectionString(),
+            'opensim_version' => $version,
+            'runtime' => version_compare($version, '0.9.3.0', '>=') ? 'dotnet' : 'mono',
+            'log_base' => $this->logsDirectory . '/' . Slug::snake($this->gridSlug) . '_robust',
+            'console_rest' => $this->consoleMode === 'rest' && $this->consolePort > 0 ? 'true' : '',
+        ];
     }
 }

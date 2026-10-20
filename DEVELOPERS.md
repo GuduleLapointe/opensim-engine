@@ -60,6 +60,13 @@ An option (search, economy, offline messages, extended OSSL, whatever an adminis
 
 The options a grid has are kept in its description (`Options = search, profiles`).
 
+Everything the setup writes comes from the presets; the code collects the choices (a plan: `GridPlan::variables()`, `SimulatorPlan::variables()`, each property by its name in snake_case, `baseHostname` is `{{base_hostname}}`) and puts the values in the files:
+
+- the grid: `grid` (its description `<nick>.conf`), `robust` (its config), `identity`, `hypergrid`, `estates`, `bakes`, `groups-*`, `robust-log` (the log4net config of Robust), `profiles`, `helpers`, `search`..., `Order` says which is laid first (`0` the description, `10` Robust, `20` the names of the grid; `50` by default);
+- what the folders copied from the core need (`config-include`: the includes pointing to the copies, the storage of the simulator, the assets and the library of the grid), the master of the simulators (`master`), a simulator and its region (`simulator`, `region`) and a grid that runs elsewhere (`remote-grid`) are presets that the code takes by name: `Default = false` keeps them out of the options;
+- `Show = false` keeps the plumbing out of the report of the setup;
+- in a file, `;; @if standalone, !hypergrid` ... `;; @end` keeps the lines between for the grids that are so (the words of `Requires`, or a variable that has something to say); a setting with the value `{{off}}` is commented out.
+
 ## Formatting
 
 Prettier with the PHP plugin (`.prettierrc.json`, `.editorconfig`), no PHP binary needed. The plugin has a known bug: it drops the parentheses of `($a ? $b : $c) ?: $d`, which then does not compile; write it in two statements. `php -l` every file it changed.
