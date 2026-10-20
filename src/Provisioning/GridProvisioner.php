@@ -27,15 +27,13 @@ final class GridProvisioner
     {
         $this->makeDirs($plan);
         $this->copyCoreData($plan);
-        // The options the grid had, which the description is about to say again
-        $previous = Grid::at($environment, $plan->gridDir)->options();
         $conf = (new GridConf())->write($plan);
         $this->ui->note(sprintf(_('Wrote %s'), $conf));
         // A standalone has no Robust: its simulator serves the grid
         $plan->standalone || $this->writeRobust($plan);
         $this->writeHelpers($plan);
         $this->copyConfigInclude($plan);
-        $this->applyOptions($plan, $environment, $previous);
+        $this->applyOptions($plan, $environment);
         $this->writeMaster($plan);
 
         $logConfig = $plan->standalone ? null : (new RobustLogConfig())->write($plan);
@@ -188,14 +186,8 @@ final class GridProvisioner
             $this->ui->note(sprintf(_('Wrote %s'), $services));
         }
     }
-    /**
-     * The options of the grid (see GridOptions): each one the setup chose is laid over the files, and each one the grid had and the
-     * setup did not choose is taken off them. A grid that is changed keeps the options it has and the setup does not mention: they
-     * were decided by `opensim enable|disable`.
-     *
-     * @param ?list<string> $previous the options the grid had, null when it did not say
-     */
-    private function applyOptions(GridPlan $plan, Environment $environment, ?array $previous): void
+    /** The options of the grid (see GridOptions): each one the setup chose is laid over the files. */
+    private function applyOptions(GridPlan $plan, Environment $environment): void
     {
         $options = new GridOptions(Grid::planned($environment, $plan), layered: true);
         $report = function (string $name, array $result): void {
@@ -208,10 +200,7 @@ final class GridProvisioner
                 $this->ui->note($note);
             }
         };
-        foreach ($previous === null ? [] : array_diff($previous, $plan->options) as $name) {
-            $report($name, $options->disable($name));
-        }
-        foreach (array_diff($plan->options, $previous ?? []) as $name) {
+        foreach ($plan->options as $name) {
             $report($name, $options->enable($name));
         }
     }
@@ -230,9 +219,8 @@ final class GridProvisioner
     }
 
     /**
-     * The files of the web side of the grid: the Helpers.ini that holds what has no official place (once: what the operator
-     * changed in it is kept), and the configuration of the web server. The addresses, the name of the grid and the databases
-     * are not copied in another file: the helpers read Robust.ini and OpenSim.ini.
+     * The web side of the grid: the file of the helpers (`Helpers.ini`) and the configuration of the web server are options (see
+     * GridOptions). What is left is the name of the file of the helpers in the case a system that does not tell them apart holds.
      */
     private function writeHelpers(GridPlan $plan): void
     {
@@ -243,11 +231,6 @@ final class GridProvisioner
         }
         if (!$plan->helpers) {
             return;
-        }
-        $path = HelpersConfig::path($plan->gridDir);
-        if (!is_file($path)) {
-            file_put_contents($path, HelpersConfig::template());
-            $this->ui->note(sprintf(_('Wrote %s'), $path));
         }
         // The MoneyServer.ini, the original whole, with the key the currency helpers share with the MoneyServer (made at random once):
         // for a currency that runs a MoneyServer, which none of the ones the setup offers does (beta, gloebit)
@@ -261,28 +244,6 @@ final class GridProvisioner
             } elseif (($money = MoneyServerConfig::write($plan->gridDir)) !== null) {
                 $this->ui->note(sprintf(_('Wrote %s'), $money));
             }
-        }
-
-        // The configuration of the web server chosen, to include in the site of the grid. Named for the grid and the server, with the
-        // extension the editors know. A grid that has one keeps it: it is the operator's
-        $webDir = "{$plan->gridDir}/web";
-        $names = [
-            'caddy' => "{$plan->gridNick}.caddyfile",
-            'nginx' => "{$plan->gridNick}-nginx.conf",
-            'apache' => "{$plan->gridNick}-apache.conf",
-        ];
-        $server = in_array($plan->webServer, Snippets::SERVERS, true) ? $plan->webServer : 'caddy';
-        $kept = array_filter($names, static fn(string $name): bool => is_file("$webDir/$name"));
-        if ($kept === []) {
-            is_dir($webDir) || mkdir($webDir, 0o755, true);
-            $file = "$webDir/{$names[$server]}";
-            $docroot = $plan->webSite === 'website' ? Snippets::WEBSITE : Snippets::DOCROOT;
-            file_put_contents($file, Snippets::render($server, $plan->gridNick, $docroot, webUrl: $plan->webUrl));
-            chmod($file, 0o644);
-            $this->ui->note(sprintf(_('Wrote %s'), $file));
-        }
-        if ($plan->webSite === 'website' && !is_dir(Snippets::WEBSITE)) {
-            $this->ui->warn(_('The mini website is the package opensim-web: install it (apt install opensim-web).'));
         }
     }
     private function writeRobust(GridPlan $plan): void

@@ -51,7 +51,7 @@ describe('Helpers.ini', function () {
     test(
         'is a template that sets nothing: every setting is commented out, none is one of the official files',
         function () {
-            $text = HelpersConfig::template();
+            $text = (string) file_get_contents(dirname(__DIR__, 2) . '/share/presets/helpers/Helpers.ini');
 
             expect($text)->toContain('[Helpers]');
             expect($text)->toContain(';; GuideSource = "destinations.txt"');

@@ -490,15 +490,12 @@ describe('grid made by the setup', function () {
         $plan->helpersPath = '/helpers';
 
         $environment = EnvironmentFake::with(['EtcRoot' => $machine->etc, 'CoreDirectory' => $machine->core]);
-        // The options a grid has are the ones it says, else the ones that are on by default and that it can have
-        $previous = Grid::at($environment, $machine->grid)->options();
-        $plan->options = (new GridOptions(Grid::planned($environment, $plan)))->selection(
-            $previous === null ? [] : ['options' => $previous],
-        );
+        // The options of a grid that is made: the ones that are on by default and that it can have
+        $plan->options = (new GridOptions(Grid::planned($environment, $plan)))->selection([]);
 
         $provisioner = new OpenSim\Provisioning\GridProvisioner($ui);
         $options = new ReflectionMethod($provisioner, 'applyOptions');
-        $options->invoke($provisioner, $plan, $environment, null);
+        $options->invoke($provisioner, $plan, $environment);
         $master = new ReflectionMethod($provisioner, 'writeMaster');
         $master->invoke($provisioner, $plan);
     }
@@ -535,21 +532,6 @@ describe('grid made by the setup', function () {
                 ->toBe('http://localhost:8002');
         },
     );
-
-    test('keeps an option the operator disabled after it was made', function () {
-        $machine = master_machine();
-        master_provision($machine);
-        master_options($machine)->disable('search');
-
-        master_provision($machine);
-
-        expect(file_get_contents($machine->grid . '/OpenSim.ini'))->toContain(
-            ';SearchURL = "https://demo.example.org/helpers/query.php"',
-        );
-        expect(ConfigReader::load($machine->grid . '/' . SimulatorMaster::FILE)['Search'] ?? [])->not->toHaveKey(
-            'SearchURL',
-        );
-    });
 });
 
 describe('offline messages of a grid', function () {

@@ -355,11 +355,9 @@ final class GridPlanner
         $plan->dbName = $v['database_name'];
         $plan->dbUser = $v['database_user'];
         $plan->dbPass = $v['database_password'];
-        // The options: the ones asked for, else the ones the grid has when it is changed, else the ones that are on by default and
-        // that the grid can have
+        // The options: the ones asked for, else the ones that are on by default and that the grid can have
         $plan->options = (new GridOptions(Grid::planned($this->environment(), $plan)))->selection(
-            $answers,
-            $this->context['currentGrid']?->options(),
+            $answers + ['web_server' => $v['web_server'], 'web_site' => $v['web_site']],
         );
         $plan->ossl = in_array('ossl-extended', $plan->options, true);
 

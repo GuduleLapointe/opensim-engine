@@ -8,6 +8,7 @@ use OpenSim\Config\GridConfig;
 use OpenSim\Config\IniEditor;
 use OpenSim\Models\Grid;
 use OpenSim\Provisioning\Web\Services;
+use OpenSim\Provisioning\Web\Snippets;
 
 /**
  * The options of a grid (`opensim enable|disable <grid> <option>`, and the options of the setup): the presets that have an
@@ -138,10 +139,9 @@ final class GridOptions
      * have is not one, and a group has one option.
      *
      * @param array<string,mixed> $answers
-     * @param ?list<string> $current the options of a grid that is changed: what the answers do not mention stays as it is
      * @return list<string>
      */
-    public function selection(array $answers, ?array $current = null): array
+    public function selection(array $answers): array
     {
         $options = is_array($answers['options'] ?? null) ? $answers['options'] : [];
         // A list says which options are on, and no other; a map says the ones it names
@@ -162,7 +162,6 @@ final class GridOptions
             $on = match (true) {
                 $exact !== null => isset($exact[$name]),
                 $given !== null => self::truthy($given),
-                $current !== null => in_array($name, $current, true),
                 default => $option->default(),
             };
             if ($on && $this->unmet($option) === null) {
@@ -262,7 +261,7 @@ final class GridOptions
                 }
             }
         }
-        $this->lay($option, true, $this->variables($prefix), $result);
+        $this->lay($option, true, $this->variables($prefix, $option), $result);
         $this->finish($result);
         array_push($result['notes'], ...$this->notes($option));
         $this->record(array_values(array_unique([...array_diff($this->enabled(), $others), $option->name()])));
@@ -285,19 +284,8 @@ final class GridOptions
             return $result;
         }
         $this->lay($option, false, $this->variables(), $result);
-        $names = array_values(array_diff($this->enabled(), [$option->name()]));
-        // What was the only one of its group gives way to the one the group falls back to
-        if ($option->group() !== '' && !$option->fallback()) {
-            $alone = array_filter($names, fn(string $n): bool => $this->template($n)?->group() === $option->group()) === [];
-            foreach ($this->templates() as $fallback) {
-                if ($alone && $fallback->group() === $option->group() && $fallback->fallback() && $this->unmet($fallback) === null) {
-                    $this->lay($fallback, true, $this->variables(), $result);
-                    $names[] = $fallback->name();
-                }
-            }
-        }
         $this->finish($result);
-        $this->record($names);
+        $this->record(array_values(array_diff($this->enabled(), [$option->name()])));
 
         return $result;
     }
@@ -386,7 +374,7 @@ final class GridOptions
      *
      * @return array<string,string>
      */
-    private function variables(string $prefix = ''): array
+    private function variables(string $prefix = '', ?OptionTemplate $also = null): array
     {
         $url = fn(string $service): string => $prefix !== '' && isset(Services::SCRIPTS[$service])
             ? "$prefix/" . Services::SCRIPTS[$service]
@@ -411,6 +399,11 @@ final class GridOptions
         // Where the helpers are on the site: the path of their economy
         $base = dirname($variables['page_currency']);
         $variables['helpers_base'] = $variables['page_currency'] === '' ? '' : ($base === '.' ? '/' : $base);
+        // The site of the grid, and what the options that are on give to the others
+        $variables += Snippets::siteVariables($this->grid->webUrl());
+        foreach ([...$this->enabled(), ...($also === null ? [] : [$also->name()])] as $name) {
+            $variables += $this->template($name)?->variables() ?? [];
+        }
 
         return $variables;
     }
@@ -430,6 +423,25 @@ final class GridOptions
     private function lay(OptionTemplate $option, bool $on, array $variables, array &$result): void
     {
         foreach ($option->files() as $file) {
+            $simulators = $file === 'OpenSim.ini';
+            $services = preg_match('/^Robust(\.HG)?\.ini$/i', $file) === 1;
+            $path = null;
+            if (!$simulators && !$services) {
+                // A file of the grid: the preset's own when the grid has none, an ini the grid has is merged, any other is the grid's
+                $name = $option->path($file, $variables);
+                if ($name === null) {
+                    continue;
+                }
+                $path = $this->root() . "/$name";
+                if (!is_file($path)) {
+                    $on && $this->copy($option, $file, $path, $variables, $result);
+
+                    continue;
+                }
+                if (preg_match('/\.ini$/i', $file) !== 1) {
+                    continue;
+                }
+            }
             $settings = $option->settings($file, $variables, $on);
             // What the grid has no value for, and the option says to take off when it has none
             $cleared = $on
@@ -456,20 +468,28 @@ final class GridOptions
                     self::take($ini, $option, $section, $key);
                 }
             };
-            if ($file === 'OpenSim.ini') {
+            if ($simulators) {
                 $this->eachSimulatorFile($result, $change);
-            } elseif (preg_match('/^Robust(\.HG)?\.ini$/i', $file) === 1) {
+            } elseif ($services) {
                 $result['robust'] = $this->robust(fn(IniEditor $ini) => $change($ini, false), $result) || $result['robust'];
             } else {
-                $path = $this->root() . "/$file";
-                if (!is_file($path)) {
-                    $result['notes'][] = "$path is not there: the settings of {$option->label()} for it were not written";
-
-                    continue;
-                }
                 $this->edit($path, fn(IniEditor $ini) => $change($ini, false)) && ($result['files'][] = $path);
             }
         }
+    }
+
+    /**
+     * A file of an option that the grid does not have: the preset's, with the variables put in. A file that is not an ini is public.
+     *
+     * @param array<string,string> $variables
+     * @param array{error:?string,simulators:list<string>,grid:bool,robust:bool,files:list<string>,notes:list<string>} $result
+     */
+    private function copy(OptionTemplate $option, string $file, string $path, array $variables, array &$result): void
+    {
+        is_dir(dirname($path)) || @mkdir(dirname($path), 0o755, true);
+        file_put_contents($path, $option->text($file, $variables));
+        preg_match('/\.ini$/i', $path) === 1 || @chmod($path, 0o644);
+        $result['files'][] = $path;
     }
 
     /** Set a setting of an option in a file, with the rules the option says for it. */
@@ -592,6 +612,10 @@ final class GridOptions
             if ($core !== '' && !is_dir($layout->modulesRoot() . "/$core/$module")) {
                 $notes[] = "the module $module is not installed for $core (apt install opensim-$core-$module)";
             }
+        }
+        foreach ($option->paths() as $path) {
+            file_exists($path) ||
+                ($notes[] = $option->pathNote() !== '' ? $option->pathNote() : "$path is not there, {$option->label()} needs it");
         }
         $missing = $this->missing($option);
         if ($missing !== []) {

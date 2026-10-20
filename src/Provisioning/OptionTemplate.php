@@ -13,7 +13,9 @@ use OpenSim\Config\TextFileService;
  *
  *  - `OpenSim.ini`: the config of the simulators (the OpenSim.ini of the grid and the files of its simulators);
  *  - `Robust.ini` (or `Robust.HG.ini`): the services of the grid, its Robust config or, for a standalone, its StandaloneCommon.ini;
- *  - any other path (`config-include/osslEnable.ini`): the same file of the folder of the grid.
+ *  - any other path (`config-include/osslEnable.ini`, `Helpers.ini`, `web/{{grid_nick}}.caddyfile`): the same file of the folder of
+ *    the grid. A file the grid does not have is the preset's, copied with its variables put in (a name, a comment, a file that is
+ *    not an ini included); a file the grid has is kept as it is, unless it is an ini: its settings are merged.
  *
  * In these files a setting is a setting of OpenSimulator, as it is written there. `{{name}}` is replaced by what the grid knows of it
  * (`grid_name`, `grid_nick`, `data_service`, `url_<service>` and `page_<page>` of the helpers, `helpers_base`... see
@@ -28,10 +30,12 @@ use OpenSim\Config\TextFileService;
  * Default = true                     on unless the setup says otherwise
  * Answer = search                    the name of the answer in the setup (the name of the folder)
  * Group = economy                    alternatives: one at a time, the name of the folder is `<group>-<variant>`
- * Fallback = true                    the one of its group that is on when no other is (disabling an option falls back to it)
+ * Fallback = true                    the one of its group that is on when no other is
  * Requires = helpers, !standalone    what the grid must be or have: helpers, standalone, hypergrid, connector:<Name>, service:<name>
  * Uses = helpers                     what a grid made by the setup must have for the option to be of any use (helpers)
  * Modules = opensimsearch            modules of the install it needs (EnabledModules, the package of the core)
+ * Paths = /usr/share/opensim-web/html  folders or files of the install it needs
+ * PathNote = "..."                   what is told when one is not there
  * Asks = Gloebit/GLBKey              settings the administrator gives: told when they are missing
  * Note = "..."                       what is told of them ({keys})
  * Needs = "..."                      what is told when the grid cannot have it ({nick})
@@ -39,6 +43,8 @@ use OpenSim\Config\TextFileService;
  * Existing = Gloebit/Enabled         written only where the file already has the setting
  * Clear = Messaging/OfflineMessageURL  taken off when the grid has no value for it (a {{variable}} with nothing to say)
  * Keep = DataSnapshot/index_sims     left in place when the option is disabled (something else may use them)
+ *
+ * [Variables]                        values the other presets can put in their files: `docroot = /var/www/html` is `{{docroot}}`
  * ```
  */
 final class OptionTemplate
@@ -70,12 +76,12 @@ final class OptionTemplate
 
     public function label(): string
     {
-        return $this->text('Label') ?: $this->name();
+        return $this->value('Label') ?: $this->name();
     }
 
     public function description(): string
     {
-        return $this->text('Description');
+        return $this->value('Description');
     }
 
     /** Whether the setup lists it. */
@@ -93,13 +99,13 @@ final class OptionTemplate
     /** The name of the answer that tells whether it is on (setup files, forms): `search`, `ossl`, `economy` for a group. */
     public function answer(): string
     {
-        return $this->text('Answer') ?: ($this->group() !== '' ? $this->group() : $this->name());
+        return $this->value('Answer') ?: ($this->group() !== '' ? $this->group() : $this->name());
     }
 
     /** The group of alternatives it is in, empty when it is alone. */
     public function group(): string
     {
-        return $this->text('Group');
+        return $this->value('Group');
     }
 
     /** Whether it is the one of its group that is on when no other is. */
@@ -145,13 +151,40 @@ final class OptionTemplate
     /** What is told of the settings that are missing; `{keys}` is their names. */
     public function note(): string
     {
-        return $this->text('Note');
+        return $this->value('Note');
+    }
+
+    /** @return list<string> the folders or files of the install it needs */
+    public function paths(): array
+    {
+        return $this->list('Paths');
+    }
+
+    /** What is told when one of its paths is not there. */
+    public function pathNote(): string
+    {
+        return $this->value('PathNote');
+    }
+
+    /**
+     * The values it gives to the other presets, by the name they have in a file (`docroot`).
+     *
+     * @return array<string,string>
+     */
+    public function variables(): array
+    {
+        $values = [];
+        foreach ($this->manifest->keys('Variables', '/./') as $key) {
+            $values[strtolower($key)] = (string) $this->manifest->get('Variables', $key);
+        }
+
+        return $values;
     }
 
     /** What is told when the grid cannot have the option. */
     public function needs(): string
     {
-        return $this->text('Needs');
+        return $this->value('Needs');
     }
 
     /** Whether a setting (`Section/Key`) is listed under a key of the manifest. */
@@ -161,7 +194,7 @@ final class OptionTemplate
     }
 
     /**
-     * The ini files of the option, relative to its folder.
+     * The files of the option, relative to its folder.
      *
      * @return list<string>
      */
@@ -175,8 +208,9 @@ final class OptionTemplate
             new \RecursiveDirectoryIterator($this->directory, \FilesystemIterator::SKIP_DOTS),
         );
         foreach ($iterator as $file) {
-            if ($file->isFile() && preg_match('/\.ini$/i', $file->getFilename()) === 1) {
-                $files[] = substr($file->getPathname(), strlen($this->directory) + 1);
+            $relative = substr($file->getPathname(), strlen($this->directory) + 1);
+            if ($file->isFile() && $relative !== self::MANIFEST) {
+                $files[] = $relative;
             }
         }
         sort($files);
@@ -220,6 +254,33 @@ final class OptionTemplate
         return $settings;
     }
 
+    /**
+     * Where a file goes in the folder of the grid: its name with the variables put in; null when one has nothing to say.
+     *
+     * @param array<string,string> $variables
+     */
+    public function path(string $file, array $variables): ?string
+    {
+        return self::fill($file, $variables);
+    }
+
+    /**
+     * A file whole, with the variables put in; a line that needs one that has nothing to say is left out.
+     *
+     * @param array<string,string> $variables
+     */
+    public function text(string $file, array $variables): string
+    {
+        $path = "{$this->directory}/$file";
+        $lines = [];
+        foreach (explode("\n", is_file($path) ? TextFileService::unix(TextFileService::read($path)) : '') as $line) {
+            $filled = self::fill($line, $variables);
+            $filled === null || ($lines[] = $filled);
+        }
+
+        return implode("\n", $lines);
+    }
+
     /** The text of a file, as the settings it holds once the grid's own are put in: what it lays over the file of the grid. */
     public function render(string $file, array $variables): string
     {
@@ -258,14 +319,14 @@ final class OptionTemplate
         return $empty ? null : $filled;
     }
 
-    private function text(string $key): string
+    private function value(string $key): string
     {
         return (string) ($this->manifest->get('Option', $key) ?? '');
     }
 
     private function flag(string $key, bool $default): bool
     {
-        $value = strtolower($this->text($key));
+        $value = strtolower($this->value($key));
 
         return $value === '' ? $default : in_array($value, ['true', 'yes', '1', 'on'], true);
     }
@@ -273,6 +334,6 @@ final class OptionTemplate
     /** @return list<string> */
     private function list(string $key): array
     {
-        return array_values(array_filter(array_map('trim', explode(',', $this->text($key))), 'strlen'));
+        return array_values(array_filter(array_map('trim', explode(',', $this->value($key))), 'strlen'));
     }
 }

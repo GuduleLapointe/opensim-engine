@@ -110,7 +110,7 @@ describe('The options that are not offered', function () {
         $hidden = array_keys(array_filter($options->templates(), static fn(OptionTemplate $o): bool => !$o->offered()));
 
         expect($hidden)
-            ->toContain('helpers', 'bakes', 'groups-remote', 'groups-hypergrid', 'groups-local', 'groups-local-hypergrid', 'profiles', 'offline-helpers', 'offline-robust', 'search')
+            ->toContain('helpers', 'bakes', 'groups-remote', 'groups-hypergrid', 'groups-local', 'groups-local-hypergrid', 'profiles', 'offline-helpers', 'offline-robust', 'search', 'webserver-caddy', 'webserver-nginx', 'webserver-apache', 'webroot-helpers', 'webroot-website')
             ->not->toContain('ossl-extended', 'economy-gloebit', 'offline-both')
             ->and($options->template('offline-robust')?->fallback())
             ->toBeTrue()
@@ -246,37 +246,54 @@ describe('An option enabled', function () {
             ->not->toContain('GLBKey');
     });
 
-    test('gives way to the one its group falls back to when it is disabled', function () {
+    test('copies its files, with their variables, where the grid has none, and leaves the ones it has', function () {
         $machine = new Machine();
-        $machine->write(
-            $machine->grid . '/Robust.HG.ini',
-            str_replace(
-                '[Network]',
-                "    OfflineIMServiceConnector = \"x\"\n[Network]",
-                file_get_contents($machine->grid . '/Robust.HG.ini'),
-            ),
+        admin_option(
+            $machine,
+            'site',
+            "Label = \"Site\"\n[Variables]\nkind = static",
+            ['web/{{grid_nick}}.conf' => "# {{grid_nick}} {{kind}}\nroot {{docroot}}\nname {{web_host}}\n"],
         );
         $options = demo_options($machine);
-        $alpha = fn(): array => ConfigReader::load($machine->grid . '/sims/alpha.ini', expand: false)['Messaging'] ?? [];
+        $file = $machine->grid . '/web/demo.conf';
 
-        $options->enable('offline-helpers', ['prefix' => 'https://web.example.org/helpers']);
-        $helpers = $alpha();
-        $robustOff = file_get_contents($machine->grid . '/Robust.HG.ini');
-        $options->disable('offline-helpers');
+        $first = $options->enable('site');
+        file_put_contents($file, "mine\n");
+        $second = $options->enable('site');
 
-        expect($helpers['OfflineMessageModule'])
-            ->toBe('OfflineMessageModule')
-            // Robust does not keep what the helpers keep
-            ->and($robustOff)
-            ->toContain(';OfflineIMServiceConnector')
-            // Back to the module V2 and the service of Robust
-            ->and($alpha()['OfflineMessageModule'])
-            ->toBe('Offline Message Module V2')
-            ->and(file_get_contents($machine->grid . '/Robust.HG.ini'))
-            ->toContain("\nOfflineIMServiceConnector = ")
-            ->and(Grid::at($machine->environment, $machine->grid)->options())
-            ->toContain('offline-robust')
-            ->not->toContain('offline-helpers');
+        expect($first['files'])
+            ->toBe([$file])
+            ->and($second['files'])
+            ->toBe([])
+            ->and(file_get_contents($file))
+            ->toBe("mine\n")
+            ->and(substr(sprintf('%o', fileperms($file)), -4))
+            ->toBe('0644');
+
+        unlink($file);
+        $options->enable('site');
+        // A line that needs what the grid has not is left out
+        expect(file_get_contents($file))->toBe("# demo static\n");
+    });
+
+    test('copies the file of the helpers and the file of the web server of the setup, from the presets', function () {
+        $machine = new Machine();
+        $plan = demo_plan($machine);
+        $plan->options = ['helpers', 'webroot-helpers', 'webserver-caddy'];
+        $options = new GridOptions(Grid::planned($machine->environment, $plan), layered: true);
+
+        $helpers = $options->enable('helpers');
+        $server = $options->enable('webserver-caddy');
+
+        expect($helpers['files'])
+            ->toContain($machine->grid . '/Helpers.ini')
+            ->and(file_get_contents($machine->grid . '/Helpers.ini'))
+            ->toContain('[Helpers]', ';; GuideSource = "destinations.txt"')
+            ->and($server['files'])
+            ->toBe([$machine->grid . '/web/demo.caddyfile'])
+            ->and(file_get_contents($machine->grid . '/web/demo.caddyfile'))
+            ->toContain("demo.example.org {\n\troot * /var/www/html\n\tphp_fastcgi unix//run/php/php-fpm.sock {")
+            ->toContain('env OPENSIM_GRID demo');
     });
 
     test('takes the place of the settings of the option it replaces', function () {
@@ -300,14 +317,14 @@ describe('The options of a grid that is made', function () {
         $without = (new GridOptions(Grid::planned($machine->environment, demo_plan($machine, false))))->selection([]);
 
         expect($with)
-            ->toBe(['helpers', 'offline-helpers', 'ossl-extended', 'profiles', 'search'])
+            ->toBe(['helpers', 'offline-helpers', 'ossl-extended', 'profiles', 'search', 'webroot-helpers', 'webserver-caddy'])
             ->and($without)
             ->toBe(['offline-robust', 'ossl-extended', 'profiles']);
     });
 
     test('follow the answers: by the name of the option, by the answer it takes, by a group and its variant', function () {
         $machine = new Machine();
-        $select = fn(array $answers, ?array $current = null): array => (new GridOptions(Grid::planned($machine->environment, demo_plan($machine))))->selection($answers, $current);
+        $select = fn(array $answers): array => (new GridOptions(Grid::planned($machine->environment, demo_plan($machine))))->selection($answers);
 
         expect($select(['ossl' => false]))
             ->not->toContain('ossl-extended')
@@ -329,14 +346,9 @@ describe('The options of a grid that is made', function () {
             ->toBe(['profiles'])
             ->and($select(['options' => []]))
             ->toBe([])
-            // A grid that is changed keeps what it has, and takes what is asked
-            ->and($select([], ['profiles']))
-            ->toBe(['profiles'])
-            // The one a group falls back to is the one that is on when no other is
-            ->and($select([], ['offline-robust', 'offline-helpers']))
-            ->toBe(['offline-helpers'])
-            ->and($select(['ossl' => true], ['profiles']))
-            ->toBe(['ossl-extended', 'profiles']);
+            ->and($select([]))
+            ->toContain('offline-helpers')
+            ->not->toContain('offline-robust');
     });
 
     test('include the ones of the administrator, which the setup offers', function () {
