@@ -47,7 +47,9 @@ final class SimulatorProvisioner
         // First, while nothing is written: the account the estate needs (a standalone makes it itself when it starts)
         if ($plan->createOwner && !$plan->standalone) {
             $accounts = new GridAccounts(new DatabaseService($this->ui), $this->ui);
-            if (!$accounts->create($grid, $plan->estateOwner, $plan->ownerPassword, $plan->ownerEmail)) {
+            // The first account of a grid is the one of its administrator
+            $level = ($accounts->names($grid) ?? ['?']) === [] ? GridAccounts::FIRST_LEVEL : 0;
+            if (!$accounts->create($grid, $plan->estateOwner, $plan->ownerPassword, $plan->ownerEmail, $level)) {
                 throw new SetupFailedException('account');
             }
             $this->ui->note(sprintf(_("Account %s created in the grid '%s'."), $plan->estateOwner, $grid->nick()));
@@ -169,7 +171,15 @@ final class SimulatorProvisioner
         $pending = $code === 0 && str_contains($said, 'still starting');
         if ($code === 0 && !$pending) {
             // The account is made: its password does not stay in the config
-            $plan->standalone && $plan->createOwner && (new SimulatorConfig())->forgetOwnerPassword($plan->iniPath());
+            if ($plan->standalone && $plan->createOwner) {
+                (new SimulatorConfig())->forgetOwnerPassword($plan->iniPath());
+                // The account of a standalone is its first: the one of its administrator
+                (new GridAccounts(new DatabaseService($this->ui), $this->ui))->setLevel(
+                    $grid,
+                    $plan->estateOwner,
+                    GridAccounts::FIRST_LEVEL,
+                );
+            }
             if ($plan->createRegion && !$grid->isRemote() && !$this->registered($plan, $grid)) {
                 $this->failed(
                     $plan,

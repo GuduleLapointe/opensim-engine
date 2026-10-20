@@ -17,6 +17,9 @@ final class GridAccounts
     /** The home position of a new account: just above the sea level. */
     public const HOME_POSITION = '<128,128,22>';
 
+    /** The level of the first account of a grid, the one of its administrator: the viewers show the tools of a god from 200. */
+    public const FIRST_LEVEL = 200;
+
     /** The home position Robust gives to a new account. */
     private const ROBUST_HOME_POSITION = '<128,128,0>';
 
@@ -103,6 +106,28 @@ final class GridAccounts
         return $this->database->select($users, self::homeSql($id[0], $regionId)) !== null;
     }
 
+    /** The statement that gives an account a level (the names are those of an avatar: letters, digits and hyphens). */
+    public static function levelSql(string $first, string $last, int $level): string
+    {
+        return "UPDATE UserAccounts SET UserLevel = $level WHERE FirstName = '$first' AND LastName = '$last'";
+    }
+
+    /**
+     * Give an account a level (see FIRST_LEVEL).
+     *
+     * @return bool|null whether it could be written, null when it cannot be told
+     */
+    public function setLevel(Grid $grid, string $name, int $level): ?bool
+    {
+        if (Avatar::validateName($name) !== null) {
+            return false;
+        }
+        [$first, $last] = explode(' ', $name);
+
+        return $this->database->select($grid->databasePlan('UserAccountService'), self::levelSql($first, $last, $level)) !==
+            null;
+    }
+
     /**
      * Replace the home position Robust gave to an account by HOME_POSITION; any other position is kept.
      *
@@ -138,8 +163,10 @@ final class GridAccounts
     /**
      * Create an account, through the console of the grid's Robust, which is
      * started when it is not running. Runs as the user of the instances.
+     *
+     * @param int $level the level the account is given, none (the level of a user) when 0
      */
-    public function create(Grid $grid, string $name, string $password, string $email): bool
+    public function create(Grid $grid, string $name, string $password, string $email, int $level = 0): bool
     {
         $instance = $grid->robustInstance();
         // The answers of the prompts that follow: the email, a random ID, the default model
@@ -166,6 +193,7 @@ final class GridAccounts
         for ($i = 0; $i < 24; $i++) {
             if ($this->exists($grid, $name) === true) {
                 $this->raiseHome($grid, $name);
+                $level > 0 && $this->setLevel($grid, $name, $level);
 
                 return true;
             }

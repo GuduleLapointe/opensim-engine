@@ -101,6 +101,12 @@ describe('statements of an account', function () {
         );
     });
 
+    test('gives the first account the level of an administrator', function () {
+        expect(OpenSim\Provisioning\GridAccounts::levelSql('Jane', 'Doe', OpenSim\Provisioning\GridAccounts::FIRST_LEVEL))->toBe(
+            "UPDATE UserAccounts SET UserLevel = 200 WHERE FirstName = 'Jane' AND LastName = 'Doe'",
+        );
+    });
+
     test('keeps the password as Robust does', function () {
         $salt = str_repeat('ab', 16);
         $made = accounts_writer()->statements('Jane', 'Doe', '', 'secret');
