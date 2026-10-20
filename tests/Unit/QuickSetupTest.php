@@ -146,13 +146,80 @@ describe('quick setup, what is wrong', function () {
         $labels = array_column($rows, 'label');
 
         expect(array_values(array_unique(array_column($rows, 'section'))))
-            ->toBe(['grid', 'simulator', 'region', 'owner'])
+            ->toBe(['grid', 'options', 'simulator', 'region', 'owner'])
             ->and($labels)
             ->toContain('Grid name', 'Login URI', 'Hypergrid', 'Grid database', 'Simulator', 'Region', 'Port', 'Avatar')
             ->and($rows[1])
             ->toBe(['section' => 'grid', 'label' => 'Login URI', 'value' => 'http://login.example.org:8102'])
             ->and(json_encode($rows))
             ->not->toContain('secret123');
+    });
+
+    test('shows the options chosen and the ones that are on whatever the answers, with what the setup does not apply yet', function () {
+        $quick = QuickSetup::plan((new Machine())->environment, quick_answers(['gloebit' => true, 'search' => 'yes']));
+        $options = array_column(array_filter($quick['rows'], static fn(array $r): bool => $r['section'] === 'options'), 'value', 'label');
+
+        expect($options['Hypergrid'])
+            ->toBe('yes')
+            ->and($options['Economy'])
+            ->toBe('Gloebit (not implemented)')
+            ->and($options['Cross-grid search'])
+            ->toBe('yes, the shared provider (2do.directory) (not implemented)')
+            ->and($options['SSL'])
+            ->toBe('no (not implemented)')
+            ->and($options['Extended OSSL'])
+            ->toBe('no (not implemented)')
+            ->and(array_keys($options))
+            ->toContain('Helpers', 'OpenSimSearch module', 'Offline messages', 'Profiles', 'Destination guide', 'Grid status');
+    });
+
+    test('has the helpers on in every case, and the options default to hypergrid only', function () {
+        $quick = QuickSetup::plan((new Machine())->environment, quick_answers());
+
+        expect($quick['setup']['grid']['helpers'])
+            ->toBeTrue()
+            ->and($quick['setup']['grid']['search'])
+            ->toBe('internal')
+            ->and($quick['setup']['grid']['economy'])
+            ->toBe('beta')
+            ->and($quick['setup']['grid']['ossl'])
+            ->toBeFalse()
+            ->and(array_column($quick['options'], 'value', 'name'))
+            ->toBe(['ssl' => false, 'hypergrid' => true, 'search' => false, 'gloebit' => false, 'ossl' => false]);
+    });
+
+    test('tells the options and the types, for whoever shows the form', function () {
+        $quick = QuickSetup::plan((new Machine())->environment, quick_answers(['ossl' => true]));
+
+        expect(array_column($quick['options'], 'label', 'name'))
+            ->toBe([
+                'ssl' => 'SSL',
+                'hypergrid' => 'Hypergrid',
+                'search' => 'Cross-grid Search',
+                'gloebit' => 'Economy: Gloebit',
+                'ossl' => 'Extended OSSL',
+            ])
+            ->and(array_column($quick['options'], 'implemented', 'name'))
+            ->toBe(['ssl' => false, 'hypergrid' => true, 'search' => false, 'gloebit' => false, 'ossl' => false])
+            ->and($quick['setup']['grid']['ossl'])
+            ->toBeTrue()
+            ->and(array_slice($quick['types'], 0, 3))
+            ->toBe([
+                ['name' => 'grid', 'label' => 'Grid', 'implemented' => true],
+                ['name' => 'standalone', 'label' => 'Standalone', 'implemented' => true],
+                ['name' => 'simulator', 'label' => 'Simulator (join other grid)', 'implemented' => false],
+            ]);
+    });
+
+    test('refuses a type it does not apply yet, and one it does not know', function () {
+        $environment = (new Machine())->environment;
+
+        expect(QuickSetup::plan($environment, quick_answers(['type' => 'simulator']))['problems'])
+            ->toBe(['type' => 'not implemented'])
+            ->and(QuickSetup::plan($environment, quick_answers(['type' => 'nothing']))['problems'])
+            ->toBe(['type' => 'invalid'])
+            ->and(QuickSetup::plan($environment, quick_answers(['ossl' => 'maybe']))['problems'])
+            ->toBe(['ossl' => 'invalid']);
     });
 
     test('keeps a login address that has no scheme or no port', function () {

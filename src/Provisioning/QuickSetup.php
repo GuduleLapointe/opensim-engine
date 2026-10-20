@@ -4,6 +4,7 @@ namespace OpenSim\Provisioning;
 
 use OpenSim\Forms\FieldSet;
 use OpenSim\Models\Grid;
+use OpenSim\Result;
 use OpenSim\Runtime\Environment;
 
 /**
@@ -19,6 +20,63 @@ final class QuickSetup
 {
     public const TYPES = ['grid', 'standalone'];
 
+    /**
+     * The options of the form, in the order they are shown. They are the only choices of a quick setup: everything else is on (the
+     * helpers, the search module, the offline messages, the profiles, the destination guide, the grid status). `plan` says what an
+     * option sets in the plan of the grid (nothing yet for SSL), `implemented` false that the setup does not apply it yet.
+     *
+     * @return array<string,array{label:string,default:bool,implemented:bool,plan:?\Closure}>
+     */
+    private static function options(): array
+    {
+        return [
+            'ssl' => ['label' => 'SSL', 'default' => false, 'implemented' => false, 'plan' => null],
+            'hypergrid' => [
+                'label' => 'Hypergrid',
+                'default' => true,
+                'implemented' => true,
+                'plan' => static fn(bool $on): array => ['hypergrid' => $on],
+            ],
+            'search' => [
+                'label' => 'Cross-grid Search',
+                'default' => false,
+                'implemented' => false,
+                'plan' => static fn(bool $on): array => ['search' => $on ? 'shared' : 'internal'],
+            ],
+            'gloebit' => [
+                'label' => 'Economy: Gloebit',
+                'default' => false,
+                'implemented' => false,
+                'plan' => static fn(bool $on): array => ['economy' => $on ? 'gloebit' : 'beta'],
+            ],
+            'ossl' => [
+                'label' => 'Extended OSSL',
+                'default' => false,
+                'implemented' => false,
+                'plan' => static fn(bool $on): array => ['ossl' => $on],
+            ],
+        ];
+    }
+
+    /**
+     * What can be set up: the grid and the standalone, a simulator that joins another grid, and the presets there are.
+     *
+     * @return list<array{name:string,label:string,implemented:bool}>
+     */
+    private static function types(Environment $environment): array
+    {
+        $types = [
+            ['name' => 'grid', 'label' => 'Grid', 'implemented' => true],
+            ['name' => 'standalone', 'label' => 'Standalone', 'implemented' => true],
+            ['name' => 'simulator', 'label' => 'Simulator (join other grid)', 'implemented' => false],
+        ];
+        foreach ((new Presets([], $environment->layout->etcRoot()))->names() as $name => $grid) {
+            $types[] = ['name' => (string) $name, 'label' => $grid, 'implemented' => false];
+        }
+
+        return $types;
+    }
+
     /** The questions the planners' fields answer, by the name of the field. */
     private const QUESTIONS = [
         'name' => 'name',
@@ -30,23 +88,37 @@ final class QuickSetup
     ];
 
     /**
-     * @param array<string,mixed> $answers type, name, login_uri, hypergrid, avatar, password, email: all optional, a missing one is proposed
-     *        or, when it cannot be, told in the problems
-     * @return array{valid:bool,problems:array<string,string>,corrected:array<string,string>,setup:array<string,mixed>,rows:list<array{section:string,label:string,value:string}>}
+     * @param array<string,mixed> $answers type, name, login_uri, avatar, password, email and the options (ssl, hypergrid, search,
+     *        gloebit, ossl): all optional, a missing one is proposed or, when it cannot be, told in the problems
+     * @return array{valid:bool,problems:array<string,string>,corrected:array<string,string>,setup:array<string,mixed>,rows:list<array{section:string,label:string,value:string}>,types:list<array{name:string,label:string,implemented:bool}>,options:list<array{name:string,label:string,default:bool,value:bool,implemented:bool}>}
      */
     public static function plan(Environment $environment, array $answers): array
     {
         $problems = [];
         $corrected = [];
         $type = strtolower(trim((string) ($answers['type'] ?? '')));
+        $types = self::types($environment);
         if ($type !== '' && !in_array($type, self::TYPES, true)) {
-            $problems['type'] = _('invalid');
+            $problems['type'] = in_array($type, array_column($types, 'name'), true) ? _('not implemented') : _('invalid');
         }
         $standalone = $type === 'standalone';
 
+        // The options: what is chosen, and what each sets in the plan of the grid
+        $options = self::options();
+        foreach ((new FieldSet(array_map(static fn(string $name): array => ['name' => $name, 'type' => 'boolean'], array_keys($options))))->problems($answers) as $name => $message) {
+            $problems[$name] = $message;
+        }
+        $chosen = [];
+        $fromOptions = [];
+        foreach ($options as $name => $option) {
+            $given = $answers[$name] ?? null;
+            $chosen[$name] = Result::isTrue($given) || (Result::isFalse($given) ? false : $option['default']);
+            $fromOptions = ($option['plan'] !== null ? ($option['plan'])($chosen[$name]) : []) + $fromOptions;
+        }
+
         // The grid. What is right or wrong, and what is corrected, is said by the fields of the models: the answers go to them as given,
         // and the plan is made of the corrected ones (the person confirms a correction by sending the form again).
-        $gridAnswers = ['standalone' => $standalone, 'hypergrid' => $answers['hypergrid'] ?? true];
+        $gridAnswers = ['standalone' => $standalone, 'helpers' => true] + $fromOptions;
         trim((string) ($answers['name'] ?? '')) !== '' && ($gridAnswers['name'] = trim((string) $answers['name']));
         [$uri, $uriProblem] = Grid::parseLoginUri((string) ($answers['login_uri'] ?? ''));
         $uriProblem !== null && ($problems['login_uri'] = $uriProblem);
@@ -78,7 +150,19 @@ final class QuickSetup
             'problems' => $problems,
             'corrected' => $corrected,
             'setup' => SetupFile::withSimulator(SetupFile::withGrid([], $plan), $simulator),
-            'rows' => self::rows($plan, $simulator, $standalone, trim((string) ($answers['email'] ?? ''))),
+            'rows' => self::rows($plan, $simulator, $standalone, trim((string) ($answers['email'] ?? '')), $chosen),
+            'types' => $types,
+            'options' => array_map(
+                static fn(string $name, array $option): array => [
+                    'name' => $name,
+                    'label' => $option['label'],
+                    'default' => $option['default'],
+                    'value' => $chosen[$name],
+                    'implemented' => $option['implemented'],
+                ],
+                array_keys($options),
+                array_values($options),
+            ),
         ];
     }
 
@@ -109,9 +193,10 @@ final class QuickSetup
      * Every value the setup defines, in the order a person reads them, by section (grid, simulator, region, owner): what the planners
      * proposed and the answers, so that nothing the setup will do is a surprise.
      *
+     * @param array<string,bool> $chosen the options, by name
      * @return list<array{section:string,label:string,value:string}>
      */
-    private static function rows(GridPlan $plan, SimulatorPlan $simulator, bool $standalone, string $email): array
+    private static function rows(GridPlan $plan, SimulatorPlan $simulator, bool $standalone, string $email, array $chosen): array
     {
         $rows = [];
         $add = static function (string $section, string $label, string $value) use (&$rows): void {
@@ -125,20 +210,29 @@ final class QuickSetup
 
         $add('grid', 'Grid name', "{$plan->gridName} ({$plan->gridNick})");
         $add('grid', 'Login URI', "http://{$plan->baseHostname}:{$plan->publicPort}");
-        $add('grid', 'Hypergrid', $yes($plan->enableHypergrid));
         $add('grid', 'Region spacing', $plan->regionSpacing === 0 ? 'side by side' : "{$plan->regionSpacing} free block(s)");
         $plan->coreDirectory !== '' && $add('grid', 'Core', $plan->coreDirectory);
         $standalone || $add('grid', 'Ports', "public {$plan->publicPort}, private {$plan->privatePort}");
         $standalone || $add('grid', 'Console', $console($plan->consoleMode, $plan->consolePort, $plan->consoleUser));
         $add('grid', 'Web URL', $plan->webUrl);
-        $add('grid', 'Helpers', $plan->helpers ? "served at {$plan->webUrl}{$plan->helpersPath}" : 'not served by this web site');
-        $add('grid', 'Search', ['internal' => 'this grid (opensim-helpers)', 'shared' => 'shared provider (2do.directory)', 'disabled' => 'none'][$plan->search] ?? $plan->search);
-        $add('grid', 'Currency', $plan->economy === 'gloebit' ? 'Gloebit' : 'BetaGridLikeMoneyModule');
-        $add('grid', 'OSSL', $plan->ossl ? 'more functions for parcel owners' : 'the defaults of the core');
         $plan->helpers && $add('grid', 'Web server', ['caddy' => 'Caddy', 'apache' => 'Apache', 'nginx' => 'nginx'][$plan->webServer] ?? $plan->webServer);
         $add('grid', $standalone ? 'Database' : 'Grid database', $database($plan->dbName, $plan->dbHost, $plan->dbUser));
         $standalone || $add('grid', 'Robust config', $plan->robustIni());
         $add('grid', 'Grid folder', $plan->etcDirectory);
+
+        // What the person chose, then what is on whatever the answers (the helpers and what they serve)
+        $todo = static fn(string $name, string $value): string => $value . (self::options()[$name]['implemented'] ? '' : ' (not implemented)');
+        $add('options', 'Hypergrid', $todo('hypergrid', $yes($plan->enableHypergrid)));
+        $add('options', 'SSL', $todo('ssl', $yes($chosen['ssl'] ?? false)));
+        $add('options', 'Cross-grid search', $todo('search', $plan->search === 'shared' ? 'yes, the shared provider (2do.directory)' : 'no, the search of this grid'));
+        $add('options', 'Economy', $todo('gloebit', $plan->economy === 'gloebit' ? 'Gloebit' : 'BetaGridLikeMoneyModule'));
+        $add('options', 'Extended OSSL', $todo('ossl', $yes($plan->ossl)));
+        $add('options', 'Helpers', $plan->helpers ? "served at {$plan->webUrl}{$plan->helpersPath}" : 'not served by this web site');
+        $add('options', 'OpenSimSearch module', $yes($plan->search !== 'disabled'));
+        $add('options', 'Offline messages', ['helpers' => 'the helpers (module V1)', 'robust' => 'the grid (module V2)', 'both' => 'both'][$plan->offline] ?? $plan->offline);
+        $add('options', 'Profiles', $yes($plan->helpers));
+        $add('options', 'Destination guide', $yes($plan->helpers));
+        $add('options', 'Grid status', $yes($plan->helpers));
 
         $add('simulator', 'Simulator', "{$simulator->simulatorName} ({$simulator->slug})");
         $add('simulator', 'HTTP port', (string) $simulator->httpPort);

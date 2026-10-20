@@ -479,10 +479,14 @@ final class Endpoints
                                         'attributes' => [
                                             'type' => 'object',
                                             'properties' => [
-                                                'type' => ['type' => 'string', 'enum' => ['grid', 'standalone']],
+                                                'type' => ['type' => 'string', 'description' => 'grid, standalone; the other types of the reply are not implemented yet'],
                                                 'name' => ['type' => 'string', 'description' => 'Of the grid, and of the simulator and its region for a standalone'],
                                                 'login_uri' => ['type' => 'string', 'description' => 'http://login.example.org:8002'],
+                                                'ssl' => ['type' => 'boolean', 'default' => false, 'description' => 'Not implemented yet'],
                                                 'hypergrid' => ['type' => 'boolean', 'default' => true],
+                                                'search' => ['type' => 'boolean', 'default' => false, 'description' => 'Cross-grid search: the shared provider (2do.directory) instead of the search of the grid. Not implemented yet'],
+                                                'gloebit' => ['type' => 'boolean', 'default' => false, 'description' => 'Gloebit as the currency instead of BetaGridLikeMoneyModule. Not implemented yet'],
+                                                'ossl' => ['type' => 'boolean', 'default' => false, 'description' => 'More OSSL functions for the parcel owners. Not implemented yet'],
                                                 'avatar' => ['type' => 'string', 'description' => 'First Last: the avatar that owns the estate, made with the grid'],
                                                 'password' => ['type' => 'string'],
                                                 'email' => ['type' => 'string'],
@@ -513,13 +517,39 @@ final class Endpoints
                         'setup' => ['type' => 'object', 'description' => 'The grid, its simulator, its owner'],
                         'rows' => [
                             'type' => 'array',
-                            'description' => 'Every value the setup defines, to show before it is applied: the section (grid, simulator, region, owner), the label and the value',
+                            'description' => 'Every value the setup defines, to show before it is applied: the section (grid, options, simulator, region, owner), the label and the value',
                             'items' => [
                                 'type' => 'object',
                                 'properties' => [
                                     'section' => ['type' => 'string'],
                                     'label' => ['type' => 'string'],
                                     'value' => ['type' => 'string'],
+                                ],
+                            ],
+                        ],
+                        'types' => [
+                            'type' => 'array',
+                            'description' => 'What can be set up, to offer as a choice: the name to send as `type`, the label, and whether the setup applies it yet',
+                            'items' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'name' => ['type' => 'string'],
+                                    'label' => ['type' => 'string'],
+                                    'implemented' => ['type' => 'boolean'],
+                                ],
+                            ],
+                        ],
+                        'options' => [
+                            'type' => 'array',
+                            'description' => 'The options of the form, in the order to show them: the name to send as an answer, the label, the default, the value taken, and whether the setup applies it yet. The helpers and what they serve are on in a quick setup',
+                            'items' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'name' => ['type' => 'string'],
+                                    'label' => ['type' => 'string'],
+                                    'default' => ['type' => 'boolean'],
+                                    'value' => ['type' => 'boolean'],
+                                    'implemented' => ['type' => 'boolean'],
                                 ],
                             ],
                         ],
