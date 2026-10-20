@@ -92,7 +92,6 @@ final class SimulatorConfig
                     '[GridService]',
                     'MapTileDirectory = "${Const|CacheDirectory}/maptiles"',
                     '',
-                    ...self::connectorsLayer($plan),
                     '[YEngine]',
                     'ScriptEnginesPath = "${Const|DataDirectory}/ScriptEngines"',
                     '',
@@ -129,32 +128,6 @@ final class SimulatorConfig
     }
 
     /**
-     * What a grid tells its simulators of the connectors its Robust serves, as lines of config: the bakes of the avatars and the groups.
-     * The counterpart of each is in the simulators, in their config or, when the grid has a master, in its OpenSim.ini (see
-     * SimulatorMaster).
-     *
-     * @return list<string>
-     */
-    public static function connectorsLayer(SimulatorPlan|Grid $from): array
-    {
-        $plan = $from instanceof SimulatorPlan;
-        $standalone = $plan ? $from->standalone : $from->isStandalone();
-        $connectors = $plan ? $from->connectors : $from->connectors();
-
-        return [
-            ...in_array('BakedTextureService', $connectors, true)
-                ? [
-                    ';; The bakes of the avatars are kept by Robust',
-                    '[XBakes]',
-                    'URL = "${Const|PrivURL}:${Const|PrivatePort}"',
-                    '',
-                ]
-                : [],
-            ...in_array('GroupsServiceConnector', $connectors, true) ? self::groupsLayer($from, $standalone) : [],
-        ];
-    }
-
-    /**
      * The host the scripts of the simulator see as its own: the address of the machine it runs on, never the host of a grid
      * that is somewhere else. The address its regions announce when it is given; else the host of the grid when the simulator
      * runs on the machine of the grid; else the name of the machine, empty when it has no name of its own (OpenSimulator then
@@ -172,43 +145,6 @@ final class SimulatorConfig
         $name = (string) gethostname();
 
         return in_array(strtolower($name), ['', 'localhost', 'localhost.localdomain'], true) ? '' : $name;
-    }
-
-    /**
-     * The groups (V2) the simulators use, kept by Robust: the connector of the hypergrid when Robust serves the groups of the
-     * hypergrid, else the one of a grid alone.
-     *
-     * @return list<string>
-     */
-    private static function groupsLayer(SimulatorPlan|Grid $from, bool $standalone = false): array
-    {
-        $hypergrid = in_array(
-            'HGGroupsServiceConnector',
-            $from instanceof SimulatorPlan ? $from->connectors : $from->connectors(),
-            true,
-        );
-
-        return [
-            $standalone ? ';; The groups are kept by the simulator itself' : ';; The groups are kept by Robust',
-            '[Groups]',
-            'Enabled = true',
-            'Module = "Groups Module V2"',
-            'ServicesConnectorModule = "' .
-            match (true) {
-                $hypergrid => 'Groups HG Service Connector',
-                $standalone => 'Groups Local Service Connector',
-                default => 'Groups Remote Service Connector',
-            } .
-            '"',
-            ...$hypergrid ? ['LocalService = ' . ($standalone ? 'local' : 'remote')] : [],
-            ...$standalone ? [] : ['GroupsServerURI = "${Const|PrivURL}:${Const|PrivatePort}"'],
-            'MessagingEnabled = true',
-            'MessagingModule = "Groups Messaging Module V2"',
-            // The module refuses to run without it (it logs an error and the messages of the groups are not delivered)
-            'MessageOnlineUsersOnly = true',
-            'NoticesEnabled = true',
-            '',
-        ];
     }
 
     /**

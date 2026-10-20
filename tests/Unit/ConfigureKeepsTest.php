@@ -5,6 +5,7 @@
  */
 
 use OpenSim\Models\Grid;
+use OpenSim\Provisioning\GridOptions;
 use OpenSim\Controllers\RobustController;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\RobustConfig;
@@ -38,27 +39,38 @@ describe('Configuring a grid that exists', function () {
     };
 
     test(
-        'tells the viewers the web search of the helpers when the grid has helpers and says nothing of it, and keeps what it says',
+        'tells the viewers the web search and the pages of the helpers through the options, only where the grid says nothing',
         function () use ($plan) {
             $plan = $plan();
             $plan->helpers = true;
             $plan->helpersPath = '/helpers';
-            $robust = new RobustConfig();
+            $text = (new RobustConfig())->generate($plan);
+            file_put_contents($plan->robustIni(), $text);
+            $options = fn(): GridOptions => new GridOptions(Grid::planned(EnvironmentFake::with(), $plan), layered: true);
 
-            $text = $robust->generate($plan);
+            // The config of a grid says nothing of them: they are the options'
+            expect($text)->not->toMatch('/^\s*search\s*=/m');
 
-            expect($text)
+            $options()->enable('search');
+            $options()->enable('helpers');
+            $made = (string) file_get_contents($plan->robustIni());
+            expect($made)
                 ->toContain('search = "${Const|WebURL}/search"')
-                ->toContain('SearchURL = "${Const|WebURL}/search"');
+                ->toContain('SearchURL = "${Const|WebURL}/search"')
+                ->toContain('economy = "${Const|WebURL}/helpers"')
+                ->toContain('welcome = "${Const|WebURL}/welcome"')
+                ->toContain('DestinationGuide = "${Const|WebURL}/helpers/guide.php"')
+                ->toContain('MessageUrl = "${Const|WebURL}/helpers/motd.php"')
+                ->toContain('web_profile_url = "${Const|WebURL}/profile/[AGENT_NAME]"');
 
-            // The grid has its own: the setup leaves it
+            // The grid has its own: the option leaves it
             file_put_contents(
                 $plan->robustIni(),
-                str_replace('search = "${Const|WebURL}/search"', 'search = "https://other.example.org/q"', $text),
+                str_replace('search = "${Const|WebURL}/search"', 'search = "https://other.example.org/q"', $made),
             );
-            $kept = $robust->generate($plan);
+            $options()->enable('search');
 
-            expect($kept)
+            expect((string) file_get_contents($plan->robustIni()))
                 ->toContain('search = "https://other.example.org/q"')
                 ->not->toContain('search = "${Const|WebURL}/search"');
         },
@@ -324,10 +336,9 @@ describe('Configuring a simulator that exists', function () {
 
 describe('What a grid tells its simulators of the connectors its Robust serves', function () {
     test('is the counterpart of each: the bakes, the groups, the groups of the hypergrid', function () {
-        $lines = static fn(array $connectors): string => implode(
-            "\n",
-            SimulatorConfig::connectorsLayer(Grid::described(EnvironmentFake::with(), ['connectors' => $connectors])),
-        );
+        $lines = static fn(array $connectors, bool $standalone = false): string => (new GridOptions(
+            Grid::described(EnvironmentFake::with(), ['connectors' => $connectors, 'standalone' => $standalone]),
+        ))->layer();
 
         $none = $lines([]);
         expect($none)->not->toContain('[XBakes]')->not->toContain('[Groups]');
@@ -344,6 +355,14 @@ describe('What a grid tells its simulators of the connectors its Robust serves',
             ->toContain('ServicesConnectorModule = "Groups HG Service Connector"')
             ->toContain('LocalService = remote')
             ->not->toContain('[XBakes]');
+
+        // A standalone keeps them in the simulator itself
+        $local = $lines(['GroupsServiceConnector'], standalone: true);
+        expect($local)
+            ->toContain('ServicesConnectorModule = "Groups Local Service Connector"')
+            ->not->toContain('GroupsServerURI')
+            ->and($lines(['GroupsServiceConnector', 'HGGroupsServiceConnector'], standalone: true))
+            ->toContain('Groups HG Service Connector', 'LocalService = local');
     });
 
     test('is the estates of the grid, in the config of the architecture, when Robust serves them', function () {

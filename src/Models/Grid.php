@@ -328,17 +328,11 @@ final class Grid extends InstalledModel
                 'options' => [
                     'helpers' => _('Helpers (module V1): mailed on request, no limit'),
                     'robust' => _('The grid itself (module V2): nothing to run, no mail, 25 messages per avatar'),
-                    'both' => _('Both: V1 by default, the service of Robust ready for the simulators set to V2'),
                 ],
-                'callback' => static fn(mixed $value, array $answers): ?string => in_array(
-                    $value,
-                    ['helpers', 'both'],
-                    true,
-                ) && !($answers['helpers'] ?? true)
+                'callback' => static fn(mixed $value, array $answers): ?string => $value === 'helpers' &&
+                !($answers['helpers'] ?? true)
                     ? _('The module V1 keeps its messages with opensim-helpers.')
-                    : ($value === 'both' && ($answers['standalone'] ?? false)
-                        ? _('A standalone has no Robust service to keep ready: the helpers (V1) or itself (V2).')
-                        : null),
+                    : null,
                 'enable' => $new,
             ],
             [
@@ -1125,8 +1119,7 @@ final class Grid extends InstalledModel
     /**
      * How the grid keeps the messages for the avatars who are not there: `helpers` (the module V1 of the simulators and the helpers: mailed
      * to the avatar who asks, no limit), `robust` (the module V2 and the offline service of Robust: nothing else to run, no mail, 25
-     * messages per avatar unless Robust says more), `both` (V1 by default, the service of Robust ready for the simulators set to V2). Empty
-     * when the grid does not say.
+     * messages per avatar unless Robust says more). Empty when the grid does not say.
      */
     public function offlineMode(): string
     {

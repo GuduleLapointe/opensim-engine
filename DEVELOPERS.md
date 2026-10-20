@@ -50,12 +50,12 @@ The addresses are in the contract (`docs/api/`), with the format OpenSimulator a
 
 ## The options of a grid
 
-An option (search, economy, profiles, offline messages, extended OSSL, whatever an administrator invents) is a preset: a folder with an `option.conf` and the ini files it changes, in `<etc>/presets/<name>/` (the administrator's, which wins) or `share/presets/<name>/` (the ones of the kit). No option is code: `OpenSim\Provisioning\GridOptions` lays each ini of the folder over the file of the grid that has the same name, at the setup and later (`opensim enable|disable <grid> <option>`):
+An option (search, economy, offline messages, extended OSSL, whatever an administrator invents) is a preset, and so is what the grid has by default without being asked (the profiles, the addresses the viewers are told of the helpers, the bakes, the groups, the offline messages of Robust): the same folders, with `Offer = false` so that the setup does not list them: a folder with an `option.conf` and the ini files it changes, in `<etc>/presets/<name>/` (the administrator's, which wins) or `share/presets/<name>/` (the ones of the kit). No option is code: `OpenSim\Provisioning\GridOptions` lays each ini of the folder over the file of the grid that has the same name, at the setup and later (`opensim enable|disable <grid> <option>`):
 
 - `OpenSim.ini` goes to the simulators (the OpenSim.ini of the grid, and the files of its simulators), `Robust.ini` to the services (Robust, or StandaloneCommon.ini for a standalone), any other path (`config-include/osslEnable.ini`) to the same file of the grid;
 - a setting is written as OpenSimulator reads it; `{{grid_name}}`, `{{search_url}}`... are put in by the grid (`GridOptions::variables()`), a setting with nothing to put in is not written; a setting without a value (`OfflineIMServiceConnector =`) switches on, as it is, the one the file has commented out;
 - disabling comments the settings out, with their values;
-- `option.conf` says what the option is and needs: label, offered in the setup or not, on by default, group of alternatives (`economy-beta`, `economy-gloebit`), what the grid must be or have, the modules of the install, the settings the administrator gives (the Gloebit keys), the settings written only once or kept when disabled. The keys are listed in `OptionTemplate`.
+- `option.conf` says what the option is and needs: label, offered in the setup or not, on by default, group of alternatives (`economy-beta`, `economy-gloebit`), what the grid must be or have, the modules of the install, the settings the administrator gives (the Gloebit keys), the settings written only once or kept when disabled, and the one of a group that is on when no other is (`Fallback = true`: the module V2 of the offline messages, which the helpers replace while they are on). The keys are listed in `OptionTemplate`.
 
 The options a grid has are kept in its description (`Options = search, profiles`).
 

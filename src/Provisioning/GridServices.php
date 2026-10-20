@@ -3,7 +3,6 @@
 namespace OpenSim\Provisioning;
 
 use OpenSim\Config\IniEditor;
-use OpenSim\Provisioning\Web\Services;
 
 /**
  * What a grid tells its viewers and proposes to its users, in the config of its services: the names, the addresses of the helpers,
@@ -30,8 +29,8 @@ final class GridServices
     }
 
     /**
-     * Everything else: what the viewers are told of the helpers, the hypergrid, and what the setup proposes (set when the grid has
-     * nothing for it, never over what it has).
+     * Everything else: the hypergrid, and what the setup proposes (set when the grid has nothing for it, never over what it has).
+     * What the viewers are told of the helpers, the search, the profiles are options (see GridOptions).
      *
      * @param ?IniEditor $existing the config as it was, null for a grid that is made
      * @param ?IniEditor $baseline what the distribution says: a setting the config still has as the distribution says it is not the
@@ -39,34 +38,6 @@ final class GridServices
      */
     public function apply(IniEditor $ini, GridPlan $plan, ?IniEditor $existing, ?IniEditor $baseline = null): void
     {
-        // What the viewers are told of the services of the helpers: the official settings, which the helpers read back
-        if ($plan->helpers) {
-            $services = new Services($plan->helpersPath);
-            // The economy is the path of the helpers: the viewer adds the name of the script (currency.php...)
-            $ini->set('GridInfoService', 'economy', self::q('${Const|WebURL}' . $services->base()));
-            // The splash page the viewer shows before the login
-            $ini->set('GridInfoService', 'welcome', self::q('${Const|WebURL}' . $services->path('welcome')));
-            // The destination guide of the viewers is the one of the helpers
-            $ini->set('LoginService', 'DestinationGuide', self::q('${Const|WebURL}' . $services->path('guide')));
-            // The profile page: the viewers replace [AGENT_NAME] by Firstname.Lastname (the helpers also take Firstname-Lastname)
-            $ini->set(
-                'GridInfoService',
-                'web_profile_url',
-                self::q('${Const|WebURL}' . $services->path('profile') . '/[AGENT_NAME]'),
-            );
-            // The message of the day: the text of motd.php (WelcomeMessage), read when the grid starts
-            $ini->set('LoginService', 'MessageUrl', self::q('${Const|WebURL}' . $services->path('motd')));
-            // The search of the web, when the grid has none of the two settings that say it (alignSearch() gives one to the other); not a
-            // grid that has no search
-            if (
-                $plan->search !== 'disabled' &&
-                ($ini->get('GridInfoService', 'search') ?? '') === '' &&
-                ($ini->get('LoginService', 'SearchURL') ?? '') === ''
-            ) {
-                $ini->set('GridInfoService', 'search', self::q('${Const|WebURL}' . $services->path('search')));
-            }
-        }
-
         if ($plan->enableHypergrid) {
             $ini->merge([
                 'Hypergrid' => [
@@ -85,8 +56,6 @@ final class GridServices
             // Shown to the user when logging in (<USERNAME> is replaced by the name of the avatar)
             ['LoginService', 'WelcomeMessage', self::q("Welcome to {$plan->gridName}, <USERNAME>!")],
             ['LibraryService', 'LibraryName', self::q("{$plan->gridName} Library")],
-            // User profiles (connector + service)
-            ['UserProfilesService', 'Enabled', 'true'],
         ];
         foreach ($proposed as [$section, $key, $value]) {
             $was = $existing?->get($section, $key);

@@ -104,6 +104,21 @@ describe('The options there are', function () {
     });
 });
 
+describe('The options that are not offered', function () {
+    test('are the base of the grid: the helpers, the bakes, the groups, the profiles, the offline messages of Robust', function () {
+        $options = demo_options(new Machine());
+        $hidden = array_keys(array_filter($options->templates(), static fn(OptionTemplate $o): bool => !$o->offered()));
+
+        expect($hidden)
+            ->toContain('helpers', 'bakes', 'groups-remote', 'groups-hypergrid', 'groups-local', 'groups-local-hypergrid', 'profiles', 'offline-helpers', 'offline-robust', 'search')
+            ->not->toContain('ossl-extended', 'economy-gloebit', 'offline-both')
+            ->and($options->template('offline-robust')?->fallback())
+            ->toBeTrue()
+            ->and($options->template('offline-helpers')?->fallback())
+            ->toBeFalse();
+    });
+});
+
 describe('An option enabled', function () {
     test('is laid over the files of the grid that have its name, and commented out when disabled', function () {
         $machine = new Machine();
@@ -151,7 +166,7 @@ describe('An option enabled', function () {
 
     test('does not write a setting the grid has nothing to say for, and is refused by a grid that cannot have it', function () {
         $machine = new Machine();
-        admin_option($machine, 'needy', 'Label = "Needy"', ['OpenSim.ini' => "[Needy]\n    Url = \"{{search_url}}\"\n    Name = \"{{grid_nick}}\"\n"]);
+        admin_option($machine, 'needy', 'Label = "Needy"', ['OpenSim.ini' => "[Needy]\n    Url = \"{{url_query}}\"\n    Name = \"{{grid_nick}}\"\n"]);
         admin_option($machine, 'helped', "Label = \"Helped\"\nRequires = helpers\nNeeds = \"{nick} has no helpers\"");
         $options = demo_options($machine);
 
@@ -231,6 +246,39 @@ describe('An option enabled', function () {
             ->not->toContain('GLBKey');
     });
 
+    test('gives way to the one its group falls back to when it is disabled', function () {
+        $machine = new Machine();
+        $machine->write(
+            $machine->grid . '/Robust.HG.ini',
+            str_replace(
+                '[Network]',
+                "    OfflineIMServiceConnector = \"x\"\n[Network]",
+                file_get_contents($machine->grid . '/Robust.HG.ini'),
+            ),
+        );
+        $options = demo_options($machine);
+        $alpha = fn(): array => ConfigReader::load($machine->grid . '/sims/alpha.ini', expand: false)['Messaging'] ?? [];
+
+        $options->enable('offline-helpers', ['prefix' => 'https://web.example.org/helpers']);
+        $helpers = $alpha();
+        $robustOff = file_get_contents($machine->grid . '/Robust.HG.ini');
+        $options->disable('offline-helpers');
+
+        expect($helpers['OfflineMessageModule'])
+            ->toBe('OfflineMessageModule')
+            // Robust does not keep what the helpers keep
+            ->and($robustOff)
+            ->toContain(';OfflineIMServiceConnector')
+            // Back to the module V2 and the service of Robust
+            ->and($alpha()['OfflineMessageModule'])
+            ->toBe('Offline Message Module V2')
+            ->and(file_get_contents($machine->grid . '/Robust.HG.ini'))
+            ->toContain("\nOfflineIMServiceConnector = ")
+            ->and(Grid::at($machine->environment, $machine->grid)->options())
+            ->toContain('offline-robust')
+            ->not->toContain('offline-helpers');
+    });
+
     test('takes the place of the settings of the option it replaces', function () {
         $machine = new Machine();
         $machine->write(
@@ -252,7 +300,7 @@ describe('The options of a grid that is made', function () {
         $without = (new GridOptions(Grid::planned($machine->environment, demo_plan($machine, false))))->selection([]);
 
         expect($with)
-            ->toBe(['offline-helpers', 'ossl-extended', 'profiles', 'search'])
+            ->toBe(['helpers', 'offline-helpers', 'ossl-extended', 'profiles', 'search'])
             ->and($without)
             ->toBe(['offline-robust', 'ossl-extended', 'profiles']);
     });
@@ -269,9 +317,11 @@ describe('The options of a grid that is made', function () {
             ->and($select(['economy' => 'gloebit']))
             ->toContain('economy-gloebit')
             ->not->toContain('economy-beta')
-            ->and($select(['offline' => 'both']))
-            ->toContain('offline-both')
-            ->not->toContain('offline-helpers', 'offline-robust')
+            ->and($select(['offline' => 'robust']))
+            ->toContain('offline-robust')
+            ->not->toContain('offline-helpers')
+            ->and($select(['helpers' => false]))
+            ->not->toContain('helpers')
             ->and($select(['search' => 'disabled']))
             ->not->toContain('search')
             // A list says which are on, and no other
@@ -282,6 +332,9 @@ describe('The options of a grid that is made', function () {
             // A grid that is changed keeps what it has, and takes what is asked
             ->and($select([], ['profiles']))
             ->toBe(['profiles'])
+            // The one a group falls back to is the one that is on when no other is
+            ->and($select([], ['offline-robust', 'offline-helpers']))
+            ->toBe(['offline-helpers'])
             ->and($select(['ossl' => true], ['profiles']))
             ->toBe(['ossl-extended', 'profiles']);
     });

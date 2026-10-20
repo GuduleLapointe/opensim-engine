@@ -6,6 +6,8 @@ use OpenSim\Config\GridFileService;
 use OpenSim\Config\ConfigReader;
 use OpenSim\Config\ConnectionString;
 use OpenSim\Models\Grid;
+use OpenSim\Provisioning\GridOptions;
+use OpenSim\Provisioning\SimulatorMaster;
 use OpenSim\Provisioning\SimulatorPlan;
 use OpenSim\Provisioning\Slug;
 
@@ -55,7 +57,7 @@ final class SimulatorImporter
         $plan->privatePort = $grid->privatePort();
         $plan->logsDirectory = $grid->logsDirectory();
         $plan->gridHere = !$grid->isRemote();
-        $plan->connectors = $grid->connectors();
+        $plan->optionsLayer = SimulatorMaster::exists($grid->directory()) ? '' : (new GridOptions($grid))->layer();
         $plan->coreDirectory = $core;
         $plan->simulatorName = $name;
         $plan->slug = $grid->instanceOf($name);

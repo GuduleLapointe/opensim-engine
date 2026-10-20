@@ -234,7 +234,7 @@ final class GridPlanner
             // Without the helpers, Robust keeps the messages
             'offline' => self::choice(
                 $answers['offline'] ?? null,
-                ['helpers', 'robust', 'both'],
+                ['helpers', 'robust'],
                 Result::isTrue($answers['helpers'] ?? $c['helpersAvailable']) ? 'helpers' : 'robust',
             ),
             'economy' => self::choice($answers['economy'] ?? null, ['beta', 'gloebit'], 'beta'),

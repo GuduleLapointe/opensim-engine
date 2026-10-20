@@ -70,8 +70,6 @@ final class SimulatorPlan
     // Its estate, whose owner is an account of the grid.
     /** What the options of the grid say for its simulators, as the text of an ini (see GridOptions::layer()); empty when the grid has a master. */
     public string $optionsLayer = '';
-    /** @var list<string> The connectors the Robust of the grid serves besides the usual ones (see Grid::connectors()). */
-    public array $connectors = [];
 
     public string $estateName = '';
     public string $estateOwner = '';

@@ -16,7 +16,8 @@ use OpenSim\Config\TextFileService;
  *  - any other path (`config-include/osslEnable.ini`): the same file of the folder of the grid.
  *
  * In these files a setting is a setting of OpenSimulator, as it is written there. `{{name}}` is replaced by what the grid knows of it
- * (see GridOptions::variables()); a setting that needs something the grid does not have is not written. A setting without a value
+ * (`grid_name`, `grid_nick`, `data_service`, `url_<service>` and `page_<page>` of the helpers, `helpers_base`... see
+ * GridOptions::variables()); a setting that needs something the grid does not have is not written. A setting without a value
  * (`OfflineIMServiceConnector =`) is the one of the file, switched on as it is. Disabling an option comments out the settings it set.
  *
  * ```
@@ -27,6 +28,7 @@ use OpenSim\Config\TextFileService;
  * Default = true                     on unless the setup says otherwise
  * Answer = search                    the name of the answer in the setup (the name of the folder)
  * Group = economy                    alternatives: one at a time, the name of the folder is `<group>-<variant>`
+ * Fallback = true                    the one of its group that is on when no other is (disabling an option falls back to it)
  * Requires = helpers, !standalone    what the grid must be or have: helpers, standalone, hypergrid, connector:<Name>, service:<name>
  * Uses = helpers                     what a grid made by the setup must have for the option to be of any use (helpers)
  * Modules = opensimsearch            modules of the install it needs (EnabledModules, the package of the core)
@@ -98,6 +100,12 @@ final class OptionTemplate
     public function group(): string
     {
         return $this->text('Group');
+    }
+
+    /** Whether it is the one of its group that is on when no other is. */
+    public function fallback(): bool
+    {
+        return $this->flag('Fallback', false);
     }
 
     /** What it is in its group (`gloebit` for economy-gloebit). */

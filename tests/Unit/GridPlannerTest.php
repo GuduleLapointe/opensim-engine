@@ -319,8 +319,9 @@ describe('The options of a new grid', function () {
                 ->toBe('helpers')
                 ->and($without->plan([])->offline)
                 ->toBe('robust')
+                // There is no both: the module V2 ignores the helpers
                 ->and($with->plan(['offline' => 'both'])->offline)
-                ->toBe('both')
+                ->toBe('helpers')
                 ->and($with->plan(['offline' => 'robust'])->offline)
                 ->toBe('robust')
                 ->and($with->resolve(['offline' => 'nowhere'])['offline'])
@@ -329,8 +330,8 @@ describe('The options of a new grid', function () {
                 ->and($with->plan([])->options)
                 ->toContain('offline-helpers')
                 ->not->toContain('offline-robust')
-                ->and($with->plan(['offline' => 'both'])->options)
-                ->toContain('offline-both')
+                ->and($with->plan(['offline' => 'robust'])->options)
+                ->toContain('offline-robust')
                 ->not->toContain('offline-helpers')
                 ->and($without->plan([])->options)
                 ->toContain('offline-robust');

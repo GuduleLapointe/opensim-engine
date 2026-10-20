@@ -349,7 +349,6 @@ final class SimulatorPlanner
         $plan->dbPass = $v['database_password'];
 
         // What the grid decides for its simulators (its options), when their config is whole: with a master it is the master's
-        $plan->connectors = $grid->connectors();
         $plan->optionsLayer = SimulatorMaster::exists($grid->directory()) ? '' : (new GridOptions($grid))->layer();
 
         $plan->estateName = $v['estate_name'];

@@ -170,6 +170,11 @@ describe('The services of a standalone', function () {
         ]);
 
         $written = (new GridServices())->writeStandalone($plan);
+        // What the viewers are told of the helpers, the search and the profiles are the options'
+        $options = new GridOptions(Grid::planned((new Machine())->environment, $plan), layered: true);
+        foreach (['helpers', 'search', 'profiles'] as $option) {
+            $options->enable($option);
+        }
         $ini = ConfigReader::load("$dir/config-include/StandaloneCommon.ini", expand: false);
         $pages = new Services('/helpers');
 
@@ -303,7 +308,7 @@ describe('The layer of a standalone for its simulator', function () {
 
         $grid = Grid::planned($machine->environment, $plan);
 
-        return implode("\n", SimulatorConfig::connectorsLayer($grid)) . "\n" . (new GridOptions($grid))->layer();
+        return (new GridOptions($grid))->layer();
     }
 
     test('has the offline module V2 with no address, and the groups served by the simulator', function () {
@@ -342,13 +347,16 @@ describe('The questions about a standalone', function () {
             ->toBeFalse();
     });
 
-    test('refuse the offline service of Robust that it does not have', function () {
+    test('keep the offline messages with the helpers or in the simulator itself, never both', function () {
         $planner = planner();
 
-        expect($planner->problems(['standalone' => true, 'helpers' => true, 'offline' => 'both']))
-            ->toHaveKey('offline')
-            ->and($planner->problems(['standalone' => false, 'helpers' => true, 'offline' => 'both']))
+        // There is no both: it is the default
+        expect($planner->resolve(['standalone' => true, 'helpers' => true, 'offline' => 'both'])['offline'])
+            ->toBe('helpers')
+            ->and($planner->problems(['standalone' => true, 'helpers' => true, 'offline' => 'helpers']))
             ->not->toHaveKey('offline')
+            ->and($planner->problems(['standalone' => true, 'helpers' => false, 'offline' => 'helpers']))
+            ->toHaveKey('offline')
             ->and($planner->problems(['standalone' => true, 'helpers' => true, 'offline' => 'robust']))
             ->not->toHaveKey('offline');
     });

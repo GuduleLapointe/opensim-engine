@@ -7,6 +7,7 @@ namespace OpenSim\Provisioning;
 use OpenSim\Config\GridConfig;
 use OpenSim\Config\IniEditor;
 use OpenSim\Models\Grid;
+use OpenSim\Provisioning\Web\Services;
 
 /**
  * The options of a grid (`opensim enable|disable <grid> <option>`, and the options of the setup): the presets that have an
@@ -173,7 +174,7 @@ final class GridOptions
         $byGroup = [];
         foreach ($chosen as $name => $option) {
             $held = $byGroup[$option->group()] ?? null;
-            if ($option->group() !== '' && ($held === null || (isset($explicit[$name]) && !isset($explicit[$held])))) {
+            if ($option->group() !== '' && ($held === null || self::rank($option, $explicit) > self::rank($chosen[$held], $explicit))) {
                 $byGroup[$option->group()] = $name;
             }
         }
@@ -187,6 +188,17 @@ final class GridOptions
                 ),
             ),
         );
+    }
+
+    /**
+     * What an option weighs against the others of its group: the one that was asked for, then the ones that are on by default, then
+     * the one the group falls back to.
+     *
+     * @param array<string,bool> $explicit the options that were asked for, by name
+     */
+    private static function rank(OptionTemplate $option, array $explicit): int
+    {
+        return isset($explicit[$option->name()]) ? 2 : ($option->fallback() ? 0 : 1);
     }
 
     /**
@@ -273,8 +285,19 @@ final class GridOptions
             return $result;
         }
         $this->lay($option, false, $this->variables(), $result);
+        $names = array_values(array_diff($this->enabled(), [$option->name()]));
+        // What was the only one of its group gives way to the one the group falls back to
+        if ($option->group() !== '' && !$option->fallback()) {
+            $alone = array_filter($names, fn(string $n): bool => $this->template($n)?->group() === $option->group()) === [];
+            foreach ($this->templates() as $fallback) {
+                if ($alone && $fallback->group() === $option->group() && $fallback->fallback() && $this->unmet($fallback) === null) {
+                    $this->lay($fallback, true, $this->variables(), $result);
+                    $names[] = $fallback->name();
+                }
+            }
+        }
         $this->finish($result);
-        $this->record(array_values(array_diff($this->enabled(), [$option->name()])));
+        $this->record($names);
 
         return $result;
     }
@@ -344,6 +367,8 @@ final class GridOptions
     {
         $taken = [];
         $defaults = [];
+        // The one a group falls back to comes after the others
+        uasort($from, static fn(OptionTemplate $a, OptionTemplate $b): int => $a->fallback() <=> $b->fallback());
         foreach ($from as $name => $option) {
             if (!$option->default() || $this->unmet($option) !== null || isset($taken[$option->group()])) {
                 continue;
@@ -351,6 +376,7 @@ final class GridOptions
             $defaults[$name] = $option;
             $option->group() === '' || ($taken[$option->group()] = true);
         }
+        ksort($defaults);
 
         return $defaults;
     }
@@ -362,26 +388,31 @@ final class GridOptions
      */
     private function variables(string $prefix = ''): array
     {
-        $url = fn(string $service): string => $prefix !== '' ? "$prefix/$service.php" : $this->grid->helperUrl($service);
+        $url = fn(string $service): string => $prefix !== '' && isset(Services::SCRIPTS[$service])
+            ? "$prefix/" . Services::SCRIPTS[$service]
+            : $this->grid->helperUrl($service);
         $economy = $this->servicesFile();
         $current = $economy !== null && is_file($economy) ? IniEditor::load($economy)->get('GridInfoService', 'economy') : null;
         $currency = $this->grid->helperUrl('currency');
-
-        return [
+        $variables = [
             'grid_name' => $this->grid->name(),
             'grid_nick' => $this->grid->nick(),
             'data_service' => SimulatorConfig::dataServiceNameOf($this->grid->nick(), $this->grid->name()),
-            'search_url' => $url('query'),
-            'register_url' => $url('register'),
-            'offline_url' => $url('offline'),
-            // The pages of the helpers on the site of the grid (/search, /profile): none when its search is elsewhere
-            'search_page' => $prefix === '' ? $this->pagePath('search') : '',
-            'profile_page' => $this->pagePath('profile'),
             // The address of the economy the grid tells the viewers: the one given, the one it tells, else where its helpers are
             'economy_url' => $prefix !== '' ? $prefix : (($current ?? '') !== '' ? (string) $current : ($currency === '' ? '' : dirname($currency))),
             // Robust answers the simulators of a grid; a standalone keeps what Robust keeps in its own process
             'robust_url' => $this->grid->isStandalone() ? '' : '${Const|PrivURL}:${Const|PrivatePort}',
         ];
+        // The services and the pages of the helpers: their address, their path on the site of the grid (none when its search is elsewhere)
+        foreach ([...array_keys(Services::SCRIPTS), ...array_keys(Services::PAGES)] as $service) {
+            $variables["url_$service"] = $url($service);
+            $variables["page_$service"] = $prefix !== '' && $service === 'search' ? '' : $this->pagePath($service);
+        }
+        // Where the helpers are on the site: the path of their economy
+        $base = dirname($variables['page_currency']);
+        $variables['helpers_base'] = $variables['page_currency'] === '' ? '' : ($base === '.' ? '/' : $base);
+
+        return $variables;
     }
 
     /** The path of a page of the helpers on the site of the grid, empty when the grid has no helpers. */
