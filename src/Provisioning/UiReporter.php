@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace OpenSim\Provisioning;
 
-use OpenSim\Runtime\ReporterInterface;
+use OpenSim\Runtime\PendingReporterInterface;
 
 /**
  * What the engine says while it starts or stops an instance, told through the interface of the setup, and kept to be read
  * (whether an instance is "still starting" is in what was said).
  */
-final class UiReporter implements ReporterInterface
+final class UiReporter implements PendingReporterInterface
 {
     /** @var list<string> */
     private array $said = [];
@@ -35,6 +35,12 @@ final class UiReporter implements ReporterInterface
     public function step(string $text): void
     {
         $this->ui->note($text);
+    }
+
+    /** What is being waited for: the message starts with `~`, the client replaces it with the next one. */
+    public function pending(string $text): void
+    {
+        $this->ui->note('~' . $text);
     }
 
     public function stepEnd(): void {}

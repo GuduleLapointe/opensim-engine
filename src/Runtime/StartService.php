@@ -254,12 +254,15 @@ final class StartService
         $reported = 0;
         $failed = [];
         $quiet = 0;
+        $since = 0;
         for ($tick = 0; $tick < self::TIMEOUT * 2; $tick++) {
             $content = $log->since($mark);
             $before = $reported;
             foreach (array_keys($pending) as $class) {
                 if (preg_match('/\[SERVER\]: ' . preg_quote($class, '/') . ' loaded successfully/', $content)) {
-                    $env->reporter->step("  $class " . ++$reported . "/$total");
+                    $took = ($tick - $since) / 2;
+                    $env->reporter->step("  $class " . ++$reported . "/$total" . ($took >= 5 ? ' (' . (int) $took . 's)' : ''));
+                    $since = $tick;
                     unset($pending[$class]);
                 } elseif (preg_match('/Failed to load .*:' . preg_quote($class, '/') . '([^A-Za-z0-9]|$)/', $content)) {
                     $env->reporter->stepEnd();
@@ -274,12 +277,12 @@ final class StartService
             if (!$instance->isRunning()) {
                 return [3, $failed];
             }
-            // Nothing new for a while: say where it is (the last line of its log), so a long wait is not taken for a freeze
+            // Nothing new for a while: say what it is on (the last line of its log), so a long wait is not taken for a freeze
             $quiet = $reported > $before ? 0 : $quiet + 1;
-            if ($quiet > 0 && $quiet % 20 === 0) {
+            if ($quiet > 0 && $quiet % 2 === 0 && $tick - $since >= 20 && $env->reporter instanceof PendingReporterInterface) {
                 $lines = array_values(array_filter(array_map('trim', explode("\n", $content)), 'strlen'));
-                $last = (string) preg_replace('/^[0-9-]+ [0-9:,.]+ +[A-Z]+ +(\([^)]*\) - )?/', '', (string) end($lines));
-                $env->reporter->step('  still loading, ' . ($quiet / 2) . ' s, last in its log: ' . mb_substr($last, 0, 110));
+                $last = (string) preg_replace('/^.*?\[[^\]]*\]: */', '', (string) end($lines));
+                $env->reporter->pending('  ' . mb_substr($last, 0, 100) . ' (' . (int) (($tick - $since) / 2) . 's...)');
             }
             $env->clock->sleep(0.5);
         }
