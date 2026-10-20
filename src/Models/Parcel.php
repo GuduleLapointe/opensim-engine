@@ -24,6 +24,12 @@ use OpenSim\Provisioning\Slug;
  */
 final class Parcel extends Model
 {
+    /** The name of a parcel, in bytes: what the land panel of the viewers takes (the database holds 255). */
+    private const NAME_BYTES = 63;
+
+    /** The description of a parcel, in bytes: what the land panel of the viewers takes. */
+    private const DESCRIPTION_BYTES = 255;
+
     public const ALLOW_FLY = 0x1;
     public const ALLOW_SCRIPTS = 0x2;
     public const FOR_SALE = 0x4;
@@ -372,6 +378,26 @@ final class Parcel extends Model
             static fn(array $column): array => $column + ['sortable' => isset(self::SORTS[$column['name']])],
             $columns,
         );
+    }
+
+    /** The name of a parcel, typed: any text, 63 bytes at most (an accent takes two). */
+    public static function validateName(mixed $value): ?string
+    {
+        $name = trim((string) $value);
+
+        return match (true) {
+            $name === '' => _('required'),
+            strlen($name) > self::NAME_BYTES => sprintf(_('too long (%d max)'), self::NAME_BYTES),
+            default => null,
+        };
+    }
+
+    /** The description of a parcel, typed: any text, 255 bytes at most. */
+    public static function validateDescription(mixed $value): ?string
+    {
+        return strlen((string) $value) > self::DESCRIPTION_BYTES
+            ? sprintf(_('too long (%d max)'), self::DESCRIPTION_BYTES)
+            : null;
     }
 
     /** The flags of a value, with a label to show. @return array<int,string> */

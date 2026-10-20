@@ -10,6 +10,7 @@ declare(strict_types=1);
 use OpenSim\Forms\FieldSet;
 use OpenSim\Models\Avatar;
 use OpenSim\Models\Grid;
+use OpenSim\Models\Parcel;
 use OpenSim\Models\Region;
 use OpenSim\Models\Simulator;
 use OpenSim\Text\Uuid;
@@ -27,7 +28,11 @@ describe('Avatar', function () {
             ->and(Avatar::validateName('Ada'))
             ->toBe('invalid (First Last)')
             ->and(Avatar::validateName('Ada Love Lace'))
-            ->toBe('invalid (First Last)');
+            ->toBe('invalid (First Last)')
+            ->and(Avatar::validateName(str_repeat('a', 63) . ' ' . str_repeat('b', 63)))
+            ->toBeNull()
+            ->and(Avatar::validateName(str_repeat('a', 64) . ' b'))
+            ->toBe('too long (63 max)');
     });
 
     test('corrects a name to Latin letters without accents, in any alphabet', function (string $given, string $expected) {
@@ -39,6 +44,10 @@ describe('Avatar', function () {
             ->toBeNull()
             ->and(Avatar::validatePassword('short'))
             ->toBe('too short (6 min)')
+            ->and(Avatar::validatePassword(str_repeat('a', 16)))
+            ->toBeNull()
+            ->and(Avatar::validatePassword(str_repeat('a', 17)))
+            ->toBe('too long (16 max)')
             ->and(Avatar::validatePassword('with"quote'))
             ->toBe('invalid (no double quote)')
             ->and(Avatar::validateEmail(''))
@@ -75,8 +84,10 @@ describe('Region', function () {
             ->toBe('too short (3 min)')
             ->and(Region::validateName(str_repeat('a', 25)))
             ->toBeNull()
-            ->and(Region::validateName(str_repeat('a', 51)))
-            ->toBe('too long (50 max)')
+            ->and(Region::validateName(str_repeat('a', 128)))
+            ->toBeNull()
+            ->and(Region::validateName(str_repeat('a', 129)))
+            ->toBe('too long (128 max)')
             ->and(Region::validateName('Aaa Bbb Ccc Ddd'))
             ->toBe('too many words (3 max)')
             ->and(Region::validateName(''))
@@ -104,7 +115,7 @@ describe('Grid', function () {
         expect(Grid::validateHostname('play.example.org'))
             ->toBeNull()
             ->and(Grid::validateHostname('bücher.example'))
-            ->toBeNull()
+            ->toBe('invalid (host name)')
             ->and(Grid::validateHostname('not a host'))
             ->toBe('invalid (host name)')
             ->and(Grid::validateWebUrl('https://www.example.org/helpers'))
@@ -116,7 +127,15 @@ describe('Grid', function () {
             ->and(Grid::validateName("Olivier's Grid"))
             ->toBeNull()
             ->and(Grid::validateName('Solo.World'))
-            ->toBe("invalid (letters, digits, space ' -)");
+            ->toBeNull()
+            ->and(Grid::validateName('Solo_World'))
+            ->toBe("invalid (letters, digits, space . ' -)")
+            ->and(Grid::validateName('Solo.World', ['standalone' => true]))
+            ->toBeNull()
+            ->and(Grid::validateName("Olivier's Grid", ['standalone' => true]))
+            ->toBe('invalid (letters, digits, space)')
+            ->and(Grid::standaloneRegionName('Solo.World  Two'))
+            ->toBe('Solo World Two');
     });
 
     test('forces its rules through its fields, whoever shows them', function () {
@@ -130,6 +149,25 @@ describe('Grid', function () {
             ])
             ->and($fields->corrections(['name' => 'Café']))
             ->toBe(['name' => 'Cafe']);
+    });
+});
+
+describe('Parcel', function () {
+    test('has a name of 63 bytes at most and a description of 255, the limits of the land panel of the viewers', function () {
+        expect(Parcel::validateName('Café du Port'))
+            ->toBeNull()
+            ->and(Parcel::validateName(''))
+            ->toBe('required')
+            ->and(Parcel::validateName(str_repeat('a', 63)))
+            ->toBeNull()
+            ->and(Parcel::validateName(str_repeat('a', 64)))
+            ->toBe('too long (63 max)')
+            ->and(Parcel::validateName(str_repeat('é', 32)))
+            ->toBe('too long (63 max)')
+            ->and(Parcel::validateDescription(str_repeat('a', 255)))
+            ->toBeNull()
+            ->and(Parcel::validateDescription(str_repeat('a', 256)))
+            ->toBe('too long (255 max)');
     });
 });
 

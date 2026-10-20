@@ -302,15 +302,20 @@ final class Avatar extends Model
     }
 
     /**
-     * The name of an account: a first and a last name of letters, digits and hyphens, whatever it is for (to make an account, to pick
-     * or import one). The dot and the at sign are the hypergrid's (First.Last@grid), the underscore is taken for a space in many places
-     * of OpenSimulator.
+     * The name of an account: a first and a last name of letters, digits and hyphens, 63 characters at most each (the login box of
+     * the viewers takes 128 for both), whatever it is for (to make an account, to pick or import one). The dot and the at sign are
+     * the hypergrid's (First.Last@grid), the underscore is taken for a space in many places of OpenSimulator, and the viewers take
+     * the space, the dot and the underscore for what separates the first name from the last.
      */
     public static function validateName(mixed $value): ?string
     {
         $word = '[A-Za-z0-9' . preg_quote(self::NAME_PUNCTUATION, '/') . ']+';
+        $name = trim((string) $value);
+        if (preg_match("/^$word $word$/", $name) !== 1) {
+            return _('invalid (First Last)');
+        }
 
-        return preg_match("/^$word $word$/", trim((string) $value)) === 1 ? null : _('invalid (First Last)');
+        return max(array_map('strlen', explode(' ', $name))) > 63 ? _('too long (63 max)') : null;
     }
 
     /** The name in Latin letters without accents (the viewers lose the accents), every alphabet transliterated. */
@@ -319,12 +324,16 @@ final class Avatar extends Model
         return Slug::latin($name, self::NAME_PUNCTUATION);
     }
 
-    /** The password of an account that is made. The double quote is out: the implementations and the console do not agree on it. */
+    /**
+     * The password of an account that is made. The double quote is out: the implementations and the console do not agree on it.
+     * 16 characters at most: the password box of the login panel of the viewers does not take more.
+     */
     public static function validatePassword(mixed $value): ?string
     {
         return match (true) {
             preg_match('/["\r\n]/', (string) $value) === 1 => _('invalid (no double quote)'),
-            strlen((string) $value) < 6 => _('too short (6 min)'),
+            mb_strlen((string) $value) < 6 => _('too short (6 min)'),
+            mb_strlen((string) $value) > 16 => _('too long (16 max)'),
             default => null,
         };
     }

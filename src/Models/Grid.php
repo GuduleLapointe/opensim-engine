@@ -48,8 +48,8 @@ final class Grid extends InstalledModel
         validateName as private validateGridName;
     }
 
-    /** The rule of the name of a grid: the one of the regions, with the apostrophe (Olivier's grid). The dot is out here too. */
-    private const NAME = ['punctuation' => "'-"];
+    /** The rule of the name of a grid: letters, digits, space, dot, hyphen and apostrophe (Olivier's grid). */
+    private const NAME = ['punctuation' => ".'-"];
 
     /** The files that hold the Robust config, the first that exists is the one. */
     private const ROBUST_FILES = ['Robust.HG.ini', 'Robust.ini'];
@@ -431,36 +431,45 @@ final class Grid extends InstalledModel
     }
 
     /**
-     * The name of a grid, typed. The grid of a standalone is its region: it has the name of a region.
+     * The name of a grid, typed. The grid of a standalone is its simulator and its region, which have its name (see
+     * standaloneRegionName()).
      *
      * @param array<string,mixed> $answers
      */
     public static function validateName(mixed $value, array $answers = []): ?string
     {
-        return Result::isTrue($answers['standalone'] ?? false) ? Region::validateName($value) : self::validateGridName($value);
+        return Result::isTrue($answers['standalone'] ?? false)
+            ? Region::validateName(self::standaloneRegionName((string) $value))
+            : self::validateGridName($value);
     }
 
-    /** A host name or an IPv6 address in brackets: labels of letters (unicode too), digits and hyphens. */
-    private const HOST = '[\p{L}\p{N}](?:[\p{L}\p{N}-]*[\p{L}\p{N}])?(?:\.[\p{L}\p{N}](?:[\p{L}\p{N}-]*[\p{L}\p{N}])?)*|\[[0-9A-Fa-f:.]+\]';
+    /** The name a standalone gives to its simulator and its region: the name of the grid, a region has no dot (it becomes a space). */
+    public static function standaloneRegionName(string $name): string
+    {
+        return trim((string) preg_replace('/ +/', ' ', str_replace('.', ' ', $name)));
+    }
+
+    /** A host name or an IPv6 address in brackets: labels of ASCII letters, digits and hyphens (the viewers refuse any other character). */
+    private const HOST = '[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*|\[[0-9A-Fa-f:.]+\]';
 
     /** The host name of a grid. */
     public static function validateHostname(mixed $value): ?string
     {
-        return preg_match('~^(?:' . self::HOST . ')$~u', trim((string) $value)) === 1 ? null : _('invalid (host name)');
+        return preg_match('~^(?:' . self::HOST . ')$~', trim((string) $value)) === 1 ? null : _('invalid (host name)');
     }
 
     /** The web address of a grid: http or https, the host, a port and a path if any. */
     public static function validateWebUrl(mixed $value): ?string
     {
-        return preg_match('~^https?://(?:' . self::HOST . ')(?::\d{1,5})?(?:/\S*)?$~iu', trim((string) $value)) === 1
+        return preg_match('~^https?://(?:' . self::HOST . ')(?::\d{1,5})?(?:/\S*)?$~i', trim((string) $value)) === 1
             ? null
             : _('invalid (https://host)');
     }
 
-    /** A host name is lower case. It is not transliterated: a domain name can be in unicode. */
+    /** A host name is lower case. */
     public static function normalizeHostname(string $host): string
     {
-        return mb_strtolower(trim($host));
+        return strtolower(trim($host));
     }
 
     /**
@@ -475,7 +484,7 @@ final class Grid extends InstalledModel
         if ($uri === '') {
             return [[], null];
         }
-        $pattern = '~^(?:(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*)://)?(?P<host>' . self::HOST . ')(?::(?P<port>\d{1,5}))?/?$~u';
+        $pattern = '~^(?:(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*)://)?(?P<host>' . self::HOST . ')(?::(?P<port>\d{1,5}))?/?$~';
         if (
             preg_match($pattern, $uri, $m) !== 1 ||
             (($m['port'] ?? '') !== '' && self::validatePort($m['port']) !== null) ||

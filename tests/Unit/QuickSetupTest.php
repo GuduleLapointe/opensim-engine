@@ -278,10 +278,21 @@ describe('quick setup, what separates and what is a space', function () {
             ->toBe(['avatar' => 'transliterated']);
     });
 
-    test('keeps a domain name in unicode as it is, in lower case, without transliterating it', function () {
-        $grid = QuickSetup::plan((new Machine())->environment, quick_answers(['login_uri' => 'Bücher.Example:8102']))['setup']['grid'];
+    test('refuses a domain name in unicode: the viewers refuse it in the address of a grid', function () {
+        $quick = QuickSetup::plan((new Machine())->environment, quick_answers(['login_uri' => 'Bücher.Example:8102']));
 
-        expect($grid['hostname'])->toBe('bücher.example')->and($grid['public_port'])->toBe(8102);
+        expect($quick['problems'])->toBe(['login_uri' => 'invalid (host:port)']);
+    });
+
+    test('gives a standalone the name of its grid for its simulator and its region, the dots being spaces', function () {
+        $quick = QuickSetup::plan((new Machine())->environment, quick_answers(['type' => 'standalone', 'name' => 'Solo.World']));
+
+        expect($quick['problems'])
+            ->toBe([])
+            ->and($quick['setup']['grid']['name'])
+            ->toBe('Solo.World')
+            ->and($quick['setup']['simulators'][0]['regions'][0]['name'])
+            ->toBe('Solo World');
     });
 });
 

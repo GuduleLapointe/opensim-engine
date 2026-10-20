@@ -59,8 +59,8 @@ final class QuickSetup
         $ui = new NullUi();
         $database = new DatabaseService($ui);
         $grid = Grid::planned($environment, $plan);
-        $region = $standalone ? $plan->gridName : 'Welcome';
-        $simulators = SimulatorPlanner::forGrid($grid, $database, $ui, null, $standalone ? $plan->gridName : null);
+        $region = $standalone ? Grid::standaloneRegionName($plan->gridName) : 'Welcome';
+        $simulators = SimulatorPlanner::forGrid($grid, $database, $ui, null, $standalone ? $region : null);
         $owner = [
             'estate_owner' => '+',
             'new_name' => trim((string) ($answers['avatar'] ?? '')),
