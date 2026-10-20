@@ -41,7 +41,7 @@ describe('services of a grid', function () {
                 ->and($grid->service('asset')->database())
                 ->toBe(Database::Assets)
                 ->and($grid->service('asset')->id())
-                ->toBe('demo_asset')
+                ->toBe('demo.asset')
                 ->and($grid->service('profile'))
                 ->toBeNull()
                 ->and($grid->service('nonsense'))
@@ -53,7 +53,7 @@ describe('services of a grid', function () {
         $detail = service_grid(new Machine())->service('grid')->detail();
 
         expect($detail)->toMatchArray([
-            'id' => 'demo_grid',
+            'id' => 'demo.grid',
             'key' => 'grid',
             'grid' => 'demo',
             'served' => true,
@@ -68,9 +68,9 @@ describe('services of a grid', function () {
     test('are found by their slug among the services of the machine, and listed with filters', function () {
         $machine = new Machine();
 
-        expect(Service::find($machine->environment, 'demo_asset')?->key())
+        expect(Service::find($machine->environment, 'demo.asset')?->key())
             ->toBe('asset')
-            ->and(Service::find($machine->environment, 'demo_profile'))
+            ->and(Service::find($machine->environment, 'demo.profile'))
             ->toBeNull()
             ->and(Service::all($machine->environment)->items())
             ->toHaveCount(2)

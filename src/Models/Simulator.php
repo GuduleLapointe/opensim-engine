@@ -239,7 +239,7 @@ final class Simulator extends InstalledModel
         );
     }
 
-    /** A simulator by its address (`host:port`) or its slug (`vonda_welcome`). */
+    /** A simulator by its address (`host:port`) or its slug (`vonda.welcome`). */
     public static function find(Environment $environment, string $id): ?static
     {
         foreach (self::all($environment)->items() as $simulator) {
@@ -293,7 +293,7 @@ final class Simulator extends InstalledModel
         return $this->controller->name();
     }
 
-    /** The name for a path or a command: its own, which has its grid in it (`vonda_welcome`, not `welcome`: every grid has one). */
+    /** The name for a path or a command: its own, which has its grid in it (`vonda.welcome`, not `welcome`: every grid has one). */
     public function slug(): string
     {
         return $this->controller->name();

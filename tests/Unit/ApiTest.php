@@ -52,7 +52,7 @@ describe('The API', function () {
             ->and($response->document['data'])
             ->toHaveCount(1)
             ->and($response->document['data'][0])
-            ->toMatchArray(['type' => 'services', 'id' => 'demo_grid', 'links' => ['self' => '/services/demo_grid']])
+            ->toMatchArray(['type' => 'services', 'id' => 'demo.grid', 'links' => ['self' => '/services/demo.grid']])
             ->and($response->document['data'][0]['attributes']['key'])
             ->toBe('grid')
             ->and($response->document['data'][0]['attributes'])

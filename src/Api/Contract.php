@@ -74,7 +74,7 @@ final class Contract
             'scope' => 'machine',
             'summary' => 'The simulators of this machine',
             'description' =>
-                'A simulator is identified by its address (host:port); its slug has its grid (`vonda_welcome`).',
+                'A simulator is identified by its address (host:port); its slug has its grid (`vonda.welcome`).',
             'attributes' => [
                 'uri' => ['string', 'Its address, host:port of its HTTP port: what identifies it'],
                 'name' => ['string', 'The name shown'],

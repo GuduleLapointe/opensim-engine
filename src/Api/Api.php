@@ -54,7 +54,7 @@ use OpenSim\Scheduling\Scheduler;
  *     $api->get('grids', 'vonda');
  *     $api->list('avatars', ['search' => 'ada'], grid: 'vonda');                      // the resources of a grid are asked with it
  *     $api->create('avatars', ['name' => 'Ada Love', 'password' => 'secret'], grid: 'vonda');
- *     $api->update('simulators', 'vonda_welcome', ['enabled' => true]);
+ *     $api->update('simulators', 'vonda.welcome', ['enabled' => true]);
  *     $api->run('search-parse');
  *
  * The contract of these resources is Contract::document(), which the tests check against the models.

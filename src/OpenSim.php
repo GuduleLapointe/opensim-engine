@@ -17,13 +17,13 @@ use OpenSim\Runtime\Status;
 
 /**
  * The entry point of the front-ends (the command line, the administration, WordPress): what they ask of this machine, by the
- * name of what they mean. A target is a grid (`vonda`: the services of the grid, its Robust), a simulator (`vonda_welcome`), a
+ * name of what they mean. A target is a grid (`vonda`: the services of the grid, its Robust), a simulator (`vonda.welcome`), a
  * config file; none means every enabled instance. Restarting the services of a grid does not need its simulators to restart:
  * they are included when `simulators` is asked.
  *
  *     OpenSim::start('vonda');                          // the Robust of the grid
  *     OpenSim::restart('vonda', simulators: true);      // and the simulators that depend on it
- *     OpenSim::stop('vonda_welcome', now: true);
+ *     OpenSim::stop('vonda.welcome', now: true);
  *     OpenSim::status()->up();
  *
  * Whatever is done is done by the models (`Grid`, `Simulator`) and their controllers, which this finds from the name.

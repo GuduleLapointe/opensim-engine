@@ -123,6 +123,13 @@ describe('A new grid', function () {
         },
     );
 
+    test('has a nick that keeps the hyphens of its name, and a database that has none', function () {
+        expect(planner()->resolve(['name' => 'Mary-Jane World']))->toMatchArray([
+            'nick' => 'mary-jane_world',
+            'database_name' => 'mary_jane_world_robust',
+        ]);
+    });
+
     test(
         'follows what was answered: the nick the name, the database the nick, the ports the public port, the address the host',
         function () {

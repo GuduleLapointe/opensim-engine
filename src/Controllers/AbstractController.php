@@ -72,10 +72,10 @@ abstract class AbstractController implements Enablable
             : $this->assembly();
     }
 
-    /** The name an instance has: lower case, letters, digits, underscores and hyphens (the name of its screen session). */
+    /** The name an instance has: lower case, letters, digits, underscores, hyphens and the dot of its grid (the name of its screen session). */
     public static function cleanName(string $name): string
     {
-        return (string) preg_replace('/[^a-z0-9_-]+/', '', strtolower($name));
+        return (string) preg_replace('/[^a-z0-9_.-]+/', '', strtolower($name));
     }
 
     public function name(): string

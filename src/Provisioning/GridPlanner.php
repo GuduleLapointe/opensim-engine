@@ -249,7 +249,7 @@ final class GridPlanner
             'database_name' => $text(
                 'database_name',
                 $current?->databaseName() ??
-                    ($solo?->databaseName() ?? strtolower($nick) . ($standalone ? '' : '_robust')),
+                    ($solo?->databaseName() ?? Slug::snake($nick) . ($standalone ? '' : '_robust')),
             ),
             'database_user' => $text(
                 'database_user',

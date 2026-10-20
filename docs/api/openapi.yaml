@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 'OpenSim engine'
-  version: 2ecfe55
+  version: 17ae77f
   license:
     name: AGPL-3.0-or-later
     identifier: AGPL-3.0-or-later
@@ -28,7 +28,7 @@ tags:
     description: 'A grid run from this machine, only described here (a grid joined on another machine), or a standalone (one simulator that serves it all).'
   -
     name: Simulators
-    description: 'A simulator is identified by its address (host:port); its slug has its grid (`vonda_welcome`).'
+    description: 'A simulator is identified by its address (host:port); its slug has its grid (`vonda.welcome`).'
   -
     name: Services
     description: |-
@@ -2060,7 +2060,7 @@ paths:
                     OK - Demo World
                     NAME        TYPE       STATE  REGIONS  %CPU  %MEM
                     demo        robust     up     -        0.3   1.2
-                    demo_alpha  simulator  up     3/3      2.1   6.4
+                    demo.alpha  simulator  up     3/3      2.1   6.4
                     2 up - regions 3/3 - in world 4 - cpu 2.4% - mem 7.6% - rss 812345
             image/png:
               schema:

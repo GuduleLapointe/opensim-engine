@@ -217,7 +217,7 @@ final class Endpoints
                             'examples' => [
                                 'status' => [
                                     'value' =>
-                                        "OK - Demo World\nNAME        TYPE       STATE  REGIONS  %CPU  %MEM\ndemo        robust     up     -        0.3   1.2\ndemo_alpha  simulator  up     3/3      2.1   6.4\n2 up - regions 3/3 - in world 4 - cpu 2.4% - mem 7.6% - rss 812345\n",
+                                        "OK - Demo World\nNAME        TYPE       STATE  REGIONS  %CPU  %MEM\ndemo        robust     up     -        0.3   1.2\ndemo.alpha  simulator  up     3/3      2.1   6.4\n2 up - regions 3/3 - in world 4 - cpu 2.4% - mem 7.6% - rss 812345\n",
                                 ],
                             ],
                         ],

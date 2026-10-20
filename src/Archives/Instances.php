@@ -10,7 +10,7 @@ use OpenSim\Config\GridConfig;
 
 /**
  * Which grid, and which simulator or region of it, the words of a command name: `GRID`, `GRID SIM`, `GRID _SIM`,
- * `GRID REGION`, the instance `grid_simulator`, a region or a simulator alone, or nothing when the install has one grid.
+ * `GRID REGION`, the instance `grid.simulator`, a region or a simulator alone, or nothing when the install has one grid.
  */
 final class Instances
 {
@@ -125,13 +125,10 @@ final class Instances
         return $nicks;
     }
 
-    /** The instance of a simulator named in full (grid_simulator), or by its own name with or without a leading underscore */
+    /** The instance of a simulator named in full (grid.simulator), or by its own name with or without a leading underscore */
     public static function simulator(string $etc, string $nick, string $ref): ?string
     {
-        foreach (
-            [$ref, Slug::simulator($nick, ltrim($ref, '_')), Slug::snake($nick . '_' . ltrim($ref, '_'))]
-            as $candidate
-        ) {
+        foreach ([$ref, ...Slug::simulatorCandidates($nick, ltrim($ref, '_'))] as $candidate) {
             if (is_file(GridConfig::simulatorsDirectory("$etc/grids/$nick") . "/$candidate.ini")) {
                 return $candidate;
             }

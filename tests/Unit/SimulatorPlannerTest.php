@@ -62,7 +62,7 @@ describe('A new simulator', function () {
 
             expect($v)->toMatchArray([
                 'name' => 'Welcome',
-                'slug' => 'demo_welcome',
+                'slug' => 'demo.welcome',
                 'core' => '/cores/0.9.3.0',
                 'http_port' => 9000,
                 'external_host' => 'SYSTEMIP',
@@ -84,7 +84,7 @@ describe('A new simulator', function () {
         expect($v)
             ->toMatchArray([
                 'name' => 'Garden Sim',
-                'slug' => 'demo_garden-sim',
+                'slug' => 'demo.garden_sim',
                 'database_name' => 'demo_garden_sim',
                 'http_port' => 9010,
                 'console_port' => 9014,
@@ -143,11 +143,11 @@ describe('A new simulator', function () {
                 ->and($plan->simulatorName)
                 ->toBe('Garden')
                 ->and($plan->slug)
-                ->toBe('demo_garden')
+                ->toBe('demo.garden')
                 ->and($plan->dataDirectory)
-                ->toBe('/var/lib/demo/demo_garden')
+                ->toBe('/var/lib/demo/demo.garden')
                 ->and($plan->cacheDirectory)
-                ->toBe('/var/cache/demo/demo_garden')
+                ->toBe('/var/cache/demo/demo.garden')
                 ->and($plan->coreDirectory)
                 ->toBe('/cores/0.9.3.0')
                 ->and($plan->httpPort)

@@ -520,7 +520,7 @@ final class Service extends InstalledModel
         return self::collect($services, $options);
     }
 
-    /** A service by its slug: the grid, an underscore, the key (`vonda_asset`). */
+    /** A service by its slug: the grid, a dot, the key (`vonda.asset`). */
     public static function find(Environment $environment, string $id): ?static
     {
         foreach (self::all($environment)->items() as $service) {
@@ -567,7 +567,7 @@ final class Service extends InstalledModel
         );
     }
 
-    /** `vonda_asset`: the grid and the service, as the slug of a simulator has its grid. */
+    /** `vonda.asset`: the grid and the service, as the slug of a simulator has its grid. */
     public function id(): string
     {
         return $this->slug();

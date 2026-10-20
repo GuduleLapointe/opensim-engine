@@ -140,7 +140,7 @@ final class Grid extends InstalledModel
                 'group' => 'grid',
                 'type' => 'string',
                 'required' => true,
-                'label' => _('Grid nick (snake_case)'),
+                'label' => _('Grid nick (snake_case, hyphens kept)'),
                 'description' => _('Names its folder, its database and its instances'),
                 'enable' => !($options['modify'] ?? false),
             ],
@@ -1299,10 +1299,10 @@ final class Grid extends InstalledModel
         ];
     }
 
-    /** The name of the instance running its Robust: what the launcher makes of the config file name. */
+    /** The name of the instance running its Robust: what the launcher makes of the config file name, its nick. */
     public function robustInstance(): string
     {
-        return Slug::snake($this->nick());
+        return AbstractController::cleanName($this->nick());
     }
 
     /**
@@ -1695,24 +1695,32 @@ final class Grid extends InstalledModel
                 return $simulator;
             }
         }
+        // By its own name, without its grid
+        foreach (Slug::simulatorCandidates($this->nick(), $name) as $candidate) {
+            foreach ($this->simulators() as $simulator) {
+                if ($simulator->name() === $candidate) {
+                    return $simulator;
+                }
+            }
+        }
 
         return null;
     }
 
     /**
      * The name of the instance of a simulator of this grid called so: the one it has when it is made, else the one it will have
-     * (`wonderful-green_field`, see Slug::simulator()). A simulator made as snake_case before keeps its name.
+     * (`wonderful-green.field`, see Slug::simulator()). A simulator made before, with an underscore after its grid, keeps its name.
      */
     public function instanceOf(string $name): string
     {
-        $new = Slug::simulator($this->nick(), $name);
-        foreach ([$new, Slug::snake($this->nick() . '_' . $name)] as $candidate) {
+        $candidates = Slug::simulatorCandidates($this->nick(), $name);
+        foreach ($candidates as $candidate) {
             if (is_file(GridConfig::simulatorsDirectory($this->directory) . "/$candidate.ini")) {
                 return $candidate;
             }
         }
 
-        return $new;
+        return $candidates[0];
     }
 
     /** Whether the grid is run from this machine: its Robust is enabled. */
