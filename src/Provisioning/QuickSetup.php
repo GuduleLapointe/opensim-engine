@@ -23,8 +23,9 @@ final class QuickSetup
 
     /**
      * The options of the form, in the order they are shown. They are the only choices of a quick setup: everything else is on (the
-     * helpers, the search module, the offline messages, the profiles, the destination guide, the grid status). `plan` says what an
-     * option sets in the plan of the grid (nothing yet for SSL), `implemented` false that the setup does not apply it yet.
+     * search module, the offline messages, the profiles, the destination guide, the grid status). `plan` says what an option sets in
+     * the plan of the grid, from its value and from all of them (nothing yet for SSL), `implemented` false that the setup does not
+     * apply it yet.
      *
      * @return array<string,array{label:string,default:bool,implemented:bool,plan:?\Closure}>
      */
@@ -38,11 +39,20 @@ final class QuickSetup
                 'implemented' => true,
                 'plan' => static fn(bool $on): array => ['hypergrid' => $on],
             ],
+            'helpers' => [
+                'label' => 'Helpers',
+                'default' => true,
+                'implemented' => true,
+                'plan' => static fn(bool $on): array => ['helpers' => $on],
+            ],
             'search' => [
                 'label' => 'Cross-grid Search',
-                'default' => false,
+                'default' => true,
                 'implemented' => true,
-                'plan' => static fn(bool $on): array => ['search' => $on ? 'shared' : 'internal'],
+                // The search of the grid is its helpers', else there is none
+                'plan' => static fn(bool $on, array $chosen): array => [
+                    'search' => $on ? 'shared' : ($chosen['helpers'] ? 'internal' : 'disabled'),
+                ],
             ],
             'gloebit' => [
                 'label' => 'Economy: Gloebit',
@@ -52,7 +62,7 @@ final class QuickSetup
             ],
             'ossl' => [
                 'label' => 'Extended OSSL',
-                'default' => false,
+                'default' => true,
                 'implemented' => true,
                 'plan' => static fn(bool $on): array => ['ossl' => $on],
             ],
@@ -60,25 +70,43 @@ final class QuickSetup
     }
 
     /**
-     * What can be set up: the grid and the standalone, a simulator that joins another grid, and the presets there are.
+     * What can be set up: the grid and the standalone, a simulator that joins another grid, and the presets (the ones planned stay in
+     * the list, the ones this machine has can be set up). The kind says how: a grid, a standalone, a simulator that joins a grid
+     * given by its address (remote), or one that joins the grid of a preset.
      *
-     * @return list<array{name:string,label:string,implemented:bool}>
+     * @return list<array{name:string,label:string,implemented:bool,kind:string}>
      */
     private static function types(Environment $environment): array
     {
         $types = [
-            ['name' => 'grid', 'label' => 'Grid', 'implemented' => true],
-            ['name' => 'standalone', 'label' => 'Standalone', 'implemented' => true],
-            ['name' => 'simulator', 'label' => 'Simulator (join other grid)', 'implemented' => false],
+            ['name' => 'grid', 'label' => 'Grid', 'implemented' => true, 'kind' => 'grid'],
+            ['name' => 'standalone', 'label' => 'Standalone', 'implemented' => true, 'kind' => 'standalone'],
+            ['name' => 'simulator', 'label' => 'Simulator (join other grid)', 'implemented' => true, 'kind' => 'remote'],
         ];
-        // The presets planned stay in the list, the ones this machine has are added
-        $presets = ['speculoos' => 'Speculoos', 'osgrid' => 'OSGrid'] + (new Presets([], $environment->layout->etcRoot()))->names();
-        foreach ($presets as $name => $grid) {
-            $types[] = ['name' => (string) $name, 'label' => $grid, 'implemented' => false];
+        $presets = new Presets([], $environment->layout->etcRoot());
+        $found = $presets->names();
+        foreach (['speculoos' => 'Speculoos', 'osgrid' => 'OSGrid'] + $found as $name => $grid) {
+            $types[] = [
+                'name' => (string) $name,
+                'label' => $grid,
+                'implemented' => isset($found[$name]) && $presets->describe((string) $name) !== null,
+                'kind' => 'preset',
+            ];
         }
 
         return $types;
     }
+
+    /** How a type is set up (grid, standalone, remote, preset), empty for a type that is not one. */
+    private static function kindOf(Environment $environment, string $type): string
+    {
+        return array_column(self::types($environment), 'kind', 'name')[$type] ?? '';
+    }
+
+    /**
+     * The test doubles of the work that needs a machine: what a grid says of itself (Closure(string $host, int $port): array).
+     */
+    private static ?\Closure $says = null;
 
     /** The questions the planners' fields answer, by the name of the field. */
     private const QUESTIONS = [
@@ -88,6 +116,7 @@ final class QuickSetup
         'new_name' => 'avatar',
         'new_password' => 'password',
         'new_email' => 'email',
+        'estate_owner' => 'avatar',
     ];
 
     /**
@@ -97,6 +126,9 @@ final class QuickSetup
      */
     public static function plan(Environment $environment, array $answers): array
     {
+        if (in_array(self::kindOf($environment, strtolower(trim((string) ($answers['type'] ?? '')))), ['remote', 'preset'], true)) {
+            return self::planRemote($environment, $answers);
+        }
         $built = self::build($environment, $answers);
 
         return [
@@ -105,7 +137,7 @@ final class QuickSetup
             'corrected' => $built['corrected'],
             'setup' => SetupFile::withSimulator(SetupFile::withGrid([], $built['plan']), $built['simulator']),
             'rows' => self::rows($built['plan'], $built['simulator'], $built['standalone'], trim((string) ($answers['email'] ?? '')), $built['chosen']),
-            'types' => $built['types'],
+            'types' => self::publicTypes($built['types']),
             'options' => array_map(
                 static fn(string $name, array $option): array => [
                     'name' => $name,
@@ -120,11 +152,17 @@ final class QuickSetup
         ];
     }
 
+    /** The types as the API tells them: the kind is the business of the scenario. */
+    private static function publicTypes(array $types): array
+    {
+        return array_map(static fn(array $type): array => array_diff_key($type, ['kind' => 1]), $types);
+    }
+
     /**
      * The plans the answers stand for, and what is wrong with them.
      *
      * @param array<string,mixed> $answers
-     * @return array{problems:array<string,string>,corrected:array<string,string>,plan:GridPlan,simulator:SimulatorPlan,standalone:bool,chosen:array<string,bool>,types:list<array{name:string,label:string,implemented:bool}>,options:array<string,array{label:string,default:bool,implemented:bool,plan:?\Closure}>}
+     * @return array{problems:array<string,string>,corrected:array<string,string>,plan:GridPlan,simulator:SimulatorPlan,standalone:bool,chosen:array<string,bool>,types:list<array{name:string,label:string,implemented:bool,kind:string}>,options:array<string,array{label:string,default:bool,implemented:bool,plan:?\Closure}>}
      */
     private static function build(Environment $environment, array $answers): array
     {
@@ -143,16 +181,21 @@ final class QuickSetup
             $problems[$name] = $message;
         }
         $chosen = [];
-        $fromOptions = [];
         foreach ($options as $name => $option) {
             $given = $answers[$name] ?? null;
             $chosen[$name] = Result::isTrue($given) || (Result::isFalse($given) ? false : $option['default']);
-            $fromOptions = ($option['plan'] !== null ? ($option['plan'])($chosen[$name]) : []) + $fromOptions;
         }
+        $fromOptions = [];
+        foreach ($options as $name => $option) {
+            $fromOptions = ($option['plan'] !== null ? ($option['plan'])($chosen[$name], $chosen) : []) + $fromOptions;
+        }
+        // A module that is served by the helpers needs them
+        $chosen['gloebit'] && !$chosen['helpers'] && ($problems['gloebit'] = _('needs Helpers'));
 
         // The grid. What is right or wrong, and what is corrected, is said by the fields of the models: the answers go to them as given,
         // and the plan is made of the corrected ones (the person confirms a correction by sending the form again).
-        $gridAnswers = ['standalone' => $standalone, 'helpers' => true] + $fromOptions;
+        $dbGiven = array_intersect_key($answers, array_flip(['database_host', 'database_name', 'database_user', 'database_password']));
+        $gridAnswers = ['standalone' => $standalone] + $dbGiven + $fromOptions;
         trim((string) ($answers['name'] ?? '')) !== '' && ($gridAnswers['name'] = trim((string) $answers['name']));
         [$uri, $uriProblem] = Grid::parseLoginUri((string) ($answers['login_uri'] ?? ''));
         $uriProblem !== null && ($problems['login_uri'] = $uriProblem);
@@ -175,7 +218,7 @@ final class QuickSetup
             'new_name' => trim((string) ($answers['avatar'] ?? '')),
             'new_password' => (string) ($answers['password'] ?? ''),
             'new_email' => trim((string) ($answers['email'] ?? '')),
-        ];
+        ] + array_diff_key($dbGiven, ['database_name' => 1]);
         $fixes = self::review($simulators->fields(), $simulators->problems($owner), $owner, $problems, $corrected);
         $simulator = $simulators->plan($fixes + $owner);
         $regions = RegionPlanner::forSimulator($simulator, $grid, $database, defaultName: $region);
@@ -218,6 +261,8 @@ final class QuickSetup
         if ($button === 'quit') {
             return ['action' => 'abort', 'error' => _('Cancelled')];
         }
+        $kind = self::kindOf($environment, (string) ($answers['type'] ?? ''));
+        $remote = in_array($kind, ['remote', 'preset'], true);
 
         switch ($state['step']) {
             case 'type':
@@ -230,31 +275,58 @@ final class QuickSetup
                 if (($known[$type] ?? false) !== true) {
                     return self::screenType($environment, $answers, self::notImplemented($environment));
                 }
-                // The proposals of the engine are what the form starts with
-                $proposed = self::plan($environment, ['type' => $type])['setup']['grid'];
-                $answers += ['name' => $proposed['name'], 'login_uri' => $proposed['hostname'] . ':' . $proposed['public_port']];
+                if (in_array(self::kindOf($environment, $type), ['remote', 'preset'], true)) {
+                    $answers += ['name' => 'Welcome'];
+                } else {
+                    // The proposals of the engine are what the form starts with
+                    $proposed = self::plan($environment, ['type' => $type])['setup']['grid'];
+                    $answers += ['name' => $proposed['name'], 'login_uri' => $proposed['hostname'] . ':' . $proposed['public_port']];
+                }
 
-                return self::screenForm($answers, '');
+                return self::screenForm($environment, $answers, '');
 
             case 'form':
-                $answers = self::keep($answers, $given, array_keys(self::fields((string) ($answers['type'] ?? ''))));
+                $answers = self::keep($answers, $given, self::editable(self::fields($environment, $answers)));
                 if ($button === 'back') {
                     return self::screenType($environment, $answers, '');
                 }
+                if (($screen = self::checkForm($environment, $answers)) !== null) {
+                    return $screen;
+                }
 
-                return self::checkForm($environment, $answers) ?? self::screenOptions($answers, '');
+                // What a simulator joins is the grid's: there are no options to choose
+                return $remote
+                    ? self::screenReview($environment, self::pinned($environment, $answers))
+                    : self::screenOptions($answers, '');
 
             case 'options':
                 $answers = self::keep($answers, $given, array_keys(self::options()), true);
                 if ($button === 'back') {
-                    return self::screenForm($answers, '');
+                    return self::screenForm($environment, $answers, '');
+                }
+                // A module served by the helpers puts them on, and the person is told
+                if (Result::isTrue($answers['gloebit'] ?? false) && !Result::isTrue($answers['helpers'] ?? true)) {
+                    $answers['helpers'] = true;
+
+                    return self::screenOptions($answers, _('Gloebit needs the helpers: Helpers is on.'));
+                }
+                if (($screen = self::checkForm($environment, $answers)) !== null) {
+                    return $screen;
                 }
 
-                return self::checkForm($environment, $answers) ?? self::screenReview($environment, $answers);
+                return self::screenReview($environment, self::pinned($environment, $answers));
+
+            case 'database':
+                $answers = self::keep($answers, $given, array_keys(self::databaseFields()));
+                if ($button === 'back') {
+                    return self::screenReview($environment, $answers);
+                }
+
+                return self::install($environment, $answers);
 
             case 'review':
                 if ($button === 'back') {
-                    return self::screenOptions($answers, '');
+                    return $remote ? self::screenForm($environment, $answers, '') : self::screenOptions($answers, '');
                 }
 
                 return self::install($environment, $answers);
@@ -288,18 +360,25 @@ final class QuickSetup
     }
 
     /** The questions of the type chosen, filled with the answers so far. */
-    private static function screenForm(array $answers, string $notice): array
+    private static function screenForm(Environment $environment, array $answers, string $notice): array
     {
         $type = (string) ($answers['type'] ?? '');
         $fields = [];
-        foreach (self::fields($type) as $name => [$label, $secret]) {
-            $fields[] = ['name' => $name, 'label' => $label, 'value' => (string) ($answers[$name] ?? ''), 'secret' => $secret];
+        foreach (self::fields($environment, $answers) as $name => [$label, $secret, $readonly, $fixed]) {
+            $fields[] = [
+                'name' => $name,
+                'label' => $label,
+                'value' => $fixed ?? (string) ($answers[$name] ?? ''),
+                'secret' => $secret,
+                'readonly' => $readonly,
+            ];
         }
+        $labels = array_column(self::types($environment), 'label', 'name');
 
         return [
             'action' => 'screen',
             'kind' => 'form',
-            'title' => $type === 'standalone' ? _('Standalone') : _('Grid'),
+            'title' => $labels[$type] ?? _('Grid'),
             'text' => '',
             'notice' => $notice,
             'fields' => $fields,
@@ -337,14 +416,17 @@ final class QuickSetup
     /** What the setup will do, to confirm. */
     private static function screenReview(Environment $environment, array $answers): array
     {
+        $quick = self::plan($environment, self::answersOf($answers));
+
         return [
             'action' => 'screen',
             'kind' => 'review',
             'title' => _('Review'),
-            'text' => '',
+            'text' => implode("\n", $quick['warnings'] ?? []),
             'notice' => '',
-            'rows' => self::plan($environment, self::answersOf($answers))['rows'],
+            'rows' => $quick['rows'],
             'buttons' => ['next' => _('Install'), 'back' => _('Back')],
+            'wait' => _('Installing, this can take a few minutes…'),
             'state' => self::encode('review', $answers),
         ];
     }
@@ -357,7 +439,7 @@ final class QuickSetup
     {
         $quick = self::plan($environment, self::answersOf($answers));
         $answers = array_replace($answers, $quick['corrected']);
-        $fields = self::fields((string) ($answers['type'] ?? ''));
+        $fields = self::fields($environment, $answers);
         $labels = array_map(static fn(array $field): string => $field[0], $fields) + array_map(static fn(array $o): string => $o['label'], self::options());
         $lines = [];
         foreach ($quick['problems'] as $question => $message) {
@@ -368,23 +450,59 @@ final class QuickSetup
             $answers['password'] = $answers['password2'] = '';
         }
 
-        return $lines === [] ? null : self::screenForm($answers, implode("\n", $lines));
+        return $lines === [] ? null : self::screenForm($environment, $answers, implode("\n", $lines));
     }
 
-    /** Make the folders and the files of the setup: the end of the scenario. */
+    /**
+     * What replaces the work that needs a machine, for the tests: how the databases are checked and made (Closure(GridPlan, UiInterface):
+     * int, a DatabaseService code), how the account of the avatar is made (Closure(Grid, SimulatorPlan, UiInterface): bool) and what a
+     * grid says of itself (Closure(string $host, int $port): array<string,string>), and what the planner of a region of a grid on
+     * another machine asks it (the context of RegionPlanner: remoteHas, freePlace).
+     *
+     * @param array{database?:?\Closure,account?:?\Closure,says?:?\Closure,region?:array<string,mixed>} $doubles none: the real work
+     */
+    public static function through(array $doubles = []): void
+    {
+        self::$database = $doubles['database'] ?? null;
+        self::$account = $doubles['account'] ?? null;
+        self::$says = $doubles['says'] ?? null;
+        self::$region = $doubles['region'] ?? [];
+    }
+
+    /** @var array<string,mixed> */
+    private static array $region = [];
+
+    private static ?\Closure $database = null;
+    private static ?\Closure $account = null;
+
+    /**
+     * Make the setup: the databases are checked and made, the folders and the files are written, a grid is started, the account of the
+     * avatar is made, the simulator is written and started. The end of the scenario.
+     */
     private static function install(Environment $environment, array $answers): array
     {
-        $built = self::build($environment, self::answersOf($answers));
-        if ($built['problems'] !== []) {
-            return self::screenForm($answers, _('The answers are not right any more: look at them again.'));
+        $answers = self::pinned($environment, $answers);
+        $remote = in_array(self::kindOf($environment, (string) ($answers['type'] ?? '')), ['remote', 'preset'], true);
+        if ($remote) {
+            $built = self::buildRemote($environment, self::answersOf($answers));
+            $plan = null;
+            $grid = $built['grid'];
+        } else {
+            $built = self::build($environment, self::answersOf($answers));
+            $plan = $built['plan'];
+            $grid = null;
         }
-        $plan = $built['plan'];
         $simulator = $built['simulator'];
-        if ($plan->binDir === '' || !is_dir($plan->binDir)) {
+        if ($built['problems'] !== [] || $simulator === null) {
+            return self::screenForm($environment, $answers, _('The answers are not right any more: look at them again.'));
+        }
+        $gridDir = $plan?->gridDir ?? $simulator->gridDir;
+        $binDir = $plan?->binDir ?? $simulator->binDir();
+        if ($binDir === '' || !is_dir($binDir)) {
             return ['action' => 'abort', 'error' => sprintf(_('No OpenSim core found in %s.'), $environment->layout->coreRoot())];
         }
         // The place must be one the setup can write in: the nearest folder that exists
-        $existing = $plan->gridDir;
+        $existing = $gridDir;
         while ($existing !== dirname($existing) && !file_exists($existing)) {
             $existing = dirname($existing);
         }
@@ -397,11 +515,46 @@ final class QuickSetup
                 ),
             ];
         }
-        // The files and the folders only: the databases, the account of the avatar and the start come after
-        $plan->enable = $plan->start = $simulator->enable = $simulator->start = $simulator->createOwner = false;
+
         $ui = new NullUi();
+        // Nothing is written before the databases work: a problem of access is asked again, with the reasons
+        $databases = $plan === null ? [$simulator->databasePlan()] : ($plan->standalone ? [$plan] : [$plan, $simulator->databasePlan()]);
+        if (isset($answers['admin_user'])) {
+            DatabaseService::rememberAdmin($databases[0]->dbHost, (string) $answers['admin_user'], (string) ($answers['admin_password'] ?? ''));
+        }
+        DatabaseService::remember($databases[0]->dbHost, $databases[0]->dbUser, $databases[0]->dbPass);
+        $check = self::$database ?? static fn(GridPlan $db, UiInterface $said): int => (new DatabaseService($said))->ensure($db);
+        foreach ($databases as $db) {
+            $code = $check($db, $ui);
+            if ($code === DatabaseService::OK) {
+                continue;
+            }
+            $said = implode("\n", array_unique(array_column($ui->said, 1)));
+            if ($code === DatabaseService::ABORT) {
+                return ['action' => 'abort', 'error' => $said . "\n" . _('Stopped, nothing was changed: OpenSim cannot run without its database.')];
+            }
+
+            return self::screenDatabase($db, $answers, $said);
+        }
+
         try {
-            (new GridProvisioner($ui))->apply($plan, $environment);
+            if ($plan !== null) {
+                $plan->enable = $plan->start = true;
+                (new GridProvisioner($ui))->apply($plan, $environment);
+                // The account of the avatar: Robust is up, and makes it. A standalone makes it itself when it starts
+                if (!$plan->standalone) {
+                    $found = Grid::find($environment, $plan->gridNick);
+                    $made = self::$account ?? static fn(Grid $grid, SimulatorPlan $sim, UiInterface $said): bool => (new GridAccounts(
+                        new DatabaseService($said),
+                        $said,
+                    ))->create($grid, $sim->estateOwner, $sim->ownerPassword, $sim->ownerEmail);
+                    if ($found === null || !$made($found, $simulator, $ui)) {
+                        throw new SetupFailedException('account');
+                    }
+                }
+            }
+            $simulator->enable = $simulator->start = true;
+            $simulator->createOwner = false;
             (new SimulatorProvisioner($ui))->apply($simulator, $environment);
         } catch (SetupFailedException $failed) {
             $errors = array_column(array_filter($ui->said, static fn(array $said): bool => $said[0] === 'error'), 1);
@@ -410,7 +563,7 @@ final class QuickSetup
         }
         // Written is written: the files are there, or the setup says they are not
         $missing = array_values(array_filter(
-            [(new GridConf())->path($plan), $plan->standalone ? '' : $plan->robustIni(), $simulator->iniPath()],
+            [$plan !== null ? (new GridConf())->path($plan) : '', $plan !== null && !$plan->standalone ? $plan->robustIni() : '', $simulator->iniPath()],
             static fn(string $file): bool => $file !== '' && !is_file($file),
         ));
         if ($missing !== []) {
@@ -421,30 +574,122 @@ final class QuickSetup
         return [
             'action' => 'quit',
             'message' => implode("\n", [
-                sprintf('Grid name:  %s', $plan->gridName),
-                sprintf('Login URI:  http://%s:%d', $plan->baseHostname, $plan->publicPort),
+                sprintf('Grid name:  %s', $plan?->gridName ?? $grid?->name()),
+                sprintf('Login URI:  http://%s:%d', $plan?->baseHostname ?? $grid?->baseHostname(), $plan?->publicPort ?? $grid?->publicPort()),
                 sprintf('Avatar:     %s', $simulator->estateOwner),
                 '',
-                sprintf(_('Written in %s.'), $plan->gridDir),
-                $plan->standalone
-                    ? _('Not done yet: the database.')
-                    : sprintf(_('Not done yet: the databases and the account of %s.'), $simulator->estateOwner),
+                sprintf(_('Written in %s.'), $gridDir),
+                $plan === null ? _('The simulator is running.') : _('The grid and its simulator are running.'),
                 ...$notes,
             ]),
         ];
     }
 
-    /** The questions of a type, by the name of the answer: the label and whether it is typed hidden. */
-    private static function fields(string $type): array
+    /** The access to the database, asked again: what the server said, and the settings with the account of its administrator. */
+    private static function screenDatabase(GridPlan $plan, array $answers, string $notice): array
+    {
+        $values = $answers + [
+            'database_host' => $plan->dbHost,
+            'database_name' => $plan->dbName,
+            'database_user' => $plan->dbUser,
+            'database_password' => $plan->dbPass,
+        ];
+        $fields = [];
+        foreach (self::databaseFields() as $name => [$label, $secret]) {
+            $fields[] = ['name' => $name, 'label' => $label, 'value' => (string) ($values[$name] ?? ''), 'secret' => $secret];
+        }
+
+        return [
+            'action' => 'screen',
+            'kind' => 'form',
+            'title' => _('Database'),
+            'text' => _('The administrator of the server is only needed to make the database or the user.'),
+            'notice' => $notice,
+            'fields' => $fields,
+            'buttons' => ['next' => _('OK'), 'back' => _('Back')],
+            'wait' => _('Checking the database…'),
+            'state' => self::encode('database', $answers),
+        ];
+    }
+
+    /** The settings of the database, by the name of the answer: the label and whether it is typed hidden. */
+    private static function databaseFields(): array
     {
         return [
-            'name' => [$type === 'standalone' ? _('Region name') : _('Grid name'), false],
-            'login_uri' => [_('Login URI'), false],
-            'avatar' => [_('Avatar name'), false],
-            'password' => [_('Password'), true],
-            'password2' => [_('Password again'), true],
-            'email' => [_('Email'), false],
+            'database_host' => [_('Database host'), false],
+            'database_name' => [_('Database name'), false],
+            'database_user' => [_('Database user'), false],
+            'database_password' => [_('Database password'), true],
+            'admin_user' => [_('Administrator'), false],
+            'admin_password' => [_('Administrator password'), true],
         ];
+    }
+
+    /**
+     * The password of the database account is made at random, once: the answers keep it, so that the review and the setup agree
+     * (nothing is kept between two steps but what the client sends back).
+     */
+    private static function pinned(Environment $environment, array $answers): array
+    {
+        if (!isset($answers['database_password'])) {
+            $remote = in_array(self::kindOf($environment, (string) ($answers['type'] ?? '')), ['remote', 'preset'], true);
+            $answers['database_password'] = $remote
+                ? (self::buildRemote($environment, self::answersOf($answers))['simulator']?->dbPass ?? '')
+                : self::build($environment, self::answersOf($answers))['plan']->dbPass;
+            $answers['database_password'] === '' && ($answers['database_password'] = bin2hex(random_bytes(8)));
+        }
+
+        return $answers;
+    }
+
+    /**
+     * The questions of the type chosen, by the name of the answer: the label, whether it is typed hidden, whether it is only shown and
+     * the value it is shown with (when it is not an answer).
+     *
+     * @return array<string,array{0:string,1:bool,2:bool,3:?string}>
+     */
+    private static function fields(Environment $environment, array $answers): array
+    {
+        $type = (string) ($answers['type'] ?? '');
+        $kind = self::kindOf($environment, $type);
+        if ($kind === 'preset') {
+            $said = (new Presets([], $environment->layout->etcRoot()))->describe($type) ?? [];
+
+            return [
+                'preset_grid' => [_('Grid'), false, true, (string) ($said['name'] ?? $type)],
+                'preset_login' => [_('Login URI'), false, true, ($said['host'] ?? '') . ':' . ($said['publicPort'] ?? '')],
+                'preset_hypergrid' => [_('Hypergrid'), false, true, ($said['hypergrid'] ?? true) ? 'yes' : 'no'],
+                'name' => [_('Region name'), false, false, null],
+                'avatar' => [_('Avatar name'), false, false, null],
+            ];
+        }
+        if ($kind === 'remote') {
+            return [
+                'login_uri' => [_('Login URI of the grid'), false, false, null],
+                'private_port' => [_('Private port (empty: public + 1)'), false, false, null],
+                'name' => [_('Region name'), false, false, null],
+                'avatar' => [_('Avatar name'), false, false, null],
+            ];
+        }
+
+        return [
+            'name' => [$kind === 'standalone' ? _('Region name') : _('Grid name'), false, false, null],
+            'login_uri' => [_('Login URI'), false, false, null],
+            'avatar' => [_('Avatar name'), false, false, null],
+            'password' => [_('Password'), true, false, null],
+            'password2' => [_('Password again'), true, false, null],
+            'email' => [_('Email'), false, false, null],
+        ];
+    }
+
+    /**
+     * The names of the questions a person answers (not the ones that are only shown).
+     *
+     * @return list<string>
+     */
+    private static function editable(array $fields): array
+    {
+        return array_keys(array_filter($fields, static fn(array $field): bool => !$field[2]));
     }
 
     /** The answers a client gave, among the ones it may give, added to the ones kept. */
@@ -471,7 +716,7 @@ final class QuickSetup
     {
         $done = array_column(array_filter(self::types($environment), static fn(array $type): bool => $type['implemented']), 'label');
 
-        return sprintf(_('Not implemented yet: only %s for now.'), implode(' and ', $done));
+        return sprintf(_('Not implemented yet: only %s for now.'), implode(', ', $done));
     }
 
     /** The state a client holds between two steps: the step and the answers so far, as one string. */
@@ -488,6 +733,129 @@ final class QuickSetup
         return is_array($decoded) && is_string($decoded['step'] ?? null) && is_array($decoded['answers'] ?? null)
             ? ['step' => $decoded['step'], 'answers' => $decoded['answers']]
             : ['step' => '', 'answers' => []];
+    }
+
+    /**
+     * The plan of a simulator that joins a grid, given by its address or by a preset: the reply of plan() for it. The grid is not made
+     * here, so there are no options.
+     */
+    private static function planRemote(Environment $environment, array $answers): array
+    {
+        $built = self::buildRemote($environment, $answers);
+        $simulator = $built['simulator'];
+
+        return [
+            'valid' => $built['problems'] === [],
+            'problems' => $built['problems'],
+            'corrected' => $built['corrected'],
+            'setup' => $simulator !== null ? SetupFile::withSimulator([], $simulator) : [],
+            'rows' => $simulator !== null ? self::remoteRows($built['grid'], $simulator, $built['preset']) : [],
+            'types' => self::publicTypes(self::types($environment)),
+            'options' => [],
+            'warnings' => $built['warnings'],
+        ];
+    }
+
+    /**
+     * The grid a simulator joins and the plan of the simulator, with its first region, and what is wrong with the answers.
+     *
+     * @return array{problems:array<string,string>,corrected:array<string,string>,grid:?Grid,simulator:?SimulatorPlan,preset:string,warnings:list<string>}
+     */
+    private static function buildRemote(Environment $environment, array $answers): array
+    {
+        $problems = [];
+        $corrected = [];
+        $type = strtolower(trim((string) ($answers['type'] ?? '')));
+        $preset = self::kindOf($environment, $type) === 'preset' ? $type : '';
+        $presets = new Presets([], $environment->layout->etcRoot());
+        $remote = RemoteGridPlanner::with([
+            'environment' => $environment,
+            'presets' => $presets->names(),
+            'describe' => static fn(string $name): ?array => $presets->describe($name),
+            'says' => self::$says,
+        ]);
+        if ($preset !== '') {
+            $given = $remote->presetAnswers($preset) ?? [];
+        } else {
+            $uri = trim((string) ($answers['login_uri'] ?? ''));
+            $port = trim((string) ($answers['private_port'] ?? ''));
+            if ($uri === '') {
+                $problems['login_uri'] = _('required');
+            } elseif (\OpenSim\Hypergrid\Destination::loginParts($uri) === null) {
+                $problems['login_uri'] = _('invalid (host:port)');
+            }
+            $port !== '' && ($message = Grid::validatePort($port)) !== null && ($problems['private_port'] = $message);
+            $given = ['address' => $uri, 'private_port' => $port];
+        }
+        $none = ['problems' => $problems, 'corrected' => $corrected, 'grid' => null, 'simulator' => null, 'preset' => $preset, 'warnings' => []];
+        if (isset($problems['login_uri'])) {
+            return $none;
+        }
+        $result = $remote->plan($given, $preset);
+        if ($result['error'] !== null || $result['grid'] === null) {
+            $problems['login_uri'] = (string) ($result['error'] ?? _('invalid'));
+
+            return ['problems' => $problems] + $none;
+        }
+        $grid = $result['grid'];
+
+        // Its first simulator, with its region, and the account of the grid that owns the estate
+        $ui = new NullUi();
+        $database = new DatabaseService($ui);
+        $region = trim((string) ($answers['name'] ?? '')) !== '' ? trim((string) $answers['name']) : 'Welcome';
+        $simulators = SimulatorPlanner::forGrid($grid, $database, $ui, null, $region);
+        $owner =
+            ['estate_owner' => trim((string) ($answers['avatar'] ?? ''))] +
+            array_intersect_key($answers, array_flip(['database_host', 'database_name', 'database_user', 'database_password']));
+        $fixes = self::review($simulators->fields(), $simulators->problems($owner), $owner, $problems, $corrected);
+        $simulator = $simulators->plan($fixes + $owner);
+        $regions = RegionPlanner::forSimulator($simulator, $grid, $database, defaultName: $region, context: self::$region);
+        self::review($regions->fields(), $regions->problems(['name' => $region]), ['name' => $region], $problems, $corrected);
+        $regions->apply($simulator, ['name' => $region]);
+
+        return [
+            'problems' => $problems,
+            'corrected' => $corrected,
+            'grid' => $grid,
+            'simulator' => $simulator,
+            'preset' => $preset,
+            'warnings' => $result['warnings'],
+        ];
+    }
+
+    /**
+     * What the setup of a simulator that joins a grid will do, by section.
+     *
+     * @return list<array{section:string,label:string,value:string}>
+     */
+    private static function remoteRows(Grid $grid, SimulatorPlan $simulator, string $preset): array
+    {
+        $rows = [];
+        $add = static function (string $section, string $label, string $value) use (&$rows): void {
+            $rows[] = ['section' => $section, 'label' => $label, 'value' => $value];
+        };
+        $console = $simulator->consoleMode === 'rest'
+            ? "remote, port {$simulator->consolePort}, user {$simulator->consoleUser}"
+            : 'screen session';
+
+        $add('grid', 'Grid', "{$grid->name()} ({$grid->nick()})" . ($preset !== '' ? " - preset $preset" : ''));
+        $add('grid', 'Login URI', "http://{$grid->baseHostname()}:{$grid->publicPort()}");
+        $add('grid', 'Private port', (string) $grid->privatePort());
+        $add('grid', 'Hypergrid', $grid->isHypergrid() ? 'yes' : 'no');
+        $add('grid', 'Grid folder', $simulator->gridDir);
+        $add('simulator', 'Simulator', "{$simulator->simulatorName} ({$simulator->slug})");
+        $add('simulator', 'HTTP port', (string) $simulator->httpPort);
+        $add('simulator', 'Console', $console);
+        $add('simulator', 'Simulator database', "{$simulator->dbName} @ {$simulator->dbHost} (user {$simulator->dbUser})");
+        $add('simulator', 'Estate', $simulator->estateName);
+        $add('simulator', 'Estate owner', $simulator->estateOwner . ' (an account of the grid)');
+        $add('simulator', 'Simulator config', $simulator->iniPath());
+        $add('region', 'Region', $simulator->regionName);
+        $add('region', 'Location', $simulator->regionLocation);
+        $add('region', 'Port', (string) $simulator->regionPort);
+        $add('owner', 'Avatar', $simulator->estateOwner);
+
+        return $rows;
     }
 
     /**
@@ -551,7 +919,7 @@ final class QuickSetup
         $add('options', 'Cross-grid search', $todo('search', $plan->search === 'shared' ? 'yes, the shared provider (2do.directory)' : 'no, the search of this grid'));
         $add('options', 'Economy', $todo('gloebit', $plan->economy === 'gloebit' ? 'Gloebit' : 'BetaGridLikeMoneyModule'));
         $add('options', 'Extended OSSL', $todo('ossl', $yes($plan->ossl)));
-        $add('options', 'Helpers', $plan->helpers ? "served at {$plan->webUrl}{$plan->helpersPath}" : 'not served by this web site');
+        $add('options', 'Helpers', $plan->helpers ? "yes, served at {$plan->webUrl}{$plan->helpersPath}" : 'no');
         $add('options', 'OpenSimSearch module', $yes($plan->search !== 'disabled'));
         $add('options', 'Offline messages', ['helpers' => 'the helpers (module V1)', 'robust' => 'the grid (module V2)', 'both' => 'both'][$plan->offline] ?? $plan->offline);
         $add('options', 'Profiles', $yes($plan->helpers));

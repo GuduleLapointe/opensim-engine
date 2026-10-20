@@ -75,13 +75,13 @@ final class RobustConfig
             'AssetService' => [
                 'BaseDirectory' => $this->q('${Const|DataDirectory}/fsassets/data'),
                 'SpoolDirectory' => $this->q('${Const|CacheDirectory}/fsassets/tmp'),
-                'AssetLoaderArgs' => $this->q('${Const|EtcDirectory}/assets/AssetSets.xml'),
+                'AssetLoaderArgs' => $this->q('${Const|DataDirectory}/assets/AssetSets.xml'),
             ],
             'GridService' => [
                 'MapTileDirectory' => $this->q('${Const|CacheDirectory}/maptiles'),
             ],
             'LibraryService' => [
-                'DefaultLibrary' => $this->q('${Const|EtcDirectory}/inventory/Libraries.xml'),
+                'DefaultLibrary' => $this->q('${Const|DataDirectory}/inventory/Libraries.xml'),
             ],
             'MapImageService' => [
                 'TilesStoragePath' => $this->q('${Const|DataDirectory}/maptiles'),

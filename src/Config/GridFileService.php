@@ -114,4 +114,28 @@ final class GridFileService
 
         return proc_close($process) === 0 ? $text : null;
     }
+
+    /**
+     * Copy the files of a folder that another does not have (an ini is merged apart, not copied).
+     *
+     * @param bool $skipIni leave the ini files, which the merge makes
+     */
+    public static function copyTree(string $from, string $to, bool $skipIni): void
+    {
+        foreach (
+            new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($from, \FilesystemIterator::SKIP_DOTS))
+            as $file
+        ) {
+            $relative = substr($file->getPathname(), strlen($from) + 1);
+            if (
+                !$file->isFile() ||
+                is_file("$to/$relative") ||
+                ($skipIni && preg_match('/\.ini$/i', $relative) === 1)
+            ) {
+                continue;
+            }
+            is_dir(dirname("$to/$relative")) || mkdir(dirname("$to/$relative"), 0o755, true);
+            copy($file->getPathname(), "$to/$relative");
+        }
+    }
 }

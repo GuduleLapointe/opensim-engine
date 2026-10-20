@@ -26,6 +26,7 @@ final class GridProvisioner
     public function apply(GridPlan $plan, Environment $environment): void
     {
         $this->makeDirs($plan);
+        $this->copyCoreData($plan);
         $conf = (new GridConf())->write($plan);
         $this->ui->note(sprintf(_('Wrote %s'), $conf));
         // A standalone has no Robust: its simulator serves the grid
@@ -154,11 +155,30 @@ final class GridProvisioner
             }
         }
     }
+    /**
+     * The assets and the library of the core, for the grid: copied into its data folder when it has none or when they are empty (what
+     * it has is its own and stays), where the config of Robust and of the simulators reads them. The library the users share is added
+     * to this copy, the core stays untouched.
+     */
+    private function copyCoreData(GridPlan $plan): void
+    {
+        foreach (['assets', 'inventory'] as $name) {
+            $to = "{$plan->dataDirectory}/$name";
+            $from = "{$plan->binDir}/$name";
+            if (!is_dir($from) || ($has = glob("$to/*")) !== false && $has !== []) {
+                continue;
+            }
+            is_dir($to) || @mkdir($to, 0o755, true);
+            GridFileService::copyTree($from, $to, false);
+            $this->ui->note(sprintf(_('Copied %s from the core to %s.'), $name, $to));
+        }
+    }
+
     private function copyConfigInclude(GridPlan $plan): void
     {
         // The distribution, over it what the grid has set: a setting new in the distribution is there, what was chosen stays
         // (the same procedure as the folder of a preset), ready for the simulators that will join the grid
-        $shared = new GridShared();
+        $shared = new GridShared($plan->dataDirectory);
         $shared->merge($plan->etcDirectory, $plan->binDir, $plan->enableHypergrid, standalone: $plan->standalone);
         $shared->prepare($plan->etcDirectory, $plan->binDir, $plan->enableHypergrid, $plan->standalone);
         $this->ui->note(_('Copied config-include defaults.'));
@@ -299,10 +319,8 @@ final class GridProvisioner
             "{$plan->cacheDirectory}/fsassets/tmp",
             "{$plan->cacheDirectory}/maptiles",
             $plan->etcDirectory,
-            "{$plan->etcDirectory}/assets",
             "{$plan->etcDirectory}/config-include",
             GridConfig::simulatorsDirectory($plan->etcDirectory),
-            "{$plan->etcDirectory}/inventory",
             "{$plan->etcDirectory}/robust-include",
             $plan->logsDirectory,
         ];

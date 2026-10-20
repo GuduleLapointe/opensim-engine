@@ -82,7 +82,7 @@ final class SimulatorProvisioner
             $master = (new SimulatorMaster())->ensure($plan->gridDir, $plan->binDir());
             $master !== null && $this->ui->note(sprintf(_('Wrote %s'), $master));
         } else {
-            $shared = new GridShared();
+            $shared = new GridShared($grid->dataDirectory() !== '' ? $grid->dataDirectory() : null);
             foreach ($shared->prepare($plan->gridDir, $plan->binDir(), $plan->hypergrid, $plan->standalone) as $file) {
                 $this->ui->note(sprintf(_('Wrote %s'), $file));
             }

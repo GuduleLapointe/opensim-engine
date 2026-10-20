@@ -8,7 +8,13 @@ declare(strict_types=1);
 
 use OpenSim\Api\Api;
 use OpenSim\Api\Router;
+use OpenSim\Models\Grid;
+use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\QuickSetup;
+use OpenSim\Provisioning\SimulatorPlan;
+use OpenSim\Provisioning\DatabaseService;
+use OpenSim\Provisioning\InstanceControl;
+use OpenSim\Provisioning\UiInterface;
 use OpenSim\Testing\Machine;
 
 /** The answers of a person who knows what they want. */
@@ -168,48 +174,64 @@ describe('quick setup, what is wrong', function () {
             ->and($options['SSL'])
             ->toBe('no (not implemented)')
             ->and($options['Extended OSSL'])
-            ->toBe('no')
+            ->toBe('yes')
             ->and(array_keys($options))
             ->toContain('Helpers', 'OpenSimSearch module', 'Offline messages', 'Profiles', 'Destination guide', 'Grid status');
     });
 
-    test('has the helpers on in every case, and the options default to hypergrid only', function () {
+    test('has the helpers, the cross-grid search and the extended OSSL on by default', function () {
         $quick = QuickSetup::plan((new Machine())->environment, quick_answers());
 
         expect($quick['setup']['grid']['helpers'])
             ->toBeTrue()
             ->and($quick['setup']['grid']['search'])
-            ->toBe('internal')
+            ->toBe('shared')
             ->and($quick['setup']['grid']['economy'])
             ->toBe('beta')
             ->and($quick['setup']['grid']['ossl'])
-            ->toBeFalse()
+            ->toBeTrue()
             ->and(array_column($quick['options'], 'value', 'name'))
-            ->toBe(['ssl' => false, 'hypergrid' => true, 'search' => false, 'gloebit' => false, 'ossl' => false]);
+            ->toBe(['ssl' => false, 'hypergrid' => true, 'helpers' => true, 'search' => true, 'gloebit' => false, 'ossl' => true]);
+    });
+
+    test('has no search of its own when the helpers are off and the shared one is not wanted, and refuses Gloebit without the helpers', function () {
+        $environment = (new Machine())->environment;
+        $off = QuickSetup::plan($environment, quick_answers(['helpers' => false, 'search' => false]));
+        $gloebit = QuickSetup::plan($environment, quick_answers(['helpers' => false, 'gloebit' => true]));
+
+        expect($off['problems'])
+            ->toBe([])
+            ->and($off['setup']['grid']['search'])
+            ->toBe('disabled')
+            ->and($off['setup']['grid']['helpers'])
+            ->toBeFalse()
+            ->and($gloebit['problems'])
+            ->toBe(['gloebit' => 'needs Helpers']);
     });
 
     test('tells the options and the types, for whoever shows the form', function () {
-        $quick = QuickSetup::plan((new Machine())->environment, quick_answers(['ossl' => true]));
+        $quick = QuickSetup::plan((new Machine())->environment, quick_answers());
 
         expect(array_column($quick['options'], 'label', 'name'))
             ->toBe([
                 'ssl' => 'SSL',
                 'hypergrid' => 'Hypergrid',
+                'helpers' => 'Helpers',
                 'search' => 'Cross-grid Search',
                 'gloebit' => 'Economy: Gloebit',
                 'ossl' => 'Extended OSSL',
             ])
             ->and(array_column($quick['options'], 'implemented', 'name'))
-            ->toBe(['ssl' => false, 'hypergrid' => true, 'search' => true, 'gloebit' => true, 'ossl' => true])
+            ->toBe(['ssl' => false, 'hypergrid' => true, 'helpers' => true, 'search' => true, 'gloebit' => true, 'ossl' => true])
             ->and($quick['setup']['grid']['ossl'])
             ->toBeTrue()
             ->and($quick['types'])
             ->toBe([
                 ['name' => 'grid', 'label' => 'Grid', 'implemented' => true],
                 ['name' => 'standalone', 'label' => 'Standalone', 'implemented' => true],
-                ['name' => 'simulator', 'label' => 'Simulator (join other grid)', 'implemented' => false],
-                ['name' => 'speculoos', 'label' => 'Speculoos', 'implemented' => false],
-                ['name' => 'osgrid', 'label' => 'OSGrid', 'implemented' => false],
+                ['name' => 'simulator', 'label' => 'Simulator (join other grid)', 'implemented' => true],
+                ['name' => 'speculoos', 'label' => 'Speculoos', 'implemented' => true],
+                ['name' => 'osgrid', 'label' => 'OSGrid', 'implemented' => true],
             ]);
     });
 
@@ -222,12 +244,10 @@ describe('quick setup, what is wrong', function () {
             ->toBe(['name' => 'taken']);
     });
 
-    test('refuses a type it does not apply yet, and one it does not know', function () {
+    test('refuses a type it does not know, and a boolean that is not one', function () {
         $environment = (new Machine())->environment;
 
-        expect(QuickSetup::plan($environment, quick_answers(['type' => 'simulator']))['problems'])
-            ->toBe(['type' => 'not implemented'])
-            ->and(QuickSetup::plan($environment, quick_answers(['type' => 'nothing']))['problems'])
+        expect(QuickSetup::plan($environment, quick_answers(['type' => 'nothing']))['problems'])
             ->toBe(['type' => 'invalid'])
             ->and(QuickSetup::plan($environment, quick_answers(['ossl' => 'maybe']))['problems'])
             ->toBe(['ossl' => 'invalid']);
@@ -451,6 +471,23 @@ function quick_until(Machine $machine, string $screen, string $type = 'grid', ar
     return quick_step($machine, $reply, $options);
 }
 
+/** The work that needs a machine, done by doubles: the databases are fine, the account is made, the grid says who it is, the instances start. */
+function quick_doubles(array $set = []): void
+{
+    QuickSetup::through(
+        $set + [
+            'database' => static fn(): int => DatabaseService::OK,
+            'account' => static fn(): bool => true,
+            'says' => static fn(string $host, int $port): array => ['gridname' => 'Remote World', 'gridnick' => 'remote'],
+            'region' => [
+                'remoteHas' => static fn(string $name): ?bool => false,
+                'freePlace' => static fn(int $x, int $y, ?string $ignored): array => [$x, $y, true],
+            ],
+        ],
+    );
+    InstanceControl::runThrough(static fn(): array => [0, '']);
+}
+
 /** The files of the distribution a grid is made of, in the fake core of a machine. */
 function quick_core(Machine $machine): void
 {
@@ -465,23 +502,31 @@ function quick_core(Machine $machine): void
 }
 
 describe('quick setup, the scenario', function () {
+    beforeEach(fn() => quick_doubles());
+    afterEach(function () {
+        QuickSetup::through();
+        InstanceControl::runThrough(null);
+    });
+
     test('starts with what can be set up, the choices not implemented said and kept in the list', function () {
         $reply = quick_step(new Machine(), null);
 
         expect($reply)
             ->toMatchArray(['action' => 'screen', 'kind' => 'menu', 'name' => 'type', 'title' => 'OpenSim setup'])
             ->and(array_column($reply['items'], 'note', 'key'))
-            ->toBe(['grid' => '', 'standalone' => '', 'simulator' => 'not implemented', 'speculoos' => 'not implemented', 'osgrid' => 'not implemented'])
+            ->toBe(['grid' => '', 'standalone' => '', 'simulator' => '', 'speculoos' => '', 'osgrid' => ''])
             ->and($reply['buttons'])
             ->toBe(['next' => 'OK', 'back' => 'Quit']);
     });
 
-    test('keeps the menu, and tells why, for a choice that is not implemented yet', function () {
+    test('keeps the menu, and tells why, for a choice that is not one that can be set up', function () {
         $machine = new Machine();
-        $reply = quick_step($machine, quick_step($machine, null), ['type' => 'speculoos']);
+        $reply = quick_step($machine, quick_step($machine, null), ['type' => 'nothing']);
 
         expect($reply)
-            ->toMatchArray(['kind' => 'menu', 'notice' => 'Not implemented yet: only Grid and Standalone for now.', 'value' => 'speculoos']);
+            ->toMatchArray(['kind' => 'menu', 'value' => 'nothing'])
+            ->and($reply['notice'])
+            ->toStartWith('Not implemented yet: only Grid, Standalone');
     });
 
     test('goes on with the questions of the type, with what the engine proposes', function () {
@@ -570,7 +615,7 @@ describe('quick setup, the scenario', function () {
             ->and($options['title'])
             ->toBe('Options')
             ->and(array_column($options['items'], 'checked', 'name'))
-            ->toBe(['ssl' => false, 'hypergrid' => true, 'search' => false, 'gloebit' => false, 'ossl' => false])
+            ->toBe(['ssl' => false, 'hypergrid' => true, 'helpers' => true, 'search' => true, 'gloebit' => false, 'ossl' => true])
             ->and(array_column($options['items'], 'note', 'name')['ssl'])
             ->toBe('not implemented')
             ->and($review)
@@ -592,7 +637,7 @@ describe('quick setup, the scenario', function () {
             ->toBe('quit')
             ->and($done['message'])
             ->toContain('Grid name:  Magic Grid', 'Login URI:  http://login.example.org:8102', 'Avatar:     Ada Love')
-            ->toContain('Not done yet: the databases and the account of Ada Love.')
+            ->toContain('The grid and its simulator are running.')
             ->not->toContain('MoneyServer')
             ->not->toContain('chgrp');
         preg_match('/Written in (\S+)\./', $done['message'], $m);
@@ -621,7 +666,7 @@ describe('quick setup, the scenario', function () {
         expect($done['action'])
             ->toBe('quit')
             ->and($done['message'])
-            ->toContain('Not done yet: the database.')
+            ->toContain('The grid and its simulator are running.')
             ->and(glob("{$m[1]}/Robust*.ini"))
             ->toBe([])
             ->and(glob("{$m[1]}/sims/*.ini"))
@@ -642,6 +687,159 @@ describe('quick setup, the scenario', function () {
             ->toBe('abort')
             ->and($done['error'])
             ->toContain('Cannot write in', "{$machine->etc}/grids");
+    });
+
+    test('puts the helpers on, and says so, when Gloebit needs them', function () {
+        $machine = new Machine();
+        $options = quick_until($machine, 'checks');
+
+        $again = quick_step($machine, $options, ['helpers' => false, 'gloebit' => true]);
+
+        expect($again)
+            ->toMatchArray(['kind' => 'checks', 'notice' => 'Gloebit needs the helpers: Helpers is on.'])
+            ->and(array_column($again['items'], 'checked', 'name'))
+            ->toMatchArray(['helpers' => true, 'gloebit' => true])
+            ->and(quick_step($machine, $again, ['helpers' => true, 'gloebit' => true])['kind'])
+            ->toBe('review');
+    });
+
+    test('asks the database again, with what the server said, when it cannot be reached or made, and goes on with the administrator', function () {
+        $machine = new Machine();
+        quick_core($machine);
+        $calls = 0;
+        quick_doubles([
+            'database' => function (GridPlan $db, UiInterface $ui) use (&$calls): int {
+                if ($calls++ === 0) {
+                    $ui->error('Cannot reach the database server localhost: refused');
+
+                    return DatabaseService::RETRY;
+                }
+
+                return DatabaseService::OK;
+            },
+        ]);
+
+        $asked = quick_step($machine, quick_until($machine, 'review'));
+        $done = quick_step($machine, $asked, ['database_host' => 'db.example.org', 'admin_user' => 'root', 'admin_password' => 'secret']);
+
+        expect($asked)
+            ->toMatchArray(['kind' => 'form', 'title' => 'Database'])
+            ->and($asked['notice'])
+            ->toContain('Cannot reach the database server localhost: refused')
+            ->and(array_column($asked['fields'], 'name'))
+            ->toBe(['database_host', 'database_name', 'database_user', 'database_password', 'admin_user', 'admin_password'])
+            ->and($done['action'])
+            ->toBe('quit');
+    });
+
+    test('stops, and says why, when the database cannot be made or the account of the avatar cannot be', function () {
+        $machine = new Machine();
+        quick_core($machine);
+        quick_doubles([
+            'database' => static function (GridPlan $db, UiInterface $ui): int {
+                $ui->error('Could not create the database: denied');
+
+                return DatabaseService::ABORT;
+            },
+        ]);
+        $stopped = quick_step($machine, quick_until($machine, 'review'));
+        quick_doubles(['account' => static function (Grid $grid, SimulatorPlan $sim, UiInterface $ui): bool {
+            $ui->error('Robust did not make the account');
+
+            return false;
+        }]);
+        $noAccount = quick_step($machine, quick_until($machine, 'review'));
+
+        expect($stopped['action'])
+            ->toBe('abort')
+            ->and($stopped['error'])
+            ->toContain('Could not create the database: denied', 'nothing was changed')
+            ->and($noAccount)
+            ->toBe(['action' => 'abort', 'error' => 'Robust did not make the account']);
+    });
+
+    test('copies the assets and the library of the core into the data folder of the grid, once, and points the config there', function () {
+        $machine = new Machine();
+        quick_core($machine);
+        $bin = $machine->core . '/bin';
+        @mkdir("$bin/assets/Sounds", 0o755, true);
+        @mkdir("$bin/inventory", 0o755, true);
+        file_put_contents("$bin/assets/AssetSets.xml", '<Nini/>');
+        file_put_contents("$bin/assets/Sounds/click.ogg", 'sound');
+        file_put_contents("$bin/inventory/Libraries.xml", '<Nini/>');
+        $done = quick_step($machine, quick_until($machine, 'review'));
+        preg_match('/Written in (\S+)\./', $done['message'], $m);
+        $robust = (string) file_get_contents(glob("{$m[1]}/Robust*.ini")[0]);
+        $data = $machine->root . '/data/magic_grid';
+
+        expect($done['action'])
+            ->toBe('quit')
+            ->and(is_file("$data/assets/AssetSets.xml"))
+            ->toBeTrue()
+            ->and(is_file("$data/assets/Sounds/click.ogg"))
+            ->toBeTrue()
+            ->and(is_file("$data/inventory/Libraries.xml"))
+            ->toBeTrue()
+            ->and($robust)
+            ->toContain('${Const|DataDirectory}/assets/AssetSets.xml', '${Const|DataDirectory}/inventory/Libraries.xml')
+            ->and(is_dir("{$m[1]}/assets"))
+            ->toBeFalse();
+    });
+
+    test('sets up a simulator that joins the grid of a preset: what the preset says is shown and not asked, the owner is an account of that grid', function () {
+        $machine = new Machine();
+        quick_core($machine);
+        $form = quick_until($machine, 'form', 'speculoos');
+
+        expect($form['title'])
+            ->toBe('Speculoos')
+            ->and(array_column($form['fields'], 'readonly', 'name'))
+            ->toBe(['preset_grid' => true, 'preset_login' => true, 'preset_hypergrid' => true, 'name' => false, 'avatar' => false])
+            ->and(array_column($form['fields'], 'value', 'name')['name'])
+            ->toBe('Welcome');
+        $wrong = quick_step($machine, $form, ['name' => 'Plaza', 'avatar' => 'Ada']);
+        $review = quick_step($machine, $form, ['name' => 'Plaza', 'avatar' => 'Ada Love']);
+        $done = quick_step($machine, $review);
+
+        expect($wrong['notice'])
+            ->toBe('Error: Avatar name invalid (First Last)')
+            ->and($review['kind'])
+            ->toBe('review')
+            ->and(array_column($review['rows'], 'value', 'label')['Estate owner'])
+            ->toBe('Ada Love (an account of the grid)')
+            ->and(array_column($review['rows'], 'section'))
+            ->not->toContain('options')
+            ->and($done['action'])
+            ->toBe('quit')
+            ->and($done['message'])
+            ->toContain('Avatar:     Ada Love', 'The simulator is running.')
+            ->and(glob("{$machine->etc}/grids/speculoos/sims/*.ini"))
+            ->toHaveCount(1);
+        expect(quick_step($machine, $review, [], 'back')['kind'])->toBe('form');
+    });
+
+    test('sets up a simulator that joins a grid given by its address, which says who it is', function () {
+        $machine = new Machine();
+        quick_core($machine);
+        $form = quick_until($machine, 'form', 'simulator');
+        $missing = quick_step($machine, $form, ['login_uri' => '', 'name' => 'Plaza', 'avatar' => 'Ada Love']);
+        $review = quick_step($machine, $form, ['login_uri' => 'remote.example.org:8002', 'private_port' => '', 'name' => 'Plaza', 'avatar' => 'Ada Love']);
+        $done = quick_step($machine, $review);
+
+        expect($form['title'])
+            ->toBe('Simulator (join other grid)')
+            ->and(array_column($form['fields'], 'name'))
+            ->toBe(['login_uri', 'private_port', 'name', 'avatar'])
+            ->and($missing['notice'])
+            ->toBe('Error: Login URI of the grid required')
+            ->and(array_column($review['rows'], 'value', 'label')['Grid'])
+            ->toBe('Remote World (remote)')
+            ->and($done['action'])
+            ->toBe('quit')
+            ->and($done['message'])
+            ->toContain('Grid name:  Remote World', 'Login URI:  http://remote.example.org:8002')
+            ->and(glob("{$machine->etc}/grids/remote/sims/*.ini"))
+            ->toHaveCount(1);
     });
 
     test('is asked and answered through the API like the other operations', function () {

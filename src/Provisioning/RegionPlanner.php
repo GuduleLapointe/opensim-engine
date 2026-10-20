@@ -73,10 +73,11 @@ final class RegionPlanner
         array $pool = [],
         string $defaultName = '',
         ?\Closure $portOfSimulator = null,
+        array $context = [],
     ): self {
         $registry = new GridRegistry($database);
 
-        return new self([
+        return new self($context + [
             'grid' => $grid,
             'optional' => $optional,
             'pool' => $pool,

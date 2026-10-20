@@ -56,6 +56,12 @@ final class DatabaseService
 
     public function __construct(private UiInterface $ui) {}
 
+    /** Keep an administrator account of a server for the rest of the session: the person gave it. */
+    public static function rememberAdmin(string $host, string $user, string $password): void
+    {
+        self::$admins[$host] = [$user, $password];
+    }
+
     /** Keep the password of an account for the rest of the session. */
     public static function remember(string $host, string $user, string $password): void
     {

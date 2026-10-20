@@ -12,7 +12,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "OpenSim engine",
-        "version": "6a40246",
+        "version": "2ecfe55",
         "license": {
             "name": "AGPL-3.0-or-later",
             "identifier": "AGPL-3.0-or-later"
@@ -4616,7 +4616,7 @@
                                                         },
                                                         "fields": {
                                                             "type": "array",
-                                                            "description": "Of a form",
+                                                            "description": "Of a form: the name, the label, the value, secret (typed hidden) and readonly (only shown, not sent back)",
                                                             "items": {
                                                                 "type": "object"
                                                             }
@@ -4635,6 +4635,10 @@
                                                         "buttons": {
                                                             "type": "object",
                                                             "description": "The labels of next and back"
+                                                        },
+                                                        "wait": {
+                                                            "type": "string",
+                                                            "description": "What to say while the next step is done, when it takes time"
                                                         },
                                                         "state": {
                                                             "type": "string",

@@ -24,6 +24,9 @@ use OpenSim\Controllers\RobustController;
  */
 final class GridShared
 {
+    /** @param ?string $dataDirectory the data folder of the grid, where its assets and its library are; null: its own folder */
+    public function __construct(private readonly ?string $dataDirectory = null) {}
+
     /**
      * The files of the folder of a grid (and of a preset) that come from the distribution, relative to the folder: the main
      * config and its defaults, and the architecture files of config-include.
@@ -177,15 +180,17 @@ final class GridShared
             ],
             default => [],
         };
-        // The assets and the library the folder has are read from it, not from the core
+        // The assets and the library the grid has are read from its own, not from the core: from its data folder when it has one,
+        // else from its folder
+        $own = $this->dataDirectory ?? $dir;
         if (str_starts_with($file, 'config-include/')) {
-            if (is_file("$dir/assets/AssetSets.xml")) {
+            if (is_file("$own/assets/AssetSets.xml")) {
                 $patches['/^(\s*AssetLoaderArgs\s*=\s*)"?\.?\/?assets\/AssetSets\.xml"?[ \t]*$/m'] =
-                    '$1"' . $dir . '/assets/AssetSets.xml"';
+                    '$1"' . $own . '/assets/AssetSets.xml"';
             }
-            if (is_file("$dir/inventory/Libraries.xml")) {
+            if (is_file("$own/inventory/Libraries.xml")) {
                 $patches['/^(\s*DefaultLibrary\s*=\s*)"?\.?\/?inventory\/Libraries\.xml"?[ \t]*$/m'] =
-                    '$1"' . $dir . '/inventory/Libraries.xml"';
+                    '$1"' . $own . '/inventory/Libraries.xml"';
             }
         }
 

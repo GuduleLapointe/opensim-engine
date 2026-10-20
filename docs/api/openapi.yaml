@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 'OpenSim engine'
-  version: 6a40246
+  version: 2ecfe55
   license:
     name: AGPL-3.0-or-later
     identifier: AGPL-3.0-or-later
@@ -3991,7 +3991,7 @@ paths:
                     properties:
                       type: { const: steps }
                       id: { type: string }
-                      attributes: { type: object, properties: { action: { type: string, enum: [screen, quit, abort] }, kind: { type: string, enum: [menu, form, checks, review], description: 'Of a screen' }, name: { type: string, description: 'Of a menu: the name of its answer' }, title: { type: string }, text: { type: string, description: 'Above the screen' }, notice: { type: string, description: 'What is wrong with the last answers, one line each: show it above the screen' }, items: { type: array, description: 'Of a menu or of check boxes', items: { type: object } }, fields: { type: array, description: 'Of a form', items: { type: object } }, rows: { type: array, description: 'Of a review: the section, the label and the value', items: { type: object } }, value: { type: string, description: 'Of a menu: the key chosen so far' }, buttons: { type: object, description: 'The labels of next and back' }, state: { type: string, description: 'To send back with the answers' }, message: { type: string, description: 'Of quit: to tell, the setup is over' }, error: { type: string, description: 'Of abort: to tell, the setup is over' } } }
+                      attributes: { type: object, properties: { action: { type: string, enum: [screen, quit, abort] }, kind: { type: string, enum: [menu, form, checks, review], description: 'Of a screen' }, name: { type: string, description: 'Of a menu: the name of its answer' }, title: { type: string }, text: { type: string, description: 'Above the screen' }, notice: { type: string, description: 'What is wrong with the last answers, one line each: show it above the screen' }, items: { type: array, description: 'Of a menu or of check boxes', items: { type: object } }, fields: { type: array, description: 'Of a form: the name, the label, the value, secret (typed hidden) and readonly (only shown, not sent back)', items: { type: object } }, rows: { type: array, description: 'Of a review: the section, the label and the value', items: { type: object } }, value: { type: string, description: 'Of a menu: the key chosen so far' }, buttons: { type: object, description: 'The labels of next and back' }, wait: { type: string, description: 'What to say while the next step is done, when it takes time' }, state: { type: string, description: 'To send back with the answers' }, message: { type: string, description: 'Of quit: to tell, the setup is over' }, error: { type: string, description: 'Of abort: to tell, the setup is over' } } }
         400:
           description: 'The body is not a JSON document'
           content:
