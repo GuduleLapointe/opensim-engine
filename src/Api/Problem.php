@@ -66,8 +66,16 @@ final class Problem
                 'urn:opensim:problem:channel-unavailable',
                 $instance,
             ),
-            default => new self(500, 'Internal error', '', 'about:blank', $instance),
+            // The detail is not for whoever asks: it goes to the log (the error output of the command line)
+            default => self::internal($error, $instance),
         };
+    }
+
+    private static function internal(\Throwable $error, string $instance): self
+    {
+        error_log(sprintf('opensim-api: %s: %s (%s:%d)', $error::class, $error->getMessage(), $error->getFile(), $error->getLine()));
+
+        return new self(500, 'Internal error', '', 'about:blank', $instance);
     }
 
     /** @return array<string,mixed> */
