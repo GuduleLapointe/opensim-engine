@@ -6,6 +6,7 @@ namespace OpenSim;
 
 use OpenSim\Config\Layout;
 use OpenSim\Models\Grid;
+use OpenSim\Models\Simulator;
 use OpenSim\Controllers\AbstractController;
 use OpenSim\Controllers\OpenSimController;
 use OpenSim\Controllers\RobustController;
@@ -17,8 +18,8 @@ use OpenSim\Runtime\Status;
 
 /**
  * The entry point of the front-ends (the command line, the administration, WordPress): what they ask of this machine, by the
- * name of what they mean. A target is a grid (`vonda`: the services of the grid, its Robust), a simulator (`vonda.welcome`), a
- * config file; none means every enabled instance. Restarting the services of a grid does not need its simulators to restart:
+ * name of what they mean. A target is a grid (`vonda`: the services of the grid, its Robust), a simulator (`vonda.welcome`), an
+ * address (`vonda.example.org:9000`), a config file; none means every enabled instance. Restarting the services of a grid does not need its simulators to restart:
  * they are included when `simulators` is asked.
  *
  *     OpenSim::start('vonda');                          // the Robust of the grid
@@ -153,7 +154,8 @@ final class OpenSim
     }
 
     /**
-     * One instance by what names it: a config file, or the name of an enabled instance (the one of a grid is its Robust).
+     * One instance by what names it: a config file, the address it answers at (`host:port`), or the name of an enabled instance (the
+     * one of a grid is its Robust).
      */
     public static function instance(Environment $environment, string $target): ?AbstractController
     {
@@ -168,6 +170,21 @@ final class OpenSim
             return str_contains(strtolower($target), 'robust')
                 ? new RobustController($environment, $real)
                 : new OpenSimController($environment, $real);
+        }
+        // An address: the Robust of the grid that answers there, or the simulator
+        if (preg_match('/^[^\s\/]+:\d+$/', $target) === 1) {
+            $simulator = Simulator::find($environment, $target);
+            foreach (self::enabled($environment) as $instance) {
+                if (
+                    $instance instanceof RobustController
+                        ? strcasecmp((string) $instance->uri(), $target) === 0
+                        : $instance->name() === $simulator?->controller()->name()
+                ) {
+                    return $instance;
+                }
+            }
+
+            return null;
         }
         $name = AbstractController::cleanName($target);
         foreach (self::enabled($environment) as $instance) {

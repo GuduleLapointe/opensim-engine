@@ -386,6 +386,23 @@ describe('Starting and stopping what a name means', function () {
         expect(OpenSim::instance($machine->environment, 'beta')?->name())->toBe('beta');
     });
 
+    test('an address (host:port) names the instance that answers there, a grid\'s Robust or a simulator', function () {
+        $machine = new Machine();
+        $machine->write(
+            $machine->grid . '/Robust.HG.ini',
+            str_replace('PublicPort = 8002', "BaseHostname = \"demo.example.org\"\n    PublicPort = 8002", file_get_contents($machine->grid . '/Robust.HG.ini')),
+        );
+        $region = $machine->grid . '/sims/alpha/regions/Plaza.ini';
+        $machine->write($region, file_get_contents($region) . "ExternalHostName = alpha.example.org\n");
+
+        expect(OpenSim::instance($machine->environment, 'demo.example.org:8002')?->name())
+            ->toBe('demo')
+            ->and(OpenSim::instance($machine->environment, 'Alpha.Example.org:9000')?->name())
+            ->toBe('alpha')
+            ->and(OpenSim::instance($machine->environment, 'nowhere.example.org:9000'))
+            ->toBeNull();
+    });
+
     test('a name that is nothing is a failed result, said', function () {
         $machine = new Machine();
 
