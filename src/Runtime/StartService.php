@@ -151,12 +151,7 @@ final class StartService
             $name,
             $core->bin(),
             $command,
-            $native !== ''
-                ? [
-                    'LD_LIBRARY_PATH' =>
-                        $native . ((string) getenv('LD_LIBRARY_PATH') !== '' ? ':' . getenv('LD_LIBRARY_PATH') : ''),
-                ]
-                : [],
+            self::runtimeEnvironment($native),
             $output,
             $remote === null,
             $base === 'OpenSim',
@@ -288,6 +283,25 @@ final class StartService
         }
 
         return [1, $failed];
+    }
+
+    /**
+     * The variables the instances run with. OpenSimulator does not handle IPv6, and .NET tries the IPv6 address of a name first (a
+     * name of the local network resolves to a link-local one that never answers, each call then waits 100 seconds): it is disabled
+     * unless the environment (the rc file, the .env) says otherwise.
+     *
+     * @return array<string,string>
+     */
+    private static function runtimeEnvironment(string $native): array
+    {
+        $ipv6 = getenv('DOTNET_SYSTEM_NET_DISABLEIPV6');
+        $variables = ['DOTNET_SYSTEM_NET_DISABLEIPV6' => $ipv6 === false || $ipv6 === '' ? '1' : $ipv6];
+        if ($native !== '') {
+            $variables['LD_LIBRARY_PATH'] =
+                $native . ((string) getenv('LD_LIBRARY_PATH') !== '' ? ':' . getenv('LD_LIBRARY_PATH') : '');
+        }
+
+        return $variables;
     }
 
     /** Wait for the regions of a simulator with a remote console to be ready, in its log: 0, 3 when it exited, 1 at the end of the delay. */
