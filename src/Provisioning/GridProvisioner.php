@@ -68,7 +68,8 @@ final class GridProvisioner
 
         $this->ui->note(sprintf(_("Grid '%s' configured."), $plan->gridName));
         if ($plan->helpers) {
-            $this->ui->note(
+            NullUi::report(
+                $this->ui,
                 sprintf(
                     _(
                         'Web site: the helpers are in %s. The configuration for your web server is in %s/web, to include in the site of the grid (opensim web %s snippet <caddy|nginx|apache> writes it for another server).',

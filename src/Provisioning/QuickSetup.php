@@ -610,6 +610,7 @@ final class QuickSetup
                 sprintf(_('Written in %s.'), $gridDir),
                 $plan === null ? _('The simulator is running.') : _('The grid and its simulator are running.'),
                 ...$notes,
+                ...($ui->report === [] ? [] : ['', ...$ui->report]),
             ]),
         ];
     }

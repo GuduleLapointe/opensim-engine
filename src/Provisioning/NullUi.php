@@ -14,6 +14,15 @@ final class NullUi implements UiInterface
     /** @param bool $live the notes are also told on the error output as they come (a setup whose client shows its progress) */
     public function __construct(private readonly bool $live = false) {}
 
+    /** @var list<string> what is for the final report of the setup, not for its log */
+    public array $report = [];
+
+    /** A message for the final report (an interface that has none tells it as a note). */
+    public static function report(UiInterface $ui, string $message): void
+    {
+        $ui instanceof self ? $ui->report[] = $message : $ui->note($message);
+    }
+
     public function intro(string $title): void {}
 
     public function note(string $message): void
