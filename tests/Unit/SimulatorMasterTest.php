@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 use OpenSim\Config\ConfigReader;
 use OpenSim\Models\Grid;
-use OpenSim\Provisioning\Features;
+use OpenSim\Provisioning\GridOptions;
 use OpenSim\Provisioning\SimulatorConfig;
 use OpenSim\Provisioning\SimulatorPlan;
 use OpenSim\Provisioning\SimulatorMaster;
@@ -233,13 +233,13 @@ describe('A grid joined by a preset', function () {
             EnvironmentFake::with(['EtcRoot' => $machine->etc, 'CoreDirectory' => $machine->core]),
             'osg',
         );
-        $features = new Features($info);
+        $options = new GridOptions($info);
 
-        $result = $features->enable(Features::ECONOMY, ['money' => 'gloebit']);
+        $result = $options->enable('economy-gloebit');
 
         expect($info->preset())
             ->toBe('osg')
-            ->and($features->general())
+            ->and($options->general())
             ->toBe($preset . '/OpenSim.ini')
             ->and($result['error'])
             ->toBeNull()
@@ -273,9 +273,21 @@ function master_plan(string $gridDir, string $core): SimulatorPlan
     $plan->dbPass = 'secret';
     $plan->estateName = 'Demo Estate';
     $plan->estateOwner = 'Demo Owner';
-    $plan->searchUrl = 'https://demo.example.org/helpers/query.php';
-    $plan->registerUrl = 'https://demo.example.org/helpers/register.php';
-    $plan->offlineUrl = 'https://demo.example.org/helpers/offline.php';
+    // What the options of the grid say for its simulators (see GridOptions::layer())
+    $plan->optionsLayer = implode("\n", [
+        '[Search]',
+        'Module = OpenSimSearch',
+        'SearchURL = "https://demo.example.org/helpers/query.php"',
+        '[DataSnapshot]',
+        'index_sims = true',
+        'gridname = "Demo World"',
+        'DATA_SRV_Demo = "https://demo.example.org/helpers/register.php"',
+        '[Messaging]',
+        'OfflineMessageModule = OfflineMessageModule',
+        'OfflineMessageURL = "https://demo.example.org/helpers/offline.php"',
+        '[UserProfiles]',
+        'ProfileServiceURL = "${Const|BaseURL}:${Const|PublicPort}"',
+    ]);
 
     return $plan;
 }
@@ -326,7 +338,7 @@ describe('config of a simulator', function () {
         $plan = master_plan($machine->grid, $machine->core);
         $whole = (new SimulatorConfig())->render($plan);
         $general = new OpenSim\Config\IniEditor(OpenSim\Config\TextFileService::read($machine->grid . '/OpenSim.ini'));
-        $general->overlay(implode("\n", SimulatorConfig::gridLayer($plan)));
+        $general->overlay($plan->optionsLayer);
         $general->save($machine->grid . '/OpenSim.ini');
         // The grid is the one the plan is for: the host and the ports of its Robust
         $machine->write(
@@ -358,10 +370,10 @@ describe('config of a simulator', function () {
     });
 });
 
-describe('features of a grid with a master', function () {
-    function master_features(Machine $machine): Features
+describe('options of a grid with a master', function () {
+    function master_options(Machine $machine): GridOptions
     {
-        return new Features(
+        return new GridOptions(
             Grid::find(EnvironmentFake::with(['EtcRoot' => $machine->etc, 'CoreDirectory' => $machine->core]), 'demo'),
         );
     }
@@ -371,7 +383,7 @@ describe('features of a grid with a master', function () {
         (new SimulatorMaster())->ensure($machine->grid, $machine->core . '/bin');
         $before = file_get_contents($machine->grid . '/sims/alpha.ini');
 
-        $result = master_features($machine)->enable('economy', ['money' => 'beta']);
+        $result = master_options($machine)->enable('economy-beta');
 
         expect($result['error'])
             ->toBeNull()
@@ -386,7 +398,7 @@ describe('features of a grid with a master', function () {
             ->and(ConfigReader::load($machine->grid . '/' . SimulatorMaster::FILE)['Economy']['economymodule'])
             ->toBe('BetaGridLikeMoneyModule');
 
-        $result = master_features($machine)->disable('economy');
+        $result = master_options($machine)->disable('economy-beta');
         expect(ConfigReader::load($machine->grid . '/' . SimulatorMaster::FILE)['Economy'] ?? [])->not->toHaveKey(
             'economymodule',
         );
@@ -400,7 +412,7 @@ describe('features of a grid with a master', function () {
             file_get_contents($machine->grid . '/sims/alpha.ini') . "\n[Economy]\n    economymodule = Gloebit\n",
         );
 
-        $result = master_features($machine)->enable('economy', ['money' => 'beta']);
+        $result = master_options($machine)->enable('economy-beta');
 
         expect($result['simulators'])
             ->toBe(['alpha'])
@@ -411,7 +423,7 @@ describe('features of a grid with a master', function () {
     test('are in the simulators when the grid has no master', function () {
         $machine = master_machine();
 
-        $result = master_features($machine)->enable('economy', ['money' => 'beta']);
+        $result = master_options($machine)->enable('economy-beta');
 
         expect($result['simulators'])
             ->toBe(['alpha', 'beta'])
@@ -477,12 +489,18 @@ describe('grid made by the setup', function () {
         $plan->webUrl = 'https://demo.example.org';
         $plan->helpersPath = '/helpers';
 
-        $method = new ReflectionMethod(OpenSim\Provisioning\GridProvisioner::class, 'writeMaster');
-        $method->invoke(
-            new OpenSim\Provisioning\GridProvisioner($ui),
-            $plan,
-            EnvironmentFake::with(['EtcRoot' => $machine->etc]),
+        $environment = EnvironmentFake::with(['EtcRoot' => $machine->etc, 'CoreDirectory' => $machine->core]);
+        // The options a grid has are the ones it says, else the ones that are on by default and that it can have
+        $previous = Grid::at($environment, $machine->grid)->options();
+        $plan->options = (new GridOptions(Grid::planned($environment, $plan)))->selection(
+            $previous === null ? [] : ['options' => $previous],
         );
+
+        $provisioner = new OpenSim\Provisioning\GridProvisioner($ui);
+        $options = new ReflectionMethod($provisioner, 'applyOptions');
+        $options->invoke($provisioner, $plan, $environment, null);
+        $master = new ReflectionMethod($provisioner, 'writeMaster');
+        $master->invoke($provisioner, $plan);
     }
 
     test(
@@ -518,12 +536,10 @@ describe('grid made by the setup', function () {
         },
     );
 
-    test('keeps a feature the operator disabled after it was made', function () {
+    test('keeps an option the operator disabled after it was made', function () {
         $machine = master_machine();
         master_provision($machine);
-        (new Features(
-            Grid::find(EnvironmentFake::with(['EtcRoot' => $machine->etc, 'CoreDirectory' => $machine->core]), 'demo'),
-        ))->disable('search');
+        master_options($machine)->disable('search');
 
         master_provision($machine);
 
@@ -539,11 +555,11 @@ describe('grid made by the setup', function () {
 describe('offline messages of a grid', function () {
     test('are enabled in the simulators with the module V1 and the helpers, or the module V2 and Robust', function () {
         $machine = master_machine();
-        $features = master_features($machine);
+        $options = master_options($machine);
 
-        $helpers = $features->enable('offline', ['mode' => 'helpers', 'prefix' => 'https://web.example.org/helpers']);
+        $helpers = $options->enable('offline-helpers', ['prefix' => 'https://web.example.org/helpers']);
         $ini = ConfigReader::load($machine->grid . '/sims/alpha.ini', expand: false);
-        $robust = $features->enable('offline', ['mode' => 'robust']);
+        $robust = $options->enable('offline-robust');
         $v2 = ConfigReader::load($machine->grid . '/sims/alpha.ini', expand: false);
 
         expect($helpers['error'])
@@ -563,35 +579,44 @@ describe('offline messages of a grid', function () {
                 'OfflineMessageURL' => '${Const|PrivURL}:${Const|PrivatePort}',
             ]);
 
-        $features->disable('offline');
+        $options->disable('offline-robust');
         expect(ConfigReader::load($machine->grid . '/sims/alpha.ini', expand: false)['Messaging'] ?? [])->toBe([]);
     });
 
-    test('need the helpers for the module V1, and a module that exists', function () {
-        $features = master_features(master_machine());
+    test('need the helpers for the module V1, and an option that exists', function () {
+        $options = master_options(master_machine());
 
-        expect($features->enable('offline', ['mode' => 'helpers'])['error'])
+        expect($options->enable('offline-helpers')['error'])
             ->toContain('has no helpers')
-            ->toContain('--mode=robust')
-            ->and($features->enable('offline', ['mode' => 'v3'])['error'])
-            ->toContain("unknown module of offline messages 'v3'")
-            ->and(Features::isFeature('offline'))
-            ->toBeTrue();
+            ->toContain('offline-robust')
+            ->and($options->enable('offline-v3')['error'])
+            ->toContain("unknown option 'offline-v3'")
+            ->and($options->resolve('offline', 'robust')?->name())
+            ->toBe('offline-robust')
+            ->and($options->resolve('offline', 'v3'))
+            ->toBeNull();
     });
 
     test('are written in the config of a simulator for the module the grid uses', function () {
         $machine = master_machine();
-        $plan = master_plan($machine->grid, $machine->core);
-        $render = static fn(SimulatorPlan $plan): string => implode("\n", SimulatorConfig::gridLayer($plan));
+        $plan = new OpenSim\Provisioning\GridPlan();
+        $plan->gridNick = 'demo';
+        $plan->gridName = 'Demo World';
+        $plan->gridDir = $plan->etcDirectory = $machine->grid;
+        $plan->helpers = true;
+        $plan->webUrl = 'https://demo.example.org';
+        $plan->helpersPath = '/helpers';
+        $render = static function (array $options) use ($machine, $plan): string {
+            $plan->options = $options;
 
-        $follows = $render($plan);
-        $plan->offlineModule = 'robust';
-        $robust = $render($plan);
-        $plan->offlineModule = 'helpers';
-        $plan->offlineUrl = '';
-        $none = $render($plan);
+            return (new GridOptions(Grid::planned(EnvironmentFake::with(['EtcRoot' => $machine->etc]), $plan)))->layer();
+        };
 
-        expect($follows)
+        $helpers = $render(['offline-helpers']);
+        $robust = $render(['offline-robust']);
+        $none = $render(['profiles']);
+
+        expect($helpers)
             ->toContain(
                 'OfflineMessageModule = OfflineMessageModule',
                 'OfflineMessageURL = "https://demo.example.org/helpers/offline.php"',

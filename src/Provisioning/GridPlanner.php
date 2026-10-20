@@ -238,7 +238,7 @@ final class GridPlanner
                 Result::isTrue($answers['helpers'] ?? $c['helpersAvailable']) ? 'helpers' : 'robust',
             ),
             'economy' => self::choice($answers['economy'] ?? null, ['beta', 'gloebit'], 'beta'),
-            'ossl' => Result::isTrue($answers['ossl'] ?? false),
+            'ossl' => Result::isTrue($answers['ossl'] ?? $this->optionDefault('ossl')),
             'web_server' => self::choice($answers['web_server'] ?? null, ['caddy', 'apache', 'nginx'], $c['webServer']),
             'web_site' => self::choice($answers['web_site'] ?? null, ['helpers', 'website'], 'helpers'),
             'database_host' => $text(
@@ -355,8 +355,27 @@ final class GridPlanner
         $plan->dbName = $v['database_name'];
         $plan->dbUser = $v['database_user'];
         $plan->dbPass = $v['database_password'];
+        // The options: the ones asked for, else the ones the grid has when it is changed, else the ones that are on by default and
+        // that the grid can have
+        $plan->options = (new GridOptions(Grid::planned($this->environment(), $plan)))->selection(
+            $answers,
+            $this->context['currentGrid']?->options(),
+        );
+        $plan->ossl = in_array('ossl-extended', $plan->options, true);
 
         return $plan;
+    }
+
+    /** Whether the option that takes this answer is on by default (see OptionTemplate). */
+    private function optionDefault(string $answer): bool
+    {
+        foreach ((new Presets([], $this->environment()->layout->etcRoot()))->options() as $option) {
+            if ($option->group() === '' && $option->answer() === $answer) {
+                return $option->default();
+            }
+        }
+
+        return false;
     }
 
     /** The ports of an instance are a block of ten, the first free one: the public one ends with 2, the private one with 3. */

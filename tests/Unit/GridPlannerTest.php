@@ -274,7 +274,7 @@ describe('A new grid', function () {
 
 describe('The options of a new grid', function () {
     test(
-        'have their default: the search of the helpers, the beta currency, the OSSL of the core, the first web server the machine has',
+        'have their default: the search of the helpers, the beta currency, the extended OSSL, the first web server the machine has',
         function () {
             $v = planner(['helpersAvailable' => true, 'webServer' => 'nginx'])->resolve();
 
@@ -282,7 +282,7 @@ describe('The options of a new grid', function () {
                 ->toMatchArray([
                     'search' => 'internal',
                     'economy' => 'beta',
-                    'ossl' => false,
+                    'ossl' => true,
                     'web_server' => 'nginx',
                     'web_site' => 'helpers',
                     'helpers' => true,
@@ -325,12 +325,15 @@ describe('The options of a new grid', function () {
                 ->toBe('robust')
                 ->and($with->resolve(['offline' => 'nowhere'])['offline'])
                 ->toBe('helpers')
-                ->and(OpenSim\Provisioning\RobustConfig::connectors(true, true, 'helpers'))
-                ->not->toContain('OfflineIMServiceConnector')
-                ->and(OpenSim\Provisioning\RobustConfig::connectors(true, true, 'both'))
-                ->toContain('OfflineIMServiceConnector')
-                ->and(OpenSim\Provisioning\RobustConfig::connectors(false, false, 'robust'))
-                ->toContain('OfflineIMServiceConnector');
+                // The option that keeps them is the one that is on
+                ->and($with->plan([])->options)
+                ->toContain('offline-helpers')
+                ->not->toContain('offline-robust')
+                ->and($with->plan(['offline' => 'both'])->options)
+                ->toContain('offline-both')
+                ->not->toContain('offline-helpers')
+                ->and($without->plan([])->options)
+                ->toContain('offline-robust');
         },
     );
 

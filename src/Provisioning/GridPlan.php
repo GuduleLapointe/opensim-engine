@@ -52,6 +52,8 @@ final class GridPlan
     public string $economy = 'beta';
     /** More OSSL functions for the owners and the groups of the parcels (NPC, animations, drawing...). */
     public bool $ossl = false;
+    /** @var list<string> The options the grid has (see GridOptions): the presets that are on, by name. */
+    public array $options = [];
     /** The web server the configuration is written for (caddy, apache, nginx), and what it serves: 'helpers' or 'website'. */
     public string $webServer = 'caddy';
     public string $webSite = 'helpers';

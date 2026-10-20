@@ -12,7 +12,8 @@ use Symfony\Component\Yaml\Yaml;
  *
  *   grid:        name, nick, hostname, web_url, hypergrid, helpers, helpers_path, public_port, private_port,
  *                console (rest|screen), console_port, enable, start,
- *                options of a new grid: search (internal|shared|disabled), economy (beta|gloebit), ossl (true|false),
+ *                options of a new grid: search (internal|shared|disabled), options (the presets that are on, by name: a list, or a
+ *                map name => true|false: see GridOptions), or the answer each preset takes (economy: gloebit, ossl: true...),
  *                web_server (caddy|apache|nginx), web_site (helpers|website),
  *                database: host, name, user, password, admin_user, admin_password
  *   owner:       name (First Last), password, or password_hash and password_salt (as Robust keeps them),
@@ -47,6 +48,7 @@ final class SetupFile
         'offline' => 'grid.offline',
         'economy' => 'grid.economy',
         'ossl' => 'grid.ossl',
+        'options' => 'grid.options',
         'web_server' => 'grid.web_server',
         'web_site' => 'grid.web_site',
         'public_port' => 'grid.public_port',
@@ -328,7 +330,7 @@ final class SetupFile
             $value = self::get($data, strtr($path, $places));
             if ($value !== null && $value !== '') {
                 $values[$field] = is_array($value)
-                    ? array_values($value)
+                    ? $value
                     : (is_bool($value)
                         ? $value
                         : (string) $value);
@@ -384,7 +386,7 @@ final class SetupFile
             'search' => $plan->search,
             'offline' => $plan->offline,
             'economy' => $plan->economy,
-            'ossl' => $plan->ossl,
+            'options' => $plan->options,
             'web_server' => $plan->webServer,
             'web_site' => $plan->webSite,
             'public_port' => $plan->publicPort,

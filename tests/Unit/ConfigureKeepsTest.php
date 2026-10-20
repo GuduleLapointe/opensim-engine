@@ -120,15 +120,10 @@ describe('Configuring a grid that exists', function () {
                 return $grid;
             };
 
-            // A grid alone, without helpers: the bakes, the estates, the profiles
+            // A grid alone, without helpers: the bakes, the estates (the profiles and the offline messages are the options')
             $alone = $make(false, false);
             file_put_contents($alone->robustIni(), (new RobustConfig())->generate($alone));
-            expect($served($alone->robustIni()))->toBe([
-                'AssetServiceConnector',
-                'BakedTextureService',
-                'UserProfilesServiceConnector',
-                'EstateDataService',
-            ]);
+            expect($served($alone->robustIni()))->toBe(['AssetServiceConnector', 'BakedTextureService', 'EstateDataService']);
 
             // With helpers: the groups too
             $helpers = $make(true, false);
@@ -282,7 +277,7 @@ describe('Configuring a simulator that exists', function () {
     });
 
     test(
-        'has the profile service of the grid, and the search module and its registration when the grid has helpers',
+        'has what the options of its grid say: the profile service, and the search module and its registration when the grid has helpers',
         function () {
             $dir = test_tmp() . '/sim-' . bin2hex(random_bytes(4));
             mkdir("$dir/sims", 0o755, true);
@@ -295,10 +290,20 @@ describe('Configuring a simulator that exists', function () {
                 $plan->simulatorName = 'Sim';
                 $plan->baseHostname = 'play.example.org';
                 $plan->httpPort = 9000;
-                if ($helpers) {
-                    $plan->searchUrl = 'https://play.example.org/helpers/query.php';
-                    $plan->registerUrl = 'https://play.example.org/helpers/register.php';
-                }
+                $plan->optionsLayer = implode("\n", [
+                    ...$helpers
+                        ? [
+                            '[Search]',
+                            'Module = OpenSimSearch',
+                            'SearchURL = "https://play.example.org/helpers/query.php"',
+                            '[DataSnapshot]',
+                            'index_sims = true',
+                            'DATA_SRV_Alpha = "https://play.example.org/helpers/register.php"',
+                        ]
+                        : [],
+                    '[UserProfiles]',
+                    'ProfileServiceURL = "${Const|BaseURL}:${Const|PublicPort}"',
+                ]);
                 (new SimulatorConfig())->write($plan);
 
                 return (string) file_get_contents($plan->iniPath());
@@ -321,7 +326,7 @@ describe('What a grid tells its simulators of the connectors its Robust serves',
     test('is the counterpart of each: the bakes, the groups, the groups of the hypergrid', function () {
         $lines = static fn(array $connectors): string => implode(
             "\n",
-            SimulatorConfig::gridLayer(Grid::described(EnvironmentFake::with(), ['connectors' => $connectors])),
+            SimulatorConfig::connectorsLayer(Grid::described(EnvironmentFake::with(), ['connectors' => $connectors])),
         );
 
         $none = $lines([]);

@@ -27,14 +27,16 @@ final class GridProvisioner
     {
         $this->makeDirs($plan);
         $this->copyCoreData($plan);
+        // The options the grid had, which the description is about to say again
+        $previous = Grid::at($environment, $plan->gridDir)->options();
         $conf = (new GridConf())->write($plan);
         $this->ui->note(sprintf(_('Wrote %s'), $conf));
         // A standalone has no Robust: its simulator serves the grid
         $plan->standalone || $this->writeRobust($plan);
         $this->writeHelpers($plan);
         $this->copyConfigInclude($plan);
-        $this->writeMaster($plan, $environment);
-        $this->applyOptions($plan, $environment);
+        $this->applyOptions($plan, $environment, $previous);
+        $this->writeMaster($plan);
 
         $logConfig = $plan->standalone ? null : (new RobustLogConfig())->write($plan);
         if ($logConfig !== null) {
@@ -187,54 +189,41 @@ final class GridProvisioner
         }
     }
     /**
-     * The options of a grid that is made, which the files do not carry by themselves: more OSSL (an ini file combined into the one of
-     * the grid) and the currency. The default of each is what the files already say, nothing to do.
+     * The options of the grid (see GridOptions): each one the setup chose is laid over the files, and each one the grid had and the
+     * setup did not choose is taken off them. A grid that is changed keeps the options it has and the setup does not mention: they
+     * were decided by `opensim enable|disable`.
+     *
+     * @param ?list<string> $previous the options the grid had, null when it did not say
      */
-    private function applyOptions(GridPlan $plan, Environment $environment): void
+    private function applyOptions(GridPlan $plan, Environment $environment, ?array $previous): void
     {
-        foreach (GridOptions::enabled($plan) as $option) {
-            $target = GridOptions::target($option);
-            if (
-                $target !== null &&
-                ($file = GridOptions::combine($option, "{$plan->etcDirectory}/$target")) !== null
-            ) {
+        $options = new GridOptions(Grid::planned($environment, $plan), layered: true);
+        $report = function (string $name, array $result): void {
+            $result['error'] === null ||
+                $this->ui->warn(sprintf(_('The option %s was not applied: %s'), $name, $result['error']));
+            foreach ($result['files'] as $file) {
                 $this->ui->note(sprintf(_('Wrote %s'), $file));
             }
+            foreach ($result['notes'] as $note) {
+                $this->ui->note($note);
+            }
+        };
+        foreach ($previous === null ? [] : array_diff($previous, $plan->options) as $name) {
+            $report($name, $options->disable($name));
         }
-        if ($plan->economy !== 'gloebit') {
-            return;
-        }
-        $grid = Grid::find($environment, $plan->gridNick);
-        $result =
-            $grid === null
-                ? ['error' => 'the grid is not there', 'notes' => []]
-                : (new Features($grid))->enable(Features::ECONOMY, ['money' => 'gloebit']);
-        $result['error'] === null ||
-            $this->ui->warn(sprintf(_('The currency of the grid was not set: %s'), $result['error']));
-        foreach ($result['notes'] as $note) {
-            $this->ui->note($note);
+        foreach (array_diff($plan->options, $previous ?? []) as $name) {
+            $report($name, $options->enable($name));
         }
     }
 
     /**
-     * The master of the simulators of the grid: what the grid decides for them (the search, the offline messages, the profiles)
-     * goes in its OpenSim.ini, which the helpers read, when the grid is made (after that the operator and `opensim enable|disable`
-     * decide: a feature that was disabled stays so), then the master is made from the core, the model of the toolset, the grid and
-     * these decisions. The simulators say only what makes them their own.
+     * The master of the simulators of the grid, made from the core, the model of the toolset, the grid and the options it has. The
+     * simulators say only what makes them their own.
      */
-    private function writeMaster(GridPlan $plan, Environment $environment): void
+    private function writeMaster(GridPlan $plan): void
     {
-        $general = "{$plan->etcDirectory}/OpenSim.ini";
-        if (!is_file($general)) {
+        if (!is_file("{$plan->etcDirectory}/OpenSim.ini")) {
             return;
-        }
-        if (!SimulatorMaster::exists($plan->etcDirectory)) {
-            $ini = IniEditor::load($general);
-            $before = $ini->toString();
-            $ini->overlay(implode("\n", SimulatorConfig::gridLayer(Grid::planned($environment, $plan))));
-            if ($ini->toString() !== $before) {
-                $ini->save($general);
-            }
         }
         $master = (new SimulatorMaster())->ensure($plan->etcDirectory, $plan->binDir);
         $master !== null && $this->ui->note(sprintf(_('Wrote %s'), $master));

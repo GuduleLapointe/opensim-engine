@@ -92,6 +92,7 @@ final class Grid extends InstalledModel
         'helpersPath' => '/helpers',
         'search' => 'internal',
         'offline' => '',
+        'options' => null,
     ];
 
     /** @var array{0:array<string,string>,1:bool}|null what the grid said of itself, asked once */
@@ -409,7 +410,7 @@ final class Grid extends InstalledModel
                 'group' => 'remote',
                 'type' => 'string',
                 'required' => false,
-                'label' => _('Grid nick (snake_case)'),
+                'label' => _('Grid nick (snake_case, hyphens kept)'),
                 'description' => _('Empty: the grid tells it'),
             ],
             [
@@ -674,23 +675,16 @@ final class Grid extends InstalledModel
                 'connectors' => $plan->standalone
                     ? array_values(
                         array_intersect(
-                            \OpenSim\Provisioning\RobustConfig::connectors(
-                                $plan->helpers,
-                                $plan->enableHypergrid,
-                                $plan->offline,
-                            ),
+                            \OpenSim\Provisioning\RobustConfig::connectors($plan->helpers, $plan->enableHypergrid),
                             ['GroupsServiceConnector', 'HGGroupsServiceConnector'],
                         ),
                     )
                     : (is_file($robustIni)
                         ? RobustController::connectorsIn($robustIni)
-                        : \OpenSim\Provisioning\RobustConfig::connectors(
-                            $plan->helpers,
-                            $plan->enableHypergrid,
-                            $plan->offline,
-                        )),
+                        : \OpenSim\Provisioning\RobustConfig::connectors($plan->helpers, $plan->enableHypergrid)),
                 'search' => $plan->search,
                 'offline' => $plan->offline,
+                'options' => $plan->options === [] ? null : $plan->options,
                 'helpers' => $plan->helpers,
                 'webUrl' => $plan->webUrl,
                 'helpersPath' => $plan->helpersPath,
@@ -932,6 +926,9 @@ final class Grid extends InstalledModel
             'cacheDirectory' => $conf['CacheDirectory'] ?? $layout->cacheRoot() . "/$nick",
             'logsDirectory' => $conf['LogsDirectory'] ?? $layout->logsRoot(),
             'offline' => strtolower($conf['OfflineMessages'] ?? ''),
+            'options' => isset($conf['Options'])
+                ? array_values(array_filter(array_map('trim', explode(',', strtolower($conf['Options']))), 'strlen'))
+                : null,
         ];
         $robustIni = $this->robustFile();
         if ($robustIni === null && $this->hasStandaloneDescription()) {
@@ -1143,6 +1140,16 @@ final class Grid extends InstalledModel
     public function offlineModule(): string
     {
         return $this->offlineMode() === 'robust' ? 'robust' : ($this->helperUrl('offline') !== '' ? 'helpers' : '');
+    }
+
+    /**
+     * The options the grid has (see GridOptions), null when it does not say.
+     *
+     * @return ?list<string>
+     */
+    public function options(): ?array
+    {
+        return $this->get('options');
     }
 
     /** Whether Robust serves a connector of [ServiceList] (the keys the distribution comments: see RobustConfig::connectors()). */

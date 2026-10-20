@@ -92,7 +92,7 @@ final class SimulatorConfig
                     '[GridService]',
                     'MapTileDirectory = "${Const|CacheDirectory}/maptiles"',
                     '',
-                    ...self::gridLayer($plan, true),
+                    ...self::connectorsLayer($plan),
                     '[YEngine]',
                     'ScriptEnginesPath = "${Const|DataDirectory}/ScriptEngines"',
                     '',
@@ -116,84 +116,33 @@ final class SimulatorConfig
             ...$master ? [] : ['[Architecture]', 'Include-Architecture = "' . $architecture . '"', ''],
         ];
 
-        $text = implode("\n", $lines);
-        if ($plan->presetSettings !== '' && !$master) {
+        $ini = new IniEditor(implode("\n", $lines));
+        if (!$master) {
+            // The options of the grid, and the folder of the snapshots of the search
+            $ini->overlay($plan->optionsLayer);
+            $ini->set('DataSnapshot', 'snapshot_cache_directory', '"${Const|CacheDirectory}/DataSnapshot"');
             // The grid is joined by a preset and has no master: what the preset says for the simulators wins over what is above
-            $ini = new IniEditor($text);
             $ini->overlay($plan->presetSettings);
-            $text = $ini->toString();
         }
 
-        return $text;
+        return $ini->toString();
     }
 
     /**
-     * What a grid decides for its simulators, as lines of config: the search, the offline messages, the profiles. In the config of
-     * each simulator, or in the OpenSim.ini of the grid when it has a master (see SimulatorMaster).
+     * What a grid tells its simulators of the connectors its Robust serves, as lines of config: the bakes of the avatars and the groups.
+     * The counterpart of each is in the simulators, in their config or, when the grid has a master, in its OpenSim.ini (see
+     * SimulatorMaster).
      *
-     * @param bool $paths with the folder of the snapshot, which the model gives a simulator that has a master
      * @return list<string>
      */
-    public static function gridLayer(SimulatorPlan|Grid $from, bool $paths = false): array
+    public static function connectorsLayer(SimulatorPlan|Grid $from): array
     {
         $plan = $from instanceof SimulatorPlan;
-        $name = self::dataServiceNameOf(
-            $plan ? $from->gridNick : $from->nick(),
-            $plan ? $from->gridName : $from->name(),
-        );
-        $search = $plan ? $from->searchUrl : $from->helperUrl('query');
-        $register = $plan ? $from->registerUrl : $from->helperUrl('register');
-        $offline = $plan ? $from->offlineUrl : $from->helperUrl('offline');
-        // A grid that does not say follows its helpers
-        $module = $plan ? $from->offlineModule : $from->offlineModule();
-        $module !== '' || ($module = $offline !== '' ? 'helpers' : '');
         $standalone = $plan ? $from->standalone : $from->isStandalone();
+        $connectors = $plan ? $from->connectors : $from->connectors();
 
         return [
-            ...$search !== ''
-                ? [
-                    ';; The search of the grid: the module of the simulator asks the helpers for the places, the land for sale...',
-                    '[Search]',
-                    'Module = OpenSimSearch',
-                    'SearchURL = "' . $search . '"',
-                    '',
-                ]
-                : [],
-            '[DataSnapshot]',
-            ...$paths ? ['snapshot_cache_directory = "${Const|CacheDirectory}/DataSnapshot"'] : [],
-            ...$register !== ''
-                ? [
-                    ';; The search of the grid: the simulator tells its regions to the helpers',
-                    'index_sims = true',
-                    'gridname = "' . ($plan ? $from->gridName : $from->name()) . '"',
-                    'DATA_SRV_' . $name . ' = "' . $register . '"',
-                ]
-                : [],
-            '',
-            ...match (true) {
-                $module === 'robust' => [
-                    $standalone
-                        ? ';; The offline messages are kept by the simulator itself (module V2)'
-                        : ';; The offline messages are kept by Robust (module V2)',
-                    '[Messaging]',
-                    'OfflineMessageModule = "Offline Message Module V2"',
-                    ...$standalone ? [] : ['OfflineMessageURL = "${Const|PrivURL}:${Const|PrivatePort}"'],
-                    '',
-                ],
-                $module === 'helpers' && $offline !== '' => [
-                    ';; The offline messages are kept by the helpers of the grid',
-                    '[Messaging]',
-                    'OfflineMessageModule = OfflineMessageModule',
-                    'OfflineMessageURL = "' . $offline . '"',
-                    '',
-                ],
-                default => [],
-            },
-            ';; The profiles (and their classifieds) are kept by Robust, which the simulator asks',
-            '[UserProfiles]',
-            'ProfileServiceURL = "${Const|BaseURL}:${Const|PublicPort}"',
-            '',
-            ...in_array('BakedTextureService', $plan ? $from->connectors : $from->connectors(), true)
+            ...in_array('BakedTextureService', $connectors, true)
                 ? [
                     ';; The bakes of the avatars are kept by Robust',
                     '[XBakes]',
@@ -201,9 +150,7 @@ final class SimulatorConfig
                     '',
                 ]
                 : [],
-            ...in_array('GroupsServiceConnector', $plan ? $from->connectors : $from->connectors(), true)
-                ? self::groupsLayer($from, $standalone)
-                : [],
+            ...in_array('GroupsServiceConnector', $connectors, true) ? self::groupsLayer($from, $standalone) : [],
         ];
     }
 

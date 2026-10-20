@@ -48,6 +48,17 @@ The addresses are in the contract (`docs/api/`), with the format OpenSimulator a
 
 `Api\Router` holds the addresses of the API without a transport (`route($method, $path, $query, $body)`, and `get()`, `post()`, `patch()`, `delete()` for a program that calls it as a library); its adapters are thin: `Api\Handler` for a web host (PSR-15), `Api\Cli` for the command line (`opensim api GET /grids/demo/monitor`). `Api\Handler` is the API as a PSR-15 handler (`new Handler($api, $responseFactory, $streamFactory, base: '/api')`): the engine requires the PSR interfaces only, the application brings the implementation of the messages (the tests use nyholm/psr7). Its addresses are the ones of the contract, which it serves at `/openapi.json`. A host that serves one grid gives it as `grid:` and its endpoints lose the `/grids/{grid}` (`/motd`, `/destinations`, `/avatars`): these are the standard addresses of the services the catalog calls `standard`.
 
+## The options of a grid
+
+An option (search, economy, profiles, offline messages, extended OSSL, whatever an administrator invents) is a preset: a folder with an `option.conf` and the ini files it changes, in `<etc>/presets/<name>/` (the administrator's, which wins) or `share/presets/<name>/` (the ones of the kit). No option is code: `OpenSim\Provisioning\GridOptions` lays each ini of the folder over the file of the grid that has the same name, at the setup and later (`opensim enable|disable <grid> <option>`):
+
+- `OpenSim.ini` goes to the simulators (the OpenSim.ini of the grid, and the files of its simulators), `Robust.ini` to the services (Robust, or StandaloneCommon.ini for a standalone), any other path (`config-include/osslEnable.ini`) to the same file of the grid;
+- a setting is written as OpenSimulator reads it; `{{grid_name}}`, `{{search_url}}`... are put in by the grid (`GridOptions::variables()`), a setting with nothing to put in is not written; a setting without a value (`OfflineIMServiceConnector =`) switches on, as it is, the one the file has commented out;
+- disabling comments the settings out, with their values;
+- `option.conf` says what the option is and needs: label, offered in the setup or not, on by default, group of alternatives (`economy-beta`, `economy-gloebit`), what the grid must be or have, the modules of the install, the settings the administrator gives (the Gloebit keys), the settings written only once or kept when disabled. The keys are listed in `OptionTemplate`.
+
+The options a grid has are kept in its description (`Options = search, profiles`).
+
 ## Formatting
 
 Prettier with the PHP plugin (`.prettierrc.json`, `.editorconfig`), no PHP binary needed. The plugin has a known bug: it drops the parentheses of `($a ? $b : $c) ?: $d`, which then does not compile; write it in two statements. `php -l` every file it changed.

@@ -14,7 +14,7 @@ use OpenSim\Forms\FieldSet;
 use OpenSim\Models\Grid;
 use OpenSim\Models\Simulator;
 use OpenSim\OpenSim;
-use OpenSim\Provisioning\Features;
+use OpenSim\Provisioning\GridOptions;
 use OpenSim\Provisioning\GridConf;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\GridPlanner;
@@ -242,7 +242,7 @@ describe('The services of a standalone', function () {
     });
 });
 
-describe('The features of a standalone', function () {
+describe('The options of a standalone', function () {
     /** The standalone machine of StandaloneTest, with the common settings of its folder. */
     function standalone_features(): array
     {
@@ -253,13 +253,13 @@ describe('The features of a standalone', function () {
             "[UserProfilesService]\n    Enabled = false\n[GridInfoService]\n    gridname = \"x\"\n",
         );
 
-        return [$machine, new Features(Grid::find($machine->environment, 'solo')), $common];
+        return [$machine, new GridOptions(Grid::find($machine->environment, 'solo')), $common];
     }
 
     test('are set in its own common settings, where a grid sets them in Robust', function () {
-        [, $features, $common] = standalone_features();
+        [, $options, $common] = standalone_features();
 
-        $result = $features->enable(Features::PROFILES);
+        $result = $options->enable('profiles');
 
         expect($result['error'])
             ->toBeNull()
@@ -267,21 +267,21 @@ describe('The features of a standalone', function () {
             ->toBeTrue()
             ->and(ConfigReader::file($common)['UserProfilesService']['Enabled'])
             ->toBe('true')
-            ->and($features->disable(Features::PROFILES)['robust'])
+            ->and($options->disable('profiles')['robust'])
             ->toBeTrue()
-            ->and(ConfigReader::file($common)['UserProfilesService']['Enabled'])
-            ->toBe('false');
+            ->and(ConfigReader::file($common)['UserProfilesService'] ?? [])
+            ->not->toHaveKey('Enabled');
     });
 
     test('keep the offline messages in the simulator, with the module V2 and no address', function () {
-        [$machine, $features] = standalone_features();
+        [$machine, $options] = standalone_features();
         $ini = $machine->etc . '/grids/solo/sims/solo.ini';
         $machine->write(
             $ini,
             file_get_contents($ini) . "[Messaging]\n    OfflineMessageURL = \"https://x.example.org/offline.php\"\n",
         );
 
-        $result = $features->enable(Features::OFFLINE, ['mode' => 'robust']);
+        $result = $options->enable('offline-robust');
         $messaging = ConfigReader::file($ini)['Messaging'];
 
         expect($result['error'])
@@ -301,7 +301,9 @@ describe('The layer of a standalone for its simulator', function () {
         $plan = planner()->plan(['standalone' => true, 'name' => 'Solo World', 'nick' => 'solo'] + $set);
         $plan->webUrl = 'https://www.example.org';
 
-        return implode("\n", SimulatorConfig::gridLayer(Grid::planned($machine->environment, $plan)));
+        $grid = Grid::planned($machine->environment, $plan);
+
+        return implode("\n", SimulatorConfig::connectorsLayer($grid)) . "\n" . (new GridOptions($grid))->layer();
     }
 
     test('has the offline module V2 with no address, and the groups served by the simulator', function () {

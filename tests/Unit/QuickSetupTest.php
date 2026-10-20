@@ -162,13 +162,13 @@ describe('quick setup, what is wrong', function () {
     });
 
     test('shows the options chosen and the ones that are on whatever the answers, with what the setup does not apply yet', function () {
-        $quick = QuickSetup::plan((new Machine())->environment, quick_answers(['gloebit' => true, 'search' => 'yes']));
+        $quick = QuickSetup::plan((new Machine())->environment, quick_answers(['economy-gloebit' => true, 'search' => 'yes']));
         $options = array_column(array_filter($quick['rows'], static fn(array $r): bool => $r['section'] === 'options'), 'value', 'label');
 
         expect($options['Hypergrid'])
             ->toBe('yes')
-            ->and($options['Economy'])
-            ->toBe('Gloebit')
+            ->and($options['Economy: Gloebit'])
+            ->toBe('yes')
             ->and($options['Cross-grid search'])
             ->toBe('yes, the shared provider (2do.directory)')
             ->and($options['SSL'])
@@ -176,7 +176,7 @@ describe('quick setup, what is wrong', function () {
             ->and($options['Extended OSSL'])
             ->toBe('yes')
             ->and(array_keys($options))
-            ->toContain('Helpers', 'OpenSimSearch module', 'Offline messages', 'Profiles', 'Destination guide', 'Grid status');
+            ->toContain('Helpers', 'Search module (OpenSimSearch)', 'Offline messages: the helpers (module V1)', 'Profiles', 'Destination guide', 'Grid status');
     });
 
     test('has the helpers, the cross-grid search and the extended OSSL on by default', function () {
@@ -188,16 +188,16 @@ describe('quick setup, what is wrong', function () {
             ->toBe('shared')
             ->and($quick['setup']['grid']['economy'])
             ->toBe('beta')
-            ->and($quick['setup']['grid']['ossl'])
-            ->toBeTrue()
+            ->and($quick['setup']['grid']['options'])
+            ->toContain('ossl-extended', 'search', 'profiles', 'offline-helpers')
             ->and(array_column($quick['options'], 'value', 'name'))
-            ->toBe(['ssl' => false, 'hypergrid' => true, 'helpers' => true, 'search' => true, 'gloebit' => false, 'ossl' => true]);
+            ->toBe(['ssl' => false, 'hypergrid' => true, 'helpers' => true, 'search' => true, 'economy-gloebit' => false, 'ossl-extended' => true]);
     });
 
     test('has no search of its own when the helpers are off and the shared one is not wanted, and refuses Gloebit without the helpers', function () {
         $environment = (new Machine())->environment;
         $off = QuickSetup::plan($environment, quick_answers(['helpers' => false, 'search' => false]));
-        $gloebit = QuickSetup::plan($environment, quick_answers(['helpers' => false, 'gloebit' => true]));
+        $gloebit = QuickSetup::plan($environment, quick_answers(['helpers' => false, 'economy-gloebit' => true]));
 
         expect($off['problems'])
             ->toBe([])
@@ -206,7 +206,7 @@ describe('quick setup, what is wrong', function () {
             ->and($off['setup']['grid']['helpers'])
             ->toBeFalse()
             ->and($gloebit['problems'])
-            ->toBe(['gloebit' => 'needs Helpers']);
+            ->toBe(['economy-gloebit' => 'needs Helpers']);
     });
 
     test('tells the options and the types, for whoever shows the form', function () {
@@ -218,13 +218,13 @@ describe('quick setup, what is wrong', function () {
                 'hypergrid' => 'Hypergrid',
                 'helpers' => 'Helpers',
                 'search' => 'Cross-grid Search',
-                'gloebit' => 'Economy: Gloebit',
-                'ossl' => 'Extended OSSL',
+                'economy-gloebit' => 'Economy: Gloebit',
+                'ossl-extended' => 'Extended OSSL',
             ])
             ->and(array_column($quick['options'], 'implemented', 'name'))
-            ->toBe(['ssl' => false, 'hypergrid' => true, 'helpers' => true, 'search' => true, 'gloebit' => true, 'ossl' => true])
-            ->and($quick['setup']['grid']['ossl'])
-            ->toBeTrue()
+            ->toBe(['ssl' => false, 'hypergrid' => true, 'helpers' => true, 'search' => true, 'economy-gloebit' => true, 'ossl-extended' => true])
+            ->and($quick['setup']['grid']['options'])
+            ->toContain('ossl-extended')
             ->and($quick['types'])
             ->toBe([
                 ['name' => 'grid', 'label' => 'Grid', 'implemented' => true],
@@ -269,8 +269,8 @@ describe('quick setup, what is wrong', function () {
 
         expect(QuickSetup::plan($environment, quick_answers(['type' => 'nothing']))['problems'])
             ->toBe(['type' => 'invalid'])
-            ->and(QuickSetup::plan($environment, quick_answers(['ossl' => 'maybe']))['problems'])
-            ->toBe(['ossl' => 'invalid']);
+            ->and(QuickSetup::plan($environment, quick_answers(['ossl-extended' => 'maybe']))['problems'])
+            ->toBe(['ossl-extended' => 'invalid']);
     });
 
     test('keeps a login address that has no scheme or no port', function () {
@@ -628,14 +628,14 @@ describe('quick setup, the scenario', function () {
     test('asks for the options with their proposals, then shows everything the setup will do', function () {
         $machine = new Machine();
         $options = quick_until($machine, 'checks');
-        $review = quick_step($machine, $options, ['ossl' => true, 'gloebit' => true, 'hypergrid' => false]);
+        $review = quick_step($machine, $options, ['ossl-extended' => true, 'economy-gloebit' => true, 'hypergrid' => false]);
 
         expect($options['kind'])
             ->toBe('checks')
             ->and($options['title'])
             ->toBe('Options')
             ->and(array_column($options['items'], 'checked', 'name'))
-            ->toBe(['ssl' => false, 'hypergrid' => true, 'helpers' => true, 'search' => true, 'gloebit' => false, 'ossl' => true])
+            ->toBe(['ssl' => false, 'hypergrid' => true, 'helpers' => true, 'search' => true, 'economy-gloebit' => false, 'ossl-extended' => true])
             ->and(array_column($options['items'], 'note', 'name')['ssl'])
             ->toBe('not implemented')
             ->and($review)
@@ -643,14 +643,14 @@ describe('quick setup, the scenario', function () {
             ->and($review['buttons']['next'])
             ->toBe('Install')
             ->and(array_column(array_filter($review['rows'], static fn(array $r): bool => $r['section'] === 'options'), 'value', 'label'))
-            ->toMatchArray(['Hypergrid' => 'no', 'Economy' => 'Gloebit', 'Extended OSSL' => 'yes']);
+            ->toMatchArray(['Hypergrid' => 'no', 'Economy: Gloebit' => 'yes', 'Extended OSSL' => 'yes']);
         expect(quick_step($machine, $review, [], 'back')['kind'])->toBe('checks');
     });
 
     test('makes the folders and the files of a grid and of its first simulator when the review is confirmed', function () {
         $machine = new Machine();
         quick_core($machine);
-        $review = quick_until($machine, 'review', options: ['ossl' => true, 'search' => true, 'hypergrid' => true]);
+        $review = quick_until($machine, 'review', options: ['ossl-extended' => true, 'search' => true, 'hypergrid' => true]);
         $done = quick_step($machine, $review);
 
         expect($done['action'])
@@ -713,13 +713,13 @@ describe('quick setup, the scenario', function () {
         $machine = new Machine();
         $options = quick_until($machine, 'checks');
 
-        $again = quick_step($machine, $options, ['helpers' => false, 'gloebit' => true]);
+        $again = quick_step($machine, $options, ['helpers' => false, 'economy-gloebit' => true]);
 
         expect($again)
-            ->toMatchArray(['kind' => 'checks', 'notice' => 'Gloebit needs the helpers: Helpers is on.'])
+            ->toMatchArray(['kind' => 'checks', 'notice' => 'Economy: Gloebit needs the helpers: Helpers is on.'])
             ->and(array_column($again['items'], 'checked', 'name'))
-            ->toMatchArray(['helpers' => true, 'gloebit' => true])
-            ->and(quick_step($machine, $again, ['helpers' => true, 'gloebit' => true])['kind'])
+            ->toMatchArray(['helpers' => true, 'economy-gloebit' => true])
+            ->and(quick_step($machine, $again, ['helpers' => true, 'economy-gloebit' => true])['kind'])
             ->toBe('review');
     });
 

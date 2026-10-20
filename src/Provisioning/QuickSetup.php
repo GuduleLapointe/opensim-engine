@@ -28,11 +28,11 @@ final class QuickSetup
      * the plan of the grid, from its value and from all of them (nothing yet for SSL), `implemented` false that the setup does not
      * apply it yet.
      *
-     * @return array<string,array{label:string,default:bool,implemented:bool,plan:?\Closure}>
+     * @return array<string,array{label:string,default:bool,implemented:bool,plan:?\Closure,uses?:list<string>}>
      */
-    private static function options(): array
+    private static function options(Environment $environment): array
     {
-        return [
+        $options = [
             'ssl' => ['label' => 'SSL', 'default' => false, 'implemented' => false, 'plan' => null],
             'hypergrid' => [
                 'label' => 'Hypergrid',
@@ -55,19 +55,21 @@ final class QuickSetup
                     'search' => $on ? 'shared' : ($chosen['helpers'] ? 'internal' : 'disabled'),
                 ],
             ],
-            'gloebit' => [
-                'label' => 'Economy: Gloebit',
-                'default' => false,
-                'implemented' => true,
-                'plan' => static fn(bool $on): array => ['economy' => $on ? 'gloebit' : 'beta'],
-            ],
-            'ossl' => [
-                'label' => 'Extended OSSL',
-                'default' => true,
-                'implemented' => true,
-                'plan' => static fn(bool $on): array => ['ossl' => $on],
-            ],
         ];
+        // The others are presets that say they are offered (see OptionTemplate): the administrator adds one by adding a folder
+        foreach ((new Presets([], $environment->layout->etcRoot()))->options() as $name => $template) {
+            if ($template->offered() && !isset($options[$name])) {
+                $options[$name] = [
+                    'label' => $template->label(),
+                    'default' => $template->default(),
+                    'implemented' => true,
+                    'plan' => null,
+                    'uses' => $template->uses(),
+                ];
+            }
+        }
+
+        return $options;
     }
 
     /**
@@ -137,7 +139,7 @@ final class QuickSetup
             'problems' => $built['problems'],
             'corrected' => $built['corrected'],
             'setup' => SetupFile::withSimulator(SetupFile::withGrid([], $built['plan']), $built['simulator']),
-            'rows' => self::rows($built['plan'], $built['simulator'], $built['standalone'], trim((string) ($answers['email'] ?? '')), $built['chosen']),
+            'rows' => self::rows($built['plan'], $built['simulator'], $built['standalone'], trim((string) ($answers['email'] ?? '')), $built['chosen'], $built['labels']),
             'types' => self::publicTypes($built['types']),
             'options' => array_map(
                 static fn(string $name, array $option): array => [
@@ -177,7 +179,7 @@ final class QuickSetup
         $standalone = $type === 'standalone';
 
         // The options: what is chosen, and what each sets in the plan of the grid
-        $options = self::options();
+        $options = self::options($environment);
         foreach ((new FieldSet(array_map(static fn(string $name): array => ['name' => $name, 'type' => 'boolean'], array_keys($options))))->problems($answers) as $name => $message) {
             $problems[$name] = $message;
         }
@@ -188,10 +190,15 @@ final class QuickSetup
         }
         $fromOptions = [];
         foreach ($options as $name => $option) {
-            $fromOptions = ($option['plan'] !== null ? ($option['plan'])($chosen[$name], $chosen) : []) + $fromOptions;
+            if ($option['plan'] === null) {
+                // A preset: it is on or off by name, and what needs the helpers cannot be on without them
+                $fromOptions['options'][$name] = $chosen[$name];
+                $chosen[$name] && !$chosen['helpers'] && in_array('helpers', $option['uses'] ?? [], true) && ($problems[$name] = _('needs Helpers'));
+
+                continue;
+            }
+            $fromOptions = ($option['plan'])($chosen[$name], $chosen) + $fromOptions;
         }
-        // A module that is served by the helpers needs them
-        $chosen['gloebit'] && !$chosen['helpers'] && ($problems['gloebit'] = _('needs Helpers'));
 
         // The grid. What is right or wrong, and what is corrected, is said by the fields of the models: the answers go to them as given,
         // and the plan is made of the corrected ones (the person confirms a correction by sending the form again).
@@ -233,6 +240,7 @@ final class QuickSetup
             'simulator' => $simulator,
             'standalone' => $standalone,
             'chosen' => $chosen,
+            'labels' => array_map(static fn(OptionTemplate $t): string => $t->label(), (new Presets([], $environment->layout->etcRoot()))->options()),
             'types' => $types,
             'options' => $options,
         ];
@@ -298,18 +306,25 @@ final class QuickSetup
                 // What a simulator joins is the grid's: there are no options to choose
                 return $remote
                     ? self::screenReview($environment, self::pinned($environment, $answers))
-                    : self::screenOptions($answers, '');
+                    : self::screenOptions($environment, $answers, '');
 
             case 'options':
-                $answers = self::keep($answers, $given, array_keys(self::options()), true);
+                $options = self::options($environment);
+                $answers = self::keep($answers, $given, array_keys($options), true);
                 if ($button === 'back') {
                     return self::screenForm($environment, $answers, '');
                 }
-                // A module served by the helpers puts them on, and the person is told
-                if (Result::isTrue($answers['gloebit'] ?? false) && !Result::isTrue($answers['helpers'] ?? true)) {
-                    $answers['helpers'] = true;
+                // What is served by the helpers puts them on, and the person is told
+                foreach ($options as $name => $option) {
+                    if (
+                        Result::isTrue($answers[$name] ?? $option['default']) &&
+                        in_array('helpers', $option['uses'] ?? [], true) &&
+                        !Result::isTrue($answers['helpers'] ?? true)
+                    ) {
+                        $answers['helpers'] = true;
 
-                    return self::screenOptions($answers, _('Gloebit needs the helpers: Helpers is on.'));
+                        return self::screenOptions($environment, $answers, sprintf(_('%s needs the helpers: Helpers is on.'), $option['label']));
+                    }
                 }
                 if (($screen = self::checkForm($environment, $answers)) !== null) {
                     return $screen;
@@ -327,7 +342,7 @@ final class QuickSetup
 
             case 'review':
                 if ($button === 'back') {
-                    return $remote ? self::screenForm($environment, $answers, '') : self::screenOptions($answers, '');
+                    return $remote ? self::screenForm($environment, $answers, '') : self::screenOptions($environment, $answers, '');
                 }
 
                 return self::install($environment, $answers);
@@ -389,10 +404,10 @@ final class QuickSetup
     }
 
     /** The options, each with its proposal or the last choice. */
-    private static function screenOptions(array $answers, string $notice): array
+    private static function screenOptions(Environment $environment, array $answers, string $notice): array
     {
         $items = [];
-        foreach (self::options() as $name => $option) {
+        foreach (self::options($environment) as $name => $option) {
             $given = $answers[$name] ?? null;
             $items[] = [
                 'name' => $name,
@@ -441,7 +456,7 @@ final class QuickSetup
         $quick = self::plan($environment, self::answersOf($answers));
         $answers = array_replace($answers, $quick['corrected']);
         $fields = self::fields($environment, $answers);
-        $labels = array_map(static fn(array $field): string => $field[0], $fields) + array_map(static fn(array $o): string => $o['label'], self::options());
+        $labels = array_map(static fn(array $field): string => $field[0], $fields) + array_map(static fn(array $o): string => $o['label'], self::options($environment));
         $lines = [];
         foreach ($quick['problems'] as $question => $message) {
             $lines[] = sprintf('Error: %s %s', $labels[$question] ?? $question, $message);
@@ -896,9 +911,10 @@ final class QuickSetup
      * proposed and the answers, so that nothing the setup will do is a surprise.
      *
      * @param array<string,bool> $chosen the options, by name
+     * @param array<string,string> $labels the labels of the presets, by name
      * @return list<array{section:string,label:string,value:string}>
      */
-    private static function rows(GridPlan $plan, SimulatorPlan $simulator, bool $standalone, string $email, array $chosen): array
+    private static function rows(GridPlan $plan, SimulatorPlan $simulator, bool $standalone, string $email, array $chosen, array $labels): array
     {
         $rows = [];
         $add = static function (string $section, string $label, string $value) use (&$rows): void {
@@ -923,16 +939,14 @@ final class QuickSetup
         $add('grid', 'Grid folder', $plan->etcDirectory);
 
         // What the person chose, then what is on whatever the answers (the helpers and what they serve)
-        $todo = static fn(string $name, string $value): string => $value . (self::options()[$name]['implemented'] ? '' : ' (not implemented)');
-        $add('options', 'Hypergrid', $todo('hypergrid', $yes($plan->enableHypergrid)));
-        $add('options', 'SSL', $todo('ssl', $yes($chosen['ssl'] ?? false)));
-        $add('options', 'Cross-grid search', $todo('search', $plan->search === 'shared' ? 'yes, the shared provider (2do.directory)' : 'no, the search of this grid'));
-        $add('options', 'Economy', $todo('gloebit', $plan->economy === 'gloebit' ? 'Gloebit' : 'BetaGridLikeMoneyModule'));
-        $add('options', 'Extended OSSL', $todo('ossl', $yes($plan->ossl)));
+        $add('options', 'Hypergrid', $yes($plan->enableHypergrid));
+        $add('options', 'SSL', $yes($chosen['ssl'] ?? false) . ' (not implemented)');
+        $add('options', 'Cross-grid search', $plan->search === 'shared' ? 'yes, the shared provider (2do.directory)' : 'no, the search of this grid');
         $add('options', 'Helpers', $plan->helpers ? "yes, served at {$plan->webUrl}{$plan->helpersPath}" : 'no');
-        $add('options', 'OpenSimSearch module', $yes($plan->search !== 'disabled'));
-        $add('options', 'Offline messages', ['helpers' => 'the helpers (module V1)', 'robust' => 'the grid (module V2)', 'both' => 'both'][$plan->offline] ?? $plan->offline);
-        $add('options', 'Profiles', $yes($plan->helpers));
+        // The presets that are on, asked or not
+        foreach ($plan->options as $name) {
+            $add('options', $labels[$name] ?? $name, 'yes');
+        }
         $add('options', 'Destination guide', $yes($plan->helpers));
         $add('options', 'Grid status', $yes($plan->helpers));
 

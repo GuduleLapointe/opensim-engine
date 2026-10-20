@@ -41,7 +41,7 @@ final class Presets
         foreach ($this->roots as $root) {
             foreach (glob("$root/*", GLOB_ONLYDIR) ?: [] as $dir) {
                 $name = basename($dir);
-                if (!isset($names[$name]) && $this->path($name) !== null) {
+                if (!isset($names[$name]) && !OptionTemplate::is($dir) && $this->path($name) !== null) {
                     $names[$name] = $this->describe($name)['name'] ?? $name;
                 }
             }
@@ -51,6 +51,27 @@ final class Presets
         return $names;
     }
 
+    /**
+     * The options there are: the presets that have an `option.conf` (see OptionTemplate), by name. The first folder that has one
+     * of a name wins, so that the administrator's own replaces the one of the kit.
+     *
+     * @return array<string,OptionTemplate>
+     */
+    public function options(): array
+    {
+        $options = [];
+        foreach ($this->roots as $root) {
+            foreach (glob("$root/*", GLOB_ONLYDIR) ?: [] as $dir) {
+                if (OptionTemplate::is($dir) && self::valid(basename($dir))) {
+                    $options[basename($dir)] ??= new OptionTemplate($dir);
+                }
+            }
+        }
+        ksort($options);
+
+        return $options;
+    }
+
     /** The folder of a preset, null when there is none of that name. */
     public function path(string $name): ?string
     {
@@ -58,7 +79,7 @@ final class Presets
             return null;
         }
         foreach ($this->roots as $root) {
-            if (is_dir("$root/$name")) {
+            if (is_dir("$root/$name") && !OptionTemplate::is("$root/$name")) {
                 return "$root/$name";
             }
         }

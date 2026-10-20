@@ -68,13 +68,8 @@ final class SimulatorPlan
     public string $logsDirectory = '';
 
     // Its estate, whose owner is an account of the grid.
-    /** The helpers of the grid the simulator tells its offline messages and its data to (empty without helpers) */
-    public string $offlineUrl = '';
-    /** The module of offline messages the simulator uses: 'helpers' (V1), 'robust' (V2), empty to follow its helpers. */
-    public string $offlineModule = '';
-    public string $registerUrl = '';
-    /** The search service of the helpers, which the module of search of the simulator asks (empty without helpers) */
-    public string $searchUrl = '';
+    /** What the options of the grid say for its simulators, as the text of an ini (see GridOptions::layer()); empty when the grid has a master. */
+    public string $optionsLayer = '';
     /** @var list<string> The connectors the Robust of the grid serves besides the usual ones (see Grid::connectors()). */
     public array $connectors = [];
 

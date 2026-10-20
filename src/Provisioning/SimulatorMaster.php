@@ -19,7 +19,7 @@ use OpenSim\Models\Grid;
  *     read-only, and the storage;
  *  3. what the grid is: its folders, its address and ports (those of its Robust), its architecture and its OSSL;
  *  4. what the grid decided: the settings its OpenSim.ini adds to the one of the core (the search, the offline messages, the
- *     economy, the profiles... see Features), which the helpers read in the same file.
+ *     economy, the profiles... see GridOptions), which the helpers read in the same file.
  *
  * A grid joined by a preset (a grid that runs elsewhere, OSGrid...) has the same: its folder is `<etc>/grids/<nick>` for the
  * description of the grid and its simulators, and the folder of its preset (`<etc>/presets/<name>`, the structure of a grid's folder)

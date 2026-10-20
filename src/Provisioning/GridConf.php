@@ -66,6 +66,7 @@ final class GridConf
             "RegionSpacing = {$plan->regionSpacing}",
             "Center = {$plan->center}",
             "OfflineMessages = {$plan->offline}",
+            'Options = ' . implode(', ', $plan->options),
             ...$plan->standalone
                 ? [
                     ';; A standalone: its simulator serves the grid itself, its address and its database are its own',

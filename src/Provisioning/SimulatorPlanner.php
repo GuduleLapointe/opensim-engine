@@ -348,12 +348,9 @@ final class SimulatorPlanner
         $plan->dbUser = $v['database_user'];
         $plan->dbPass = $v['database_password'];
 
-        // The helpers of the grid, when it has some: offline messages and the search index
-        $plan->offlineUrl = $grid->helperUrl('offline');
-        $plan->offlineModule = $grid->offlineModule();
-        $plan->registerUrl = $grid->helperUrl('register');
-        $plan->searchUrl = $grid->helperUrl('query');
+        // What the grid decides for its simulators (its options), when their config is whole: with a master it is the master's
         $plan->connectors = $grid->connectors();
+        $plan->optionsLayer = SimulatorMaster::exists($grid->directory()) ? '' : (new GridOptions($grid))->layer();
 
         $plan->estateName = $v['estate_name'];
         if ($v['estate_owner'] === '+') {
