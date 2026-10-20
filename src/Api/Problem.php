@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OpenSim\Api;
 
 use OpenSim\Exceptions\ChannelUnavailable;
+use OpenSim\Exceptions\InstanceFailed;
 use OpenSim\Exceptions\NotFound;
 
 /**
@@ -49,6 +50,13 @@ final class Problem
                 'Invalid request',
                 $error->getMessage(),
                 'urn:opensim:problem:invalid-request',
+                $instance,
+            ),
+            $error instanceof InstanceFailed => new self(
+                500,
+                'Instance failed',
+                $error->getMessage(),
+                'urn:opensim:problem:instance-failed',
                 $instance,
             ),
             $error instanceof ChannelUnavailable => new self(

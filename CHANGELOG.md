@@ -2,6 +2,8 @@
 
 ### Unreleased
 
+- update: `start|stop|restart` give an `Outcome` and throw `InstanceFailed`; ports and status are the instance's
+- update: the rules of names, addresses and e-mail are the models' (`HasName`, `Avatar::validateName()`); no dot in a region name
 - new: `POST /setups/quick` (`QuickSetup`): a few answers, the whole setup they stand for, and what is wrong with them
 - new: `lib/rc-helpers` (`read_rc`): the scripts run the commands of the `.env` and of `~/.opensimrc`
 - new: `bin/opensim-api`, the API on the command line, for tools that are not PHP

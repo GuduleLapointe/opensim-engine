@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OpenSim\Provisioning;
 
+use OpenSim\Exceptions\InstanceFailed;
 use OpenSim\OpenSim;
 
 /**
@@ -45,7 +46,7 @@ final class InstanceControl
                 ? OpenSim::restart($target, $now, $environment)
                 : OpenSim::start($target, $environment);
         foreach ($results as $result) {
-            if (!$result->ok()) {
+            if ($result instanceof InstanceFailed) {
                 return [1, $reporter->said()];
             }
         }

@@ -7,6 +7,8 @@ declare(strict_types=1);
  * no other simulator can join it. What the setup plans and writes for it.
  */
 
+use OpenSim\Runtime\Outcome;
+use OpenSim\Exceptions\InstanceFailed;
 use OpenSim\Config\ConfigReader;
 use OpenSim\Forms\FieldSet;
 use OpenSim\Models\Grid;
@@ -465,8 +467,8 @@ describe('The life of a standalone', function () {
 
         expect($results)
             ->toHaveCount(1)
-            ->and($results[0]->ok())
-            ->toBeTrue()
+            ->and(array_values($results)[0])
+            ->toBe(Outcome::Stopped)
             ->and($machine->processes->all())
             ->toBe([]);
     });
@@ -478,9 +480,9 @@ describe('The life of a standalone', function () {
 
         expect($results)
             ->toHaveCount(1)
-            ->and($results[0]->ok())
-            ->toBeFalse()
-            ->and($results[0]->message)
+            ->and($results['solo'])
+            ->toBeInstanceOf(InstanceFailed::class)
+            ->and($results['solo']->getMessage())
             ->toContain('no simulator enabled');
     });
 

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace OpenSim\Runtime;
 
 /**
- * What became of an instance a start or a stop was asked for.
+ * What became of an instance a start or a stop was asked for, when it did not fail (see InstanceFailed).
  */
 enum Outcome: string
 {
@@ -19,12 +19,4 @@ enum Outcome: string
     case Stopped = 'stopped';
     /** It was not running. */
     case NotRunning = 'not running';
-    /** It could not be started or stopped. */
-    case Failed = 'failed';
-
-    /** Whether nothing went wrong. */
-    public function ok(): bool
-    {
-        return $this !== self::Failed;
-    }
 }

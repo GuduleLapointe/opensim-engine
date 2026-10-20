@@ -10,13 +10,14 @@ use OpenSim\Config\GridFileService;
 use OpenSim\Config\InstanceSettings;
 use OpenSim\Console\ConsoleInterface;
 use OpenSim\Data\Database;
+use OpenSim\Exceptions\InstanceFailed;
 use OpenSim\Interfaces\Enablable;
 use OpenSim\Models\Grid;
 use OpenSim\Runtime\Core;
 use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\LogFile;
 use OpenSim\Runtime\Process;
-use OpenSim\Runtime\InstanceResult;
+use OpenSim\Runtime\Outcome;
 use OpenSim\Runtime\StartService;
 use OpenSim\Runtime\StopService;
 use OpenSim\Config\GridConfig;
@@ -456,19 +457,26 @@ abstract class AbstractController implements Enablable
         return $this->environment->consoles->sessionExists($this->name) || $this->process() !== null;
     }
 
-    public function start(): InstanceResult
+    /** @throws InstanceFailed when it could not be started */
+    public function start(): Outcome
     {
         return (new StartService($this->environment))->start($this);
     }
 
-    /** @param bool $now stop without warning the users */
-    public function stop(bool $now = false): InstanceResult
+    /**
+     * @param bool $now stop without warning the users
+     * @throws InstanceFailed when it could not be stopped
+     */
+    public function stop(bool $now = false): Outcome
     {
         return (new StopService($this->environment))->stop($this, $now);
     }
 
-    /** @param bool $now stop without warning the users */
-    public function restart(bool $now = false): InstanceResult
+    /**
+     * @param bool $now stop without warning the users
+     * @throws InstanceFailed when it could not be stopped or started
+     */
+    public function restart(bool $now = false): Outcome
     {
         $this->stop($now);
 

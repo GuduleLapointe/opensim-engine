@@ -21,7 +21,8 @@ use OpenSim\Network\GridInfoCache;
 use OpenSim\Text\DestinationList;
 use OpenSim\Runtime\Environment;
 use OpenSim\Result;
-use OpenSim\Runtime\InstanceResult;
+use OpenSim\Exceptions\InstanceFailed;
+use OpenSim\Runtime\Outcome;
 
 /**
  * A grid: the folder `<etc>/grids/<nick>` that holds its Robust config, its description (`<nick>.conf`) and the configs of
@@ -1761,19 +1762,22 @@ final class Grid extends InstalledModel
     /**
      * Start the services of the grid, then its simulators when asked. A simulator is not started when Robust did not come up.
      *
-     * @return list<InstanceResult>
+     * @return array<string,Outcome|InstanceFailed> what became of each instance, by its name
      */
     public function start(bool $simulators = false): array
     {
         $results = [];
         $serving = false;
         foreach ($this->instances($simulators) as $instance) {
-            $result = $instance->start();
-            $results[] = $result;
-            if ($instance instanceof RobustController && !$result->ok()) {
-                break;
+            try {
+                $results[$instance->name()] = $instance->start();
+                $serving = $serving || $instance instanceof RobustController || $this->isStandalone();
+            } catch (InstanceFailed $failed) {
+                $results[$instance->name()] = $failed;
+                if ($instance instanceof RobustController) {
+                    break;
+                }
             }
-            $serving = $serving || ($result->ok() && ($instance instanceof RobustController || $this->isStandalone()));
         }
         // What the grid says is what it says since it started: verified now, kept
         $serving && $this->refreshInfo();
@@ -1784,23 +1788,32 @@ final class Grid extends InstalledModel
     /**
      * Stop the services of the grid, its simulators first when asked.
      *
-     * @return list<InstanceResult>
+     * @return array<string,Outcome|InstanceFailed> what became of each instance, by its name
      */
     public function stop(bool $now = false, bool $simulators = false): array
     {
-        return array_map(
-            static fn(AbstractController $i): InstanceResult => $i->stop($now),
-            array_reverse($this->instances($simulators)),
-        );
+        $results = [];
+        foreach (array_reverse($this->instances($simulators)) as $instance) {
+            try {
+                $results[$instance->name()] = $instance->stop($now);
+            } catch (InstanceFailed $failed) {
+                $results[$instance->name()] = $failed;
+            }
+        }
+
+        return $results;
     }
 
     /**
      * Restart the services of the grid, and its simulators when asked: everything stops, then everything starts.
      *
-     * @return list<InstanceResult>
+     * @return array<string,Outcome|InstanceFailed> what became of each instance, by its name
      */
     public function restart(bool $now = false, bool $simulators = false): array
     {
-        return [...$this->stop($now, $simulators), ...$this->start($simulators)];
+        $stopped = array_filter($this->stop($now, $simulators), static fn($r): bool => $r instanceof InstanceFailed);
+
+        // One that did not stop keeps its failure
+        return $stopped + $this->start($simulators);
     }
 }

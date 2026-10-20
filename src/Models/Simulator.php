@@ -12,7 +12,7 @@ use OpenSim\Runtime\Core;
 use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\LogFile;
 use OpenSim\Runtime\Process;
-use OpenSim\Runtime\InstanceResult;
+use OpenSim\Runtime\Outcome;
 
 /**
  * A simulator: what runs one or several regions of a grid, with the config it is made of (its `<name>.ini`). Its identity, its
@@ -336,17 +336,17 @@ final class Simulator extends InstalledModel
         return $this->controller->canBeEnabled() ? ['ini'] : [];
     }
 
-    public function start(): InstanceResult
+    public function start(): Outcome
     {
         return $this->controller->start();
     }
 
-    public function stop(bool $now = false): InstanceResult
+    public function stop(bool $now = false): Outcome
     {
         return $this->controller->stop($now);
     }
 
-    public function restart(bool $now = false): InstanceResult
+    public function restart(bool $now = false): Outcome
     {
         return $this->controller->restart($now);
     }

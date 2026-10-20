@@ -6,6 +6,7 @@ namespace OpenSim\Runtime;
 
 use OpenSim\Console\ScreenInterface;
 use OpenSim\Controllers\AbstractController;
+use OpenSim\Exceptions\InstanceFailed;
 use OpenSim\Controllers\OpenSimController;
 
 /**
@@ -28,7 +29,7 @@ final class StartService
 
     public function __construct(private readonly Environment $environment) {}
 
-    public function start(AbstractController $instance): InstanceResult
+    public function start(AbstractController $instance): Outcome
     {
         $env = $this->environment;
         $name = $instance->name();
@@ -36,10 +37,10 @@ final class StartService
 
         // Only starting needs a core: stop and status work without one
         if ($core === null || !$core->exists()) {
-            return $this->fail($name, 'could not find OpenSim.exe');
+            $this->fail($name, 'could not find OpenSim.exe');
         }
         if (!is_file($instance->ini())) {
-            return $this->fail($name, 'no ini file found for ' . $name);
+            $this->fail($name, 'no ini file found for ' . $name);
         }
 
         // Dead sessions are dropped so that they are not mistaken for a running one
@@ -47,7 +48,7 @@ final class StartService
         if ($instance->isRunning()) {
             $env->reporter->debug("$name is already running");
 
-            return new InstanceResult($name, Outcome::Running);
+            return Outcome::Running;
         }
         $env->reporter->info("starting $name");
 
@@ -55,14 +56,14 @@ final class StartService
         $runtime = $core->runtime($base);
         $executable = $core->executable($base);
         if (!is_dir($core->bin())) {
-            return $this->fail($name, "$name Cannot cd to {$core->bin()}");
+            $this->fail($name, "$name Cannot cd to {$core->bin()}");
         }
         if (!is_file($core->bin() . "/$executable")) {
-            return $this->fail($name, "Executable $executable not found");
+            $this->fail($name, "Executable $executable not found");
         }
         // Fail early with a clear message if the runtime is missing, rather than letting the instance crash on launch
         if (($problem = $env->probe->problem($core, $executable)) !== null) {
-            return $this->fail($name, $problem);
+            $this->fail($name, $problem);
         }
         // A region stops at once without libgdiplus (dynamic textures)
         if (
@@ -71,14 +72,14 @@ final class StartService
             PHP_OS_FAMILY === 'Linux' &&
             !$env->probe->hasLibrary('gdiplus')
         ) {
-            return $this->fail(
+            $this->fail(
                 $name,
                 "$name cannot start: the native library libgdiplus is missing. Install it with: sudo apt install libgdiplus (or sudo opensim install-dotnet)",
             );
         }
         // A simulator needs a region: without one it waits for the answers of a first start, on a console nobody reads
         if ($instance instanceof OpenSimController && $base === 'OpenSim' && !$instance->hasRegion()) {
-            return $this->fail(
+            $this->fail(
                 $name,
                 "$name has no region to load (all disabled, or none yet): add one first, with opensim setup",
             );
@@ -108,7 +109,7 @@ final class StartService
 
         $logConfig = $this->logConfig($instance, $base, $core->bin());
         if ($logConfig === false) {
-            return $this->fail($name, "could not make the log config of $name from {$core->bin()}/$base.exe.config");
+            $this->fail($name, "could not make the log config of $name from {$core->bin()}/$base.exe.config");
         }
         $logPath = $instance->logFile()->path();
         if ($logConfig !== '') {
@@ -162,14 +163,14 @@ final class StartService
         );
         try {
             if (!$env->launcher->launch($spec)) {
-                return $this->fail($name, "$name failed to start: the launcher could not run it");
+                $this->fail($name, "$name failed to start: the launcher could not run it");
             }
             // Confirm it came up: an immediate exit (a missing or incompatible runtime) would leave us waiting for nothing
             $env->clock->sleep(1);
             if (!$instance->isRunning()) {
                 $this->tell($output, 0);
 
-                return $this->fail($name, "$name failed to start: the process exited immediately");
+                $this->fail($name, "$name failed to start: the process exited immediately");
             }
 
             return $this->wait($instance, $base, $log, $mark, $output, $remote !== null);
@@ -186,7 +187,7 @@ final class StartService
         int $mark,
         string $output,
         bool $remote,
-    ): InstanceResult {
+    ): Outcome {
         $env = $this->environment;
         $name = $instance->name();
         $failed = [];
@@ -219,9 +220,9 @@ final class StartService
             case 0:
                 $env->reporter->info("$name started");
 
-                return new InstanceResult($name, Outcome::Started);
+                return Outcome::Started;
             case 4:
-                return $this->fail(
+                $this->fail(
                     $name,
                     "$name is up but these services failed to load: " . implode(' ', $failed),
                     "Its log: {$log->path()}",
@@ -229,11 +230,11 @@ final class StartService
             case 3:
                 $this->tell($output, 20);
 
-                return $this->fail($name, "$name exited while starting");
+                $this->fail($name, "$name exited while starting");
             default:
                 $env->reporter->info("$name still starting, let it run and check status later");
 
-                return new InstanceResult($name, Outcome::Starting);
+                return Outcome::Starting;
         }
     }
 
@@ -406,12 +407,12 @@ final class StartService
         $this->environment->reporter->error(implode("\n", $last > 0 ? array_slice($lines, -$last) : $lines));
     }
 
-    private function fail(string $name, string $message, string $debug = ''): InstanceResult
+    private function fail(string $name, string $message, string $debug = ''): never
     {
         $this->environment->reporter->stepEnd();
         $this->environment->reporter->error($message);
         $debug !== '' && $this->environment->reporter->debug($debug);
 
-        return InstanceResult::failed($name, $message);
+        throw new InstanceFailed($name, $message);
     }
 }

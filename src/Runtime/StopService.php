@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OpenSim\Runtime;
 
 use OpenSim\Controllers\AbstractController;
+use OpenSim\Exceptions\InstanceFailed;
 use OpenSim\Controllers\OpenSimController;
 
 /**
@@ -29,7 +30,7 @@ final class StopService
     }
 
     /** @param bool $now stop without warning the users */
-    public function stop(AbstractController $instance, bool $now = false): InstanceResult
+    public function stop(AbstractController $instance, bool $now = false): Outcome
     {
         $env = $this->environment;
         $name = $instance->name();
@@ -65,11 +66,11 @@ final class StopService
         }
         $env->portMapping?->stop($name, $instance->ini(), $instance->ports());
 
-        return match (true) {
-            !$stopped => InstanceResult::failed($name, "$name still running after being killed"),
-            $process !== null => new InstanceResult($name, Outcome::Stopped),
-            default => new InstanceResult($name, Outcome::NotRunning),
-        };
+        if (!$stopped) {
+            throw new InstanceFailed($name, "$name still running after being killed");
+        }
+
+        return $process !== null ? Outcome::Stopped : Outcome::NotRunning;
     }
 
     /** Warn the users of a simulator, counting down to the shutdown, unless nobody is there. */

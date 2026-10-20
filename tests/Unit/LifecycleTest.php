@@ -7,6 +7,7 @@ declare(strict_types=1);
  * fakes of a machine that is a folder.
  */
 
+use OpenSim\Exceptions\InstanceFailed;
 use OpenSim\Models\Grid;
 use OpenSim\OpenSim;
 use OpenSim\Runtime\Environment;
@@ -31,7 +32,7 @@ describe('Starting Robust', function () {
 
         $result = Grid::find($machine->environment, 'demo')->robust()->start();
 
-        expect($result->outcome)->toBe(Outcome::Started)->and($machine->launcher->launched)->toHaveCount(1);
+        expect($result)->toBe(Outcome::Started)->and($machine->launcher->launched)->toHaveCount(1);
         $spec = $machine->launcher->launched[0];
         expect($spec->name)
             ->toBe('demo')
@@ -59,21 +60,20 @@ describe('Starting Robust', function () {
             'ERROR Failed to load OpenSim.Server.Handlers.dll:GridServiceConnector',
         );
 
-        $result = Grid::find($machine->environment, 'demo')->robust()->start();
+        $robust = Grid::find($machine->environment, 'demo')->robust();
 
-        expect($result->outcome)
-            ->toBe(Outcome::Failed)
-            ->and($result->message)
-            ->toBe('demo is up but these services failed to load: GridServiceConnector')
-            ->and($machine->reporter->errors)
-            ->toContain('  GridServiceConnector: failed to load (2/2)');
+        expect(fn() => $robust->start())->toThrow(
+            InstanceFailed::class,
+            'demo is up but these services failed to load: GridServiceConnector',
+        );
+        expect($machine->reporter->errors)->toContain('  GridServiceConnector: failed to load (2/2)');
     });
 
     test('is not done for an instance that runs already', function () {
         $machine = new Machine();
         $machine->processes->add('dotnet Robust.dll -inifile=' . $machine->etc . '/robust.d/demo.ini');
 
-        expect(Grid::find($machine->environment, 'demo')->robust()->start()->outcome)
+        expect(Grid::find($machine->environment, 'demo')->robust()->start())
             ->toBe(Outcome::Running)
             ->and($machine->launcher->launched)
             ->toBe([]);
@@ -84,23 +84,19 @@ describe('Starting Robust', function () {
         $machine->launcher->exitsAtOnce = true;
         $machine->launcher->behavior = fn($spec) => file_put_contents($spec->output, "Unhandled exception: boom\n");
 
-        $result = Grid::find($machine->environment, 'demo')->robust()->start();
+        $robust = Grid::find($machine->environment, 'demo')->robust();
 
-        expect($result->outcome)
-            ->toBe(Outcome::Failed)
-            ->and($result->message)
-            ->toBe('demo failed to start: the process exited immediately')
-            ->and($machine->reporter->errors)
-            ->toContain('Unhandled exception: boom');
+        expect(fn() => $robust->start())->toThrow(InstanceFailed::class, 'demo failed to start: the process exited immediately');
+        expect($machine->reporter->errors)->toContain('Unhandled exception: boom');
     });
 
     test('fails with a clear message when the core is not found', function () {
         $machine = new Machine();
         unlink($machine->core . '/bin/Robust.dll');
 
-        expect(Grid::find($machine->environment, 'demo')->robust()->start()->message)->toBe(
-            'Executable Robust.dll not found',
-        );
+        $robust = Grid::find($machine->environment, 'demo')->robust();
+
+        expect(fn() => $robust->start())->toThrow(InstanceFailed::class, 'Executable Robust.dll not found');
     });
 
     test('fails without launching when the runtime is not installed', function () {
@@ -116,14 +112,10 @@ describe('Starting Robust', function () {
             new RuntimeProbe(static fn(string $command): string => ''),
         );
 
-        $result = Grid::find($env, 'demo')->robust()->start();
+        $robust = Grid::find($env, 'demo')->robust();
 
-        expect($result->ok())
-            ->toBeFalse()
-            ->and($result->message)
-            ->toContain('dotnet is not installed')
-            ->and($machine->launcher->launched)
-            ->toBe([]);
+        expect(fn() => $robust->start())->toThrow(InstanceFailed::class, 'dotnet is not installed');
+        expect($machine->launcher->launched)->toBe([]);
     });
 });
 
@@ -138,7 +130,7 @@ describe('Starting a simulator', function () {
 
         $result = Grid::find($machine->environment, 'demo')->simulator('alpha')->start();
 
-        expect($result->outcome)
+        expect($result)
             ->toBe(Outcome::Started)
             ->and($machine->launcher->launched[0]->screen)
             ->toBeFalse()
@@ -154,14 +146,10 @@ describe('Starting a simulator', function () {
         $machine = new Machine();
         unlink($machine->grid . '/sims/alpha/regions/Plaza.ini');
 
-        $result = Grid::find($machine->environment, 'demo')->simulator('alpha')->start();
+        $simulator = Grid::find($machine->environment, 'demo')->simulator('alpha');
 
-        expect($result->ok())
-            ->toBeFalse()
-            ->and($result->message)
-            ->toContain('alpha has no region to load')
-            ->and($machine->launcher->launched)
-            ->toBe([]);
+        expect(fn() => $simulator->start())->toThrow(InstanceFailed::class, 'alpha has no region to load');
+        expect($machine->launcher->launched)->toBe([]);
     });
 
     test(
@@ -194,7 +182,7 @@ describe('Starting a simulator', function () {
                 ->not->toContain('rest')
                 ->and($console->sent)
                 ->toBe(['', ''])
-                ->and($result->outcome)
+                ->and($result)
                 ->toBe(Outcome::Started);
         },
     );
@@ -212,7 +200,7 @@ describe('Stopping a simulator', function () {
 
         $result = Grid::find($machine->environment, 'demo')->simulator('alpha')->stop();
 
-        expect($result->outcome)
+        expect($result)
             ->toBe(Outcome::Stopped)
             ->and($machine->consoles->console('alpha')->sent)
             ->toBe(['shutdown'])
@@ -241,7 +229,7 @@ describe('Stopping a simulator', function () {
         $alerts = array_values(
             array_filter($console->sent, static fn(string $l): bool => str_starts_with($l, 'alert')),
         );
-        expect($result->outcome)
+        expect($result)
             ->toBe(Outcome::Stopped)
             ->and($alerts)
             ->toHaveCount(4)
@@ -275,7 +263,7 @@ describe('Stopping a simulator', function () {
 
         $result = Grid::find($machine->environment, 'demo')->simulator('alpha')->stop(true);
 
-        expect($result->outcome)
+        expect($result)
             ->toBe(Outcome::Stopped)
             ->and($machine->processes->signals)
             ->toBe(['TERM 4000', 'KILL 4000'])
@@ -286,7 +274,7 @@ describe('Stopping a simulator', function () {
     test('is a result of its own when it does not run', function () {
         $machine = new Machine();
 
-        expect(Grid::find($machine->environment, 'demo')->simulator('alpha')->stop(true)->outcome)
+        expect(Grid::find($machine->environment, 'demo')->simulator('alpha')->stop(true))
             ->toBe(Outcome::NotRunning)
             ->and($machine->consoles->console('alpha')->sent)
             ->toBe([]);
@@ -315,7 +303,7 @@ describe('Starting and stopping what a name means', function () {
 
         $results = OpenSim::start('demo', $machine->environment);
 
-        expect(array_map(static fn($r): string => $r->instance . ':' . $r->outcome->value, $results))->toBe([
+        expect(array_map(static fn($r, $name): string => "$name:{$r->value}", $results, array_keys($results)))->toBe([
             'demo:started',
         ]);
     });
@@ -326,7 +314,7 @@ describe('Starting and stopping what a name means', function () {
 
         $results = OpenSim::start('demo', $machine->environment, simulators: true);
 
-        expect(array_map(static fn($r): string => $r->instance . ':' . $r->outcome->value, $results))->toBe([
+        expect(array_map(static fn($r, $name): string => "$name:{$r->value}", $results, array_keys($results)))->toBe([
             'demo:started',
             'alpha:started',
             'beta:started',
@@ -356,7 +344,7 @@ describe('Starting and stopping what a name means', function () {
 
         $results = OpenSim::stop('demo', true, $machine->environment);
 
-        expect(array_map(static fn($r): string => $r->instance, $results))
+        expect(array_keys($results))
             ->toBe(['demo'])
             ->and(count($machine->processes->all()))
             ->toBe(2);
@@ -368,7 +356,7 @@ describe('Starting and stopping what a name means', function () {
 
         $results = OpenSim::stop('demo', true, $machine->environment, simulators: true);
 
-        expect(array_map(static fn($r): string => $r->instance, $results))->toBe(['alpha', 'beta', 'demo']);
+        expect(array_keys($results))->toBe(['alpha', 'beta', 'demo']);
     });
 
     test('a grid restarts its Robust alone, or with its simulators', function () {
@@ -377,10 +365,10 @@ describe('Starting and stopping what a name means', function () {
         demo_machine_ready($machine);
 
         $alone = OpenSim::restart('demo', true, $machine->environment);
-        expect(array_map(static fn($r): string => $r->instance, $alone))->toBe(['demo']);
+        expect(array_keys($alone))->toBe(['demo']);
 
         $all = OpenSim::restart('demo', true, $machine->environment, simulators: true);
-        expect(array_map(static fn($r): string => $r->instance, $all))->toBe(['demo', 'alpha', 'beta']);
+        expect(array_keys($all))->toBe(['demo', 'alpha', 'beta']);
     });
 
     test('a config file names one instance', function () {
@@ -403,8 +391,8 @@ describe('Starting and stopping what a name means', function () {
 
         $results = OpenSim::start('nosuch', $machine->environment);
 
-        expect($results[0]->ok())
-            ->toBeFalse()
+        expect($results['nosuch'])
+            ->toBeInstanceOf(InstanceFailed::class)
             ->and($machine->reporter->errors)
             ->toContain('no ini file found for nosuch');
     });

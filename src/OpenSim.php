@@ -11,7 +11,8 @@ use OpenSim\Controllers\OpenSimController;
 use OpenSim\Controllers\RobustController;
 use OpenSim\Runtime\Environment;
 use OpenSim\Runtime\ReporterInterface;
-use OpenSim\Runtime\InstanceResult;
+use OpenSim\Exceptions\InstanceFailed;
+use OpenSim\Runtime\Outcome;
 use OpenSim\Runtime\Status;
 
 /**
@@ -40,7 +41,7 @@ final class OpenSim
      *
      * @param string|list<string>|null $targets none for every enabled instance
      * @param bool $simulators the enabled simulators of the grids named are started too
-     * @return list<InstanceResult>
+     * @return array<string,Outcome|InstanceFailed> what became of each instance, by its name
      */
     public static function start(
         string|array|null $targets = null,
@@ -50,8 +51,7 @@ final class OpenSim
         $environment ??= self::environment();
         $results = [];
         foreach (self::resolve($environment, $targets, $results, $simulators) as $instance) {
-            $result = $instance->start();
-            $results[] = $result;
+            $results[$instance->name()] = self::attempt(static fn(): Outcome => $instance->start());
         }
 
         return $results;
@@ -63,7 +63,7 @@ final class OpenSim
      * @param string|list<string>|null $targets none for every enabled instance
      * @param bool $now stop without warning the users
      * @param bool $simulators the enabled simulators of the grids named are stopped too
-     * @return list<InstanceResult>
+     * @return array<string,Outcome|InstanceFailed> what became of each instance, by its name
      */
     public static function stop(
         string|array|null $targets = null,
@@ -74,7 +74,7 @@ final class OpenSim
         $environment ??= self::environment();
         $results = [];
         foreach (self::stopOrder(self::resolve($environment, $targets, $results, $simulators)) as $instance) {
-            $results[] = $instance->stop($now);
+            $results[$instance->name()] = self::attempt(static fn(): Outcome => $instance->stop($now));
         }
 
         return $results;
@@ -86,7 +86,7 @@ final class OpenSim
      * @param string|list<string>|null $targets none for every enabled instance
      * @param bool $now stop without warning the users
      * @param bool $simulators the enabled simulators of the grids named restart too
-     * @return list<InstanceResult>
+     * @return array<string,Outcome|InstanceFailed> what became of each instance, by its name
      */
     public static function restart(
         string|array|null $targets = null,
@@ -98,10 +98,13 @@ final class OpenSim
         $results = [];
         $instances = self::resolve($environment, $targets, $results, $simulators);
         foreach (self::stopOrder($instances) as $instance) {
-            $instance->stop($now);
+            $stopped = self::attempt(static fn(): Outcome => $instance->stop($now));
+            // One that did not stop is not started again
+            $stopped instanceof InstanceFailed && ($results[$instance->name()] = $stopped);
         }
         foreach ($instances as $instance) {
-            $results[] = $instance->start();
+            isset($results[$instance->name()]) ||
+                ($results[$instance->name()] = self::attempt(static fn(): Outcome => $instance->start()));
         }
 
         return $results;
@@ -176,11 +179,21 @@ final class OpenSim
         return null;
     }
 
+    /** What an operation on an instance became: its outcome, or why it failed. */
+    private static function attempt(\Closure $operation): Outcome|InstanceFailed
+    {
+        try {
+            return $operation();
+        } catch (InstanceFailed $failed) {
+            return $failed;
+        }
+    }
+
     /**
      * The instances to act on: what the targets name, or every enabled instance. A target that names nothing is a failed result.
      *
      * @param string|list<string>|null $targets
-     * @param list<InstanceResult> $results where the targets that name nothing are told
+     * @param array<string,Outcome|InstanceFailed> $results where the targets that name nothing are told
      * @param bool $simulators the enabled simulators of the grids named come after their Robust
      * @return list<AbstractController>
      */
@@ -212,7 +225,7 @@ final class OpenSim
                 if ($own === []) {
                     $message = "the standalone $target has no simulator enabled";
                     $environment->reporter->error($message);
-                    $results[] = InstanceResult::failed((string) $target, $message);
+                    $results[(string) $target] = new InstanceFailed((string) $target, $message);
                 }
 
                 continue;
@@ -220,7 +233,7 @@ final class OpenSim
             if ($found === null) {
                 $message = 'no ini file found for ' . $target;
                 $environment->reporter->error($message);
-                $results[] = InstanceResult::failed((string) $target, $message);
+                $results[(string) $target] = new InstanceFailed((string) $target, $message);
 
                 continue;
             }

@@ -127,6 +127,13 @@ describe('The API', function () {
                     'title' => 'Not available',
                     'detail' => 'cannot read the avatars: no database',
                 ])
+                ->and(Problem::from(new \OpenSim\Exceptions\InstanceFailed('demo', 'demo exited while starting'))->toArray())
+                ->toMatchArray([
+                    'status' => 500,
+                    'title' => 'Instance failed',
+                    'detail' => 'demo exited while starting',
+                    'type' => 'urn:opensim:problem:instance-failed',
+                ])
                 ->and(Problem::from(new RuntimeException('/secret/path password'))->toArray())
                 ->toBe(['type' => 'about:blank', 'title' => 'Internal error', 'status' => 500])
                 ->and(json_decode(Problem::from(new InvalidArgumentException('x'), '/grids')->json(), true)['instance'])
