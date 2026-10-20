@@ -535,7 +535,8 @@ final class QuickSetup
             ];
         }
 
-        $ui = new NullUi();
+        // The notes are told as they come: the install takes minutes, a client shows its progress from the error output
+        $ui = new NullUi(live: true);
         // Nothing is written before the databases work: a problem of access is asked again, with the reasons
         $databases = $plan === null ? [$simulator->databasePlan()] : ($plan->standalone ? [$plan] : [$plan, $simulator->databasePlan()]);
         if (isset($answers['admin_user'])) {
@@ -635,7 +636,7 @@ final class QuickSetup
             'notice' => $notice,
             'fields' => $fields,
             'buttons' => ['next' => _('OK'), 'back' => _('Back')],
-            'wait' => _('Checking the database…'),
+            'wait' => _('Checking the database, then installing: this can take a few minutes…'),
             'state' => self::encode('database', $answers),
         ];
     }

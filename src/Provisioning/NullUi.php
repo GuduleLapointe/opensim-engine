@@ -11,11 +11,15 @@ final class NullUi implements UiInterface
     /** @var list<array{0:string,1:string}> level, message */
     public array $said = [];
 
+    /** @param bool $live the notes are also told on the error output as they come (a setup whose client shows its progress) */
+    public function __construct(private readonly bool $live = false) {}
+
     public function intro(string $title): void {}
 
     public function note(string $message): void
     {
         $this->said[] = ['note', $message];
+        $this->live && fwrite(STDERR, "opensim: $message\n");
     }
 
     public function entity(string $name): string
