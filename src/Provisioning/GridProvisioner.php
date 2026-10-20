@@ -72,25 +72,16 @@ final class GridProvisioner
         }
     }
 
-    /** What to do on the web server, for the final report: the address of the site and the snippet to import. */
+    /** For the final report: the address of the site and where the configs of the web servers are (each says in its header what to add). */
     private function webReport(GridPlan $plan, Environment $environment): string
     {
-        $dir = $plan->gridDir . '/web';
-        $server = Snippets::detect();
-        $files = glob("$dir/*") ?: [];
-        $mine = $server === null ? [] : array_values(array_filter($files, static fn(string $f): bool => str_ends_with($f, $server['suffix'])));
-        $file = $mine[0] ?? ($files[0] ?? '');
-        $lines = [sprintf('Web URL:     %s', rtrim(HelpersConfig::webUrl($plan->gridDir), '/') . '/')];
-        if ($server !== null && $mine !== []) {
-            $lines[] = sprintf('Detected %s. Import the snippet in %s or in the vhost:', $server['label'], $server['config']);
-            $lines[] = "\t" . sprintf($server['directive'], $file);
-        } elseif ($file !== '') {
-            $lines[] = "Snippet:     $file";
-        }
-        $lines[] = 'Other servers:';
-        $lines[] = "\topensim web {$plan->gridNick} snippet <caddy|nginx|apache>";
-
-        return implode("\n", $lines);
+        return implode("\n", [
+            sprintf('Web URL:     %s', rtrim(HelpersConfig::webUrl($plan->gridDir), '/') . '/'),
+            sprintf('Web server configs in %s/web/', $plan->gridDir),
+            "\t" . 'caddy:  import ' . "{$plan->gridDir}/web/{$plan->gridNick}.caddyfile",
+            "\t" . 'nginx:  include ' . "{$plan->gridDir}/web/{$plan->gridNick}-nginx.conf;",
+            "\t" . 'apache: Include ' . "{$plan->gridDir}/web/{$plan->gridNick}-apache.conf",
+        ]);
     }
 
     /**

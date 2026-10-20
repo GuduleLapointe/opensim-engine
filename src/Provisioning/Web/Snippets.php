@@ -20,29 +20,6 @@ final class Snippets
     public const WEBROOT = '/usr/share/opensim-helpers';
 
     /**
-     * The web server of this machine, null when none is found.
-     *
-     * @return ?array{name:string,label:string,config:string,suffix:string,directive:string}
-     */
-    public static function detect(): ?array
-    {
-        $servers = [
-            ['caddy', 'Caddy', '/etc/caddy/Caddyfile', '.caddyfile', 'import %s', ['/etc/caddy', '/usr/bin/caddy', '/usr/local/bin/caddy']],
-            ['nginx', 'nginx', '/etc/nginx/sites-enabled', '-nginx.conf', 'include %s;', ['/etc/nginx', '/usr/sbin/nginx', '/usr/local/bin/nginx']],
-            ['apache', 'Apache', '/etc/apache2/sites-enabled', '-apache.conf', 'Include %s', ['/etc/apache2', '/etc/httpd', '/usr/sbin/apache2']],
-        ];
-        foreach ($servers as [$name, $label, $config, $suffix, $directive, $marks]) {
-            foreach ($marks as $mark) {
-                if (file_exists($mark)) {
-                    return compact('name', 'label', 'config', 'suffix', 'directive');
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
      * Where the site answers, from its web URL, as the files of a web server say it: the host (none: any), the scheme, the port when
      * it is not the usual one of its scheme, the address of the site as Caddy writes it, the port a server listens on.
      *

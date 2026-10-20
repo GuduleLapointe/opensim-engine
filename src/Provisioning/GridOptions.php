@@ -395,6 +395,7 @@ final class GridOptions
         $variables = $this->extra + [
             'grid_name' => $this->grid->name(),
             'grid_nick' => $this->grid->nick(),
+            'grid_dir' => $this->grid->directory(),
             'data_service' => SimulatorConfig::dataServiceNameOf($this->grid->nick(), $this->grid->name()),
             // The address of the economy the grid tells the viewers: the one given, the one it tells, else where its helpers are
             'economy_url' => $prefix !== '' ? $prefix : (($current ?? '') !== '' ? (string) $current : ($currency === '' ? '' : dirname($currency))),

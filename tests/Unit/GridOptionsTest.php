@@ -346,7 +346,9 @@ describe('The options of a grid that is made', function () {
                 'profiles',
                 'search',
                 'webroot-helpers',
+                'webserver-apache',
                 'webserver-caddy',
+                'webserver-nginx',
             ])
             ->and($without)
             ->toBe([
