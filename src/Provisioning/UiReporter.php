@@ -31,7 +31,11 @@ final class UiReporter implements ReporterInterface
 
     public function debug(string $message): void {}
 
-    public function step(string $text): void {}
+    /** A step of the wait (a service loaded, a region ready): told as it comes, one line each. */
+    public function step(string $text): void
+    {
+        $this->ui->note($text);
+    }
 
     public function stepEnd(): void {}
 
