@@ -231,12 +231,8 @@ final class GridPlanner
                 ['internal', 'shared', 'disabled'],
                 Result::isTrue($answers['helpers'] ?? $c['helpersAvailable']) ? 'internal' : 'disabled',
             ),
-            // Without the helpers, Robust keeps the messages
-            'offline' => self::choice(
-                $answers['offline'] ?? null,
-                ['helpers', 'robust'],
-                Result::isTrue($answers['helpers'] ?? $c['helpersAvailable']) ? 'helpers' : 'robust',
-            ),
+            // Robust keeps the messages (the module V2), the helpers only when they are asked
+            'offline' => self::choice($answers['offline'] ?? null, ['helpers', 'robust'], 'robust'),
             'economy' => self::choice($answers['economy'] ?? null, ['beta', 'gloebit'], 'beta'),
             'ossl' => Result::isTrue($answers['ossl'] ?? $this->optionDefault('ossl')),
             'web_server' => self::choice($answers['web_server'] ?? null, ['caddy', 'apache', 'nginx'], $c['webServer']),

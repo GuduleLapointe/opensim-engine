@@ -171,6 +171,13 @@ final class GridOptions
                 ($given === null && $exact === null) || ($explicit[$name] = true);
             }
         }
+        // A group that has none (the one asked for cannot be had) has the one it falls back to
+        $groups = array_column(array_map(static fn(OptionTemplate $o): array => [$o->group(), true], $chosen), 1, 0);
+        foreach ($this->templates() as $name => $option) {
+            if ($exact === null && $option->fallback() && $option->group() !== '' && !isset($groups[$option->group()]) && $this->unmet($option) === null) {
+                $chosen[$name] = $option;
+            }
+        }
         // One option of a group: the one that was asked for, else the first
         $byGroup = [];
         foreach ($chosen as $name => $option) {

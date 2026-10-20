@@ -338,9 +338,9 @@ describe('The questions about a standalone', function () {
     test('keep the offline messages with the helpers or in the simulator itself, never both', function () {
         $planner = planner();
 
-        // There is no both: it is the default
+        // There is no both: it is the default, the module V2
         expect($planner->resolve(['standalone' => true, 'helpers' => true, 'offline' => 'both'])['offline'])
-            ->toBe('helpers')
+            ->toBe('robust')
             ->and($planner->problems(['standalone' => true, 'helpers' => true, 'offline' => 'helpers']))
             ->not->toHaveKey('offline')
             ->and($planner->problems(['standalone' => true, 'helpers' => false, 'offline' => 'helpers']))

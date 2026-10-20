@@ -310,30 +310,30 @@ describe('The options of a new grid', function () {
     });
 
     test(
-        'keep the offline messages with the helpers when there are some, with Robust when there are none',
+        'keep the offline messages with Robust (the module V2), with the helpers only when they are asked',
         function () {
             $with = planner(['helpersAvailable' => true]);
             $without = planner(['helpersAvailable' => false]);
 
             expect($with->plan([])->offline)
-                ->toBe('helpers')
+                ->toBe('robust')
                 ->and($without->plan([])->offline)
                 ->toBe('robust')
+                ->and($with->plan(['offline' => 'helpers'])->offline)
+                ->toBe('helpers')
                 // There is no both: the module V2 ignores the helpers
                 ->and($with->plan(['offline' => 'both'])->offline)
-                ->toBe('helpers')
-                ->and($with->plan(['offline' => 'robust'])->offline)
                 ->toBe('robust')
                 ->and($with->resolve(['offline' => 'nowhere'])['offline'])
-                ->toBe('helpers')
+                ->toBe('robust')
                 // The option that keeps them is the one that is on
                 ->and($with->plan([])->options)
-                ->toContain('offline-helpers')
-                ->not->toContain('offline-robust')
-                ->and($with->plan(['offline' => 'robust'])->options)
                 ->toContain('offline-robust')
                 ->not->toContain('offline-helpers')
-                ->and($without->plan([])->options)
+                ->and($with->plan(['offline' => 'helpers'])->options)
+                ->toContain('offline-helpers')
+                ->not->toContain('offline-robust')
+                ->and($without->plan(['offline' => 'helpers'])->options)
                 ->toContain('offline-robust');
         },
     );

@@ -176,7 +176,7 @@ describe('quick setup, what is wrong', function () {
             ->and($options['Extended OSSL'])
             ->toBe('yes')
             ->and(array_keys($options))
-            ->toContain('Helpers', 'Search module (OpenSimSearch)', 'Offline messages: the helpers (module V1)', 'Profiles', 'Destination guide', 'Grid status');
+            ->toContain('Helpers', 'Search module (OpenSimSearch)', 'Offline messages: the grid (module V2)', 'Profiles', 'Destination guide', 'Grid status');
     });
 
     test('has the helpers, the cross-grid search and the extended OSSL on by default', function () {
@@ -189,7 +189,7 @@ describe('quick setup, what is wrong', function () {
             ->and($quick['setup']['grid']['economy'])
             ->toBe('beta')
             ->and($quick['setup']['grid']['options'])
-            ->toContain('ossl-extended', 'search', 'profiles', 'offline-helpers')
+            ->toContain('ossl-extended', 'search', 'profiles', 'offline-robust')
             ->and(array_column($quick['options'], 'value', 'name'))
             ->toBe(['ssl' => false, 'hypergrid' => true, 'helpers' => true, 'search' => true, 'economy-gloebit' => false, 'ossl-extended' => true]);
     });

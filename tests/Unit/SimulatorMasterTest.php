@@ -491,7 +491,7 @@ describe('grid made by the setup', function () {
 
         $environment = EnvironmentFake::with(['EtcRoot' => $machine->etc, 'CoreDirectory' => $machine->core]);
         // The options of a grid that is made: the ones that are on by default and that it can have
-        $plan->options = (new GridOptions(Grid::planned($environment, $plan)))->selection([]);
+        $plan->options = (new GridOptions(Grid::planned($environment, $plan)))->selection(['offline' => 'helpers']);
 
         $provisioner = new OpenSim\Provisioning\GridProvisioner($ui);
         $options = new ReflectionMethod($provisioner, 'applyOptions');

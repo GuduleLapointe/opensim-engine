@@ -328,7 +328,7 @@ describe('The options of a grid that is made', function () {
                 'estates',
                 'groups-hypergrid',
                 'helpers',
-                'offline-helpers',
+                'offline-robust',
                 'ossl-extended',
                 'profiles',
                 'search',
@@ -375,7 +375,11 @@ describe('The options of a grid that is made', function () {
             ->toBe(['profiles'])
             ->and($select(['options' => []]))
             ->toBe([])
+            // The module V2 keeps the offline messages unless the helpers are asked
             ->and($select([]))
+            ->toContain('offline-robust')
+            ->not->toContain('offline-helpers')
+            ->and($select(['offline' => 'helpers']))
             ->toContain('offline-helpers')
             ->not->toContain('offline-robust');
     });
