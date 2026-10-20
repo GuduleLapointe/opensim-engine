@@ -40,7 +40,7 @@ final class GridConf
             '',
         ];
         $path = "{$grid['directory']}/{$grid['nick']}.conf";
-        @mkdir(dirname($path), 0o755, true);
+        is_dir(dirname($path)) || @mkdir(dirname($path), 0o755, true);
         file_put_contents($path, implode("\n", $lines));
 
         return $path;
@@ -84,7 +84,7 @@ final class GridConf
         ];
 
         $path = $this->path($plan);
-        @mkdir(dirname($path), 0o755, true);
+        is_dir(dirname($path)) || @mkdir(dirname($path), 0o755, true);
         file_put_contents($path, implode("\n", $lines));
 
         return $path;

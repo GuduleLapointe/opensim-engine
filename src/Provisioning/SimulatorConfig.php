@@ -352,7 +352,7 @@ final class SimulatorConfig
         if (is_file($path) && !$plan->overwriteRegion) {
             return null;
         }
-        @mkdir(dirname($path), 0o755, true);
+        is_dir(dirname($path)) || @mkdir(dirname($path), 0o755, true);
         file_put_contents($path, $this->renderRegion($plan));
 
         return $path;

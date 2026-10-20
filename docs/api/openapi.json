@@ -2,7 +2,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "OpenSim engine",
-        "version": "0f1877a",
+        "version": "6a40246",
         "license": {
             "name": "AGPL-3.0-or-later",
             "identifier": "AGPL-3.0-or-later"
@@ -4471,6 +4471,172 @@
                                                                     }
                                                                 }
                                                             }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "The body is not a JSON document",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Problem"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/setups/steps": {
+            "post": {
+                "operationId": "setupStep",
+                "tags": [
+                    "Setup"
+                ],
+                "summary": "Quick setup, one step",
+                "description": "The scenario of the quick setup, for a client that only draws screens. It sends back the screen it was given, filled (`answers`), the button it pressed and the `state` it got, and receives the next screen, the same one with what is wrong (`notice`), or an action: `quit` with a message, `abort` with an error. With no `state` it receives the first screen. A `screen` has a `kind`: `menu` (`items` with `key`, `label`, `note`; the answer is `{name: key}`), `form` (`fields` with `name`, `label`, `value`, `secret`; the answer is a value for each), `checks` (`items` with `name`, `label`, `checked`, `note`; the answer is true or false for each) or `review` (`rows`, to confirm). The last confirmation makes the folders and writes the files of the grid and of its first simulator.",
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/vnd.api+json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "data": {
+                                        "type": "object",
+                                        "properties": {
+                                            "type": {
+                                                "const": "steps"
+                                            },
+                                            "attributes": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "state": {
+                                                        "type": "string",
+                                                        "description": "As the last reply gave it; empty for the first screen"
+                                                    },
+                                                    "button": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "next",
+                                                            "back",
+                                                            "quit"
+                                                        ],
+                                                        "default": "next"
+                                                    },
+                                                    "answers": {
+                                                        "type": "object",
+                                                        "description": "The screen, filled: a value for each of its fields, items or choice"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The next screen, or the action to do",
+                        "content": {
+                            "application/vnd.api+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "const": "steps"
+                                                },
+                                                "id": {
+                                                    "type": "string"
+                                                },
+                                                "attributes": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "action": {
+                                                            "type": "string",
+                                                            "enum": [
+                                                                "screen",
+                                                                "quit",
+                                                                "abort"
+                                                            ]
+                                                        },
+                                                        "kind": {
+                                                            "type": "string",
+                                                            "enum": [
+                                                                "menu",
+                                                                "form",
+                                                                "checks",
+                                                                "review"
+                                                            ],
+                                                            "description": "Of a screen"
+                                                        },
+                                                        "name": {
+                                                            "type": "string",
+                                                            "description": "Of a menu: the name of its answer"
+                                                        },
+                                                        "title": {
+                                                            "type": "string"
+                                                        },
+                                                        "text": {
+                                                            "type": "string",
+                                                            "description": "Above the screen"
+                                                        },
+                                                        "notice": {
+                                                            "type": "string",
+                                                            "description": "What is wrong with the last answers, one line each: show it above the screen"
+                                                        },
+                                                        "items": {
+                                                            "type": "array",
+                                                            "description": "Of a menu or of check boxes",
+                                                            "items": {
+                                                                "type": "object"
+                                                            }
+                                                        },
+                                                        "fields": {
+                                                            "type": "array",
+                                                            "description": "Of a form",
+                                                            "items": {
+                                                                "type": "object"
+                                                            }
+                                                        },
+                                                        "rows": {
+                                                            "type": "array",
+                                                            "description": "Of a review: the section, the label and the value",
+                                                            "items": {
+                                                                "type": "object"
+                                                            }
+                                                        },
+                                                        "value": {
+                                                            "type": "string",
+                                                            "description": "Of a menu: the key chosen so far"
+                                                        },
+                                                        "buttons": {
+                                                            "type": "object",
+                                                            "description": "The labels of next and back"
+                                                        },
+                                                        "state": {
+                                                            "type": "string",
+                                                            "description": "To send back with the answers"
+                                                        },
+                                                        "message": {
+                                                            "type": "string",
+                                                            "description": "Of quit: to tell, the setup is over"
+                                                        },
+                                                        "error": {
+                                                            "type": "string",
+                                                            "description": "Of abort: to tell, the setup is over"
                                                         }
                                                     }
                                                 }

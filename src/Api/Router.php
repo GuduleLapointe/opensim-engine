@@ -234,6 +234,12 @@ final class Router
                 'POST' => fn() => $this->check($body, $parsed, $path, 'setups') ??
                     $this->api->quickSetup($this->attributes($body, $parsed)),
             ];
+        } elseif ($grid === null && $segments === ['setups', 'steps']) {
+            $template = '/setups/steps';
+            $routes = [
+                'POST' => fn() => $this->check($body, $parsed, $path, 'steps') ??
+                    $this->api->setupStep($this->attributes($body, $parsed)),
+            ];
         } elseif (count($tail) === 1 && $tail[0] !== '') {
             $type = $tail[0];
             $template = ($grid !== null ? '/grids/{grid}' : '') . "/$type";

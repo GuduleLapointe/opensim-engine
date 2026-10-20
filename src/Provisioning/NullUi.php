@@ -3,22 +3,35 @@
 namespace OpenSim\Provisioning;
 
 /**
- * An interface that says nothing and asks nothing: the answers are the proposals. For the planning of a setup that nobody sees.
+ * An interface that asks nothing: the answers are the proposals. For the planning of a setup that nobody sees. What is said is kept,
+ * by level (note, warn, error), for whoever wants to tell it.
  */
 final class NullUi implements UiInterface
 {
+    /** @var list<array{0:string,1:string}> level, message */
+    public array $said = [];
+
     public function intro(string $title): void {}
 
-    public function note(string $message): void {}
+    public function note(string $message): void
+    {
+        $this->said[] = ['note', $message];
+    }
 
     public function entity(string $name): string
     {
         return $name;
     }
 
-    public function warn(string $message): void {}
+    public function warn(string $message): void
+    {
+        $this->said[] = ['warn', $message];
+    }
 
-    public function error(string $message): void {}
+    public function error(string $message): void
+    {
+        $this->said[] = ['error', $message];
+    }
 
     public function outro(string $message): void {}
 

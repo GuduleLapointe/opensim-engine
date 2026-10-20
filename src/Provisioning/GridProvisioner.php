@@ -172,12 +172,14 @@ final class GridProvisioner
      */
     private function applyOptions(GridPlan $plan, Environment $environment): void
     {
-        if (
-            $plan->ossl &&
-            ($file = GridOptions::combine('ossl-extended', "{$plan->etcDirectory}/config-include/osslEnable.ini")) !==
-                null
-        ) {
-            $this->ui->note(sprintf(_('Wrote %s'), $file));
+        foreach (GridOptions::enabled($plan) as $option) {
+            $target = GridOptions::target($option);
+            if (
+                $target !== null &&
+                ($file = GridOptions::combine($option, "{$plan->etcDirectory}/$target")) !== null
+            ) {
+                $this->ui->note(sprintf(_('Wrote %s'), $file));
+            }
         }
         if ($plan->economy !== 'gloebit') {
             return;

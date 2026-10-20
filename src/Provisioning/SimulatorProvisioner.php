@@ -411,7 +411,7 @@ final class SimulatorProvisioner
      */
     private function applyRegion(SimulatorPlan $plan, Environment $environment, Grid $grid): void
     {
-        @mkdir($plan->regionsDir(), 0o755, true);
+        is_dir($plan->regionsDir()) || @mkdir($plan->regionsDir(), 0o755, true);
         $region = (new SimulatorConfig())->writeRegion($plan);
         $this->ui->note(
             $region !== null

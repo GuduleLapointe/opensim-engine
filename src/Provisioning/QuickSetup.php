@@ -2,6 +2,7 @@
 
 namespace OpenSim\Provisioning;
 
+use OpenSim\Exceptions\SetupFailedException;
 use OpenSim\Forms\FieldSet;
 use OpenSim\Models\Grid;
 use OpenSim\Result;
@@ -40,19 +41,19 @@ final class QuickSetup
             'search' => [
                 'label' => 'Cross-grid Search',
                 'default' => false,
-                'implemented' => false,
+                'implemented' => true,
                 'plan' => static fn(bool $on): array => ['search' => $on ? 'shared' : 'internal'],
             ],
             'gloebit' => [
                 'label' => 'Economy: Gloebit',
                 'default' => false,
-                'implemented' => false,
+                'implemented' => true,
                 'plan' => static fn(bool $on): array => ['economy' => $on ? 'gloebit' : 'beta'],
             ],
             'ossl' => [
                 'label' => 'Extended OSSL',
                 'default' => false,
-                'implemented' => false,
+                'implemented' => true,
                 'plan' => static fn(bool $on): array => ['ossl' => $on],
             ],
         ];
@@ -70,7 +71,9 @@ final class QuickSetup
             ['name' => 'standalone', 'label' => 'Standalone', 'implemented' => true],
             ['name' => 'simulator', 'label' => 'Simulator (join other grid)', 'implemented' => false],
         ];
-        foreach ((new Presets([], $environment->layout->etcRoot()))->names() as $name => $grid) {
+        // The presets planned stay in the list, the ones this machine has are added
+        $presets = ['speculoos' => 'Speculoos', 'osgrid' => 'OSGrid'] + (new Presets([], $environment->layout->etcRoot()))->names();
+        foreach ($presets as $name => $grid) {
             $types[] = ['name' => (string) $name, 'label' => $grid, 'implemented' => false];
         }
 
@@ -93,6 +96,37 @@ final class QuickSetup
      * @return array{valid:bool,problems:array<string,string>,corrected:array<string,string>,setup:array<string,mixed>,rows:list<array{section:string,label:string,value:string}>,types:list<array{name:string,label:string,implemented:bool}>,options:list<array{name:string,label:string,default:bool,value:bool,implemented:bool}>}
      */
     public static function plan(Environment $environment, array $answers): array
+    {
+        $built = self::build($environment, $answers);
+
+        return [
+            'valid' => $built['problems'] === [],
+            'problems' => $built['problems'],
+            'corrected' => $built['corrected'],
+            'setup' => SetupFile::withSimulator(SetupFile::withGrid([], $built['plan']), $built['simulator']),
+            'rows' => self::rows($built['plan'], $built['simulator'], $built['standalone'], trim((string) ($answers['email'] ?? '')), $built['chosen']),
+            'types' => $built['types'],
+            'options' => array_map(
+                static fn(string $name, array $option): array => [
+                    'name' => $name,
+                    'label' => $option['label'],
+                    'default' => $option['default'],
+                    'value' => $built['chosen'][$name],
+                    'implemented' => $option['implemented'],
+                ],
+                array_keys($built['options']),
+                array_values($built['options']),
+            ),
+        ];
+    }
+
+    /**
+     * The plans the answers stand for, and what is wrong with them.
+     *
+     * @param array<string,mixed> $answers
+     * @return array{problems:array<string,string>,corrected:array<string,string>,plan:GridPlan,simulator:SimulatorPlan,standalone:bool,chosen:array<string,bool>,types:list<array{name:string,label:string,implemented:bool}>,options:array<string,array{label:string,default:bool,implemented:bool,plan:?\Closure}>}
+     */
+    private static function build(Environment $environment, array $answers): array
     {
         $problems = [];
         $corrected = [];
@@ -146,24 +180,289 @@ final class QuickSetup
         $regions->apply($simulator, ['name' => $region]);
 
         return [
-            'valid' => $problems === [],
             'problems' => $problems,
             'corrected' => $corrected,
-            'setup' => SetupFile::withSimulator(SetupFile::withGrid([], $plan), $simulator),
-            'rows' => self::rows($plan, $simulator, $standalone, trim((string) ($answers['email'] ?? '')), $chosen),
+            'plan' => $plan,
+            'simulator' => $simulator,
+            'standalone' => $standalone,
+            'chosen' => $chosen,
             'types' => $types,
-            'options' => array_map(
-                static fn(string $name, array $option): array => [
-                    'name' => $name,
-                    'label' => $option['label'],
-                    'default' => $option['default'],
-                    'value' => $chosen[$name],
-                    'implemented' => $option['implemented'],
-                ],
-                array_keys($options),
-                array_values($options),
-            ),
+            'options' => $options,
         ];
+    }
+
+    /**
+     * The scenario of the quick setup, one step at a time: a client sends back the screen it was given, filled, and gets the next
+     * screen, the same one with what is wrong, or an action to do (quit with a message, abort with an error). It knows nothing else:
+     * the order of the screens, the checks, the corrections, Back and Quit are here, so that a terminal, a web page or an app run
+     * the same setup. Nothing is kept here: the state is a string the client sends back as it got it.
+     *
+     * The screens are `menu` (a choice), `form` (fields), `checks` (check boxes) and `review` (what the setup will do, to confirm). The
+     * last one, confirmed, makes the folders and writes the files of the grid and of its first simulator.
+     *
+     * @param array{state?:string,button?:string,answers?:array<string,mixed>} $request button: next, back or quit
+     * @return array<string,mixed> `action` screen (kind, title, notice, buttons, state...), quit (message) or abort (error)
+     */
+    public static function next(Environment $environment, array $request): array
+    {
+        $state = self::decode((string) ($request['state'] ?? ''));
+        $button = in_array($request['button'] ?? 'next', ['next', 'back', 'quit'], true) ? $request['button'] ?? 'next' : 'next';
+        $answers = $state['answers'];
+        $given = is_array($request['answers'] ?? null) ? $request['answers'] : [];
+        if ($state['step'] === '') {
+            return self::screenType($environment, $answers, '');
+        }
+        if ($button === 'quit') {
+            return ['action' => 'abort', 'error' => _('Cancelled')];
+        }
+
+        switch ($state['step']) {
+            case 'type':
+                if ($button === 'back') {
+                    return ['action' => 'abort', 'error' => _('Cancelled')];
+                }
+                $type = strtolower(trim((string) ($given['type'] ?? $answers['type'] ?? '')));
+                $answers['type'] = $type;
+                $known = array_column(self::types($environment), 'implemented', 'name');
+                if (($known[$type] ?? false) !== true) {
+                    return self::screenType($environment, $answers, self::notImplemented($environment));
+                }
+                // The proposals of the engine are what the form starts with
+                $proposed = self::plan($environment, ['type' => $type])['setup']['grid'];
+                $answers += ['name' => $proposed['name'], 'login_uri' => $proposed['hostname'] . ':' . $proposed['public_port']];
+
+                return self::screenForm($answers, '');
+
+            case 'form':
+                $answers = self::keep($answers, $given, array_keys(self::fields((string) ($answers['type'] ?? ''))));
+                if ($button === 'back') {
+                    return self::screenType($environment, $answers, '');
+                }
+
+                return self::checkForm($environment, $answers) ?? self::screenOptions($answers, '');
+
+            case 'options':
+                $answers = self::keep($answers, $given, array_keys(self::options()), true);
+                if ($button === 'back') {
+                    return self::screenForm($answers, '');
+                }
+
+                return self::checkForm($environment, $answers) ?? self::screenReview($environment, $answers);
+
+            case 'review':
+                if ($button === 'back') {
+                    return self::screenOptions($answers, '');
+                }
+
+                return self::install($environment, $answers);
+        }
+
+        return self::screenType($environment, [], '');
+    }
+
+    /** The first screen: what can be set up. */
+    private static function screenType(Environment $environment, array $answers, string $notice): array
+    {
+        return [
+            'action' => 'screen',
+            'kind' => 'menu',
+            'name' => 'type',
+            'title' => _('OpenSim setup'),
+            'text' => '',
+            'notice' => $notice,
+            'items' => array_map(
+                static fn(array $type): array => [
+                    'key' => $type['name'],
+                    'label' => $type['label'],
+                    'note' => $type['implemented'] ? '' : _('not implemented'),
+                ],
+                self::types($environment),
+            ),
+            'value' => (string) ($answers['type'] ?? ''),
+            'buttons' => ['next' => _('OK'), 'back' => _('Quit')],
+            'state' => self::encode('type', $answers),
+        ];
+    }
+
+    /** The questions of the type chosen, filled with the answers so far. */
+    private static function screenForm(array $answers, string $notice): array
+    {
+        $type = (string) ($answers['type'] ?? '');
+        $fields = [];
+        foreach (self::fields($type) as $name => [$label, $secret]) {
+            $fields[] = ['name' => $name, 'label' => $label, 'value' => (string) ($answers[$name] ?? ''), 'secret' => $secret];
+        }
+
+        return [
+            'action' => 'screen',
+            'kind' => 'form',
+            'title' => $type === 'standalone' ? _('Standalone') : _('Grid'),
+            'text' => '',
+            'notice' => $notice,
+            'fields' => $fields,
+            'buttons' => ['next' => _('OK'), 'back' => _('Back')],
+            'state' => self::encode('form', $answers),
+        ];
+    }
+
+    /** The options, each with its proposal or the last choice. */
+    private static function screenOptions(array $answers, string $notice): array
+    {
+        $items = [];
+        foreach (self::options() as $name => $option) {
+            $given = $answers[$name] ?? null;
+            $items[] = [
+                'name' => $name,
+                'label' => $option['label'],
+                'checked' => Result::isTrue($given) || (Result::isFalse($given) ? false : $option['default']),
+                'note' => $option['implemented'] ? '' : _('not implemented'),
+            ];
+        }
+
+        return [
+            'action' => 'screen',
+            'kind' => 'checks',
+            'title' => _('Options'),
+            'text' => '',
+            'notice' => $notice,
+            'items' => $items,
+            'buttons' => ['next' => _('OK'), 'back' => _('Back')],
+            'state' => self::encode('options', $answers),
+        ];
+    }
+
+    /** What the setup will do, to confirm. */
+    private static function screenReview(Environment $environment, array $answers): array
+    {
+        return [
+            'action' => 'screen',
+            'kind' => 'review',
+            'title' => _('Review'),
+            'text' => '',
+            'notice' => '',
+            'rows' => self::plan($environment, self::answersOf($answers))['rows'],
+            'buttons' => ['next' => _('Install'), 'back' => _('Back')],
+            'state' => self::encode('review', $answers),
+        ];
+    }
+
+    /**
+     * What is wrong with the answers of the form, as a screen to show again: the form with the corrections made and the errors told,
+     * or nothing when it is right.
+     */
+    private static function checkForm(Environment $environment, array $answers): ?array
+    {
+        $quick = self::plan($environment, self::answersOf($answers));
+        $answers = array_replace($answers, $quick['corrected']);
+        $fields = self::fields((string) ($answers['type'] ?? ''));
+        $labels = array_map(static fn(array $field): string => $field[0], $fields) + array_map(static fn(array $o): string => $o['label'], self::options());
+        $lines = [];
+        foreach ($quick['problems'] as $question => $message) {
+            $lines[] = sprintf('Error: %s %s', $labels[$question] ?? $question, $message);
+        }
+        if ((string) ($answers['password'] ?? '') !== (string) ($answers['password2'] ?? '')) {
+            $lines[] = 'Error: Passwords differ';
+            $answers['password'] = $answers['password2'] = '';
+        }
+
+        return $lines === [] ? null : self::screenForm($answers, implode("\n", $lines));
+    }
+
+    /** Make the folders and the files of the setup: the end of the scenario. */
+    private static function install(Environment $environment, array $answers): array
+    {
+        $built = self::build($environment, self::answersOf($answers));
+        if ($built['problems'] !== []) {
+            return self::screenForm($answers, _('The answers are not right any more: look at them again.'));
+        }
+        $plan = $built['plan'];
+        $simulator = $built['simulator'];
+        if ($plan->binDir === '' || !is_dir($plan->binDir)) {
+            return ['action' => 'abort', 'error' => sprintf(_('No OpenSim core found in %s.'), $environment->layout->coreRoot())];
+        }
+        // The files and the folders only: the databases, the account of the avatar and the start come after
+        $plan->enable = $plan->start = $simulator->enable = $simulator->start = $simulator->createOwner = false;
+        $ui = new NullUi();
+        try {
+            (new GridProvisioner($ui))->apply($plan, $environment);
+            (new SimulatorProvisioner($ui))->apply($simulator, $environment);
+        } catch (SetupFailedException $failed) {
+            $errors = array_column(array_filter($ui->said, static fn(array $said): bool => $said[0] === 'error'), 1);
+
+            return ['action' => 'abort', 'error' => implode("\n", $errors ?: [$failed->getMessage()])];
+        }
+        $notes = array_column(array_filter($ui->said, static fn(array $said): bool => $said[0] === 'warn'), 1);
+
+        return [
+            'action' => 'quit',
+            'message' => implode("\n", [
+                sprintf('Grid name:  %s', $plan->gridName),
+                sprintf('Login URI:  http://%s:%d', $plan->baseHostname, $plan->publicPort),
+                sprintf('Avatar:     %s', $simulator->estateOwner),
+                '',
+                sprintf(_('Written in %s.'), $plan->gridDir),
+                $plan->standalone
+                    ? _('Not done yet: the database.')
+                    : sprintf(_('Not done yet: the databases and the account of %s.'), $simulator->estateOwner),
+                ...$notes,
+            ]),
+        ];
+    }
+
+    /** The questions of a type, by the name of the answer: the label and whether it is typed hidden. */
+    private static function fields(string $type): array
+    {
+        return [
+            'name' => [$type === 'standalone' ? _('Region name') : _('Grid name'), false],
+            'login_uri' => [_('Login URI'), false],
+            'avatar' => [_('Avatar name'), false],
+            'password' => [_('Password'), true],
+            'password2' => [_('Password again'), true],
+            'email' => [_('Email'), false],
+        ];
+    }
+
+    /** The answers a client gave, among the ones it may give, added to the ones kept. */
+    private static function keep(array $answers, array $given, array $names, bool $flags = false): array
+    {
+        foreach ($names as $name) {
+            if (array_key_exists($name, $given)) {
+                $answers[$name] = $flags ? Result::isTrue($given[$name]) : (string) $given[$name];
+            }
+        }
+
+        return $answers;
+    }
+
+    /** The answers the planning takes (the confirmation of the password is the scenario's). */
+    private static function answersOf(array $answers): array
+    {
+        unset($answers['password2']);
+
+        return $answers;
+    }
+
+    private static function notImplemented(Environment $environment): string
+    {
+        $done = array_column(array_filter(self::types($environment), static fn(array $type): bool => $type['implemented']), 'label');
+
+        return sprintf(_('Not implemented yet: only %s for now.'), implode(' and ', $done));
+    }
+
+    /** The state a client holds between two steps: the step and the answers so far, as one string. */
+    private static function encode(string $step, array $answers): string
+    {
+        return rtrim(strtr(base64_encode((string) json_encode(['step' => $step, 'answers' => $answers])), '+/', '-_'), '=');
+    }
+
+    /** @return array{step:string,answers:array<string,mixed>} the start for a state that is not one */
+    private static function decode(string $state): array
+    {
+        $decoded = $state === '' ? null : json_decode((string) base64_decode(strtr($state, '-_', '+/')), true);
+
+        return is_array($decoded) && is_string($decoded['step'] ?? null) && is_array($decoded['answers'] ?? null)
+            ? ['step' => $decoded['step'], 'answers' => $decoded['answers']]
+            : ['step' => '', 'answers' => []];
     }
 
     /**

@@ -549,6 +549,21 @@ final class Api
         ]);
     }
 
+    /** One step of the quick setup: the screen, filled, in; the next screen or the action to do, out (see QuickSetup::next()). */
+    public function setupStep(array $attributes): Response
+    {
+        try {
+            $result = QuickSetup::next($this->environment, $attributes);
+        } catch (\Throwable $error) {
+            return Response::problem(Problem::from($error, '/setups/steps'));
+        }
+
+        return Response::document([
+            'data' => ['type' => 'steps', 'id' => 'quick', 'attributes' => $result],
+            'links' => ['self' => '/setups/steps'],
+        ]);
+    }
+
     /**
      * The addresses of a grid: the ones it gives its viewers and its simulators (login, economy, search, registration, offline
      * messages, message of the day, guide...), each with where it comes from, and the ones the helpers need to know first.

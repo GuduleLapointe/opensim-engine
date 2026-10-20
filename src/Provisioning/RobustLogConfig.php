@@ -31,7 +31,7 @@ final class RobustLogConfig
         );
 
         $dest = $plan->etcDirectory . '/Robust.exe.config';
-        @mkdir(dirname($dest), 0o755, true);
+        is_dir(dirname($dest)) || @mkdir(dirname($dest), 0o755, true);
         file_put_contents($dest, $xml);
 
         return $dest;
