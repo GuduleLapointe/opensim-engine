@@ -406,6 +406,39 @@ final class Endpoints
             'Health page',
             'A management page: the same checks as `/grids/{grid}/health`, for a person to read. It is not a page of the viewers, and not public.',
         );
+        $paths['/directory_info']['get'] = $page(
+            'pageDirectoryInfo',
+            'Directory info',
+            'The grids whose simulators registered in the search of this one, with their regions and parcels.',
+        );
+        $paths['/blocks/{name}']['get'] = $page(
+            'pageBlock',
+            'Block',
+            'A piece of a page (`grid-info`, `grid-status`, `motd`, `destination_guide`, `popular_places`, `directory_info`, `search`, `profile`, `health`) as an HTML fragment to embed in another site, or its data with `?format=json`.',
+            [
+                [
+                    'name' => 'name',
+                    'in' => 'path',
+                    'required' => true,
+                    'description' => 'The name of the block',
+                    'schema' => ['type' => 'string'],
+                ],
+            ],
+        );
+        $paths['/assets/{file}']['get'] = $page(
+            'pageAsset',
+            'Asset',
+            'A file the pages use (style sheet, script, image, font): the theme of the grid first, then the helpers\'. The file is the rest of the path.',
+            [
+                [
+                    'name' => 'file',
+                    'in' => 'path',
+                    'required' => true,
+                    'description' => 'The path of the file in the assets',
+                    'schema' => ['type' => 'string'],
+                ],
+            ],
+        );
         $paths['/grid_status']['get'] = $page(
             'pageGridStatus',
             'Grid status',

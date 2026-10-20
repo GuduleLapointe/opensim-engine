@@ -2,7 +2,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "OpenSim engine",
-        "version": "17ae77f",
+        "version": "9421bfc",
         "license": {
             "name": "AGPL-3.0-or-later",
             "identifier": "AGPL-3.0-or-later"
@@ -4179,6 +4179,107 @@
                 "description": "A management page: the same checks as `/grids/{grid}/health`, for a person to read. It is not a page of the viewers, and not public.",
                 "security": [],
                 "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "The page",
+                        "content": {
+                            "text/html": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "The grid does not serve this page"
+                    }
+                }
+            }
+        },
+        "/directory_info": {
+            "get": {
+                "operationId": "pageDirectoryInfo",
+                "tags": [
+                    "Pages"
+                ],
+                "summary": "Directory info",
+                "description": "The grids whose simulators registered in the search of this one, with their regions and parcels.",
+                "security": [],
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "The page",
+                        "content": {
+                            "text/html": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "The grid does not serve this page"
+                    }
+                }
+            }
+        },
+        "/blocks/{name}": {
+            "get": {
+                "operationId": "pageBlock",
+                "tags": [
+                    "Pages"
+                ],
+                "summary": "Block",
+                "description": "A piece of a page (`grid-info`, `grid-status`, `motd`, `destination_guide`, `popular_places`, `directory_info`, `search`, `profile`, `health`) as an HTML fragment to embed in another site, or its data with `?format=json`.",
+                "security": [],
+                "parameters": [
+                    {
+                        "name": "name",
+                        "in": "path",
+                        "required": true,
+                        "description": "The name of the block",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The page",
+                        "content": {
+                            "text/html": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "The grid does not serve this page"
+                    }
+                }
+            }
+        },
+        "/assets/{file}": {
+            "get": {
+                "operationId": "pageAsset",
+                "tags": [
+                    "Pages"
+                ],
+                "summary": "Asset",
+                "description": "A file the pages use (style sheet, script, image, font): the theme of the grid first, then the helpers'. The file is the rest of the path.",
+                "security": [],
+                "parameters": [
+                    {
+                        "name": "file",
+                        "in": "path",
+                        "required": true,
+                        "description": "The path of the file in the assets",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "The page",
