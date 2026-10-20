@@ -24,7 +24,8 @@ final class GridFileService
     /**
      * Mode 640 and the group of the web server for every ini file of a folder (the simulators', the includes, the regions').
      *
-     * @return bool false when the files could not be given to the group of the web server (no such group, or not allowed to)
+     * @return bool false when the machine has a group for the web server and the files could not be given to it (a machine with none has
+     *              nothing to give them to: the mode is all that is done)
      */
     public static function protect(string $dir): bool
     {
@@ -40,7 +41,7 @@ final class GridFileService
                 }
             }
         }
-        $done = $gid !== null;
+        $done = true;
         foreach ($files as $file) {
             // Mode 640 in any case: nobody else reads what may hold a password
             if ($gid !== null && !@chgrp($file, $gid)) {

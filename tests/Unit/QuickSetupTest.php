@@ -213,6 +213,15 @@ describe('quick setup, what is wrong', function () {
             ]);
     });
 
+    test('says a grid that exists has a name that is taken, and nothing of its regions', function () {
+        $environment = (new Machine())->environment;
+
+        expect(QuickSetup::plan($environment, quick_answers(['name' => 'Demo']))['problems'])
+            ->toBe(['name' => 'taken'])
+            ->and(QuickSetup::plan($environment, quick_answers(['name' => 'Demo', 'type' => 'standalone']))['problems'])
+            ->toBe(['name' => 'taken']);
+    });
+
     test('refuses a type it does not apply yet, and one it does not know', function () {
         $environment = (new Machine())->environment;
 
@@ -583,7 +592,9 @@ describe('quick setup, the scenario', function () {
             ->toBe('quit')
             ->and($done['message'])
             ->toContain('Grid name:  Magic Grid', 'Login URI:  http://login.example.org:8102', 'Avatar:     Ada Love')
-            ->toContain('Not done yet: the databases and the account of Ada Love.');
+            ->toContain('Not done yet: the databases and the account of Ada Love.')
+            ->not->toContain('MoneyServer')
+            ->not->toContain('chgrp');
         preg_match('/Written in (\S+)\./', $done['message'], $m);
         $folder = $m[1];
 

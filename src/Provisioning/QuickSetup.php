@@ -160,6 +160,9 @@ final class QuickSetup
         $planner = GridPlanner::forMachine($environment);
         $fixes = self::review($planner->fields(), $planner->problems($gridAnswers), $gridAnswers, $problems, $corrected);
         $plan = $planner->plan($fixes + $gridAnswers);
+        // A new grid: the name of one that exists is taken (its regions, its ports are not the business of this setup)
+        $taken = Grid::find($environment, $plan->gridNick) !== null;
+        $taken && ($problems['name'] = _('taken'));
 
         // Its first simulator, with its region, and the avatar that owns the estate
         $ui = new NullUi();
@@ -176,7 +179,7 @@ final class QuickSetup
         $fixes = self::review($simulators->fields(), $simulators->problems($owner), $owner, $problems, $corrected);
         $simulator = $simulators->plan($fixes + $owner);
         $regions = RegionPlanner::forSimulator($simulator, $grid, $database, defaultName: $region);
-        self::review($regions->fields(), $regions->problems(['name' => $region]), ['name' => $region], $problems, $corrected);
+        $taken || self::review($regions->fields(), $regions->problems(['name' => $region]), ['name' => $region], $problems, $corrected);
         $regions->apply($simulator, ['name' => $region]);
 
         return [

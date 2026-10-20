@@ -240,15 +240,18 @@ final class GridProvisioner
             file_put_contents($path, HelpersConfig::template());
             $this->ui->note(sprintf(_('Wrote %s'), $path));
         }
-        // The MoneyServer.ini, the original whole, with the key the currency helpers share with the MoneyServer (made at random once)
-        if (MoneyServerConfig::original() === null) {
-            $this->ui->warn(
-                _(
-                    'The original MoneyServer.ini is not in this install: the grid has none, and the currency is not served without its key.',
-                ),
-            );
-        } elseif (($money = MoneyServerConfig::write($plan->gridDir)) !== null) {
-            $this->ui->note(sprintf(_('Wrote %s'), $money));
+        // The MoneyServer.ini, the original whole, with the key the currency helpers share with the MoneyServer (made at random once):
+        // for a currency that runs a MoneyServer, which none of the ones the setup offers does (beta, gloebit)
+        if ($plan->economy === 'moneyserver') {
+            if (MoneyServerConfig::original() === null) {
+                $this->ui->warn(
+                    _(
+                        'The original MoneyServer.ini is not in this install: the grid has none, and the currency is not served without its key.',
+                    ),
+                );
+            } elseif (($money = MoneyServerConfig::write($plan->gridDir)) !== null) {
+                $this->ui->note(sprintf(_('Wrote %s'), $money));
+            }
         }
 
         // The configuration of the web server chosen, to include in the site of the grid. Named for the grid and the server, with the
