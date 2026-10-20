@@ -559,6 +559,7 @@ describe('offline messages of a grid', function () {
             ->toBe([
                 'OfflineMessageModule' => 'Offline Message Module V2',
                 'OfflineMessageURL' => '${Const|PrivURL}:${Const|PrivatePort}',
+                'ForwardOfflineGroupMessages' => 'true',
             ]);
 
         $options->disable('offline-robust');

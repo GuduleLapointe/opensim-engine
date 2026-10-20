@@ -183,27 +183,35 @@ describe('An option enabled', function () {
             ->toContain("unknown option 'nothing'");
     });
 
-    test('switches on as it is a connector the file has commented out', function () {
+    test('switches on as it is a connector the file has commented out, and sets the one it gives', function () {
         $machine = new Machine();
         $machine->write(
             $machine->grid . '/Robust.HG.ini',
             str_replace(
-                "[Network]",
-                "    ; OfflineIMServiceConnector = \"\${Const|PrivatePort}/OpenSim.Addons.OfflineIM.dll:OfflineIMServiceRobustConnector\"\n[Network]",
+                '[Network]',
+                "    ; UserProfilesServiceConnector = \"\${Const|PublicPort}/OpenSim.Server.Handlers.dll:UserProfilesConnector\"\n    ; OfflineIMServiceConnector = \"x\"\n[Network]",
                 file_get_contents($machine->grid . '/Robust.HG.ini'),
             ),
         );
         $options = demo_options($machine);
 
-        $on = $options->enable('offline-robust');
+        $on = $options->enable('profiles');
+        $offline = $options->enable('offline-robust');
+        $text = (string) file_get_contents($machine->grid . '/Robust.HG.ini');
 
         expect($on['robust'])
             ->toBeTrue()
-            ->and(file_get_contents($machine->grid . '/Robust.HG.ini'))
-            ->toContain("\nOfflineIMServiceConnector = \"\${Const|PrivatePort}/OpenSim.Addons.OfflineIM.dll:OfflineIMServiceRobustConnector\"");
+            // As the file has it
+            ->and($text)
+            ->toContain("\nUserProfilesServiceConnector = \"\${Const|PublicPort}/OpenSim.Server.Handlers.dll:UserProfilesConnector\"")
+            // As the preset says it
+            ->and($offline['robust'])
+            ->toBeTrue()
+            ->and($text)
+            ->toContain('OfflineIMServiceConnector = "${Const|PrivatePort}/OpenSim.Addons.OfflineIM.dll:OfflineIMServiceRobustConnector"');
 
-        $options->disable('offline-robust');
-        expect(file_get_contents($machine->grid . '/Robust.HG.ini'))->toContain(';OfflineIMServiceConnector = ');
+        $options->disable('profiles');
+        expect(file_get_contents($machine->grid . '/Robust.HG.ini'))->toContain(';UserProfilesServiceConnector = ');
     });
 
     test('is one at a time in a group, the keys and the module it needs told, what the administrator set kept', function () {
@@ -306,7 +314,11 @@ describe('An option enabled', function () {
         demo_options($machine)->enable('offline-robust');
 
         expect(ConfigReader::load($machine->grid . '/sims/alpha.ini')['Messaging'])
-            ->toBe(['OfflineMessageURL' => '${Const|PrivURL}:${Const|PrivatePort}', 'OfflineMessageModule' => 'Offline Message Module V2']);
+            ->toBe([
+                'OfflineMessageURL' => '${Const|PrivURL}:${Const|PrivatePort}',
+                'OfflineMessageModule' => 'Offline Message Module V2',
+                'ForwardOfflineGroupMessages' => 'true',
+            ]);
     });
 });
 
