@@ -7,6 +7,7 @@ use OpenSim\Forms\FieldSet;
 use OpenSim\Models\Grid;
 use OpenSim\Result;
 use OpenSim\Runtime\Environment;
+use OpenSim\Runtime\ShellService;
 
 /**
  * The quick setup: a few answers (the type, the name, the login address, the hypergrid, the avatar that owns it, its password and its email) and
@@ -537,6 +538,10 @@ final class QuickSetup
             return self::screenDatabase($db, $answers, $said);
         }
 
+        // What the commands say (a log, the owners) is kept, never printed: the answer of the API is a document
+        ShellService::showOutputWith(static function (string $chunk) use ($ui): void {
+            trim($chunk) !== '' && $ui->note(trim($chunk));
+        });
         try {
             if ($plan !== null) {
                 $plan->enable = $plan->start = true;
@@ -558,8 +563,13 @@ final class QuickSetup
             (new SimulatorProvisioner($ui))->apply($simulator, $environment);
         } catch (SetupFailedException $failed) {
             $errors = array_column(array_filter($ui->said, static fn(array $said): bool => $said[0] === 'error'), 1);
+            // The log of what did not start, when the setup showed it
+            $at = array_search('Recent log:', array_column($ui->said, 1), true);
+            $log = $at === false ? [] : array_column(array_slice($ui->said, $at + 1), 1);
 
-            return ['action' => 'abort', 'error' => implode("\n", $errors ?: [$failed->getMessage()])];
+            return ['action' => 'abort', 'error' => implode("\n", [...($errors ?: [$failed->getMessage()]), ...$log])];
+        } finally {
+            ShellService::showOutputWith(null);
         }
         // Written is written: the files are there, or the setup says they are not
         $missing = array_values(array_filter(

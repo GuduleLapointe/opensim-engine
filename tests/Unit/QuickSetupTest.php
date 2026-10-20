@@ -244,6 +244,26 @@ describe('quick setup, what is wrong', function () {
             ->toBe(['name' => 'taken']);
     });
 
+    test('proposes the password the grids of the machine already use for the same database account', function () {
+        $machine = new Machine();
+        $robust = $machine->grid . '/Robust.HG.ini';
+        file_put_contents(
+            $robust,
+            (string) file_get_contents($robust) .
+                "\n[DatabaseService]\n    ConnectionString = \"Data Source=localhost;Database=demo_robust;User ID=opensim;Password=sharedpass1234;Old Guids=true;\"\n",
+        );
+
+        $answers = QuickSetup::plan($machine->environment, quick_answers());
+        $planner = \OpenSim\Provisioning\GridPlanner::forMachine($machine->environment);
+
+        expect($answers['valid'])
+            ->toBeTrue()
+            ->and($planner->plan(['name' => 'Other Grid'])->dbPass)
+            ->toBe('sharedpass1234')
+            ->and($planner->plan(['name' => 'Other Grid', 'database_password' => 'mine'])->dbPass)
+            ->toBe('mine');
+    });
+
     test('refuses a type it does not know, and a boolean that is not one', function () {
         $environment = (new Machine())->environment;
 

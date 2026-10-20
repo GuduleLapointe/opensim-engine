@@ -209,7 +209,7 @@ final class GridPlanner
 
         $foundPassword = (string) ($current?->databasePassword() ?? ($solo?->databasePassword() ?? ''));
 
-        return [
+        $values = [
             'name' => $name,
             'nick' => $nick,
             'hypergrid' => $hypergrid,
@@ -263,6 +263,28 @@ final class GridPlanner
                     : $this->secret('database_password', 20, false),
             ),
         ];
+        // An account that another grid of this machine already uses keeps its password: it is the one the server has
+        if (!$modify && !isset($answers['database_password']) && $foundPassword === '') {
+            $values['database_password'] =
+                $this->knownPassword($values['database_host'], $values['database_user']) ?? $values['database_password'];
+        }
+
+        return $values;
+    }
+
+    /** The password the grids of this machine use for an account of a database server, null when none does. */
+    private function knownPassword(string $host, string $user): ?string
+    {
+        $environment = $this->environment();
+        foreach (\OpenSim\Archives\Instances::grids($environment->layout->etcRoot()) as $nick) {
+            $grid = Grid::find($environment, $nick);
+            $password = $grid?->databasePassword() ?? '';
+            if ($grid !== null && $grid->databaseHost() === $host && $grid->databaseUser() === $user && $password !== '' && $password !== 'changeme') {
+                return $password;
+            }
+        }
+
+        return null;
     }
 
     /**
