@@ -68,19 +68,31 @@ final class GridProvisioner
 
         $this->ui->note(sprintf(_("Grid '%s' configured."), $plan->gridName));
         if ($plan->helpers) {
-            NullUi::report(
-                $this->ui,
-                sprintf(
-                    _(
-                        'Web site: the helpers are in %s. The configuration for your web server is in %s/web, to include in the site of the grid (opensim web %s snippet <caddy|nginx|apache> writes it for another server).',
-                    ),
-                    Snippets::WEBROOT,
-                    $plan->gridDir,
-                    $plan->gridNick,
-                ),
-            );
+            NullUi::report($this->ui, $this->webReport($plan, $environment));
         }
     }
+
+    /** What to do on the web server, for the final report: the address of the site and the snippet to import. */
+    private function webReport(GridPlan $plan, Environment $environment): string
+    {
+        $dir = $plan->gridDir . '/web';
+        $server = Snippets::detect();
+        $files = glob("$dir/*") ?: [];
+        $mine = $server === null ? [] : array_values(array_filter($files, static fn(string $f): bool => str_ends_with($f, $server['suffix'])));
+        $file = $mine[0] ?? ($files[0] ?? '');
+        $lines = [sprintf('Web URL:     %s', rtrim(HelpersConfig::webUrl($plan->gridDir), '/') . '/')];
+        if ($server !== null && $mine !== []) {
+            $lines[] = sprintf('Detected %s. Import the snippet in %s or in the vhost:', $server['label'], $server['config']);
+            $lines[] = "\t" . sprintf($server['directive'], $file);
+        } elseif ($file !== '') {
+            $lines[] = "Snippet:     $file";
+        }
+        $lines[] = 'Other servers:';
+        $lines[] = "\topensim web {$plan->gridNick} snippet <caddy|nginx|apache>";
+
+        return implode("\n", $lines);
+    }
+
     /**
      * Start the grid and report whether it came up, by the result of the
      * launcher (a screen session is per user: the setup may not be the one

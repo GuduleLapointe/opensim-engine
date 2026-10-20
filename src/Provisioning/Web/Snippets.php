@@ -20,30 +20,26 @@ final class Snippets
     public const WEBROOT = '/usr/share/opensim-helpers';
 
     /**
-     * The file of a web server for the site of a grid: complete, to include from the config of the server or to use alone. The site
-     * is the one of the web URL of the grid.
+     * The web server of this machine, null when none is found.
      *
-     * @param string $docroot the document root, empty for the one of the preset `webroot-helpers`
-     * @param string $socket the socket of PHP-FPM, empty for the one of the preset
-     * @throws \InvalidArgumentException for a server that is not written
+     * @return ?array{name:string,label:string,config:string,suffix:string,directive:string}
      */
-    public static function render(
-        string $server,
-        string $nick,
-        string $docroot = '',
-        string $socket = '',
-        string $webUrl = '',
-    ): string {
-        $options = (new Presets())->options();
-        $option = $options["webserver-$server"] ?? null;
-        $file = $option?->files()[0] ?? null;
-        if ($option === null || $file === null) {
-            throw new \InvalidArgumentException("No file for $server (" . implode(', ', self::SERVERS) . ').');
+    public static function detect(): ?array
+    {
+        $servers = [
+            ['caddy', 'Caddy', '/etc/caddy/Caddyfile', '.caddyfile', 'import %s', ['/etc/caddy', '/usr/bin/caddy', '/usr/local/bin/caddy']],
+            ['nginx', 'nginx', '/etc/nginx/sites-enabled', '-nginx.conf', 'include %s;', ['/etc/nginx', '/usr/sbin/nginx', '/usr/local/bin/nginx']],
+            ['apache', 'Apache', '/etc/apache2/sites-enabled', '-apache.conf', 'Include %s', ['/etc/apache2', '/etc/httpd', '/usr/sbin/apache2']],
+        ];
+        foreach ($servers as [$name, $label, $config, $suffix, $directive, $marks]) {
+            foreach ($marks as $mark) {
+                if (file_exists($mark)) {
+                    return compact('name', 'label', 'config', 'suffix', 'directive');
+                }
+            }
         }
-        $preset = isset($options['webroot-helpers']) ? $options['webroot-helpers']->variables() : [];
-        $given = array_filter(['docroot' => $docroot, 'php_socket' => $socket], 'strlen');
 
-        return $option->text($file, $given + ['grid_nick' => $nick] + self::siteVariables($webUrl) + $option->variables() + $preset);
+        return null;
     }
 
     /**

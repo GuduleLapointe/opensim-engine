@@ -1,12 +1,8 @@
-# Site of the grid {{grid_nick}}, written by `opensim web {{grid_nick}} snippet caddy`.
-# A complete site: `import` it from your Caddyfile, or use it as the Caddyfile.
-# What is not a file of the root goes to its index.php, the router of the helpers.
-
-{{site_address}} {
+# Helpers of the grid {{grid_nick}}: import this file in the site block of the grid. It only takes the paths of the helpers.
+@opensim_helpers path {{web_globs}}
+handle @opensim_helpers {
 	root * {{docroot}}
 	php_fastcgi unix/{{php_socket}} {
-		try_files {path} /index.php
 		env OPENSIM_GRID {{grid_nick}}
 	}
-	file_server
 }

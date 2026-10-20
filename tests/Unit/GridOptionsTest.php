@@ -300,8 +300,9 @@ describe('An option enabled', function () {
             ->and($server['files'])
             ->toBe([$machine->grid . '/web/demo.caddyfile'])
             ->and(file_get_contents($machine->grid . '/web/demo.caddyfile'))
-            ->toContain("demo.example.org {\n\troot * /var/www/html\n\tphp_fastcgi unix//run/php/php-fpm.sock {")
-            ->toContain('env OPENSIM_GRID demo');
+            ->toContain('@opensim_helpers path /helpers*', '/search*', '/health*', 'root * /usr/share/opensim-helpers/public')
+            ->toContain('php_fastcgi unix//run/php/php-fpm.sock {', 'env OPENSIM_GRID demo')
+            ->not->toContain('demo.example.org');
     });
 
     test('takes the place of the settings of the option it replaces', function () {
