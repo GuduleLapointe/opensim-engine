@@ -83,7 +83,7 @@ caddy:
 nginx:
     include %2$s/web/%3$s-nginx.conf;
 apache:
-    include %2$s/web/%3$s-apache.conf',
+    Include %2$s/web/%3$s-apache.conf',
             rtrim(HelpersConfig::webUrl($plan->gridDir), '/'),
             $plan->gridDir,
             $plan->gridNick,

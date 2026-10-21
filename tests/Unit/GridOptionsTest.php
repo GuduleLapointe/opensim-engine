@@ -302,7 +302,7 @@ describe('An option enabled', function () {
             ->and(file_get_contents($machine->grid . '/web/demo.caddyfile'))
             ->toContain('@opensim_helpers path /helpers*', '/search*', '/health*', 'root * /usr/share/opensim-helpers/public')
             ->toContain('php_fastcgi unix//run/php/php-fpm.sock {', 'env OPENSIM_GRID demo')
-            ->not->toContain('demo.example.org');
+            ->toContain("site block:\n#     import {$machine->grid}/web/demo.caddyfile");
     });
 
     test('takes the place of the settings of the option it replaces', function () {

@@ -1,6 +1,11 @@
-# Helpers of the grid {{grid_nick}}. It only takes the paths of the helpers. In the site block of the grid, add:
+# Helpers of the grid {{grid_nick}}.
+#
+# Add this line in Caddy's {{web_url}} site block:
 #     import {{grid_dir}}/web/{{grid_nick}}.caddyfile
+
+# You may adjust @opensim_helpers to the paths that must be handled by the helpers.
 @opensim_helpers path {{web_globs}}
+
 handle @opensim_helpers {
 	root * {{docroot}}
 	php_fastcgi unix/{{php_socket}} {
