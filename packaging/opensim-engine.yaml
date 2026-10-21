@@ -39,3 +39,9 @@ contents:
 scripts:
   preinstall: packaging/opensim-engine.preinst
   postinstall: packaging/opensim-engine.postinst
+
+deb:
+  # The OpenSimulator releases installed or removed, to update their profiles
+  triggers:
+    interest_noawait:
+      - /usr/share/opensim

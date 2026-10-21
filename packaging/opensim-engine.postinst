@@ -1,12 +1,24 @@
 #!/bin/sh
 # postinst of opensim-engine: the system layout of the machine (the account the instances run as, the folders, opensim.conf), made
-# by the engine when it is not there. Nothing is done twice, what is there is left as it is.
+# by the engine when it is not there; one install profile per OpenSimulator release installed (also when a release comes or goes,
+# see the trigger); the files the grids that exist are missing. Nothing is done twice, what is there is left as it is.
 set -e
+
+engine=/usr/share/opensim-engine/bin
 
 case "$1" in
     configure)
-        php /usr/share/opensim-engine/bin/opensim-layout.php ||
+        php "$engine/opensim-layout.php" ||
             echo "opensim-engine: could not make the system layout, 'opensim setup' will try again" >&2
+        php "$engine/opensim-profiles.php" ||
+            echo "opensim-engine: could not update the install profiles in /etc/opensim/opensim.conf" >&2
+        # The files a grid needs that it does not have yet, made as the account of the instances
+        if [ -d /etc/opensim/grids ] && getent passwd opensim >/dev/null; then
+            runuser -u opensim -- php "$engine/opensim-complete-grids.php" || true
+        fi
+        ;;
+    triggered)
+        [ -f /etc/opensim/opensim.conf ] && php "$engine/opensim-profiles.php" || true
         ;;
 esac
 
