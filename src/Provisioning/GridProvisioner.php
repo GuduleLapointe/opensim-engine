@@ -75,13 +75,19 @@ final class GridProvisioner
     /** For the final report: the address of the site and where the configs of the web servers are (each says in its header what to add). */
     private function webReport(GridPlan $plan, Environment $environment): string
     {
-        return implode("\n", [
-            sprintf('Web URL:     %s', rtrim(HelpersConfig::webUrl($plan->gridDir), '/') . '/'),
-            sprintf('Web server configs in %s/web/', $plan->gridDir),
-            "\t" . 'caddy:  import ' . "{$plan->gridDir}/web/{$plan->gridNick}.caddyfile",
-            "\t" . 'nginx:  include ' . "{$plan->gridDir}/web/{$plan->gridNick}-nginx.conf;",
-            "\t" . 'apache: Include ' . "{$plan->gridDir}/web/{$plan->gridNick}-apache.conf",
-        ]);
+        return sprintf(
+            'Web URL:     %1$s/
+Configs in %2$s/web/
+caddy:
+    import %2$s/web/%3$s.caddyfile
+nginx:
+    include %2$s/web/%3$s-nginx.conf;
+apache:
+    include %2$s/web/%3$s-apache.conf',
+            rtrim(HelpersConfig::webUrl($plan->gridDir), '/'),
+            $plan->gridDir,
+            $plan->gridNick,
+        );
     }
 
     /**
@@ -162,7 +168,7 @@ final class GridProvisioner
         foreach (['assets', 'inventory'] as $name) {
             $to = "{$plan->dataDirectory}/$name";
             $from = "{$plan->binDir}/$name";
-            if (!is_dir($from) || ($has = glob("$to/*")) !== false && $has !== []) {
+            if (!is_dir($from) || (($has = glob("$to/*")) !== false && $has !== [])) {
                 continue;
             }
             is_dir($to) || @mkdir($to, 0o755, true);
