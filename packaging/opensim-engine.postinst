@@ -1,0 +1,13 @@
+#!/bin/sh
+# postinst of opensim-engine: the system layout of the machine (the account the instances run as, the folders, opensim.conf), made
+# by the engine when it is not there. Nothing is done twice, what is there is left as it is.
+set -e
+
+case "$1" in
+    configure)
+        php /usr/share/opensim-engine/bin/opensim-layout.php ||
+            echo "opensim-engine: could not make the system layout, 'opensim setup' will try again" >&2
+        ;;
+esac
+
+exit 0

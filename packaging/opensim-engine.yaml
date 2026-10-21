@@ -38,3 +38,4 @@ contents:
 
 scripts:
   preinstall: packaging/opensim-engine.preinst
+  postinstall: packaging/opensim-engine.postinst

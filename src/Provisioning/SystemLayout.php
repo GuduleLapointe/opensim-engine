@@ -102,7 +102,9 @@ final class SystemLayout
     private function conf(Layout $layout, string $user): string
     {
         $roots = DirectoryLayout::roots(DirectoryLayout::SYSTEM);
-        $coreRoot = Core::latest(self::PACKAGED_CORES) !== null ? self::PACKAGED_CORES : $layout->coreRoot();
+        // The cores of the packages are in /usr/share/opensim (they may come after the engine), the others where the layout puts them
+        $packaged = Core::latest(self::PACKAGED_CORES) !== null || (PHP_OS_FAMILY === 'Linux' && ShellService::commandExists('dpkg'));
+        $coreRoot = $packaged ? self::PACKAGED_CORES : $layout->coreRoot();
         $lines = ['[Defaults]', 'DirectoryLayout = ' . DirectoryLayout::SYSTEM, 'CoreRoot = ' . $coreRoot];
         foreach (['EtcRoot', 'VarRoot', 'LogsRoot', 'CacheRoot', 'DataRoot'] as $key) {
             $lines[] = "$key = " . ($layout->get($key) !== '' ? $layout->get($key) : ($roots[$key] ?? ''));
