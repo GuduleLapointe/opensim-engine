@@ -81,6 +81,8 @@ final class SystemLayout
             }
             $this->execute(sprintf('chown %s:%s %s', ShellService::arg($user), ShellService::arg($user), ShellService::arg($dir)));
             @chmod($dir, 0o755);
+            // On a system with dpkg the owner survives the upgrades of the packages: an administrator's own override stays
+            $this->execute(sprintf('command -v dpkg-statoverride >/dev/null 2>&1 && { dpkg-statoverride --list %1$s >/dev/null || dpkg-statoverride --update --add %2$s %2$s 755 %1$s; } || true', ShellService::arg($dir), ShellService::arg($user)));
         }
         $this->ui->note(sprintf(_('Folders ready in %s, %s, %s.'), $etc, $layout->varRoot(), $layout->logsRoot()));
         // The web server reads the ini files of the grids, which may hold a password: through the group of the account
