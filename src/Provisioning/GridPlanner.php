@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace OpenSim\Provisioning;
 
+use Nubs\RandomNameGenerator\Alliteration;
 use OpenSim\Result;
 use OpenSim\Config\ConfigReader;
 use OpenSim\Forms\FieldSet;
 use OpenSim\Runtime\Core;
 use OpenSim\Models\Grid;
 use OpenSim\Network\Ports;
+use OpenSim\Provisioning\Slug;
 use OpenSim\Provisioning\Web\HelpersConfig;
 use OpenSim\Provisioning\Web\Services;
 use OpenSim\Provisioning\Web\Snippets;
@@ -149,7 +151,10 @@ final class GridPlanner
             $short = strtok(trim($fqdn), '.') ?: 'My';
         }
 
-        return ucfirst($short);
+        $generator = new Alliteration();
+        $short .= "'s " . Slug::ascii($generator->getName()) ?: 'World';
+
+        return ucwords(trim($short));
     }
 
     /** The cores that can run the grid (folder => name). */
@@ -262,7 +267,8 @@ final class GridPlanner
         // An account that another grid of this machine already uses keeps its password: it is the one the server has
         if (!$modify && !isset($answers['database_password']) && $foundPassword === '') {
             $values['database_password'] =
-                $this->knownPassword($values['database_host'], $values['database_user']) ?? $values['database_password'];
+                $this->knownPassword($values['database_host'], $values['database_user']) ??
+                $values['database_password'];
         }
 
         return $values;
@@ -275,7 +281,13 @@ final class GridPlanner
         foreach (\OpenSim\Archives\Instances::grids($environment->layout->etcRoot()) as $nick) {
             $grid = Grid::find($environment, $nick);
             $password = $grid?->databasePassword() ?? '';
-            if ($grid !== null && $grid->databaseHost() === $host && $grid->databaseUser() === $user && $password !== '' && $password !== 'changeme') {
+            if (
+                $grid !== null &&
+                $grid->databaseHost() === $host &&
+                $grid->databaseUser() === $user &&
+                $password !== '' &&
+                $password !== 'changeme'
+            ) {
                 return $password;
             }
         }

@@ -84,7 +84,12 @@ final class QuickSetup
         $types = [
             ['name' => 'grid', 'label' => 'Grid', 'implemented' => true, 'kind' => 'grid'],
             ['name' => 'standalone', 'label' => 'Standalone', 'implemented' => true, 'kind' => 'standalone'],
-            ['name' => 'simulator', 'label' => 'Simulator (join other grid)', 'implemented' => true, 'kind' => 'remote'],
+            [
+                'name' => 'simulator',
+                'label' => 'Simulator (join other grid)',
+                'implemented' => true,
+                'kind' => 'remote',
+            ],
         ];
         $presets = new Presets([], $environment->layout->etcRoot());
         $found = $presets->names();
@@ -129,7 +134,13 @@ final class QuickSetup
      */
     public static function plan(Environment $environment, array $answers): array
     {
-        if (in_array(self::kindOf($environment, strtolower(trim((string) ($answers['type'] ?? '')))), ['remote', 'preset'], true)) {
+        if (
+            in_array(
+                self::kindOf($environment, strtolower(trim((string) ($answers['type'] ?? '')))),
+                ['remote', 'preset'],
+                true,
+            )
+        ) {
             return self::planRemote($environment, $answers);
         }
         $built = self::build($environment, $answers);
@@ -139,7 +150,14 @@ final class QuickSetup
             'problems' => $built['problems'],
             'corrected' => $built['corrected'],
             'setup' => SetupFile::withSimulator(SetupFile::withGrid([], $built['plan']), $built['simulator']),
-            'rows' => self::rows($built['plan'], $built['simulator'], $built['standalone'], trim((string) ($answers['email'] ?? '')), $built['chosen'], $built['labels']),
+            'rows' => self::rows(
+                $built['plan'],
+                $built['simulator'],
+                $built['standalone'],
+                trim((string) ($answers['email'] ?? '')),
+                $built['chosen'],
+                $built['labels'],
+            ),
             'types' => self::publicTypes($built['types']),
             'options' => array_map(
                 static fn(string $name, array $option): array => [
@@ -174,13 +192,23 @@ final class QuickSetup
         $type = strtolower(trim((string) ($answers['type'] ?? '')));
         $types = self::types($environment);
         if ($type !== '' && !in_array($type, self::TYPES, true)) {
-            $problems['type'] = in_array($type, array_column($types, 'name'), true) ? _('not implemented') : _('invalid');
+            $problems['type'] = in_array($type, array_column($types, 'name'), true)
+                ? _('not implemented')
+                : _('invalid');
         }
         $standalone = $type === 'standalone';
 
         // The options: what is chosen, and what each sets in the plan of the grid
         $options = self::options($environment);
-        foreach ((new FieldSet(array_map(static fn(string $name): array => ['name' => $name, 'type' => 'boolean'], array_keys($options))))->problems($answers) as $name => $message) {
+        foreach (
+            (new FieldSet(
+                array_map(
+                    static fn(string $name): array => ['name' => $name, 'type' => 'boolean'],
+                    array_keys($options),
+                ),
+            ))->problems($answers)
+            as $name => $message
+        ) {
             $problems[$name] = $message;
         }
         $chosen = [];
@@ -193,23 +221,35 @@ final class QuickSetup
             if ($option['plan'] === null) {
                 // A preset: it is on or off by name, and what needs the helpers cannot be on without them
                 $fromOptions['options'][$name] = $chosen[$name];
-                $chosen[$name] && !$chosen['helpers'] && in_array('helpers', $option['uses'] ?? [], true) && ($problems[$name] = _('needs Helpers'));
+                $chosen[$name] &&
+                    !$chosen['helpers'] &&
+                    in_array('helpers', $option['uses'] ?? [], true) &&
+                    ($problems[$name] = _('needs Helpers'));
 
                 continue;
             }
-            $fromOptions = ($option['plan'])($chosen[$name], $chosen) + $fromOptions;
+            $fromOptions = $option['plan']($chosen[$name], $chosen) + $fromOptions;
         }
 
         // The grid. What is right or wrong, and what is corrected, is said by the fields of the models: the answers go to them as given,
         // and the plan is made of the corrected ones (the person confirms a correction by sending the form again).
-        $dbGiven = array_intersect_key($answers, array_flip(['database_host', 'database_name', 'database_user', 'database_password']));
+        $dbGiven = array_intersect_key(
+            $answers,
+            array_flip(['database_host', 'database_name', 'database_user', 'database_password']),
+        );
         $gridAnswers = ['standalone' => $standalone] + $dbGiven + $fromOptions;
         trim((string) ($answers['name'] ?? '')) !== '' && ($gridAnswers['name'] = trim((string) $answers['name']));
         [$uri, $uriProblem] = Grid::parseLoginUri((string) ($answers['login_uri'] ?? ''));
         $uriProblem !== null && ($problems['login_uri'] = $uriProblem);
         $gridAnswers += $uri;
         $planner = GridPlanner::forMachine($environment);
-        $fixes = self::review($planner->fields(), $planner->problems($gridAnswers), $gridAnswers, $problems, $corrected);
+        $fixes = self::review(
+            $planner->fields(),
+            $planner->problems($gridAnswers),
+            $gridAnswers,
+            $problems,
+            $corrected,
+        );
         $plan = $planner->plan($fixes + $gridAnswers);
         // A new grid: the name of one that exists is taken (its regions, its ports are not the business of this setup)
         $taken = Grid::find($environment, $plan->gridNick) !== null;
@@ -221,16 +261,24 @@ final class QuickSetup
         $grid = Grid::planned($environment, $plan);
         $region = $standalone ? Grid::standaloneRegionName($plan->gridName) : 'Welcome';
         $simulators = SimulatorPlanner::forGrid($grid, $database, $ui, null, $standalone ? $region : null);
-        $owner = [
-            'estate_owner' => '+',
-            'new_name' => trim((string) ($answers['avatar'] ?? '')),
-            'new_password' => (string) ($answers['password'] ?? ''),
-            'new_email' => trim((string) ($answers['email'] ?? '')),
-        ] + array_diff_key($dbGiven, ['database_name' => 1]);
+        $owner =
+            [
+                'estate_owner' => '+',
+                'new_name' => trim((string) ($answers['avatar'] ?? '')),
+                'new_password' => (string) ($answers['password'] ?? ''),
+                'new_email' => trim((string) ($answers['email'] ?? '')),
+            ] + array_diff_key($dbGiven, ['database_name' => 1]);
         $fixes = self::review($simulators->fields(), $simulators->problems($owner), $owner, $problems, $corrected);
         $simulator = $simulators->plan($fixes + $owner);
         $regions = RegionPlanner::forSimulator($simulator, $grid, $database, defaultName: $region);
-        $taken || self::review($regions->fields(), $regions->problems(['name' => $region]), ['name' => $region], $problems, $corrected);
+        $taken ||
+            self::review(
+                $regions->fields(),
+                $regions->problems(['name' => $region]),
+                ['name' => $region],
+                $problems,
+                $corrected,
+            );
         $regions->apply($simulator, ['name' => $region]);
 
         return [
@@ -242,7 +290,10 @@ final class QuickSetup
             'chosen' => $chosen,
             'labels' => array_map(
                 static fn(OptionTemplate $t): string => $t->label(),
-                array_filter((new Presets([], $environment->layout->etcRoot()))->options(), static fn(OptionTemplate $t): bool => $t->shown()),
+                array_filter(
+                    (new Presets([], $environment->layout->etcRoot()))->options(),
+                    static fn(OptionTemplate $t): bool => $t->shown(),
+                ),
             ),
             'types' => $types,
             'options' => $options,
@@ -264,7 +315,9 @@ final class QuickSetup
     public static function next(Environment $environment, array $request): array
     {
         $state = self::decode((string) ($request['state'] ?? ''));
-        $button = in_array($request['button'] ?? 'next', ['next', 'back', 'quit'], true) ? $request['button'] ?? 'next' : 'next';
+        $button = in_array($request['button'] ?? 'next', ['next', 'back', 'quit'], true)
+            ? $request['button'] ?? 'next'
+            : 'next';
         $answers = $state['answers'];
         $given = is_array($request['answers'] ?? null) ? $request['answers'] : [];
         if ($state['step'] === '') {
@@ -281,7 +334,7 @@ final class QuickSetup
                 if ($button === 'back') {
                     return ['action' => 'abort', 'error' => _('Cancelled')];
                 }
-                $type = strtolower(trim((string) ($given['type'] ?? $answers['type'] ?? '')));
+                $type = strtolower(trim((string) ($given['type'] ?? ($answers['type'] ?? ''))));
                 $answers['type'] = $type;
                 $known = array_column(self::types($environment), 'implemented', 'name');
                 if (($known[$type] ?? false) !== true) {
@@ -292,7 +345,10 @@ final class QuickSetup
                 } else {
                     // The proposals of the engine are what the form starts with
                     $proposed = self::plan($environment, ['type' => $type])['setup']['grid'];
-                    $answers += ['name' => $proposed['name'], 'login_uri' => $proposed['hostname'] . ':' . $proposed['public_port']];
+                    $answers += [
+                        'name' => $proposed['name'],
+                        'login_uri' => $proposed['hostname'] . ':' . $proposed['public_port'],
+                    ];
                 }
 
                 return self::screenForm($environment, $answers, '');
@@ -326,7 +382,11 @@ final class QuickSetup
                     ) {
                         $answers['helpers'] = true;
 
-                        return self::screenOptions($environment, $answers, sprintf(_('%s needs the helpers: Helpers is on.'), $option['label']));
+                        return self::screenOptions(
+                            $environment,
+                            $answers,
+                            sprintf(_('%s needs the helpers: Helpers is on.'), $option['label']),
+                        );
                     }
                 }
                 if (($screen = self::checkForm($environment, $answers)) !== null) {
@@ -345,7 +405,9 @@ final class QuickSetup
 
             case 'review':
                 if ($button === 'back') {
-                    return $remote ? self::screenForm($environment, $answers, '') : self::screenOptions($environment, $answers, '');
+                    return $remote
+                        ? self::screenForm($environment, $answers, '')
+                        : self::screenOptions($environment, $answers, '');
                 }
 
                 return self::install($environment, $answers);
@@ -459,7 +521,9 @@ final class QuickSetup
         $quick = self::plan($environment, self::answersOf($answers));
         $answers = array_replace($answers, $quick['corrected']);
         $fields = self::fields($environment, $answers);
-        $labels = array_map(static fn(array $field): string => $field[0], $fields) + array_map(static fn(array $o): string => $o['label'], self::options($environment));
+        $labels =
+            array_map(static fn(array $field): string => $field[0], $fields) +
+            array_map(static fn(array $o): string => $o['label'], self::options($environment));
         $lines = [];
         foreach ($quick['problems'] as $question => $message) {
             $lines[] = sprintf('Error: %s %s', $labels[$question] ?? $question, $message);
@@ -513,12 +577,19 @@ final class QuickSetup
         }
         $simulator = $built['simulator'];
         if ($built['problems'] !== [] || $simulator === null) {
-            return self::screenForm($environment, $answers, _('The answers are not right any more: look at them again.'));
+            return self::screenForm(
+                $environment,
+                $answers,
+                _('The answers are not right any more: look at them again.'),
+            );
         }
         $gridDir = $plan?->gridDir ?? $simulator->gridDir;
         $binDir = $plan?->binDir ?? $simulator->binDir();
         if ($binDir === '' || !is_dir($binDir)) {
-            return ['action' => 'abort', 'error' => sprintf(_('No OpenSim core found in %s.'), $environment->layout->coreRoot())];
+            return [
+                'action' => 'abort',
+                'error' => sprintf(_('No OpenSim core found in %s.'), $environment->layout->coreRoot()),
+            ];
         }
         // The place must be one the setup can write in: the nearest folder that exists
         $existing = $gridDir;
@@ -537,7 +608,9 @@ final class QuickSetup
             return [
                 'action' => 'abort',
                 'error' => sprintf(
-                    _('Cannot write in %s: run the setup as a user who can, or set EtcRoot in opensim.conf to a folder that can be written.'),
+                    _(
+                        'Cannot write in %s: run the setup as a user who can, or set EtcRoot in opensim.conf to a folder that can be written.',
+                    ),
                     $existing,
                 ),
             ];
@@ -546,12 +619,23 @@ final class QuickSetup
         // The notes are told as they come: the install takes minutes, a client shows its progress from the error output
         $ui = new NullUi(live: true);
         // Nothing is written before the databases work: a problem of access is asked again, with the reasons
-        $databases = $plan === null ? [$simulator->databasePlan()] : ($plan->standalone ? [$plan] : [$plan, $simulator->databasePlan()]);
+        $databases =
+            $plan === null
+                ? [$simulator->databasePlan()]
+                : ($plan->standalone
+                    ? [$plan]
+                    : [$plan, $simulator->databasePlan()]);
         if (isset($answers['admin_user'])) {
-            DatabaseService::rememberAdmin($databases[0]->dbHost, (string) $answers['admin_user'], (string) ($answers['admin_password'] ?? ''));
+            DatabaseService::rememberAdmin(
+                $databases[0]->dbHost,
+                (string) $answers['admin_user'],
+                (string) ($answers['admin_password'] ?? ''),
+            );
         }
         DatabaseService::remember($databases[0]->dbHost, $databases[0]->dbUser, $databases[0]->dbPass);
-        $check = self::$database ?? static fn(GridPlan $db, UiInterface $said): int => (new DatabaseService($said))->ensure($db);
+        $check =
+            self::$database ??
+            static fn(GridPlan $db, UiInterface $said): int => (new DatabaseService($said))->ensure($db);
         foreach ($databases as $db) {
             $code = $check($db, $ui);
             if ($code === DatabaseService::OK) {
@@ -559,7 +643,11 @@ final class QuickSetup
             }
             $said = implode("\n", array_unique(array_column($ui->said, 1)));
             if ($code === DatabaseService::ABORT) {
-                return ['action' => 'abort', 'error' => $said . "\n" . _('Stopped, nothing was changed: OpenSim cannot run without its database.')];
+                return [
+                    'action' => 'abort',
+                    'error' =>
+                        $said . "\n" . _('Stopped, nothing was changed: OpenSim cannot run without its database.'),
+                ];
             }
 
             return self::screenDatabase($db, $answers, $said);
@@ -576,10 +664,12 @@ final class QuickSetup
                 // The account of the avatar: Robust is up, and makes it. A standalone makes it itself when it starts
                 if (!$plan->standalone) {
                     $found = Grid::find($environment, $plan->gridNick);
-                    $made = self::$account ?? static fn(Grid $grid, SimulatorPlan $sim, UiInterface $said): bool => (new GridAccounts(
-                        new DatabaseService($said),
-                        $said,
-                    ))->create($grid, $sim->estateOwner, $sim->ownerPassword, $sim->ownerEmail);
+                    $made =
+                        self::$account ??
+                        static fn(Grid $grid, SimulatorPlan $sim, UiInterface $said): bool => (new GridAccounts(
+                            new DatabaseService($said),
+                            $said,
+                        ))->create($grid, $sim->estateOwner, $sim->ownerPassword, $sim->ownerEmail);
                     if ($found === null || !$made($found, $simulator, $ui)) {
                         throw new SetupFailedException('account');
                     }
@@ -594,17 +684,26 @@ final class QuickSetup
             $at = array_search('Recent log:', array_column($ui->said, 1), true);
             $log = $at === false ? [] : array_column(array_slice($ui->said, $at + 1), 1);
 
-            return ['action' => 'abort', 'error' => implode("\n", [...($errors ?: [$failed->getMessage()]), ...$log])];
+            return ['action' => 'abort', 'error' => implode("\n", [...$errors ?: [$failed->getMessage()], ...$log])];
         } finally {
             ShellService::showOutputWith(null);
         }
         // Written is written: the files are there, or the setup says they are not
-        $missing = array_values(array_filter(
-            [$plan !== null ? (new GridConf())->path($plan) : '', $plan !== null && !$plan->standalone ? $plan->robustIni() : '', $simulator->iniPath()],
-            static fn(string $file): bool => $file !== '' && !is_file($file),
-        ));
+        $missing = array_values(
+            array_filter(
+                [
+                    $plan !== null ? (new GridConf())->path($plan) : '',
+                    $plan !== null && !$plan->standalone ? $plan->robustIni() : '',
+                    $simulator->iniPath(),
+                ],
+                static fn(string $file): bool => $file !== '' && !is_file($file),
+            ),
+        );
         if ($missing !== []) {
-            return ['action' => 'abort', 'error' => sprintf(_('These files were not written: %s'), implode(', ', $missing))];
+            return [
+                'action' => 'abort',
+                'error' => sprintf(_('These files were not written: %s'), implode(', ', $missing)),
+            ];
         }
         $notes = array_column(array_filter($ui->said, static fn(array $said): bool => $said[0] === 'warn'), 1);
 
@@ -612,13 +711,17 @@ final class QuickSetup
             'action' => 'quit',
             'message' => implode("\n", [
                 sprintf('Grid name:  %s', $plan?->gridName ?? $grid?->name()),
-                sprintf('Login URI:  http://%s:%d', $plan?->baseHostname ?? $grid?->baseHostname(), $plan?->publicPort ?? $grid?->publicPort()),
+                sprintf(
+                    'Login URI:  http://%s:%d',
+                    $plan?->baseHostname ?? $grid?->baseHostname(),
+                    $plan?->publicPort ?? $grid?->publicPort(),
+                ),
                 sprintf('Avatar:     %s', $simulator->estateOwner),
                 '',
                 sprintf(_('Written in %s.'), $gridDir),
                 $plan === null ? _('The simulator is running.') : _('The grid and its simulator are running.'),
                 ...$notes,
-                ...($ui->report === [] ? [] : ['', ...$ui->report]),
+                ...$ui->report === [] ? [] : ['', ...$ui->report],
             ]),
         ];
     }
@@ -634,7 +737,12 @@ final class QuickSetup
         ];
         $fields = [];
         foreach (self::databaseFields() as $name => [$label, $secret]) {
-            $fields[] = ['name' => $name, 'label' => $label, 'value' => (string) ($values[$name] ?? ''), 'secret' => $secret];
+            $fields[] = [
+                'name' => $name,
+                'label' => $label,
+                'value' => (string) ($values[$name] ?? ''),
+                'secret' => $secret,
+            ];
         }
 
         return [
@@ -670,9 +778,13 @@ final class QuickSetup
     private static function pinned(Environment $environment, array $answers): array
     {
         if (!isset($answers['database_password'])) {
-            $remote = in_array(self::kindOf($environment, (string) ($answers['type'] ?? '')), ['remote', 'preset'], true);
+            $remote = in_array(
+                self::kindOf($environment, (string) ($answers['type'] ?? '')),
+                ['remote', 'preset'],
+                true,
+            );
             $answers['database_password'] = $remote
-                ? (self::buildRemote($environment, self::answersOf($answers))['simulator']?->dbPass ?? '')
+                ? self::buildRemote($environment, self::answersOf($answers))['simulator']?->dbPass ?? ''
                 : self::build($environment, self::answersOf($answers))['plan']->dbPass;
             $answers['database_password'] === '' && ($answers['database_password'] = bin2hex(random_bytes(8)));
         }
@@ -690,32 +802,49 @@ final class QuickSetup
     {
         $type = (string) ($answers['type'] ?? '');
         $kind = self::kindOf($environment, $type);
+        $avatar_name = getenv('DEFAULT_OWNER_NAME') ?: null;
+        if (empty($avatar_name)) {
+            $avatar_name = trim(
+                sprintf(
+                    '%s %s',
+                    ucfirst(strtok(gethostname(), '.') ?: ucfirst($kind)),
+                    in_array($kind, ['preset', 'remote']) ? _('Resident') : _('God'),
+                ),
+            );
+        }
+        $avatar_password = getenv('DEFAULT_OWNER_PASSWORD') ?: null;
+        $region_name = sprintf(_("%s's Place"), strtok($avatar_name, ' '));
         if ($kind === 'preset') {
             $said = (new Presets([], $environment->layout->etcRoot()))->describe($type) ?? [];
 
             return [
                 'preset_grid' => [_('Grid'), false, true, (string) ($said['name'] ?? $type)],
-                'preset_login' => [_('Login URI'), false, true, ($said['host'] ?? '') . ':' . ($said['publicPort'] ?? '')],
-                'preset_hypergrid' => [_('Hypergrid'), false, true, ($said['hypergrid'] ?? true) ? 'yes' : 'no'],
-                'name' => [_('Region name'), false, false, null],
-                'avatar' => [_('Avatar name'), false, false, null],
+                'preset_login' => [
+                    _('Login URI'),
+                    false,
+                    true,
+                    ($said['host'] ?? '') . ':' . ($said['publicPort'] ?? ''),
+                ],
+                'preset_hypergrid' => [_('Hypergrid'), false, true, $said['hypergrid'] ?? true ? 'yes' : 'no'],
+                'name' => [_('Region name'), false, false, $region_name],
+                'avatar' => [_('Avatar name'), false, false, $avatar_name],
             ];
         }
         if ($kind === 'remote') {
             return [
                 'login_uri' => [_('Login URI of the grid'), false, false, null],
-                'private_port' => [_('Private port (empty: public + 1)'), false, false, null],
-                'name' => [_('Region name'), false, false, null],
-                'avatar' => [_('Avatar name'), false, false, null],
+                'private_port' => [_('Grid\'s private port (empty: public + 1)'), false, false, null],
+                'name' => [_('Region name'), false, false, $region_name],
+                'avatar' => [_('Avatar name'), false, false, $avatar_name],
             ];
         }
 
         return [
             'name' => [$kind === 'standalone' ? _('Region name') : _('Grid name'), false, false, null],
             'login_uri' => [_('Login URI'), false, false, null],
-            'avatar' => [_('Avatar name'), false, false, null],
-            'password' => [_('Password'), true, false, null],
-            'password2' => [_('Password again'), true, false, null],
+            'avatar' => [_('Avatar name'), false, false, $avatar_name],
+            'password' => [_('Password'), true, false, $avatar_password],
+            'password2' => [_('Password again'), true, false, $avatar_password],
             'email' => [_('Email'), false, false, null],
         ];
     }
@@ -752,7 +881,10 @@ final class QuickSetup
 
     private static function notImplemented(Environment $environment): string
     {
-        $done = array_column(array_filter(self::types($environment), static fn(array $type): bool => $type['implemented']), 'label');
+        $done = array_column(
+            array_filter(self::types($environment), static fn(array $type): bool => $type['implemented']),
+            'label',
+        );
 
         return sprintf(_('Not implemented yet: only %s for now.'), implode(', ', $done));
     }
@@ -760,7 +892,10 @@ final class QuickSetup
     /** The state a client holds between two steps: the step and the answers so far, as one string. */
     private static function encode(string $step, array $answers): string
     {
-        return rtrim(strtr(base64_encode((string) json_encode(['step' => $step, 'answers' => $answers])), '+/', '-_'), '=');
+        return rtrim(
+            strtr(base64_encode((string) json_encode(['step' => $step, 'answers' => $answers])), '+/', '-_'),
+            '=',
+        );
     }
 
     /** @return array{step:string,answers:array<string,mixed>} the start for a state that is not one */
@@ -825,7 +960,14 @@ final class QuickSetup
             $port !== '' && ($message = Grid::validatePort($port)) !== null && ($problems['private_port'] = $message);
             $given = ['address' => $uri, 'private_port' => $port];
         }
-        $none = ['problems' => $problems, 'corrected' => $corrected, 'grid' => null, 'simulator' => null, 'preset' => $preset, 'warnings' => []];
+        $none = [
+            'problems' => $problems,
+            'corrected' => $corrected,
+            'grid' => null,
+            'simulator' => null,
+            'preset' => $preset,
+            'warnings' => [],
+        ];
         if (isset($problems['login_uri'])) {
             return $none;
         }
@@ -844,11 +986,26 @@ final class QuickSetup
         $simulators = SimulatorPlanner::forGrid($grid, $database, $ui, null, $region);
         $owner =
             ['estate_owner' => trim((string) ($answers['avatar'] ?? ''))] +
-            array_intersect_key($answers, array_flip(['database_host', 'database_name', 'database_user', 'database_password']));
+            array_intersect_key(
+                $answers,
+                array_flip(['database_host', 'database_name', 'database_user', 'database_password']),
+            );
         $fixes = self::review($simulators->fields(), $simulators->problems($owner), $owner, $problems, $corrected);
         $simulator = $simulators->plan($fixes + $owner);
-        $regions = RegionPlanner::forSimulator($simulator, $grid, $database, defaultName: $region, context: self::$region);
-        self::review($regions->fields(), $regions->problems(['name' => $region]), ['name' => $region], $problems, $corrected);
+        $regions = RegionPlanner::forSimulator(
+            $simulator,
+            $grid,
+            $database,
+            defaultName: $region,
+            context: self::$region,
+        );
+        self::review(
+            $regions->fields(),
+            $regions->problems(['name' => $region]),
+            ['name' => $region],
+            $problems,
+            $corrected,
+        );
         $regions->apply($simulator, ['name' => $region]);
 
         return [
@@ -872,9 +1029,10 @@ final class QuickSetup
         $add = static function (string $section, string $label, string $value) use (&$rows): void {
             $rows[] = ['section' => $section, 'label' => $label, 'value' => $value];
         };
-        $console = $simulator->consoleMode === 'rest'
-            ? "remote, port {$simulator->consolePort}, user {$simulator->consoleUser}"
-            : 'screen session';
+        $console =
+            $simulator->consoleMode === 'rest'
+                ? "remote, port {$simulator->consolePort}, user {$simulator->consoleUser}"
+                : 'screen session';
 
         $add('grid', 'Grid', "{$grid->name()} ({$grid->nick()})" . ($preset !== '' ? " - preset $preset" : ''));
         $add('grid', 'Login URI', "http://{$grid->baseHostname()}:{$grid->publicPort()}");
@@ -884,7 +1042,11 @@ final class QuickSetup
         $add('simulator', 'Simulator', "{$simulator->simulatorName} ({$simulator->slug})");
         $add('simulator', 'HTTP port', (string) $simulator->httpPort);
         $add('simulator', 'Console', $console);
-        $add('simulator', 'Simulator database', "{$simulator->dbName} @ {$simulator->dbHost} (user {$simulator->dbUser})");
+        $add(
+            'simulator',
+            'Simulator database',
+            "{$simulator->dbName} @ {$simulator->dbHost} (user {$simulator->dbUser})",
+        );
         $add('simulator', 'Estate', $simulator->estateName);
         $add('simulator', 'Estate owner', $simulator->estateOwner . ' (an account of the grid)');
         $add('simulator', 'Simulator config', $simulator->iniPath());
@@ -906,8 +1068,13 @@ final class QuickSetup
      * @param array<string,string> $corrected the corrections of the questions, completed
      * @return array<string,string> the corrected values, by field
      */
-    private static function review(FieldSet $fields, array $fieldProblems, array $given, array &$problems, array &$corrected): array
-    {
+    private static function review(
+        FieldSet $fields,
+        array $fieldProblems,
+        array $given,
+        array &$problems,
+        array &$corrected,
+    ): array {
         foreach ($fieldProblems as $field => $message) {
             $problems[self::QUESTIONS[$field] ?? $field] ??= $message;
         }
@@ -927,8 +1094,14 @@ final class QuickSetup
      * @param array<string,string> $labels the labels of the presets, by name
      * @return list<array{section:string,label:string,value:string}>
      */
-    private static function rows(GridPlan $plan, SimulatorPlan $simulator, bool $standalone, string $email, array $chosen, array $labels): array
-    {
+    private static function rows(
+        GridPlan $plan,
+        SimulatorPlan $simulator,
+        bool $standalone,
+        string $email,
+        array $chosen,
+        array $labels,
+    ): array {
         $rows = [];
         $add = static function (string $section, string $label, string $value) use (&$rows): void {
             $rows[] = ['section' => $section, 'label' => $label, 'value' => $value];
@@ -941,20 +1114,37 @@ final class QuickSetup
 
         $add('grid', 'Grid name', "{$plan->gridName} ({$plan->gridNick})");
         $add('grid', 'Login URI', "http://{$plan->baseHostname}:{$plan->publicPort}");
-        $add('grid', 'Region spacing', $plan->regionSpacing === 0 ? 'side by side' : "{$plan->regionSpacing} free block(s)");
+        $add(
+            'grid',
+            'Region spacing',
+            $plan->regionSpacing === 0 ? 'side by side' : "{$plan->regionSpacing} free block(s)",
+        );
         $plan->coreDirectory !== '' && $add('grid', 'Core', $plan->coreDirectory);
         $standalone || $add('grid', 'Ports', "public {$plan->publicPort}, private {$plan->privatePort}");
         $standalone || $add('grid', 'Console', $console($plan->consoleMode, $plan->consolePort, $plan->consoleUser));
         $add('grid', 'Web URL', $plan->webUrl);
-        $plan->helpers && $add('grid', 'Web server', ['caddy' => 'Caddy', 'apache' => 'Apache', 'nginx' => 'nginx'][$plan->webServer] ?? $plan->webServer);
-        $add('grid', $standalone ? 'Database' : 'Grid database', $database($plan->dbName, $plan->dbHost, $plan->dbUser));
+        $plan->helpers &&
+            $add(
+                'grid',
+                'Web server',
+                ['caddy' => 'Caddy', 'apache' => 'Apache', 'nginx' => 'nginx'][$plan->webServer] ?? $plan->webServer,
+            );
+        $add(
+            'grid',
+            $standalone ? 'Database' : 'Grid database',
+            $database($plan->dbName, $plan->dbHost, $plan->dbUser),
+        );
         $standalone || $add('grid', 'Robust config', $plan->robustIni());
         $add('grid', 'Grid folder', $plan->etcDirectory);
 
         // What the person chose, then what is on whatever the answers (the helpers and what they serve)
         $add('options', 'Hypergrid', $yes($plan->enableHypergrid));
         $add('options', 'SSL', $yes($chosen['ssl'] ?? false) . ' (not implemented)');
-        $add('options', 'Cross-grid search', $plan->search === 'shared' ? 'yes, the shared provider (2do.directory)' : 'no, the search of this grid');
+        $add(
+            'options',
+            'Cross-grid search',
+            $plan->search === 'shared' ? 'yes, the shared provider (2do.directory)' : 'no, the search of this grid',
+        );
         $add('options', 'Helpers', $plan->helpers ? "yes, served at {$plan->webUrl}{$plan->helpersPath}" : 'no');
         // The presets that are on, asked or not
         foreach ($plan->options as $name) {
@@ -965,10 +1155,23 @@ final class QuickSetup
 
         $add('simulator', 'Simulator', "{$simulator->simulatorName} ({$simulator->slug})");
         $add('simulator', 'HTTP port', (string) $simulator->httpPort);
-        $add('simulator', 'Console', $console($simulator->consoleMode, $simulator->consolePort, $simulator->consoleUser));
-        $standalone || $add('simulator', 'Simulator database', $database($simulator->dbName, $simulator->dbHost, $simulator->dbUser));
+        $add(
+            'simulator',
+            'Console',
+            $console($simulator->consoleMode, $simulator->consolePort, $simulator->consoleUser),
+        );
+        $standalone ||
+            $add(
+                'simulator',
+                'Simulator database',
+                $database($simulator->dbName, $simulator->dbHost, $simulator->dbUser),
+            );
         $add('simulator', 'Estate', $simulator->estateName);
-        $add('simulator', 'Estate owner', $simulator->estateOwner . ($simulator->createOwner ? ' (account to create)' : ''));
+        $add(
+            'simulator',
+            'Estate owner',
+            $simulator->estateOwner . ($simulator->createOwner ? ' (account to create)' : ''),
+        );
         $add('simulator', 'Simulator config', $simulator->iniPath());
 
         $add('region', 'Region', $simulator->regionName);
