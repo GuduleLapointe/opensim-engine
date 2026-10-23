@@ -669,6 +669,8 @@ describe('quick setup, the scenario', function () {
             ->toBeTrue()
             ->and(glob("$folder/Robust*.ini"))
             ->not->toBe([])
+            ->and((string) file_get_contents("$folder/Robust.HG.ini"))
+            ->toContain('Port = 8102')
             ->and(glob("$folder/sims/*.ini"))
             ->toHaveCount(1)
             ->and((string) file_get_contents("$folder/config-include/osslEnable.ini"))
