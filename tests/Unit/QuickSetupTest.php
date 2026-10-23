@@ -752,6 +752,32 @@ describe('quick setup, the scenario', function () {
             ->toBe('quit');
     });
 
+    test('uses database administrator credentials sent with the review confirmation', function () {
+        $machine = new Machine();
+        quick_core($machine);
+        quick_doubles([
+            'database' => static function (GridPlan $db, UiInterface $ui): int {
+                $ui->error('Cannot reach the database server localhost: refused');
+
+                return DatabaseService::RETRY;
+            },
+        ]);
+
+        $asked = quick_step(
+            $machine,
+            quick_until($machine, 'review'),
+            ['admin_user' => 'opensim_admin', 'admin_password' => 'admin-secret'],
+        );
+        $values = array_column($asked['fields'], 'value', 'name');
+
+        expect($asked)
+            ->toMatchArray(['kind' => 'form', 'title' => 'Database'])
+            ->and($values['admin_user'])
+            ->toBe('opensim_admin')
+            ->and($values['admin_password'])
+            ->toBe('admin-secret');
+    });
+
     test('stops, and says why, when the database cannot be made or the account of the avatar cannot be', function () {
         $machine = new Machine();
         quick_core($machine);

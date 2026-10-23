@@ -410,6 +410,8 @@ final class QuickSetup
                         : self::screenOptions($environment, $answers, '');
                 }
 
+                $answers = self::keep($answers, $given, ['admin_user', 'admin_password']);
+
                 return self::install($environment, $answers);
         }
 
