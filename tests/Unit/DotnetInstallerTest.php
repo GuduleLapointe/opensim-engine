@@ -160,6 +160,21 @@ describe('.NET runtime', function () {
             ->toBe(['apt-get install -y dotnet-runtime-8.0']);
     });
 
+    test('uses a newer system runtime package when it satisfies the requested major', function () {
+        [$capture, $run, $ran] = dotnet_machine(
+            dotnet_tools([
+                '/apt-cache pkgnames dotnet-runtime-/' => "dotnet-runtime-10.0\n",
+                '/apt-cache policy .dotnet-runtime-10.0./' =>
+                    "dotnet-runtime-10.0:\n  Installed: (none)\n  Candidate: 10.0.1-1\n",
+            ]),
+        );
+
+        expect((new DotnetInstaller(new DotnetUiFake(), $capture, $run, true))->install(8))
+            ->toBeTrue()
+            ->and($ran->getArrayCopy())
+            ->toBe(['apt-get install -y dotnet-runtime-10.0']);
+    });
+
     test('is installed by a person who is not root only as far as telling them how', function () {
         [$capture, $run, $ran] = dotnet_machine(
             dotnet_tools(['/apt-cache policy .dotnet-runtime-8.0./' => "dotnet-runtime-8.0:\n  Candidate: 8.0.4-1\n"]),

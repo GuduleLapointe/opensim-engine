@@ -68,8 +68,8 @@ final class DotnetInstaller
         $this->ui->note(sprintf(_('OpenSim needs the .NET %d runtime (or newer), not found on the PATH.'), $major));
 
         // The system packages: Ubuntu, or Debian with the repository of Microsoft
-        $package = "dotnet-runtime-$major.0";
-        if ($this->candidate($package)) {
+        $package = $this->systemRuntimePackage($major);
+        if ($package !== null) {
             if (!$this->isRoot()) {
                 $this->ui->error(sprintf(_('Install it as root: sudo apt install %s'), $package));
 
@@ -271,6 +271,31 @@ final class DotnetInstaller
         }
 
         return false;
+    }
+
+    /** The newest system runtime package that can run the requested major. */
+    private function systemRuntimePackage(int $major): ?string
+    {
+        if (!$this->exists('apt-cache')) {
+            return null;
+        }
+
+        $packages = array_filter(
+            explode("\n", ($this->capture)('apt-cache pkgnames dotnet-runtime-')),
+            static fn(string $package): bool =>
+                preg_match('/^dotnet-runtime-(\d+)\.0$/', $package, $matches) === 1 && (int) $matches[1] >= $major,
+        );
+        $packages[] = "dotnet-runtime-$major.0";
+        $packages = array_values(array_unique($packages));
+        usort($packages, static fn(string $a, string $b): int => version_compare($b, $a));
+
+        foreach ($packages as $package) {
+            if ($this->candidate($package)) {
+                return $package;
+            }
+        }
+
+        return null;
     }
 
     private function isRoot(): bool
