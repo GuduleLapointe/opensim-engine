@@ -757,6 +757,9 @@ describe('quick setup, the scenario', function () {
         quick_core($machine);
         quick_doubles([
             'database' => static function (GridPlan $db, UiInterface $ui): int {
+                expect($db->dbHost)->toBe('localhost')
+                    ->and($db->dbUser)->toBe('opensim')
+                    ->and($db->dbPass)->toBe('app-secret');
                 $ui->error('Cannot reach the database server localhost: refused');
 
                 return DatabaseService::RETRY;
@@ -766,7 +769,13 @@ describe('quick setup, the scenario', function () {
         $asked = quick_step(
             $machine,
             quick_until($machine, 'review'),
-            ['admin_user' => 'opensim_admin', 'admin_password' => 'admin-secret'],
+            [
+                'database_host' => 'localhost',
+                'database_user' => 'opensim',
+                'database_password' => 'app-secret',
+                'admin_user' => 'opensim_admin',
+                'admin_password' => 'admin-secret',
+            ],
         );
         $values = array_column($asked['fields'], 'value', 'name');
 
