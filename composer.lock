@@ -628,12 +628,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/yaml.git",
-                "reference": "a0464e076c8221b95cdc6fdd03180c17c2293593"
+                "reference": "1ed6afa13d48c579c51cbf32e38f50686313497b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/yaml/zipball/a0464e076c8221b95cdc6fdd03180c17c2293593",
-                "reference": "a0464e076c8221b95cdc6fdd03180c17c2293593",
+                "url": "https://api.github.com/repos/symfony/yaml/zipball/1ed6afa13d48c579c51cbf32e38f50686313497b",
+                "reference": "1ed6afa13d48c579c51cbf32e38f50686313497b",
                 "shasum": ""
             },
             "require": {
@@ -696,7 +696,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-10-15T07:42:19+00:00"
+            "time": "2026-10-18T14:39:27+00:00"
         }
     ],
     "packages-dev": [
@@ -1001,16 +1001,16 @@
         },
         {
             "name": "filp/whoops",
-            "version": "2.18.6",
+            "version": "2.18.7",
             "source": {
                 "type": "git",
                 "url": "https://github.com/filp/whoops.git",
-                "reference": "7d0a2cde892089bb09372f4366e9b960eb3001a9"
+                "reference": "50670ba239926c50f2073e868f6672f775cd57ec"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/filp/whoops/zipball/7d0a2cde892089bb09372f4366e9b960eb3001a9",
-                "reference": "7d0a2cde892089bb09372f4366e9b960eb3001a9",
+                "url": "https://api.github.com/repos/filp/whoops/zipball/50670ba239926c50f2073e868f6672f775cd57ec",
+                "reference": "50670ba239926c50f2073e868f6672f775cd57ec",
                 "shasum": ""
             },
             "require": {
@@ -1060,7 +1060,7 @@
             ],
             "support": {
                 "issues": "https://github.com/filp/whoops/issues",
-                "source": "https://github.com/filp/whoops/tree/2.18.6"
+                "source": "https://github.com/filp/whoops/tree/2.18.7"
             },
             "funding": [
                 {
@@ -1068,7 +1068,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-10-03T17:03:57+00:00"
+            "time": "2026-10-18T13:17:38+00:00"
         },
         {
             "name": "jean85/pretty-package-versions",
@@ -1133,16 +1133,16 @@
         },
         {
             "name": "magicoli/bash-tools",
-            "version": "1.0.7",
+            "version": "1.0.8",
             "source": {
                 "type": "git",
                 "url": "https://github.com/magicoli/bash-tools.git",
-                "reference": "60ecf4fa3c4ab9144251428e7bf784c0aa4aff10"
+                "reference": "a16f77a44c17ea457a66af81e68e69e2b53fdfdd"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/magicoli/bash-tools/zipball/60ecf4fa3c4ab9144251428e7bf784c0aa4aff10",
-                "reference": "60ecf4fa3c4ab9144251428e7bf784c0aa4aff10",
+                "url": "https://api.github.com/repos/magicoli/bash-tools/zipball/a16f77a44c17ea457a66af81e68e69e2b53fdfdd",
+                "reference": "a16f77a44c17ea457a66af81e68e69e2b53fdfdd",
                 "shasum": ""
             },
             "bin": [
@@ -1178,22 +1178,22 @@
             "description": "Eclectic collection of bash tools and helpers.",
             "support": {
                 "issues": "https://github.com/magicoli/bash-tools/issues",
-                "source": "https://github.com/magicoli/bash-tools/tree/1.0.7"
+                "source": "https://github.com/magicoli/bash-tools/tree/1.0.8"
             },
-            "time": "2026-10-05T18:34:19+00:00"
+            "time": "2026-10-24T00:18:23+00:00"
         },
         {
             "name": "magicoli/build-tools",
-            "version": "0.1.6",
+            "version": "0.1.9",
             "source": {
                 "type": "git",
                 "url": "https://github.com/magicoli/build-tools.git",
-                "reference": "ff58191f0eebb1cb6e42f533bf0cc49057e09246"
+                "reference": "0296f73c8647e7363cd018511675636f2eda16ad"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/magicoli/build-tools/zipball/ff58191f0eebb1cb6e42f533bf0cc49057e09246",
-                "reference": "ff58191f0eebb1cb6e42f533bf0cc49057e09246",
+                "url": "https://api.github.com/repos/magicoli/build-tools/zipball/0296f73c8647e7363cd018511675636f2eda16ad",
+                "reference": "0296f73c8647e7363cd018511675636f2eda16ad",
                 "shasum": ""
             },
             "require": {
@@ -1218,9 +1218,9 @@
             "description": "Build, release and publish a project: Debian packages, zip, GitHub release, apt repository.",
             "support": {
                 "issues": "https://github.com/magicoli/build-tools/issues",
-                "source": "https://github.com/magicoli/build-tools/tree/0.1.6"
+                "source": "https://github.com/magicoli/build-tools/tree/0.1.9"
             },
-            "time": "2026-10-06T06:38:34+00:00"
+            "time": "2026-10-24T04:02:05+00:00"
         },
         {
             "name": "magicoli/pest-failure-summary",
@@ -2199,12 +2199,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/PHPCSStandards/PHPCSUtils.git",
-                "reference": "f8754b18d1ac8f32becab6f58781eb72657f2d94"
+                "reference": "33a13f5bdc00d46cd9ff2ee3f1f0b8078c5c20a1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/PHPCSStandards/PHPCSUtils/zipball/f8754b18d1ac8f32becab6f58781eb72657f2d94",
-                "reference": "f8754b18d1ac8f32becab6f58781eb72657f2d94",
+                "url": "https://api.github.com/repos/PHPCSStandards/PHPCSUtils/zipball/33a13f5bdc00d46cd9ff2ee3f1f0b8078c5c20a1",
+                "reference": "33a13f5bdc00d46cd9ff2ee3f1f0b8078c5c20a1",
                 "shasum": ""
             },
             "require": {
@@ -2285,7 +2285,7 @@
                     "type": "thanks_dev"
                 }
             ],
-            "time": "2026-10-14T22:16:50+00:00"
+            "time": "2026-10-21T02:12:17+00:00"
         },
         {
             "name": "phpdocumentor/reflection-common",
@@ -4266,12 +4266,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/console.git",
-                "reference": "0018d28385a2c7888535d16d739817d5699a94d3"
+                "reference": "e69f154b4e11df2e4b70a8549f53e17791af0f74"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/console/zipball/0018d28385a2c7888535d16d739817d5699a94d3",
-                "reference": "0018d28385a2c7888535d16d739817d5699a94d3",
+                "url": "https://api.github.com/repos/symfony/console/zipball/e69f154b4e11df2e4b70a8549f53e17791af0f74",
+                "reference": "e69f154b4e11df2e4b70a8549f53e17791af0f74",
                 "shasum": ""
             },
             "require": {
@@ -4356,7 +4356,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-10-15T16:00:28+00:00"
+            "time": "2026-10-23T16:51:52+00:00"
         },
         {
             "name": "symfony/finder",
@@ -4364,12 +4364,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/finder.git",
-                "reference": "2dd31e5208db7a0fda7bfc998ad727b79c2e4d1e"
+                "reference": "e13420a8e0a76bdde1e7be09f923e62ad13739f2"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/finder/zipball/2dd31e5208db7a0fda7bfc998ad727b79c2e4d1e",
-                "reference": "2dd31e5208db7a0fda7bfc998ad727b79c2e4d1e",
+                "url": "https://api.github.com/repos/symfony/finder/zipball/e13420a8e0a76bdde1e7be09f923e62ad13739f2",
+                "reference": "e13420a8e0a76bdde1e7be09f923e62ad13739f2",
                 "shasum": ""
             },
             "require": {
@@ -4424,7 +4424,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-09-26T06:31:10+00:00"
+            "time": "2026-10-19T16:56:54+00:00"
         },
         {
             "name": "symfony/polyfill-intl-grapheme",
@@ -4687,12 +4687,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/process.git",
-                "reference": "54470179176f4c5ed38ba8f7272d2b093b331613"
+                "reference": "a9fff7e1f8aefa0560d071db3c5ea2190f38b0b7"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/process/zipball/54470179176f4c5ed38ba8f7272d2b093b331613",
-                "reference": "54470179176f4c5ed38ba8f7272d2b093b331613",
+                "url": "https://api.github.com/repos/symfony/process/zipball/a9fff7e1f8aefa0560d071db3c5ea2190f38b0b7",
+                "reference": "a9fff7e1f8aefa0560d071db3c5ea2190f38b0b7",
                 "shasum": ""
             },
             "require": {
@@ -4744,7 +4744,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-10-15T16:00:28+00:00"
+            "time": "2026-10-23T16:51:52+00:00"
         },
         {
             "name": "symfony/service-contracts",
@@ -4752,12 +4752,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/service-contracts.git",
-                "reference": "fa017b042b9f18eac2c0ada2683f5fb2144e5250"
+                "reference": "052852a96fd5e5ebdb617dba22031e41a3300fb5"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/service-contracts/zipball/fa017b042b9f18eac2c0ada2683f5fb2144e5250",
-                "reference": "fa017b042b9f18eac2c0ada2683f5fb2144e5250",
+                "url": "https://api.github.com/repos/symfony/service-contracts/zipball/052852a96fd5e5ebdb617dba22031e41a3300fb5",
+                "reference": "052852a96fd5e5ebdb617dba22031e41a3300fb5",
                 "shasum": ""
             },
             "require": {
@@ -4832,7 +4832,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-09-16T14:15:10+00:00"
+            "time": "2026-10-20T17:38:25+00:00"
         },
         {
             "name": "symfony/string",
@@ -4840,12 +4840,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/string.git",
-                "reference": "27a8c35659b9a91cc20299f241836d8a1f835fbd"
+                "reference": "8dff7da3a56638f1d189c5368183294102de4ced"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/string/zipball/27a8c35659b9a91cc20299f241836d8a1f835fbd",
-                "reference": "27a8c35659b9a91cc20299f241836d8a1f835fbd",
+                "url": "https://api.github.com/repos/symfony/string/zipball/8dff7da3a56638f1d189c5368183294102de4ced",
+                "reference": "8dff7da3a56638f1d189c5368183294102de4ced",
                 "shasum": ""
             },
             "require": {
@@ -4923,7 +4923,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-10-15T16:00:28+00:00"
+            "time": "2026-10-23T16:51:52+00:00"
         },
         {
             "name": "ta-tikoma/phpunit-architecture-test",
