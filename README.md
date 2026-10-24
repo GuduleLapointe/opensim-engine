@@ -118,6 +118,8 @@ require 'vendor/autoload.php';   // PSR-4: OpenSim\ is src/; the gettext stand-i
 
 `bin/opensim-api` (`vendor/bin/opensim-api` for a project that has the engine) is the API on the command line, for the tools that are not PHP: `opensim-api GET /forms/grid`, `opensim-api --grid=demo GET /monitor format=text`. The install is the one of `opensim.conf` or of the `OPENSIM_*` variables. The script first reads the `.env` of the engine and `~/.opensimrc` (`lib/rc-helpers`, `read_rc`, for any script to source): bash files, run as they are, e.g. to set the `PATH` so that it is the php you want that runs.
 
+`OpenSim\Container\Podman` manages Podman containers without a shell. Pass a connection explicitly when targeting a remote Podman service; `bin/opensim-container.php` is the command-line adapter for Bash callers (`vendor/bin/opensim-container.php` when installed as a Composer dependency). Container integration tests are opt-in with `PODMAN_INTEGRATION=1`; `CONTAINER_CONNECTION` selects the Podman connection and `PODMAN_TEST_IMAGE` can select the test image.
+
 ## 📚 Documentation
 
 - **[Developer Guide](DEVELOPERS.md)** - Architecture rules and patterns
