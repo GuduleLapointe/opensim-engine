@@ -1,5 +1,7 @@
 ## Changelog
 
+### Unreleased
+
 ### 3.0.0-beta.8
 
 - Upgrading magicoli/bash-tools (1.0.7 => 1.0.8)

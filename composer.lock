@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ccc27327ee2f7d4023b66456eda7a968",
+    "content-hash": "27e55a978f5b88492d344d6bca0cd90b",
     "packages": [
         {
             "name": "laminas/laminas-escaper",
@@ -139,17 +139,11 @@
         },
         {
             "name": "magicoli/opensim-rest-php",
-            "version": "1.1.3",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/GuduleLapointe/opensim-rest-php.git",
-                "reference": "66cfb967e051581e3aac007a8490352fc4038914"
-            },
+            "version": "dev-opensim-kit",
             "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/GuduleLapointe/opensim-rest-php/zipball/66cfb967e051581e3aac007a8490352fc4038914",
-                "reference": "66cfb967e051581e3aac007a8490352fc4038914",
-                "shasum": ""
+                "type": "path",
+                "url": "../opensim-rest-php",
+                "reference": "9a4b5da1b9818f68c749057c8a4c7315f14c7946"
             },
             "require": {
                 "ext-curl": "*",
@@ -172,7 +166,11 @@
                     "class-rest.php"
                 ]
             },
-            "notification-url": "https://packagist.org/downloads/",
+            "scripts": {
+                "test": [
+                    "pest"
+                ]
+            },
             "license": [
                 "AGPL-3.0-or-later"
             ],
@@ -183,11 +181,10 @@
                 }
             ],
             "description": "OpenSimulator REST PHP library and command-line client",
-            "support": {
-                "issues": "https://github.com/GuduleLapointe/opensim-rest-php/issues",
-                "source": "https://github.com/GuduleLapointe/opensim-rest-php/tree/1.1.3"
-            },
-            "time": "2026-10-05T22:14:53+00:00"
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "nubs/random-name-generator",
@@ -5108,6 +5105,7 @@
     "minimum-stability": "dev",
     "stability-flags": {
         "laminas/laminas-escaper": 0,
+        "magicoli/opensim-rest-php": 20,
         "phpcompatibility/php-compatibility": 20
     },
     "prefer-stable": false,
