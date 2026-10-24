@@ -2,70 +2,199 @@
 
 ### Unreleased
 
-- update: `start|stop|restart` give an `Outcome` and throw `InstanceFailed`; ports and status are the instance's
-- update: the rules of names, addresses and e-mail are the models' (`HasName`, `Avatar::validateName()`); no dot in a region name
-- new: `POST /setups/quick` (`QuickSetup`): a few answers, the whole setup they stand for, and what is wrong with them
-- new: `lib/rc-helpers` (`read_rc`): the scripts run the commands of the `.env` and of `~/.opensimrc`
-- new: `bin/opensim-api`, the API on the command line, for tools that are not PHP
-- fix: `start|stop|restart <standalone>` name its simulator, the monitor counts the regions it describes
-- fix: the groups messaging of the simulators needs `MessageOnlineUsersOnly = true`, it was left off
-- new: a standalone has the settings of a grid (`GridServices`), its features, groups and offline V2
-- new: standalone grids made by the setup (no Robust, one simulator, the database of the grid)
-- new: the API is closed: API keys (`Security\ApiKeys`, `opensim api-key create|list|revoke`), `Authorization: Bearer`, the public operations (`Router::PUBLIC`) marked open in the contract, a page to try the API with a key (`docs/api/try.html`); `Handler` takes `authenticator:` and answers 401 without it
-- new: `Api\Router` (the addresses of the API without a transport) with three adapters: `Handler` (PSR-15), `Cli` (`opensim api GET /grids/demo/monitor`) and the PHP library (`$router->get('/monitor')`)
-- new: `GET /grids/{grid}/monitor` (data, `format=text`, `format=png`), `/grids/{grid}/addresses`, `/grids/{grid}/info`; `Runtime\GridMonitor`
-- new: `Models\Archive` and the resource `archives`: the inventories, regions and backups of the grids, read from their names (`GET /archives`)
-- new: `GET /grids/{grid}/health` (`Api::health()`): the addresses of a grid asked now, the PHP it needs, the files it reads
-- new: `Economy\Currency` is an instance configured by `CurrencySettings` (from the files of the grid); `Services\CurrencyServer` answers the currency and the land tools of the viewers and the simulators; `Services\DefaultDestinations`: a grid with no guide has its popular places and the places shown in search
-- new: the contract describes every endpoint (`Api\Formats`, `Endpoints`): the search, the registration, the offline messages, the currency, the land tools, the pages of the helpers, `get_grid_info`; `Service::endpoint()` says where the engine serves each; `register` and `offline` are of a fixed format
-- new: `Api\Legacy::textgen()`: the old parameters of the images of a text
-- new: the offline messages are a choice of the setup (`offline`: the helpers with the module V1, Robust with the module V2, or both), `opensim enable|disable <grid> offline [helpers|robust]`; the grid says it as `OfflineMessages` in its conf; the health page does not ask the helpers for the module V2
-- new: `Services\OfflineMessages` (the module V1: save, retrieve, mail), `Services\SearchRegistry`, `SearchParser`, `EventsParser`, `SearchQuery`, `SearchTasks`, `XmlRpc`: the registration of simulators, the snapshots, the events and the questions of the viewers, served by `Api\Handler`
-- new: standard endpoints `/grids/{grid}/motd`, `/grids/{grid}/destinations` (the guide), `/text-images`, `/fonts`; `Grid::motd()`, `destinations()`, `Text\DestinationList`, `Assets\ImagickTextRenderer`; `Handler` takes `grid:` for a host that serves one grid
-- new: `Api\Handler`: the API as a PSR-15 handler (PSR-7 messages, PSR-17 factories given by the application), the contract at `/openapi.json`; `width` of the pictures in the contract
-- new: `Data\Cache`: what takes a search to know is searched once per session (memory), and kept for a while when given a time to live, in the `oshelpers_cache` table of the search database or in files; `GridInfoCache` is built on it
-- new: `Network\GridInfoCache`: what a grid said when it was verified (joining it, starting it, `Grid::refreshInfo()`) is kept for a day and read from there, nothing is asked at each call; `Grid::loginUrl()` and `regionUri()`: the login the grid said is the one, whatever address it was reached at, none for a grid that runs elsewhere and was not verified; the address of a visitor follows it
-- new: `Result::isTrue()`, `isFalse()`; `isSuccess()` and `isError()` are no more contraries (null is neither); `Support\Bitmask`; `Connections::test()`; `Destination::loginUrl()`, `sanitizePlus()`; `wantsList` and `skillsList` of an avatar
-- new: `Text\Uuid::isNullKey()` (the two keys for nobody) and `isEmpty()`
-- new: `Grid::addresses()`, `address()` and `helpersUrl()`, `economy()`, `searchUrl()`, `searchApi()`...: every address of the grid, wherever it is said; the web services of the catalog are `query`, `search`, `welcome`, `web-profile`, `currency`, `landtool`, `register`, `offline`, `motd`, `guide`, `grid-status`, `grid-status-rss`, `parser`, `events-parser`, `text-images`, `assets`, `map`
-- new: `Models\Asset` (every type, `Image` for the pictures), `Assets\WebAssets`: pictures converted for the web, resized when asked, and cached; `php-imagick` is required
-- new: `Grid::gridInfo()` and `gridInfoIsLive()`: what the running Robust says at get_grid_info, else its config; `Network\GridInfoReader` reads it for everyone
-- new: the API of the avatars, regions, parcels and estates of a grid, the tasks, the forms, the writes; `composer docs` makes its documentation
-- new: the web services (search, currency, registration, offline, motd, guide) in the catalog of `Service`, fixed or standard
-- new: `Api`, `Contract`, `Problem`: JSON:API documents, an OpenAPI 3.1 contract checked by the tests, RFC 9457 errors
-- new: `Scheduling\Scheduler` and `Task`: cron and pseudo cron, locked, last run kept
-- new: `Avatar::create()` and a fuller `update()`; `AccountImporter::forModels()`
-- new: `Models\Service` and `Grid::services()`, `Simulator::service()`; standalone grids (`Standalone = true`)
-- update: every operation takes an `Environment` (no profile array); `Ports` is built on one; `EnvironmentFake` for tests
-- update: `Instance` and `Robust` are `Controllers\AbstractController` and `RobustController`; `Core` is `Runtime\Core`
-- update: `sims` is `simulators` in the code (`GridConfig::SIMULATORS` names the folder); the region form field is `simulator`
-- update: `OSPDO` is `OpenSim\Data\OSPDO` and the health checks `OpenSim\Health\Health`; the `legacy/` aliases (`OpenSim_Config`, `OpenSim_Oar`) are gone, the classes load through the autoloader only
-- update: the classes and functions of the WordPress plugin nobody here uses are gone (`OpenSim_Avatar`, `OpenSim_Form`..., the escaping and the dead functions); the plugin has its own copy
-- new: `Data\Stats`: the numbers of a grid (members, who is in world, regions, area), from the database of each service
-- new: `Models\Parcel` (the `land` of the simulators: list, search, sort, filters, the bitmap of 4 m squares, `Parcel::at()`), its flags as constants
-- update: `Models\Region` is a model (list, search, sort, filters, flags as constants named as in OpenSimulator); `RegionFlags` is gone (`Region::roles()`, `rolesIn()`, `giveRoles()`)
-- new: `Models\OpenSimModelInterface`, `Models\Avatar` (list, search, sort, filters, pages, one avatar), `Data\Collection` and `Data\Connections`
-- new: `Data\Database`, the databases of a grid (services, assets, profiles, offline, simulators, estates, economy, search) and where each is set
-- update: the database is reached through PDO (`OSPDO`) only, no `mysql` client is run
-- update: one `OSPDO`, the engine's, for the helpers too: DSN or credentials, driver options, `error` when not connected
-- new: `GridConfig::withDatabaseDefaults()`: the StorageProvider and ConnectionString OpenSimulator takes from [DatabaseService] for the services, the regions and the estates
-- new: `OpenSim\SignIn`: an avatar signs in with the grid itself, never in its database: `PrivateServiceAuthenticator` (accounts and authentication services of the private port), `OpenIdAuthenticator` (the password is asked by the grid), `LoginServiceAuthenticator` (the login of the viewers, which opens a session in the world)
-- update: `gettext` is suggested, not required: without it the messages stay in English
-- fix: a new region offers every role (a grid can have several default regions) and checks only the ones the grid has none for; the roles are read from `Robust.HG.ini` with the ini reader
-- update: `setup.json` and the backups are readable by the group of the install (640, folders 750)
-- new: `RemoteGridPlanner` and `Models\Grid::remoteFields()` (joining a grid on another machine); `SetupFile::gridValues()`, `simValues()`, `regionValues()`, `owner()` and the prompts replace the answers by label
-- new: `Models\Simulator::fields()`, `Models\Region` (its fields), `SimPlanner` and `RegionPlanner`: from the answers about a simulator and a region to the plan
-- new: `OpenSim\Forms\FieldSet` (the standard definition of the fields of a form: conditions, follows, callbacks, groups), `Models\Grid::fields()`, and `Provisioning\GridPlanner`, from the answers about a grid to its plan
-- new: `OpenSim\Runtime\DotnetInstaller` installs the .NET runtime and libgdiplus (system packages, an installed runtime, or the script of Microsoft)
-- new: `SimulatorMaster`: the simulators of a grid read a generated master (`OpenSimGridDefaults.ini`, `-inimaster`), their own config says what is theirs
-- new: `ConfigReader`, `GridConfig`, `ConnectionString`: one reader of the ini files and of the connection strings (`IniReader` is gone, `OpenSim_Config` a thin legacy class)
-- new: `OpenSim\Moderation\UserBan` writes the statements that ban users and delete their data
-- update: `OpenSim_Oar` is `OpenSim\Archives\Oar`; the old global names are classes of `legacy/`
-- update: a grid is its services (its Robust), `simulators: true` adds the simulators that depend on it
-- new: `OpenSim\Config` (Layout, IniEditor, IniReader, GridFileService), `OpenSim\Provisioning` (plans, config writers, presets, features, accounts, provisioners), `OpenSim\Archives`, `OpenSim\Network\Ports`
-- new: `OpenSim\Testing` has the test doubles of the machine for the front-ends
-- new: `OpenSim\OpenSim` starts, stops, restarts and reports on grids and simulators (`Models`, `Runtime`, `Console`)
-- new: the namespace `OpenSim\` in `src/` (PSR-4, one class per file): `OpenSim\Network\PortMapping` (the port mapping of the instances: `KickInsideMapper`, UPnP in PHP with `magicoli/kick-inside`, the default; `UpnpcMapper`, the `upnpc` command, the alternative; `PortMappingService`), `OpenSim\Provisioning\Slug`
+- fix (provisioning): set Robust listener port
+- fix (setup): use saved SQL account for new grids
+- fix (setup): pass database admin credentials on review
+- fix (runtime): accept newer system dotnet packages
+- setup: use default values to avoid empty fields
+- is it cake?
+- feat(package): the engine makes the system layout when it is installed
+- feat(setup): the owner of the folders of the layout survives upgrades (dpkg-statoverride)
+- feat(setup): the engine makes the system layout (account, folders, opensim.conf) as root
+- docs(presets): clearer headers of the web server configs
+- refactor(setup): the web report in one sprintf
+- feat(setup): the three web server configs are always written, each says in its header what to add
+- feat(setup): web server snippets that only take the paths of the helpers, and a short web report
+- Revert "feat(start): instances run without IPv6 unless the environment says otherwise"
+- feat(setup): the web site note is in the final report, not in the log
+- feat(start): instances run without IPv6 unless the environment says otherwise
+- Revert "feat(setup): warn about a .local name of the machine"
+- feat(setup): warn about a .local name of the machine
+- feat(api): an internal error is logged with its detail, the answer still tells none
+- feat(start): what a long wait is on takes one line that the next step replaces, with the time a service took
+- feat(setup): the steps of a start are told, and a long wait says where it is
+- fix(setup): the initialization object of a new region is shipped with the engine
+- feat(setup): the notes of the install are told as they come, the wait says it installs
+- feat(api): document the directory info, block and asset pages of the helpers
+- fix(options): the offline messages of Robust: the services, the module and the forwarding of the groups, as OpenSim wants them
+- feat(setup): the first account of a grid, its administrator, gets the level 200
+- fix(options): the offline messages are kept by Robust (the module V2) unless the helpers are asked
+- refactor(setup): everything the setup writes comes from the presets, the code collects the choices and puts the values in
+- refactor(setup): the setup makes a new grid only; Helpers.ini and the web server files are presets
+- refactor(options): offline is one option over the module V2, the helpers, bakes and groups settings are unexposed presets
+- feat(instances): an address (host:port) names an instance, a grid's Robust or a simulator
+- feat(options): every option is a preset (option.conf and the ini files it lays over the grid's), one place, at the setup or later
+- fix(names): the nick of a grid keeps the hyphens of its name, the instance of a simulator is grid.simulator
+- fix(setup): an account another grid uses keeps its password, the output of the commands stays out of the answer
+- feat(setup): the whole setup: databases, account, start, assets and library, Helpers, presets and grids joined from outside
+- fix(setup): a grid that exists is a taken name, no MoneyServer for a currency that has none, no ownership message without a web group
+- fix(setup): Install checks the place it writes in and the files it wrote; PHP noise stays out of the API answer
+- feat(setup): the quick setup is a scenario the engine gives, screen by screen, and Install makes the folders and the files
+- feat(setup): the quick setup lists its types and its options, takes ssl, search, gloebit and ossl, and reports what is on
+- feat(models): the limits of the viewers: password 16, ASCII hosts, names of 63+63, parcels, regions up to 128, dots in grid names
+- refactor(runtime): start, stop and restart give an Outcome and throw InstanceFailed; InstanceResult is gone
+- refactor(controllers): AbstractController, ports() by kind of controller, Status holds the controllers
+- refactor(avatar): one name rule, Avatar::validateName, for any use (create, pick, import)
+- refactor(models): HasName trait gives the same name methods to Region, Grid and Simulator; NameRule class removed
+- refactor(runtime): Runtime\Result is InstanceResult, OpenSim\Result keeps the name of the answers
+- fix(region): a region name has 50 characters at most, 3 at least for the map search
+- refactor(models): no RegionName, the name methods are the models', booleans through Result, regions follow Second Life
+- refactor(models): a rule is written once, the dot is out of region names, Uuid::isValid and one port range everywhere
+- refactor(models): the rules of names, addresses, email and password are the models', the fields force them
+- feat(setup): the hyphen is accepted again in the name of a new avatar
+- test(setup): ni hao, ni hao ma
+- feat(setup): every name is transliterated from every alphabet and cleaned, the error that remains is told
+- feat(setup): no dot, hyphen or underscore in the name of a new avatar, no underscore in a region, domain names in unicode kept
+- feat(setup): hostnames in lower case, names without accents (the person validates the change), the region of a standalone checked
+- feat(setup): the problems of the quick setup are one or two words
+- feat(setup): the quick setup checks the login address and lists every value it defines
+- feat(setup): the hypergrid is a question of the quick setup, on by default
+- feat(setup): POST /setups/quick, the setup a few answers stand for and what is wrong with them
+- refactor(api): read_rc in lib/rc-helpers runs the .env and ~/.opensimrc, no environment forwarding
+- feat(api): the scripts read the rc files (opensimrc), the OPENSIM_* variables reach php as arguments
+- feat(api): bin/opensim-api, the API on the command line for tools that are not PHP
+- feat(standalone): the settings of a grid for a standalone, its features, its questions, its start, stop and monitor; fix the messaging of the groups
+- feat(setup): standalone grids made by the setup, no Robust, one simulator, the database of the grid
+- feat(security): the API is closed: API keys (made, listed, revoked on the machine), public operations marked open in the contract, a page to try it with a key
+- refactor(health): the methods are in camel case
+- feat(api): the router without a transport, and the command line and the PHP library as adapters of it, beside the PSR-15 handler
+- feat(api): the monitor of a grid (data, the lines of opensim status, a picture for a prim), its addresses and its info as endpoints; the helpers pages group
+- docs(api): sections (machine, grid, application, helpers, Robust) with short titles, instead of a prefix on every tag
+- test(archive): the tests of the archives are back (a file of the same name was overwritten), the model has its own; the text renderer takes the first font the machine has
+- feat(api): archives and backups of the grids as a resource (read only)
+- docs(developers): serving the engine from a web host with the handler
+- feat(api): the health of a grid as an endpoint; the contract is valid OpenAPI (offline paths without the last slash, 404 on the pages)
+- docs(api): every endpoint is in the contract (search, registration, offline messages, currency, land tools, pages, get_grid_info), the catalog says where the engine serves each, the old textgen parameters
+- feat(guide): a grid with no list has its popular places and the places shown in search, as sections or as the lines the boards read
+- test(destination): the session of an avatar is tested with the currency
+- feat(economy): the currency and the land tools of a grid as XML-RPC services (quote, buy, balance, transfers, land), the currency configured by the grid
+- feat(setup): offline messages are a choice (helpers with the module V1, Robust with the module V2, or both), enable|disable offline
+- feat(offline): the offline messages of the module V1 (save, retrieve, mail), served by the handler
+- feat(search): the registration of simulators, the parsers of snapshots and events, and the questions of the viewers (XML-RPC), served by the handler
+- feat(api): the message of the day, the destinations of the guide and the images of a text as standard endpoints
+- feat(api): the API as a PSR-15 handler, PSR-7 messages and PSR-17 factories given by the application
+- style(data): prettier on the cache
+- feat(data): two-level Cache (session memory, search database or files), grid info built on it
+- refactor(grid): what a grid said when it was verified is kept for a day and read from there; nothing is asked at each call, a failed verification leaves it as it is
+- feat(grid): the answers of get_grid_info are kept for a few minutes and never served older, no fallback to another address; the address of a visitor follows the login their grid says
+- feat(grid): the login the grid says is its login, whatever address it was reached at: Grid::loginUrl(), uri() and regionUri() follow it
+- fix(destination): the port of a login address is the one the address gives, no special case for a grid, none invented
+- feat: tri-state Result (isTrue, isFalse, isSuccess, isError), Bitmask, Connections::test, Destination::loginUrl and sanitizePlus, the wants and skills of an avatar: the useful functions of the old OpenSim class
+- refactor(naming): a link is a URL, a URI identifies: the addresses of a grid and of a service are urls
+- feat(assets): resize on request (a JPEG is converted too then), php-imagick required; Uuid::isNullKey() and isEmpty() for the two keys of nobody; the accessors of the usual addresses of a grid
+- feat(assets): Asset for every type, Image for every picture, WebAssets converts and caches them; every address of a grid in one call (Grid::addresses, GET /grids/{grid}/addresses)
+- feat(grid): Grid::gridInfo() gives every element Robust says at get_grid_info, the live ones first, else its config; one reader for the engine
+- refactor(services): the get_grid_info of Robust is get-grid-info in the catalog, not a name the engine's own pages can take
+- feat(api): the resources of a grid, the tasks, the forms and the writes; the web services in the catalog; the documentation made from the contract (composer docs)
+- docs(migration): why the folder is still sims
+- docs: README, developer rules, migration guide and data guide follow the current classes
+- style: code formatted again with Prettier; the TLS health test skips where openssl is LibreSSL
+- feat(api): resources as JSON:API documents, errors as RFC 9457 problems, the OpenAPI contract checked against the models
+- feat(scheduling): tasks with an interval run by cron or pseudo cron, locked, state kept for the health page
+- feat(avatar): Avatar::create() and a fuller update() through the models, each row in the database of its service; AccountImporter on them
+- feat(grid): standalone grids (Standalone = true in the description): lifecycle through the simulator, services served by it
+- feat(services): Service model; Grid::services()/service()/robusts(), Simulator::services()/service()
+- refactor(simulators): sims becomes simulators in the code (GridConfig::SIMULATORS names the folder, tree key, form field)
+- refactor(environment): every operation takes an Environment, no profile array; Ports uses the process table; EnvironmentFake for tests
+- refactor: the programs that run are controllers (RobustController, OpenSimController), the simulator is a model that composes its controller; Core is a Runtime class
+- feat(models): grids, simulators and Robust follow the contract of the models: listed and found in the environment of the machine
+- refactor(models): the bans are in the models, Moderation is gone: Avatar finds people and tells what they left, Estate bans
+- refactor(slug): a slug is kebab-case, a table or a database is snake_case, the slug of a simulator has its grid
+- feat(models): a simulator is identified by its address, its slug has its grid; sqlite tests skip without the extension
+- feat(models): Estate, with its regions, managers, users and ban list; a region knows its estate
+- fix(data): each query goes to the database of its service, as the core chooses it
+- refactor(models): a Robust tells what its config says, the grid and its planner ask it
+- refactor(models): a simulator tells what its config says, detail() for Grid and Simulator
+- refactor(models): GridInfo goes into Grid, which owns what is known of a grid whatever the source
+- refactor: Simulator, never Sim, in the names of classes, methods and variables
+- refactor(models): GridState and SimState are gone, Grid and Simulator enable themselves
+- refactor(models): a region is one class whatever its source, Enablable replaces RegionState
+- refactor: the model interface and the exceptions have their own namespaces (OpenSim\Interfaces, OpenSim\Exceptions)
+- refactor: the functions of the engine are classes, loaded by the autoloader; what was removed is back (results, responses, escaping, ids...)
+- refactor: OSPDO and the health checks are PSR-4 classes, the legacy aliases are gone
+- refactor: the engine drops the classes and functions of the WordPress plugin that nothing here uses
+- feat(provisioning): a grid joined by a preset has a master made from its preset, and its features are enabled there, for all its simulators
+- feat(provisioning): the options of a new grid (search, currency, more OSSL, web server and site) are fields of the grid, each with its default
+- fix(provisioning): each connector Robust serves has its counterpart in the simulators (bakes, groups, estates of the grid); offline messages are left to the helpers
+- fix(provisioning): helpers.ini of the first setups becomes Helpers.ini, or is kept aside when both exist
+- fix(provisioning): a grid whose files do not say its name is named by the words of its nick
+- fix(provisioning): the connectors of the helpers' services and of the hypergrid are enabled in Robust
+- fix(provisioning): the scripts of a simulator on the machine of its grid see the grid host, a hypergrid tells its gatekeeper in the grid info
+- composer update
+- tests: align descriptions to guidelines
+- feat(models): Region::all() can be asked for given UUIDs, and Region::known() says which regions the grid has
+- feat(models): Avatar::capabilities() says what the list of a grid can sort on and filter by
+- fix(models): a search looks for the characters it is given, % and _ are not wildcards
+- test: the machine of the tests uses the real path of the temp folder, the ports test does not depend on the ports of the machine
+- feat(models): avatars have their whole profile, picks and classifieds, a filter for the account of the services, and keep their email private
+- feat(data): the numbers of a grid are counted by the engine, in the database of each service
+- feat(models): a list that cannot be read says why, with what the server answered
+- refactor(models): roles() is the roles of a region, flagNames() the names of a value, the grid offers its own
+- composer update
+- docs(data): how an application reads the avatars, regions, parcels and databases of a grid through the engine
+- test(models): the tests on SQLite are skipped where pdo_sqlite is not installed
+- feat(models): the parcels of a grid, from the land of its simulators, with their bitmap
+- feat(models): the regions of a grid, their flags as constants, RegionFlags is gone
+- feat(models): the model contract, the collection and the avatars of a grid
+- feat(database): the services of the registry are read from Robust, else the reduced copy of a web host, else a standalone OpenSim.ini
+- feat(database): the engine defines the databases of a grid and where each is set
+- refactor(database): one OSPDO constructor for the DSN and the credentials, the driver options stay PDO's
+- feat(backup): the databases are dumped through PDO, not mysqldump
+- (untested) feat(database): the setup reaches the database through OSPDO, not the mysql client
+- fix(accounts): the home of a new account is above the sea level, not on the sea floor Robust gives
+- style: comments say what the code does, its arguments and its return value
+- feat(config): the database settings OpenSimulator takes from [DatabaseService] are in the grid config, for the services, the regions and the estates
+- feat(signin): the same sign-in with the OpenID provider of the grid, and with the login service of the viewers, which opens a session in the world
+- feat(signin): an avatar signs in through the accounts and authentication services of the private port of its Robust, no database, no session in the world
+- feat(i18n): gettext is suggested, not required; without it its functions give the message back as it is
+- feat(config): the layouts of an install are the engine's, and Layout::resolve() reads the environment, then opensim.conf, then the defaults of the setup
+- composer update
+- fix(regions): a new region offers every role and checks only the ones the grid has no region for; the roles are read from the Robust config with the ini reader
+- fix(database): a plan takes the password entered for its account earlier in the session; what the setup is about to create is a note, not a warning
+- feat(runtime): ShellService gives the output of the commands to a sink when the terminal is not where it goes
+- docs(changelog): setup.json and the backups are readable by the group of the install
+- fix(files): setup.json and the backups are readable by the group of the install (640, folders 750)
+- fix(setup): a region added by a setup file to a simulator that is not to start is not loaded
+- feat(forms): RemoteGridPlanner, and the setup file gives its answers by the names of the fields
+- feat(forms): RegionPlanner takes the ports of the simulators of a pool, uuid() is public
+- feat(forms): the fields of a simulator and of a region are defined by their models, SimPlanner and RegionPlanner work the plans out
+- feat(forms): the fields of a grid are defined by the model (FieldSet), the GridPlanner works the plan out from the answers
+- docs(changelog): DotnetInstaller
+- feat(runtime): DotnetInstaller installs the .NET runtime and libgdiplus, the PHP of libexec/install-dotnet
+- fix(master): the decisions of a new grid keep their quotes, the master takes no port of a simulator
+- docs(changelog): the master of the simulators, ConfigReader, UserBan, legacy classes
+- feat(config): the simulators of a grid read a master (OpenSimGridDefaults.ini, -inimaster), their own config says only what is theirs
+- refactor(legacy): the old global names are classes of legacy/, no custom autoloader
+- refactor(legacy): the old global names are loaded from legacy/, OpenSim_Oar is OpenSim\Archives\Oar
+- feat(moderation): UserBan writes the statements that ban users and delete their data; ConnectionString is the one reader of connection strings
+- refactor(config): one reader of the ini files (ConfigReader), OpenSim_Config is a thin legacy layer on GridConfig
+- fix(runtime): a link to a library that was removed is not a library
+- fix(provisioning): the init archive and the folders of the application are found through the resource registry
+- fix(provisioning): the setup can start instances through the application's command line (InstanceControl::runThrough)
+- docs: changelog
+- fix(provisioning): the setup starts and restarts instances in its own process (InstanceControl), not through a path of the command line
+- tests: the tests of the classes that came from the kit run in the engine; it needs the random name generator
+- refactor(provisioning): the writing of a grid and of a simulator (GridProvisioner, SimulatorProvisioner) and the setup file are the engine's; the screens stay in the kit
+- fix(provisioning): the resources of the application are found from composer's root package, without its bootstrap
+- feat(models): Core::choices, the cores under a root as the choices of a menu
+- fix(runtime): the processes are listed without cutting their command line, console applications set COLUMNS and ps cuts the lines to it
+- refactor(provisioning): the database, the accounts, the registry of a grid, the archives, the import, the ports and the console of an instance are the engine's
+- refactor(provisioning): the classes that make and read a grid come from the kit into OpenSim\Config, \Provisioning and \Models (config files, plans, presets, features, MoneyServer, helpers, locations, grid state)
+- refactor(runtime): a grid is its services, its simulators start, stop and restart with it only when asked
+- refactor(config): IniEditor and TextFileService, the line editor of ini files and the Unix line endings, come from the kit
+- feat(runtime): OpenSim::start/stop/restart/status over Grid, Robust and Simulator models, with their runtime, consoles and tests
+- feat(network): the namespace OpenSim\ in src/, the port mapping of the instances with kick-inside by default and upnpc as the alternative, the ports of an instance
+
 ### 3.0.0-beta.6
 
 Freeze current state before refactor
