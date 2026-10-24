@@ -32,7 +32,7 @@ $result = match ($action) {
 };
 
 if ($result === null) {
-    fwrite(STDERR, "usage: opensim-container [--connection NAME] image-pull IMAGE | create --name NAME --image IMAGE [--memory SIZE] [--label KEY=VALUE ...] -- COMMAND... | start NAME | inspect NAME | running NAME | exec NAME [--input] -- COMMAND... | remove [--force] NAME\n");
+    fwrite(STDERR, "usage: opensim-container [--connection NAME] image-pull IMAGE | create --name NAME --image IMAGE [--memory SIZE] [--label KEY=VALUE ...] -- COMMAND... | start NAME | inspect NAME | running NAME | exec [--input] NAME -- COMMAND... | exec --tty NAME -- COMMAND... | remove [--force] NAME\n");
     exit(2);
 }
 
@@ -73,9 +73,16 @@ function create(Podman $podman, array $arguments): ?OpenSim\Container\CommandRes
 
 function execute(Podman $podman, array $arguments): ?OpenSim\Container\CommandResult
 {
+    $interactive = ($arguments[0] ?? '') === '--tty';
+    $interactive && array_shift($arguments);
     $name = array_shift($arguments);
     if ($name === null) {
         return null;
+    }
+    if ($interactive) {
+        return array_shift($arguments) === '--' && $arguments !== []
+            ? $podman->execInteractive($name, $arguments)
+            : null;
     }
     $readInput = ($arguments[0] ?? '') === '--input';
     $readInput && array_shift($arguments);

@@ -93,6 +93,31 @@ final class Podman
         return $this->run(['exec', ...($input === null ? [] : ['-i']), $name, ...$command], $input);
     }
 
+    /** Run an interactive command in a container, attached to the caller's terminal. */
+    public function execInteractive(string $name, array $command): CommandResult
+    {
+        $terminal = @fopen('/dev/tty', 'r+');
+        if ($terminal === false) {
+            return new CommandResult(1, '', "An interactive terminal is required to run a command in $name\n");
+        }
+
+        $process = @proc_open(
+            $this->command(['exec', '--interactive', '--tty', $name, ...$command]),
+            [0 => $terminal, 1 => $terminal, 2 => STDERR],
+            $pipes,
+        );
+        if (!is_resource($process)) {
+            fclose($terminal);
+
+            return new CommandResult(127, '', "Could not start {$this->binary}\n");
+        }
+
+        $status = proc_close($process);
+        fclose($terminal);
+
+        return new CommandResult($status, '', '');
+    }
+
     /** Remove a container. */
     public function remove(string $name, bool $force = false): CommandResult
     {
@@ -102,13 +127,7 @@ final class Podman
     /** Run one Podman command. */
     public function run(array $arguments, ?string $input = null): CommandResult
     {
-        $command = [$this->binary];
-        if ($this->connection !== null && $this->connection !== '') {
-            array_push($command, '--connection', $this->connection);
-        }
-        array_push($command, ...$arguments);
-
-        $process = @proc_open($command, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        $process = @proc_open($this->command($arguments), [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
         if (!is_resource($process)) {
             return new CommandResult(127, '', "Could not start {$this->binary}\n");
         }
@@ -149,5 +168,16 @@ final class Podman
         fclose($pipes[2]);
 
         return new CommandResult(proc_close($process), $stdout, $stderr);
+    }
+
+    /** Build a Podman command line. */
+    private function command(array $arguments): array
+    {
+        $command = [$this->binary];
+        if ($this->connection !== null && $this->connection !== '') {
+            array_push($command, '--connection', $this->connection);
+        }
+
+        return [...$command, ...$arguments];
     }
 }
