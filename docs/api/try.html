@@ -17,7 +17,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "OpenSim engine",
-        "version": "d0c8e1f",
+        "version": "11ef1fc",
         "license": {
             "name": "AGPL-3.0-or-later",
             "identifier": "AGPL-3.0-or-later"
@@ -4513,6 +4513,18 @@
                                                         "valid": {
                                                             "type": "boolean",
                                                             "description": "There is nothing wrong: the setup can be applied"
+                                                        },
+                                                        "capabilities": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "string",
+                                                                "enum": [
+                                                                    "prepare",
+                                                                    "apply_prepared",
+                                                                    "existing_region"
+                                                                ]
+                                                            },
+                                                            "description": "Supported setup operations. A planning request has no provisioning side effects, so clients can check support before applying a configuration."
                                                         },
                                                         "problems": {
                                                             "type": "object",

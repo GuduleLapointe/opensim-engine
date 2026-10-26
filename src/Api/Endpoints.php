@@ -538,6 +538,7 @@ final class Endpoints
                     'description' => 'The setup, and what is wrong with the answers',
                     'content' => $document('setups', [
                         'valid' => ['type' => 'boolean', 'description' => 'There is nothing wrong: the setup can be applied'],
+                        'capabilities' => ['type' => 'array', 'items' => ['type' => 'string', 'enum' => ['prepare', 'apply_prepared', 'existing_region']], 'description' => 'Supported setup operations. A planning request has no provisioning side effects, so clients can check support before applying a configuration.'],
                         'problems' => [
                             'type' => 'object',
                             'description' => 'What is wrong, by the name of the question',

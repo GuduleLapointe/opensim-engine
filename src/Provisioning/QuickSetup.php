@@ -21,6 +21,8 @@ use OpenSim\Runtime\ShellService;
 final class QuickSetup
 {
     public const TYPES = ['grid', 'standalone'];
+    /** Setup operations clients can request explicitly, before sending a provisioning command. */
+    public const CAPABILITIES = ['prepare', 'apply_prepared', 'existing_region'];
 
     /**
      * The options of the form, in the order they are shown. They are the only choices of a quick setup: everything else is on (the

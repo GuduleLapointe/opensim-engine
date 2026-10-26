@@ -539,6 +539,7 @@ final class Api
     {
         try {
             $result = QuickSetup::plan($this->environment, $answers);
+            $result['capabilities'] = QuickSetup::CAPABILITIES;
         } catch (\Throwable $error) {
             return Response::problem(Problem::from($error, '/setups/quick'));
         }

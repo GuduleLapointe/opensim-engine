@@ -521,6 +521,14 @@ function quick_core(Machine $machine): void
     file_put_contents("$bin/config-include/osslEnable.ini.example", "[OSSL]\n    AllowOSFunctions = false\n");
 }
 
+test('advertises setup capabilities', function () {
+    $machine = new Machine();
+    $response = (new Api($machine->environment))->quickSetup(quick_answers());
+    $attributes = json_decode($response->body(), true)['data']['attributes'];
+    expect($attributes['capabilities'])->toContain('prepare', 'apply_prepared', 'existing_region')
+        ->and(is_dir($machine->etc . '/grids/magic_grid'))->toBeFalse();
+});
+
 describe('existing region setup', function () {
     beforeEach(function () {
         quick_doubles(['region' => [
