@@ -20,7 +20,8 @@ use OpenSim\Config\GridConfig;
  * the order OpenSimulator reads them, the first that has a value is the database; the last of the list is the database the
  * others fall back to.
  *
- * Only MySQL and MariaDB are handled for now: another provider has no connection string to parse.
+ * MySQL/MariaDB server databases are handled by the provisioning tools. SQLite connection strings are supported for OpenSim.exe
+ * simulator storage; Robust itself needs a server database. PostgreSQL connections are not handled by this query layer yet.
  */
 enum Database: string
 {
