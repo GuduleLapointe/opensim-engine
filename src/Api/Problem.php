@@ -71,7 +71,7 @@ final class Problem
         };
     }
 
-    private static function internal(\Throwable $error, string $instance): self
+    private static function internal(\Throwable $error, ?string $instance): self
     {
         error_log(sprintf('opensim-api: %s: %s (%s:%d)', $error::class, $error->getMessage(), $error->getFile(), $error->getLine()));
 

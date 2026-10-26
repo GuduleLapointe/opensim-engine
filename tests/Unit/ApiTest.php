@@ -136,6 +136,8 @@ describe('The API', function () {
                 ])
                 ->and(Problem::from(new RuntimeException('/secret/path password'))->toArray())
                 ->toBe(['type' => 'about:blank', 'title' => 'Internal error', 'status' => 500])
+                ->and(Problem::from(new RuntimeException('private detail'), '/setups/steps')->toArray())
+                ->toBe(['type' => 'about:blank', 'title' => 'Internal error', 'status' => 500, 'instance' => '/setups/steps'])
                 ->and(json_decode(Problem::from(new InvalidArgumentException('x'), '/grids')->json(), true)['instance'])
                 ->toBe('/grids');
         },
