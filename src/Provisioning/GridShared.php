@@ -24,7 +24,10 @@ use OpenSim\Config\TextFileService;
 final class GridShared
 {
     /** @param ?string $dataDirectory the data folder of the grid, where its assets and its library are; null: its own folder */
-    public function __construct(private readonly ?string $dataDirectory = null) {}
+    public function __construct(
+        private readonly ?string $dataDirectory = null,
+        private readonly string $databaseDriver = 'mysql',
+    ) {}
 
     /**
      * The files of the folder of a grid (and of a preset) that come from the distribution, relative to the folder: the main
@@ -45,6 +48,7 @@ final class GridShared
             'config-include/FlotsamCache.ini',
             'config-include/osslDefaultEnable.ini',
             'config-include/osslEnable.ini',
+            ...($standalone ? ['config-include/storage/SQLiteStandalone.ini'] : []),
         ];
     }
 
@@ -113,18 +117,40 @@ final class GridShared
     private function patched(string $text, string $dir, string $file): string
     {
         $option = (new Presets())->options()['config-include'] ?? null;
-        if ($option === null || !in_array($file, $option->files(), true)) {
-            return $text;
-        }
-        // The assets and the library the grid has are read from its own, not from the core: from its data folder when it has one,
-        // else from its folder
-        $own = $this->dataDirectory ?? $dir;
         $ini = new IniEditor($text);
-        GridOptions::layText($ini, $option, $file, [
-            'include_directory' => "$dir/config-include",
-            'assets_file' => is_file("$own/assets/AssetSets.xml") ? "$own/assets/AssetSets.xml" : '',
-            'library_file' => is_file("$own/inventory/Libraries.xml") ? "$own/inventory/Libraries.xml" : '',
-        ]);
+        if ($option !== null && in_array($file, $option->files(), true)) {
+            // The assets and the library of the grid are read from its own folder, not the core's.
+            $own = $this->dataDirectory ?? $dir;
+            GridOptions::layText($ini, $option, $file, [
+                'include_directory' => "$dir/config-include",
+                'assets_file' => is_file("$own/assets/AssetSets.xml") ? "$own/assets/AssetSets.xml" : '',
+                'library_file' => is_file("$own/inventory/Libraries.xml") ? "$own/inventory/Libraries.xml" : '',
+            ]);
+        }
+        if ($this->databaseDriver === 'sqlite' && $file === 'config-include/StandaloneCommon.ini') {
+            $ini->set('DatabaseService', 'Include-Storage', '"' . $dir . '/config-include/storage/SQLiteStandalone.ini"');
+        }
+        if ($this->databaseDriver === 'sqlite' && $file === 'config-include/storage/SQLiteStandalone.ini') {
+            foreach (
+                [
+                    'DatabaseService' => 'OpenSim.db',
+                    'AssetService' => 'Asset.db',
+                    'HGAssetService' => 'Asset.db',
+                    'InventoryService' => 'inventory.db',
+                    'AvatarService' => 'avatars.db',
+                    'AuthenticationService' => 'auth.db',
+                    'UserAccountService' => 'userprofiles.db',
+                    'GridUserService' => 'griduser.db',
+                    'FriendsService' => 'friends.db',
+                ] as $section => $database
+            ) {
+                $ini->set(
+                    $section,
+                    'ConnectionString',
+                    '"URI=file:${Const|DataDirectory}/' . $database . ',version=3,UseUTF16Encoding=True"',
+                );
+            }
+        }
 
         return $ini->toString();
     }

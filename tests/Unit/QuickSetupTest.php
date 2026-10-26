@@ -31,6 +31,22 @@ function quick_answers(array $set = []): array
 }
 
 describe('quick setup of a grid', function () {
+    test('offers SQLite only as a standalone database driver', function () {
+        $environment = (new Machine())->environment;
+        $menu = QuickSetup::next($environment, ['mode' => 'prepare']);
+        $form = QuickSetup::next($environment, [
+            'mode' => 'prepare',
+            'state' => $menu['state'],
+            'answers' => ['type' => 'standalone'],
+        ]);
+        $fields = array_column($form['fields'], null, 'name');
+        $grid = QuickSetup::plan($environment, quick_answers(['type' => 'standalone', 'database_driver' => 'sqlite']));
+
+        expect($fields['database_driver']['options'])->toHaveKeys(['mysql', 'sqlite'])
+            ->and($grid['valid'])->toBeTrue()
+            ->and($grid['setup']['grid']['database']['driver'])->toBe('sqlite');
+    });
+
     test('uses deployment host ports for interactive port proposals', function () {
         $machine = new Machine();
         $machine->processes->listening = [8012, 9010];

@@ -100,6 +100,12 @@ test('proposes a portable grid name', function () {
 });
 
 describe('A new grid', function () {
+    test('keeps the selected standalone database driver in its plan', function () {
+        $plan = planner()->plan(['standalone' => true, 'name' => 'Solo', 'database_driver' => 'sqlite']);
+
+        expect($plan->dbDriver)->toBe('sqlite');
+    });
+
     test(
         'is proposed from the machine: its name, its host, the block of ports, the database named after the nick',
         function () {

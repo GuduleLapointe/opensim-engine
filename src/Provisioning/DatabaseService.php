@@ -87,6 +87,22 @@ final class DatabaseService
     public function ensure(GridPlan $plan): int
     {
         $this->adminAccess = null;
+        if ($plan->dbDriver === 'sqlite') {
+            if (!extension_loaded('pdo_sqlite')) {
+                $this->ui->error(_('The PHP SQLite extension is missing: install php-sqlite3.'));
+
+                return self::ABORT;
+            }
+            if (!$plan->standalone) {
+                $this->ui->error(_('SQLite is available for standalone worlds only.'));
+
+                return self::ABORT;
+            }
+
+            $this->ui->note(_('SQLite will initialize the standalone database when OpenSim starts.'));
+
+            return self::OK;
+        }
         if (!self::available()) {
             $this->ui->error(_('The PHP extension for MySQL is missing: install php-mysql.'));
 

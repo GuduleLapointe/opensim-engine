@@ -181,7 +181,7 @@ apache:
     {
         // The distribution, over it what the grid has set: a setting new in the distribution is there, what was chosen stays
         // (the same procedure as the folder of a preset), ready for the simulators that will join the grid
-        $shared = new GridShared($plan->dataDirectory);
+        $shared = new GridShared($plan->dataDirectory, $plan->dbDriver);
         $shared->merge($plan->etcDirectory, $plan->binDir, $plan->enableHypergrid, standalone: $plan->standalone);
         $shared->prepare($plan->etcDirectory, $plan->binDir, $plan->enableHypergrid, $plan->standalone);
         $this->ui->note(_('Copied config-include defaults.'));

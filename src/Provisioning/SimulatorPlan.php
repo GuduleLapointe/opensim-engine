@@ -63,6 +63,8 @@ final class SimulatorPlan
     public string $dbName = '';
     public string $dbUser = 'opensim';
     public string $dbPass = '';
+    /** mysql or sqlite; SQLite is supported by a standalone only. */
+    public string $dbDriver = 'mysql';
 
     // Its folders.
     public string $dataDirectory = '';
@@ -132,6 +134,10 @@ final class SimulatorPlan
 
     public function connectionString(): string
     {
+        if ($this->dbDriver === 'sqlite') {
+            return 'URI=file:${Const|DataDirectory}/OpenSim.db,version=3,UseUTF16Encoding=True';
+        }
+
         return (string) ConnectionString::for($this->dbHost, $this->dbName, $this->dbUser, $this->dbPass);
     }
 
@@ -143,6 +149,8 @@ final class SimulatorPlan
         $plan->dbName = $this->dbName;
         $plan->dbUser = $this->dbUser;
         $plan->dbPass = $this->dbPass;
+        $plan->dbDriver = $this->dbDriver;
+        $plan->standalone = $this->standalone;
 
         return $plan;
     }

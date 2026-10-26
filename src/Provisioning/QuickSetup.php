@@ -243,7 +243,7 @@ final class QuickSetup
         // and the plan is made of the corrected ones (the person confirms a correction by sending the form again).
         $dbGiven = array_intersect_key(
             $answers,
-            array_flip(['database_host', 'database_name', 'database_user', 'database_password']),
+            array_flip(['database_driver', 'database_host', 'database_name', 'database_user', 'database_password']),
         );
         $gridAnswers = ['standalone' => $standalone] + self::portValues($answers, ['private_port' => 'private_port', 'console_port' => 'grid_console_port']) + $dbGiven + $fromOptions;
         trim((string) ($answers['name'] ?? '')) !== '' && ($gridAnswers['name'] = trim((string) $answers['name']));
@@ -289,6 +289,7 @@ final class QuickSetup
         }
         $fixes = self::review($simulators->fields(), $simulators->problems($owner), $owner, $problems, $corrected);
         $simulator = $simulators->plan($fixes + $owner);
+        $simulator->dbDriver = $plan->dbDriver;
         if ($standalone && $simulator->httpPort !== $plan->publicPort) {
             $problems['http_port'] = _('must match the standalone Login URI port');
         }
@@ -500,6 +501,7 @@ final class QuickSetup
                 }
 
                 $answers = self::keep($answers, $given, [
+                    'database_driver',
                     'database_host',
                     'database_user',
                     'database_password',
@@ -686,6 +688,12 @@ final class QuickSetup
                 'secret' => $secret,
                 'readonly' => $readonly,
             ];
+            if ($name === 'database_driver') {
+                $fields[array_key_last($fields)]['options'] = [
+                    'mysql' => _('MySQL or MariaDB'),
+                    'sqlite' => _('SQLite'),
+                ];
+            }
         }
         $labels = array_column(self::types($environment), 'label', 'name');
 
@@ -1099,6 +1107,7 @@ final class QuickSetup
         ];
         if ($standalone) {
             unset($fields['http_port']);
+            $fields = ['database_driver' => [_('Database driver'), false, false, 'mysql']] + $fields;
         }
         if (!$existingRegion) {
             $fields['region_port'] = [_('Region UDP port'), false, false, null];
@@ -1260,7 +1269,7 @@ final class QuickSetup
             ['estate_owner' => trim((string) ($answers['avatar'] ?? ''))] +
             array_intersect_key(
                 $answers,
-                array_flip(['database_host', 'database_name', 'database_user', 'database_password']),
+                array_flip(['database_driver', 'database_host', 'database_name', 'database_user', 'database_password']),
             );
         $owner += self::portValues($answers, ['http_port' => 'http_port', 'console_port' => 'console_port']);
         if (is_array($answers['setup'] ?? null)) {

@@ -208,6 +208,7 @@ final class GridPlanner
             'nick' => $nick,
             'hypergrid' => $hypergrid,
             'standalone' => $standalone,
+            'database_driver' => strtolower($text('database_driver', 'mysql')),
             'spacing' => $spacing,
             'core' => $core,
             'hostname' => $host,
@@ -293,8 +294,14 @@ final class GridPlanner
     {
         // What was answered is checked as it was given (a port that is not a number is not 0), the rest as it is proposed
         $values = $this->resolve($answers);
+        $problems = [];
+        if (!in_array($values['database_driver'], ['mysql', 'sqlite'], true)) {
+            $problems['database_driver'] = _('Choose MySQL or SQLite.');
+        } elseif (!$values['standalone'] && $values['database_driver'] !== 'mysql') {
+            $problems['database_driver'] = _('SQLite is available for standalone worlds only.');
+        }
 
-        return $this->fields()->problems(array_intersect_key($answers, $values) + $values);
+        return $problems + $this->fields()->problems(array_intersect_key($answers, $values) + $values);
     }
 
     /** The plan of the grid these answers describe. */
@@ -317,6 +324,7 @@ final class GridPlanner
         $plan->logsDirectory = $layout->logsRoot();
         $plan->enableHypergrid = $v['hypergrid'];
         $plan->standalone = $v['standalone'];
+        $plan->dbDriver = $v['database_driver'];
         // The rule that places the regions: free blocks between them
         $plan->regionSpacing = $v['spacing'];
         $plan->coreDirectory = $v['core'];

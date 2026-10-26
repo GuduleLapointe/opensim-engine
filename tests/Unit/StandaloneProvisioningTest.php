@@ -18,9 +18,12 @@ use OpenSim\Provisioning\GridOptions;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\GridPlanner;
 use OpenSim\Provisioning\GridShared;
+use OpenSim\Provisioning\DatabaseService;
+use OpenSim\Provisioning\NullUi;
 use OpenSim\Provisioning\SetupFile;
 use OpenSim\Provisioning\SimulatorConfig;
 use OpenSim\Provisioning\SimulatorMaster;
+use OpenSim\Provisioning\SimulatorPlan;
 use OpenSim\Provisioning\Web\HelpersConfig;
 use OpenSim\Provisioning\Web\Services;
 use OpenSim\Runtime\GridMonitor;
@@ -143,6 +146,44 @@ describe('The shared files of a standalone', function () {
             ->toContain('Include-FlotsamCache = "' . $dir . '/config-include/FlotsamCache.ini"')
             ->and(file_get_contents("$dir/config-include/StandaloneHypergrid.ini"))
             ->toContain('Include-Common = "' . $dir . '/config-include/StandaloneCommon.ini"');
+    });
+
+    test('enable OpenSimulator SQLite storage for a standalone plan', function () {
+        [$dir, $bin] = standalone_folder();
+        mkdir("$bin/config-include/storage", 0o755, true);
+        file_put_contents(
+            "$bin/config-include/storage/SQLiteStandalone.ini",
+            "[DatabaseService]\nStorageProvider = \\\"OpenSim.Data.SQLite.dll\\\"\n",
+        );
+
+        (new GridShared(databaseDriver: 'sqlite'))->merge($dir, $bin, true, standalone: true);
+        $text = file_get_contents("$dir/config-include/StandaloneCommon.ini");
+
+        expect($text)->toContain('Include-Storage = "' . $dir . '/config-include/storage/SQLiteStandalone.ini"')
+            ->and(is_file("$dir/config-include/storage/SQLiteStandalone.ini"))->toBeTrue();
+        expect(file_get_contents("$dir/config-include/storage/SQLiteStandalone.ini"))
+            ->toContain('URI=file:${Const|DataDirectory}/OpenSim.db,version=3,UseUTF16Encoding=True')
+            ->toContain('URI=file:${Const|DataDirectory}/Asset.db,version=3,UseUTF16Encoding=True');
+    });
+
+    test('writes SQLite provider and a data-directory connection for a standalone simulator', function () {
+        [$dir, $bin] = standalone_folder();
+        $plan = new SimulatorPlan();
+        $plan->standalone = true;
+        $plan->dbDriver = 'sqlite';
+        $plan->gridDir = $dir;
+        $plan->configDir = $dir;
+        $plan->gridNick = 'solo';
+        $plan->gridName = 'Solo World';
+        $plan->simulatorName = 'Solo';
+        $plan->slug = 'solo';
+        $plan->dataDirectory = "$dir/data";
+        $plan->coreDirectory = $bin;
+        $config = (new SimulatorConfig())->render($plan);
+
+        expect($config)
+            ->toContain('StorageProvider = "OpenSim.Data.SQLite.dll"')
+            ->toContain('ConnectionString = "URI=file:${Const|DataDirectory}/OpenSim.db,version=3,UseUTF16Encoding=True"');
     });
 });
 
@@ -380,6 +421,17 @@ describe('The questions about a standalone', function () {
 
         expect(SetupFile::problems($data))->toBe([]);
     });
+
+    test('skip MySQL account provisioning for a SQLite standalone', function () {
+        $plan = new GridPlan();
+        $plan->standalone = true;
+        $plan->dbDriver = 'sqlite';
+        $plan->dbName = 'solo';
+        $ui = new NullUi();
+
+        expect((new DatabaseService($ui))->ensure($plan))->toBe(DatabaseService::OK)
+            ->and($ui->said)->toContain(['note', 'SQLite will initialize the standalone database when OpenSim starts.']);
+    })->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite missing');
 
     test('refuse SQLite for a grid and unknown database drivers', function () {
         $grid = [
