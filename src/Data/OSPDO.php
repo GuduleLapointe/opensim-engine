@@ -299,6 +299,21 @@ class OSPDO extends PDO
             // If already an array, just return it
             return $connectionstring;
         }
+        if (in_array($provider, ['OpenSim.Data.SQLite.dll', 'sqlite'], true)) {
+            $database = \OpenSim\Config\ConnectionString::parse($connectionstring);
+            if ($database?->driver !== 'sqlite') {
+                return [];
+            }
+
+            return [
+                'type' => 'sqlite',
+                'name' => $database->source,
+                'user' => '',
+                'pass' => '',
+                'saveformat' => 'connection_string',
+                'ConnectionString' => $connectionstring,
+            ];
+        }
         $creds = \OpenSim\Config\ConnectionString::pairs($connectionstring);
         if (preg_match('/:[0-9]+$/', $creds['Data Source'] ?? '')) {
             $host = explode(':', $creds['Data Source']);

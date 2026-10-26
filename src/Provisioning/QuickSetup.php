@@ -245,7 +245,8 @@ final class QuickSetup
             $answers,
             array_flip(['database_driver', 'database_host', 'database_name', 'database_user', 'database_password']),
         );
-        $gridAnswers = ['standalone' => $standalone] + self::portValues($answers, ['private_port' => 'private_port', 'console_port' => 'grid_console_port']) + $dbGiven + $fromOptions;
+        $gridDatabase = $standalone ? $dbGiven : array_diff_key($dbGiven, ['database_driver' => true]);
+        $gridAnswers = ['standalone' => $standalone] + self::portValues($answers, ['private_port' => 'private_port', 'console_port' => 'grid_console_port']) + $gridDatabase + $fromOptions;
         trim((string) ($answers['name'] ?? '')) !== '' && ($gridAnswers['name'] = trim((string) $answers['name']));
         [$uri, $uriProblem] = Grid::parseLoginUri((string) ($answers['login_uri'] ?? ''));
         $uriProblem !== null && ($problems['login_uri'] = $uriProblem);
@@ -289,7 +290,7 @@ final class QuickSetup
         }
         $fixes = self::review($simulators->fields(), $simulators->problems($owner), $owner, $problems, $corrected);
         $simulator = $simulators->plan($fixes + $owner);
-        $simulator->dbDriver = $plan->dbDriver;
+        $simulator->dbDriver = strtolower(trim((string) ($answers['database_driver'] ?? $plan->dbDriver)));
         if ($standalone && $simulator->httpPort !== $plan->publicPort) {
             $problems['http_port'] = _('must match the standalone Login URI port');
         }
@@ -513,6 +514,10 @@ final class QuickSetup
                     $plan = $remote
                         ? self::buildRemote($environment, self::answersOf($answers))['simulator']->databasePlan()
                         : self::build($environment, self::answersOf($answers))['plan'];
+                    if ($plan->dbDriver === 'sqlite') {
+                        return self::prepared($environment, $answers);
+                    }
+
                     return self::screenDatabase($plan, $answers, '');
                 }
                 return self::install($environment, $answers);
@@ -1074,7 +1079,7 @@ final class QuickSetup
                 'preset_hypergrid' => [_('Hypergrid'), false, true, $said['hypergrid'] ?? true ? 'yes' : 'no'],
                 'name' => [$adoptionFields !== [] ? _('Simulator name') : _('Region name'), false, false, $region_name],
                 'avatar' => [_('Avatar name'), false, false, $avatar_name],
-            ] + $adoptionFields + self::portFields($adoptionFields !== []);
+            ] + $adoptionFields + self::databaseDriverField($kind) + self::portFields($adoptionFields !== []);
         }
         if ($kind === 'remote') {
             return [
@@ -1082,7 +1087,7 @@ final class QuickSetup
                 'private_port' => [_('Grid private port'), false, false, null],
                 'name' => [$adoptionFields !== [] ? _('Simulator name') : _('Region name'), false, false, $region_name],
                 'avatar' => [_('Avatar name'), false, false, $avatar_name],
-            ] + $adoptionFields + self::portFields($adoptionFields !== []);
+            ] + $adoptionFields + self::databaseDriverField($kind) + self::portFields($adoptionFields !== []);
         }
 
         return [
@@ -1095,7 +1100,13 @@ final class QuickSetup
         ] + ($kind === 'standalone' ? [] : [
             'private_port' => [_('Grid private port'), false, false, null],
             'grid_console_port' => [_('Grid console port'), false, false, null],
-        ]) + self::portFields(standalone: $kind === 'standalone');
+        ]) + self::databaseDriverField($kind) + self::portFields(standalone: $kind === 'standalone');
+    }
+
+    /** SQLite is a simulator option; for a standalone it is also the grid's only database. */
+    private static function databaseDriverField(string $kind): array
+    {
+        return ['database_driver' => [$kind === 'standalone' ? _('Database driver') : _('Simulator database driver'), false, false, 'mysql']];
     }
 
     /** Optional listener overrides; an empty answer keeps the planner's proposal. */
@@ -1107,7 +1118,6 @@ final class QuickSetup
         ];
         if ($standalone) {
             unset($fields['http_port']);
-            $fields = ['database_driver' => [_('Database driver'), false, false, 'mysql']] + $fields;
         }
         if (!$existingRegion) {
             $fields['region_port'] = [_('Region UDP port'), false, false, null];
@@ -1277,6 +1287,7 @@ final class QuickSetup
         }
         $fixes = self::review($simulators->fields(), $simulators->problems($owner), $owner, $problems, $corrected);
         $simulator = $simulators->plan($fixes + $owner);
+        $simulator->dbDriver = strtolower(trim((string) ($answers['database_driver'] ?? 'mysql')));
         $existingRegion = (string) ($answers['existing_region'] ?? ($answers['setup']['simulators'][0]['regions'][0]['source'] ?? ''));
         if ($existingRegion !== '') {
             if (trim((string) ($answers['database_name'] ?? '')) === '') {

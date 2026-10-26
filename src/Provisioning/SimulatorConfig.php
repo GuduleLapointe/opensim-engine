@@ -27,13 +27,13 @@ final class SimulatorConfig
     {
         $variables = $plan->variables();
         $ini = new IniEditor(self::file('simulator', $plan, $variables, $presets));
-        if ($plan->standalone && $plan->dbDriver === 'sqlite') {
-            $ini->set('DatabaseService', 'StorageProvider', '"OpenSim.Data.SQLite.dll"');
-        }
         if ($variables['master'] === '') {
             $ini->overlay($plan->optionsLayer);
             // The grid is joined by a preset and has no master: what the preset says for the simulators wins over what is above
             $ini->overlay($plan->presetSettings);
+        }
+        if ($plan->dbDriver === 'sqlite') {
+            $ini->set('DatabaseService', 'StorageProvider', '"OpenSim.Data.SQLite.dll"');
         }
 
         return $ini->toString();

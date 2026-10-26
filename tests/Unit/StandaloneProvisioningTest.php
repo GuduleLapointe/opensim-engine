@@ -185,6 +185,26 @@ describe('The shared files of a standalone', function () {
             ->toContain('StorageProvider = "OpenSim.Data.SQLite.dll"')
             ->toContain('ConnectionString = "URI=file:${Const|DataDirectory}/OpenSim.db,version=3,UseUTF16Encoding=True"');
     });
+
+    test('writes SQLite storage for a simulator that joins a grid', function () {
+        [$dir, $bin] = standalone_folder();
+        $plan = new SimulatorPlan();
+        $plan->dbDriver = 'sqlite';
+        $plan->gridDir = $dir;
+        $plan->configDir = $dir;
+        $plan->gridNick = 'grid';
+        $plan->gridName = 'Grid';
+        $plan->simulatorName = 'Welcome';
+        $plan->slug = 'grid.welcome';
+        $plan->dataDirectory = "$dir/data";
+        $plan->coreDirectory = $bin;
+        $plan->standalone = false;
+        $config = (new SimulatorConfig())->render($plan);
+
+        expect($config)
+            ->toContain('StorageProvider = "OpenSim.Data.SQLite.dll"')
+            ->toContain('ConnectionString = "URI=file:${Const|DataDirectory}/OpenSim.db,version=3,UseUTF16Encoding=True"');
+    });
 });
 
 /** The plan of the services of a standalone over a folder made by standalone_folder(). */
@@ -395,8 +415,10 @@ describe('The questions about a standalone', function () {
         $others = new FieldSet(Simulator::fields(['accounts' => []]));
 
         foreach (['http_port', 'database_host', 'database_name', 'database_user', 'database_password'] as $name) {
-            expect($fields->visible($name, []))->toBeFalse()->and($others->visible($name, []))->toBeTrue();
+            expect($fields->visible($name, []))->toBeFalse()->and($others->visible($name, ['database_driver' => 'mysql']))->toBeTrue();
         }
+        expect($fields->visible('database_driver', []))->toBeFalse()
+            ->and($others->visible('database_driver', ['database_driver' => 'mysql']))->toBeTrue();
         expect($fields->visible('estate_name', []))->toBeTrue();
     });
 
@@ -422,6 +444,15 @@ describe('The questions about a standalone', function () {
         expect(SetupFile::problems($data))->toBe([]);
     });
 
+    test('allow SQLite for a simulator that joins a grid without SQL account credentials', function () {
+        $data = [
+            'grid' => ['nick' => 'remote'],
+            'simulators' => [['name' => 'Welcome', 'database' => ['driver' => 'sqlite']]],
+        ];
+
+        expect(SetupFile::problems($data))->toBe([]);
+    });
+
     test('skip MySQL account provisioning for a SQLite standalone', function () {
         $plan = new GridPlan();
         $plan->standalone = true;
@@ -430,7 +461,18 @@ describe('The questions about a standalone', function () {
         $ui = new NullUi();
 
         expect((new DatabaseService($ui))->ensure($plan))->toBe(DatabaseService::OK)
-            ->and($ui->said)->toContain(['note', 'SQLite will initialize the standalone database when OpenSim starts.']);
+            ->and($ui->said)->toContain(['note', 'SQLite will initialize the simulator database when OpenSim starts.']);
+    })->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite missing');
+
+    test('skip MySQL account provisioning for a SQLite grid simulator', function () {
+        $plan = new GridPlan();
+        $plan->standalone = false;
+        $plan->dbDriver = 'sqlite';
+        $plan->dbName = 'simulator';
+        $ui = new NullUi();
+
+        expect((new DatabaseService($ui))->ensure($plan))->toBe(DatabaseService::OK)
+            ->and($ui->said)->toContain(['note', 'SQLite will initialize the simulator database when OpenSim starts.']);
     })->skip(fn() => !extension_loaded('pdo_sqlite'), 'pdo_sqlite missing');
 
     test('refuse SQLite for a grid and unknown database drivers', function () {

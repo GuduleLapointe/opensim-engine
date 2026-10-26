@@ -63,7 +63,7 @@ final class SimulatorPlan
     public string $dbName = '';
     public string $dbUser = 'opensim';
     public string $dbPass = '';
-    /** mysql or sqlite; SQLite is supported by a standalone only. */
+    /** mysql or sqlite; SQLite is supported by OpenSim.exe, including simulators joined to a grid. */
     public string $dbDriver = 'mysql';
 
     // Its folders.

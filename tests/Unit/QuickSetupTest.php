@@ -31,7 +31,24 @@ function quick_answers(array $set = []): array
 }
 
 describe('quick setup of a grid', function () {
-    test('offers SQLite only as a standalone database driver', function () {
+    test('offers SQLite as a simulator database driver', function () {
+        $environment = (new Machine())->environment;
+        $menu = QuickSetup::next($environment, ['mode' => 'prepare']);
+        $form = QuickSetup::next($environment, [
+            'mode' => 'prepare',
+            'state' => $menu['state'],
+            'answers' => ['type' => 'grid'],
+        ]);
+        $fields = array_column($form['fields'], null, 'name');
+        $grid = QuickSetup::plan($environment, quick_answers(['database_driver' => 'sqlite']));
+
+        expect($fields['database_driver']['options'])->toHaveKeys(['mysql', 'sqlite'])
+            ->and($grid['valid'])->toBeTrue()
+            ->and($grid['setup']['grid']['database']['driver'])->toBe('mysql')
+            ->and($grid['setup']['simulators'][0]['database']['driver'])->toBe('sqlite');
+    });
+
+    test('prepares a SQLite standalone without asking for SQL accounts', function () {
         $environment = (new Machine())->environment;
         $menu = QuickSetup::next($environment, ['mode' => 'prepare']);
         $form = QuickSetup::next($environment, [
@@ -39,12 +56,23 @@ describe('quick setup of a grid', function () {
             'state' => $menu['state'],
             'answers' => ['type' => 'standalone'],
         ]);
-        $fields = array_column($form['fields'], null, 'name');
-        $grid = QuickSetup::plan($environment, quick_answers(['type' => 'standalone', 'database_driver' => 'sqlite']));
+        $options = QuickSetup::next($environment, [
+            'mode' => 'prepare',
+            'state' => $form['state'],
+            'answers' => [
+                'name' => 'Solo World',
+                'login_uri' => 'solo.example.org:8102',
+                'avatar' => 'Ada Love',
+                'password' => 'secret123',
+                'password2' => 'secret123',
+                'database_driver' => 'sqlite',
+            ],
+        ]);
+        $review = QuickSetup::next($environment, ['mode' => 'prepare', 'state' => $options['state']]);
+        $prepared = QuickSetup::next($environment, ['mode' => 'prepare', 'state' => $review['state']]);
 
-        expect($fields['database_driver']['options'])->toHaveKeys(['mysql', 'sqlite'])
-            ->and($grid['valid'])->toBeTrue()
-            ->and($grid['setup']['grid']['database']['driver'])->toBe('sqlite');
+        expect($prepared['action'])->toBe('prepared')
+            ->and($prepared['configuration']['setup']['grid']['database']['driver'])->toBe('sqlite');
     });
 
     test('uses deployment host ports for interactive port proposals', function () {
@@ -889,7 +917,7 @@ describe('quick setup, the scenario', function () {
         expect($grid)
             ->toMatchArray(['kind' => 'form', 'title' => 'Grid', 'notice' => ''])
             ->and(array_column($grid['fields'], 'label', 'name'))
-            ->toBe(['name' => 'Grid name', 'login_uri' => 'Login URI', 'avatar' => 'Avatar name', 'password' => 'Password', 'password2' => 'Password again', 'email' => 'Email', 'private_port' => 'Grid private port', 'grid_console_port' => 'Grid console port', 'http_port' => 'Simulator HTTP port', 'console_port' => 'Simulator console port', 'region_port' => 'Region UDP port'])
+            ->toBe(['name' => 'Grid name', 'login_uri' => 'Login URI', 'avatar' => 'Avatar name', 'password' => 'Password', 'password2' => 'Password again', 'email' => 'Email', 'private_port' => 'Grid private port', 'grid_console_port' => 'Grid console port', 'database_driver' => 'Simulator database driver', 'http_port' => 'Simulator HTTP port', 'console_port' => 'Simulator console port', 'region_port' => 'Region UDP port'])
             ->and(array_column($grid['fields'], 'secret', 'name'))
             ->toMatchArray(['password' => true, 'password2' => true, 'name' => false])
             ->and(array_column($grid['fields'], 'value', 'name')['login_uri'])
@@ -1184,7 +1212,7 @@ describe('quick setup, the scenario', function () {
         expect($form['title'])
             ->toBe('Speculoos')
             ->and(array_column($form['fields'], 'readonly', 'name'))
-            ->toBe(['preset_grid' => true, 'preset_login' => true, 'preset_hypergrid' => true, 'name' => false, 'avatar' => false, 'http_port' => false, 'console_port' => false, 'region_port' => false])
+            ->toBe(['preset_grid' => true, 'preset_login' => true, 'preset_hypergrid' => true, 'name' => false, 'avatar' => false, 'database_driver' => false, 'http_port' => false, 'console_port' => false, 'region_port' => false])
             ->and(array_column($form['fields'], 'value', 'name')['name'])
             ->toBe('Welcome');
         $wrong = quick_step($machine, $form, ['name' => 'Plaza', 'avatar' => 'Ada']);
@@ -1219,7 +1247,7 @@ describe('quick setup, the scenario', function () {
         expect($form['title'])
             ->toBe('Simulator (join other grid)')
             ->and(array_column($form['fields'], 'name'))
-            ->toBe(['login_uri', 'private_port', 'name', 'avatar', 'http_port', 'console_port', 'region_port'])
+            ->toBe(['login_uri', 'private_port', 'name', 'avatar', 'database_driver', 'http_port', 'console_port', 'region_port'])
             ->and($missing['notice'])
             ->toBe('Error: Login URI of the grid required')
             ->and(array_column($review['rows'], 'value', 'label')['Grid'])

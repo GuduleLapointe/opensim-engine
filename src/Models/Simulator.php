@@ -108,10 +108,19 @@ final class Simulator extends InstalledModel
                 'callback' => [Grid::class, 'validatePort'],
                 'condition' => ['console' => 'rest'],
             ]),
-            $fresh(['name' => 'database_host', 'group' => 'database', 'label' => _('Database host')] + $own),
-            $fresh(['name' => 'database_name', 'group' => 'database', 'label' => _('Database name')] + $own),
-            $fresh(['name' => 'database_user', 'group' => 'database', 'label' => _('Database user')] + $own),
-            $fresh(['name' => 'database_password', 'group' => 'database', 'label' => _('Database password')] + $own),
+            [
+                'name' => 'database_driver',
+                'group' => 'database',
+                'type' => 'select',
+                'label' => _('Simulator database driver'),
+                'options' => ['mysql' => _('MySQL or MariaDB'), 'sqlite' => _('SQLite')],
+                'required' => true,
+                'enable' => !($options['standalone'] ?? false),
+            ],
+            $fresh(['name' => 'database_host', 'group' => 'database', 'label' => _('Database host'), 'condition' => ['database_driver' => 'mysql']] + $own),
+            $fresh(['name' => 'database_name', 'group' => 'database', 'label' => _('Database name'), 'condition' => ['database_driver' => 'mysql']] + $own),
+            $fresh(['name' => 'database_user', 'group' => 'database', 'label' => _('Database user'), 'condition' => ['database_driver' => 'mysql']] + $own),
+            $fresh(['name' => 'database_password', 'group' => 'database', 'label' => _('Database password'), 'condition' => ['database_driver' => 'mysql']] + $own),
             $fresh(['name' => 'estate_name', 'group' => 'estate', 'label' => _('Estate name')]),
         ];
 

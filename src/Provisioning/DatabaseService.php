@@ -31,7 +31,9 @@ use OpenSim\Runtime\ShellService;
  * else, as OpenSim will: no option file of the running user is read for it.
  *
  * Every statement goes through PDO (see SqlRunner), no client program is run.
- * MySQL and MariaDB only: Robust, and many modules, do not support others.
+ * Robust uses a server database (PostgreSQL or MySQL). This setup provisions MySQL/MariaDB accounts; PostgreSQL provisioning is not
+ * implemented here. OpenSim.exe can use SQLite for a simulator's own storage, joined to a grid or standalone; that path needs no server
+ * account and returns before the MySQL provisioning below.
  */
 final class DatabaseService
 {
@@ -93,13 +95,7 @@ final class DatabaseService
 
                 return self::ABORT;
             }
-            if (!$plan->standalone) {
-                $this->ui->error(_('SQLite is available for standalone worlds only.'));
-
-                return self::ABORT;
-            }
-
-            $this->ui->note(_('SQLite will initialize the standalone database when OpenSim starts.'));
+            $this->ui->note(_('SQLite will initialize the simulator database when OpenSim starts.'));
 
             return self::OK;
         }

@@ -221,6 +221,7 @@ final class SimulatorPlanner
                 'database_host',
                 $current?->databaseHost() ?? ($sibling?->databaseHost() ?? $grid->databaseHost()),
             ),
+            'database_driver' => strtolower($text('database_driver', 'mysql')),
             // The database of a standalone is the one of the grid
             'database_name' => $text(
                 'database_name',
@@ -344,6 +345,7 @@ final class SimulatorPlanner
         }
 
         $plan->dbHost = $v['database_host'];
+        $plan->dbDriver = $v['database_driver'];
         $plan->dbName = $v['database_name'];
         $plan->dbUser = $v['database_user'];
         $plan->dbPass = $v['database_password'];

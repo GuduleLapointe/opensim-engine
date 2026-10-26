@@ -159,6 +159,22 @@ describe('A connection string', function () {
             ->toBe('opensim@localhost/grid');
     });
 
+    test('reads an OpenSimulator SQLite URI as an OSPDO file connection', function () {
+        $db = ConnectionString::parse(
+            'URI=file:/var/lib/opensim/solo/OpenSim.db,version=3,UseUTF16Encoding=True',
+        );
+
+        expect($db->driver)
+            ->toBe('sqlite')
+            ->and($db->credentials())
+            ->toBe([
+                'driver' => 'sqlite',
+                'name' => '/var/lib/opensim/solo/OpenSim.db',
+                'user' => '',
+                'pass' => '',
+            ]);
+    });
+
     test('is nothing without a database to connect to', function () {
         expect(ConnectionString::parse(''))
             ->toBeNull()

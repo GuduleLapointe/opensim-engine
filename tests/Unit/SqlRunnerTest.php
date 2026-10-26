@@ -137,7 +137,17 @@ describe('connection of OSPDO', function () {
             ->and(OSPDO::dsn('mysql', 'localhost', null, '/run/mysqld/mysqld.sock'))
             ->toBe('mysql:unix_socket=/run/mysqld/mysqld.sock')
             ->and(OSPDO::dsn('sqlite', '', ':memory:'))
-            ->toBe('sqlite::memory:');
+            ->toBe('sqlite::memory:')
+            ->and(OSPDO::connectionstring_to_array(
+                'URI=file:/var/lib/opensim/solo/OpenSim.db,version=3,UseUTF16Encoding=True',
+                'OpenSim.Data.SQLite.dll',
+            ))
+            ->toMatchArray([
+                'type' => 'sqlite',
+                'name' => '/var/lib/opensim/solo/OpenSim.db',
+                'user' => '',
+                'pass' => '',
+            ]);
     });
 
     test('says why it is not connected instead of throwing', function () {

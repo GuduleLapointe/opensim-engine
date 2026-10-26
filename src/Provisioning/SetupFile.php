@@ -15,10 +15,10 @@ use Symfony\Component\Yaml\Yaml;
  *                options of a new grid: search (internal|shared|disabled), options (the presets that are on, by name: a list, or a
  *                map name => true|false: see GridOptions), or the answer each preset takes (economy: gloebit, ossl: true...),
  *                web_server (caddy|apache|nginx), web_site (helpers|website),
- *                database: driver (mysql|sqlite), host, name, user, password, admin_user, admin_password
+ *                database: driver (mysql|sqlite for standalone), host, name, user, password, admin_user, admin_password
  *   owner:       name (First Last), password, or password_hash and password_salt (as Robust keeps them),
  *                email (optional): the account that owns the estate
- *   simulators:  a list of: name, http_port, console, estate: name, owner, database: (as the grid's),
+ *   simulators:  a list of: name, http_port, console, estate: name, owner, database: driver (mysql|sqlite), host, name, user, password,
  *                regions: a list of: name, location (x,y), port, roles (DefaultRegion, DefaultHGRegion, FallbackRegion,
  *                or default, default_hg, fallback); an adopted region also retains its uuid and original INI text in source
  *   users:       a list of: first, last, email (optional), password (made when empty) or password_hash
@@ -69,6 +69,7 @@ final class SetupFile
         'http_port' => 'simulators.$i.http_port',
         'console' => 'simulators.$i.console',
         'console_port' => 'simulators.$i.console_port',
+        'database_driver' => 'simulators.$i.database.driver',
         'database_host' => 'simulators.$i.database.host',
         'database_name' => 'simulators.$i.database.name',
         'database_user' => 'simulators.$i.database.user',
@@ -159,9 +160,15 @@ final class SetupFile
             $problems[] = 'a standalone has one simulator (grid.standalone is true)';
         }
         foreach ($data['simulators'] ?? [] as $i => $simulator) {
-            foreach (['user', 'password'] as $key) {
-                if (!$creates && trim((string) ($simulator['database'][$key] ?? '')) === '') {
-                    $problems[] = "simulators.$i.database.$key is required (the simulators of a grid that is not in the file)";
+            $simulatorDriver = strtolower(trim((string) ($simulator['database']['driver'] ?? '')));
+            $simulatorDriver = $simulatorDriver !== '' ? $simulatorDriver : ($standalone ? $databaseDriver : 'mysql');
+            if (!in_array($simulatorDriver, ['mysql', 'sqlite'], true)) {
+                $problems[] = "simulators.$i.database.driver must be mysql or sqlite";
+            } elseif ($simulatorDriver === 'mysql' && !$creates) {
+                foreach (['user', 'password'] as $key) {
+                    if (trim((string) ($simulator['database'][$key] ?? '')) === '') {
+                        $problems[] = "simulators.$i.database.$key is required (the simulators of a grid that is not in the file)";
+                    }
                 }
             }
         }
@@ -217,6 +224,9 @@ final class SetupFile
             if (!isset($values["database_$key"]) && ($grid = $data['grid']['database'][$key] ?? null) !== null) {
                 $values["database_$key"] = (string) $grid;
             }
+        }
+        if (!isset($values['database_driver']) && isset($data['grid']['database']['driver'])) {
+            $values['database_driver'] = (string) $data['grid']['database']['driver'];
         }
 
         return $values;
@@ -431,6 +441,7 @@ final class SetupFile
             'console' => $plan->consoleMode,
             'console_port' => $plan->consolePort,
             'database' => [
+                'driver' => $plan->dbDriver,
                 'host' => $plan->dbHost,
                 'name' => $plan->dbName,
                 'user' => $plan->dbUser,

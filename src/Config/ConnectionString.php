@@ -22,6 +22,7 @@ final class ConnectionString
         public readonly string $password,
         public readonly string $host = '',
         public readonly ?int $port = null,
+        public readonly string $driver = 'mysql',
     ) {}
 
     /** A connection string for a host that may carry its port; the source is the host as given. */
@@ -35,6 +36,11 @@ final class ConnectionString
     /** The one a text says, null when it has no database to connect to. */
     public static function parse(string $text): ?self
     {
+        if (preg_match('/(?:^|;\s*)URI=file:(.*?)(?:,version=|,UseUTF16Encoding=|$)/i', trim($text, " \t\r\n\""), $match)) {
+            $file = trim($match[1]);
+
+            return $file === '' ? null : new self($file, $file, '', '', driver: 'sqlite');
+        }
         $pairs = self::pairs($text);
         $source = $pairs['Data Source'] ?? '';
         $database = $pairs['Database'] ?? '';
@@ -66,6 +72,10 @@ final class ConnectionString
     /** What is written in the config. */
     public function __toString(): string
     {
+        if ($this->driver === 'sqlite') {
+            return 'URI=file:' . $this->source . ',version=3,UseUTF16Encoding=True';
+        }
+
         return sprintf(
             'Data Source=%s;Database=%s;User ID=%s;Password=%s;Old Guids=true;',
             $this->source,
@@ -78,10 +88,14 @@ final class ConnectionString
     /**
      * The credentials as OSPDO takes them.
      *
-     * @return array{host:string,port:?int,name:string,user:string,pass:string}
+     * @return array{host:string,port:?int,name:string,user:string,pass:string}|array{driver:string,name:string,user:string,pass:string}
      */
     public function credentials(): array
     {
+        if ($this->driver === 'sqlite') {
+            return ['driver' => 'sqlite', 'name' => $this->source, 'user' => '', 'pass' => ''];
+        }
+
         return [
             'host' => $this->host,
             'port' => $this->port,
@@ -94,6 +108,10 @@ final class ConnectionString
     /** What tells one database from another. */
     public function key(): string
     {
+        if ($this->driver === 'sqlite') {
+            return "sqlite:{$this->source}";
+        }
+
         return "{$this->user}@{$this->source}/{$this->database}";
     }
 

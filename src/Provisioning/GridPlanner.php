@@ -298,7 +298,7 @@ final class GridPlanner
         if (!in_array($values['database_driver'], ['mysql', 'sqlite'], true)) {
             $problems['database_driver'] = _('Choose MySQL or SQLite.');
         } elseif (!$values['standalone'] && $values['database_driver'] !== 'mysql') {
-            $problems['database_driver'] = _('SQLite is available for standalone worlds only.');
+            $problems['database_driver'] = _('A grid with Robust requires a server database.');
         }
 
         return $problems + $this->fields()->problems(array_intersect_key($answers, $values) + $values);
