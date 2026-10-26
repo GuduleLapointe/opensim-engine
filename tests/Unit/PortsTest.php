@@ -2,6 +2,7 @@
 
 use OpenSim\Network\Ports;
 use OpenSim\Runtime\SystemProcessTable;
+use OpenSim\Runtime\Environment;
 use OpenSim\Testing\EnvironmentFake;
 use OpenSim\Testing\ProcessTableFake;
 use OpenSim\Testing\Machine;
@@ -104,7 +105,7 @@ describe('Ports of a simulator block', function () {
 });
 
 describe('Ports bound on a machine', function () {
-    test('detects real TCP and UDP listeners on the current machine', function () {
+    test('moves allocation past blocks with live TCP and UDP listeners', function () {
         $tcp = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
         expect($tcp)->toBeResource("Could not bind TCP test listener: $error");
         $udp = stream_socket_server('udp://127.0.0.1:0', $errno, $error, STREAM_SERVER_BIND);
@@ -116,8 +117,25 @@ describe('Ports bound on a machine', function () {
         $tcpPort = (int) substr(strrchr($tcpAddress, ':'), 1);
         $udpPort = (int) substr(strrchr($udpAddress, ':'), 1);
 
+        $machine = new Machine();
+        $environment = $machine->environment;
+        $system = new SystemProcessTable();
+        $live = new Environment(
+            $environment->layout,
+            $system,
+            $environment->launcher,
+            $environment->consoles,
+            $environment->clock,
+            $environment->reporter,
+        );
+
         try {
-            expect((new SystemProcessTable())->listening())->toContain($tcpPort, $udpPort);
+            $bound = $system->listening();
+            expect($bound)->toContain($tcpPort, $udpPort)
+                ->and((new Ports($live))->nextBlock(intdiv($tcpPort, 10) * 10))
+                ->not->toBe(intdiv($tcpPort, 10) * 10)
+                ->and((new Ports($live))->nextBlock(intdiv($udpPort, 10) * 10))
+                ->not->toBe(intdiv($udpPort, 10) * 10);
         } finally {
             fclose($tcp);
             fclose($udp);
