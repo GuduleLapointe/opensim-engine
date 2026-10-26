@@ -104,6 +104,26 @@ describe('Ports of a simulator block', function () {
 });
 
 describe('Ports bound on a machine', function () {
+    test('detects real TCP and UDP listeners on the current machine', function () {
+        $tcp = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
+        expect($tcp)->toBeResource("Could not bind TCP test listener: $error");
+        $udp = stream_socket_server('udp://127.0.0.1:0', $errno, $error, STREAM_SERVER_BIND);
+        expect($udp)->toBeResource("Could not bind UDP test listener: $error");
+
+        $tcpAddress = stream_socket_get_name($tcp, false);
+        $udpAddress = stream_socket_get_name($udp, false);
+        expect($tcpAddress)->toBeString()->and($udpAddress)->toBeString();
+        $tcpPort = (int) substr(strrchr($tcpAddress, ':'), 1);
+        $udpPort = (int) substr(strrchr($udpAddress, ':'), 1);
+
+        try {
+            expect((new SystemProcessTable())->listening())->toContain($tcpPort, $udpPort);
+        } finally {
+            fclose($tcp);
+            fclose($udp);
+        }
+    });
+
     test(
         'are the ones of the sockets that listen and of UDP, not the ports of the machines it is connected to',
         function () {
