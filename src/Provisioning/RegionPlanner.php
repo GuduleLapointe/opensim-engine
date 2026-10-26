@@ -9,6 +9,7 @@ use OpenSim\Forms\FieldSet;
 use OpenSim\Models\Grid;
 use OpenSim\Models\Region;
 use OpenSim\Network\Ports;
+use OpenSim\Text\Uuid;
 
 /**
  * From the answers about a region to what a simulator plan says of it. The answers are the fields of Region::fields(), by name.
@@ -228,6 +229,18 @@ final class RegionPlanner
     /** What the simulator plan says of the region these answers describe: the place is the free one nearest to the place asked. */
     public function apply(SimulatorPlan $plan, array $answers = [], ?string $current = null): void
     {
+        if ($this->context['fixed']) {
+            if (!Uuid::isValid($plan->regionUuid)) {
+                throw new \InvalidArgumentException('Moving a region requires its existing region UUID');
+            }
+            $values = $this->resolve(array_intersect_key($answers, ['location' => 1, 'port' => 1]) + [
+                'name' => $plan->regionName, 'roles' => $plan->regionRoles,
+                'location' => $plan->regionLocation, 'port' => $plan->regionPort,
+            ]);
+            $plan->regionLocation = $this->settle($values['location'], $current ?? $plan->regionLocation)['free'];
+            $plan->regionPort = $values['port'];
+            return;
+        }
         $v = $this->resolve($answers);
         if ($this->context['optional'] && !$v['create']) {
             $plan->createRegion = false;

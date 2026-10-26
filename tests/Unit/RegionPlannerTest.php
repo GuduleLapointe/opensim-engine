@@ -292,6 +292,32 @@ describe('A region', function () {
             ->toBeTrue();
     });
 
+    test('keeps an existing region identity when moving', function () {
+        $plan = new SimulatorPlan();
+        $plan->regionName = 'Existing Garden';
+        $plan->regionUuid = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+        $plan->regionLocation = '100,100';
+        $plan->regionRoles = ['DefaultRegion'];
+        $plan->regionPort = 9001;
+        $plan->estateName = 'Existing Estate';
+        $planner = region_planner()->fixed();
+        $planner->apply($plan, ['name' => 'Replacement', 'roles' => [], 'location' => '120,120', 'port' => 9011]);
+        expect($plan->regionName)->toBe('Existing Garden')
+            ->and($plan->regionUuid)->toBe('aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee')
+            ->and($plan->regionRoles)->toBe(['DefaultRegion'])
+            ->and($plan->estateName)->toBe('Existing Estate')
+            ->and($plan->regionLocation)->toBe('120,120')
+            ->and($plan->regionPort)->toBe(9011);
+    });
+
+    test('refuses a move without an existing region UUID', function () {
+        $plan = new SimulatorPlan();
+        $plan->regionName = 'Existing Garden';
+        expect(fn() => region_planner()->fixed()->apply($plan, ['location' => '120,120']))
+            ->toThrow(InvalidArgumentException::class, 'existing region UUID');
+        expect($plan->regionUuid)->toBe('');
+    });
+
     test('that exists only moves: its name, its roles and its simulator stay', function () {
         $fields = region_planner()->fixed()->fields();
 
