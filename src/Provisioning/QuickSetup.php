@@ -582,12 +582,26 @@ final class QuickSetup
     private static function screenForm(Environment $environment, array $answers, string $notice): array
     {
         $type = (string) ($answers['type'] ?? '');
+        $setup = self::plan($environment, self::answersOf($answers))['setup'];
+        $grid = $setup['grid'] ?? [];
+        $simulator = $setup['simulators'][0] ?? [];
+        $proposals = [
+            'private_port' => $grid['private_port'] ?? null,
+            'grid_console_port' => $grid['console_port'] ?? null,
+            'http_port' => $simulator['http_port'] ?? null,
+            'console_port' => $simulator['console_port'] ?? null,
+            'region_port' => $simulator['regions'][0]['port'] ?? null,
+        ];
         $fields = [];
         foreach (self::fields($environment, $answers) as $name => [$label, $secret, $readonly, $fixed]) {
+            $value = $answers[$name] ?? $fixed ?? '';
+            if (trim((string) $value) === '' && isset($proposals[$name])) {
+                $value = $proposals[$name];
+            }
             $fields[] = [
                 'name' => $name,
                 'label' => $label,
-                'value' => $readonly ? ($fixed ?? '') : (string) ($answers[$name] ?? $fixed ?? ''),
+                'value' => $readonly ? ($fixed ?? '') : (string) $value,
                 'secret' => $secret,
                 'readonly' => $readonly,
             ];
@@ -976,7 +990,7 @@ final class QuickSetup
         if ($kind === 'remote') {
             return [
                 'login_uri' => [_('Login URI of the grid'), false, false, null],
-                'private_port' => [_('Grid\'s private port (empty: public + 1)'), false, false, null],
+                'private_port' => [_('Grid private port'), false, false, null],
                 'name' => [$adoptionFields !== [] ? _('Simulator name') : _('Region name'), false, false, $region_name],
                 'avatar' => [_('Avatar name'), false, false, $avatar_name],
             ] + $adoptionFields + self::portFields($adoptionFields !== []);
@@ -990,8 +1004,8 @@ final class QuickSetup
             'password2' => [_('Password again'), true, false, $avatar_password],
             'email' => [_('Email'), false, false, null],
         ] + ($kind === 'standalone' ? [] : [
-            'private_port' => [_('Grid private port (auto)'), false, false, null],
-            'grid_console_port' => [_('Grid console port (auto)'), false, false, null],
+            'private_port' => [_('Grid private port'), false, false, null],
+            'grid_console_port' => [_('Grid console port'), false, false, null],
         ]) + self::portFields(standalone: $kind === 'standalone');
     }
 
@@ -999,14 +1013,14 @@ final class QuickSetup
     private static function portFields(bool $existingRegion = false, bool $standalone = false): array
     {
         $fields = [
-            'http_port' => [_('Simulator HTTP port (auto)'), false, false, null],
-            'console_port' => [_('Simulator console port (auto)'), false, false, null],
+            'http_port' => [_('Simulator HTTP port'), false, false, null],
+            'console_port' => [_('Simulator console port'), false, false, null],
         ];
         if ($standalone) {
             unset($fields['http_port']);
         }
         if (!$existingRegion) {
-            $fields['region_port'] = [_('Region UDP port (auto)'), false, false, null];
+            $fields['region_port'] = [_('Region UDP port'), false, false, null];
         }
         return $fields;
     }

@@ -54,6 +54,27 @@ describe('setup ports', function () {
         $form = QuickSetup::next($env, ['mode' => 'prepare', 'state' => $type['state'], 'answers' => ['type' => 'grid']]);
         expect(array_column($form['fields'], 'name'))->toContain('private_port', 'grid_console_port', 'http_port', 'console_port', 'region_port');
     });
+    test('prefills editable port proposals', function () {
+        $env = (new Machine())->environment;
+        $screen = QuickSetup::next($env, ['mode' => 'prepare']);
+        $form = QuickSetup::next($env, ['mode' => 'prepare', 'state' => $screen['state'], 'answers' => ['type' => 'grid']]);
+        $values = array_column($form['fields'], 'value', 'name');
+        foreach (['private_port', 'grid_console_port', 'http_port', 'console_port', 'region_port'] as $name) {
+            expect($values[$name])->not->toBe('');
+        }
+        $planned = QuickSetup::plan($env, ['type' => 'grid'] + $values)['setup'];
+        expect($values['private_port'])->toBe((string) $planned['grid']['private_port'])
+            ->and($values['grid_console_port'])->toBe((string) $planned['grid']['console_port'])
+            ->and($values['http_port'])->toBe((string) $planned['simulators'][0]['http_port'])
+            ->and($values['console_port'])->toBe((string) $planned['simulators'][0]['console_port'])
+            ->and($values['region_port'])->toBe((string) $planned['simulators'][0]['regions'][0]['port']);
+        foreach ($form['fields'] as $field) {
+            if (str_contains($field['name'], 'port')) {
+                expect($field['readonly'])->toBeFalse()->and($field['label'])->not->toContain('auto');
+            }
+        }
+    });
+
     test('saves confirmed ports', function () {
         $env = (new Machine())->environment;
         $screen = QuickSetup::next($env, ['mode' => 'prepare']);

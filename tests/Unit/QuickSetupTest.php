@@ -826,7 +826,7 @@ describe('quick setup, the scenario', function () {
         expect($grid)
             ->toMatchArray(['kind' => 'form', 'title' => 'Grid', 'notice' => ''])
             ->and(array_column($grid['fields'], 'label', 'name'))
-            ->toBe(['name' => 'Grid name', 'login_uri' => 'Login URI', 'avatar' => 'Avatar name', 'password' => 'Password', 'password2' => 'Password again', 'email' => 'Email', 'private_port' => 'Grid private port (auto)', 'grid_console_port' => 'Grid console port (auto)', 'http_port' => 'Simulator HTTP port (auto)', 'console_port' => 'Simulator console port (auto)', 'region_port' => 'Region UDP port (auto)'])
+            ->toBe(['name' => 'Grid name', 'login_uri' => 'Login URI', 'avatar' => 'Avatar name', 'password' => 'Password', 'password2' => 'Password again', 'email' => 'Email', 'private_port' => 'Grid private port', 'grid_console_port' => 'Grid console port', 'http_port' => 'Simulator HTTP port', 'console_port' => 'Simulator console port', 'region_port' => 'Region UDP port'])
             ->and(array_column($grid['fields'], 'secret', 'name'))
             ->toMatchArray(['password' => true, 'password2' => true, 'name' => false])
             ->and(array_column($grid['fields'], 'value', 'name')['login_uri'])
