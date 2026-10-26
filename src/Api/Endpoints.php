@@ -514,6 +514,11 @@ final class Endpoints
                                             'properties' => [
                                                 'type' => ['type' => 'string', 'description' => 'grid, standalone, simulator, or an implemented grid preset'],
                                                 'name' => ['type' => 'string', 'description' => 'Of the grid, and of the simulator and its region for a standalone'],
+                                                'private_port' => ['type' => ['integer', 'string'], 'description' => 'Private grid TCP port; empty keeps the planner proposal. For a simulator joining a grid, this is the remote grid service port.'],
+                                                'grid_console_port' => ['type' => ['integer', 'string'], 'description' => 'Grid REST console TCP port; empty keeps the planner proposal.'],
+                                                'http_port' => ['type' => ['integer', 'string'], 'description' => 'Simulator HTTP TCP port; its ten-port block also supplies default console and region ports.'],
+                                                'console_port' => ['type' => ['integer', 'string'], 'description' => 'Simulator REST console TCP port; empty keeps the planner proposal.'],
+                                                'region_port' => ['type' => ['integer', 'string'], 'description' => 'New region UDP port; empty keeps the planner proposal. An adopted region retains its original port.'],
                                                 'existing_region' => ['type' => 'string', 'description' => 'Original Region.ini contents for a simulator joining a grid. Preserves the region UUID and settings; application stages a disabled simulator without creating accounts, a database or a placeholder region. Restore data and stop the source before enabling it.'],
                                                 'login_uri' => ['type' => 'string', 'description' => 'http://login.example.org:8002'],
                                                 'ssl' => ['type' => 'boolean', 'default' => false, 'description' => 'Not implemented yet'],

@@ -2,7 +2,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "OpenSim engine",
-        "version": "11ef1fc",
+        "version": "72b13e2",
         "license": {
             "name": "AGPL-3.0-or-later",
             "identifier": "AGPL-3.0-or-later"
@@ -4423,6 +4423,41 @@
                                                     "name": {
                                                         "type": "string",
                                                         "description": "Of the grid, and of the simulator and its region for a standalone"
+                                                    },
+                                                    "private_port": {
+                                                        "type": [
+                                                            "integer",
+                                                            "string"
+                                                        ],
+                                                        "description": "Private grid TCP port; empty keeps the planner proposal. For a simulator joining a grid, this is the remote grid service port."
+                                                    },
+                                                    "grid_console_port": {
+                                                        "type": [
+                                                            "integer",
+                                                            "string"
+                                                        ],
+                                                        "description": "Grid REST console TCP port; empty keeps the planner proposal."
+                                                    },
+                                                    "http_port": {
+                                                        "type": [
+                                                            "integer",
+                                                            "string"
+                                                        ],
+                                                        "description": "Simulator HTTP TCP port; its ten-port block also supplies default console and region ports."
+                                                    },
+                                                    "console_port": {
+                                                        "type": [
+                                                            "integer",
+                                                            "string"
+                                                        ],
+                                                        "description": "Simulator REST console TCP port; empty keeps the planner proposal."
+                                                    },
+                                                    "region_port": {
+                                                        "type": [
+                                                            "integer",
+                                                            "string"
+                                                        ],
+                                                        "description": "New region UDP port; empty keeps the planner proposal. An adopted region retains its original port."
                                                     },
                                                     "existing_region": {
                                                         "type": "string",

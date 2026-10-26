@@ -826,7 +826,7 @@ describe('quick setup, the scenario', function () {
         expect($grid)
             ->toMatchArray(['kind' => 'form', 'title' => 'Grid', 'notice' => ''])
             ->and(array_column($grid['fields'], 'label', 'name'))
-            ->toBe(['name' => 'Grid name', 'login_uri' => 'Login URI', 'avatar' => 'Avatar name', 'password' => 'Password', 'password2' => 'Password again', 'email' => 'Email'])
+            ->toBe(['name' => 'Grid name', 'login_uri' => 'Login URI', 'avatar' => 'Avatar name', 'password' => 'Password', 'password2' => 'Password again', 'email' => 'Email', 'private_port' => 'Grid private port (auto)', 'grid_console_port' => 'Grid console port (auto)', 'http_port' => 'Simulator HTTP port (auto)', 'console_port' => 'Simulator console port (auto)', 'region_port' => 'Region UDP port (auto)'])
             ->and(array_column($grid['fields'], 'secret', 'name'))
             ->toMatchArray(['password' => true, 'password2' => true, 'name' => false])
             ->and(array_column($grid['fields'], 'value', 'name')['login_uri'])
@@ -1120,7 +1120,7 @@ describe('quick setup, the scenario', function () {
         expect($form['title'])
             ->toBe('Speculoos')
             ->and(array_column($form['fields'], 'readonly', 'name'))
-            ->toBe(['preset_grid' => true, 'preset_login' => true, 'preset_hypergrid' => true, 'name' => false, 'avatar' => false])
+            ->toBe(['preset_grid' => true, 'preset_login' => true, 'preset_hypergrid' => true, 'name' => false, 'avatar' => false, 'http_port' => false, 'console_port' => false, 'region_port' => false])
             ->and(array_column($form['fields'], 'value', 'name')['name'])
             ->toBe('Welcome');
         $wrong = quick_step($machine, $form, ['name' => 'Plaza', 'avatar' => 'Ada']);
@@ -1155,7 +1155,7 @@ describe('quick setup, the scenario', function () {
         expect($form['title'])
             ->toBe('Simulator (join other grid)')
             ->and(array_column($form['fields'], 'name'))
-            ->toBe(['login_uri', 'private_port', 'name', 'avatar'])
+            ->toBe(['login_uri', 'private_port', 'name', 'avatar', 'http_port', 'console_port', 'region_port'])
             ->and($missing['notice'])
             ->toBe('Error: Login URI of the grid required')
             ->and(array_column($review['rows'], 'value', 'label')['Grid'])

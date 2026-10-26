@@ -243,7 +243,7 @@ final class QuickSetup
             $answers,
             array_flip(['database_host', 'database_name', 'database_user', 'database_password']),
         );
-        $gridAnswers = ['standalone' => $standalone] + $dbGiven + $fromOptions;
+        $gridAnswers = ['standalone' => $standalone] + self::portValues($answers, ['private_port' => 'private_port', 'console_port' => 'grid_console_port']) + $dbGiven + $fromOptions;
         trim((string) ($answers['name'] ?? '')) !== '' && ($gridAnswers['name'] = trim((string) $answers['name']));
         [$uri, $uriProblem] = Grid::parseLoginUri((string) ($answers['login_uri'] ?? ''));
         $uriProblem !== null && ($problems['login_uri'] = $uriProblem);
@@ -258,6 +258,7 @@ final class QuickSetup
             $gridAnswers,
             $problems,
             $corrected,
+            ['console_port' => 'grid_console_port'],
         );
         $plan = $planner->plan($fixes + $gridAnswers);
         // A new grid: the name of one that exists is taken (its regions, its ports are not the business of this setup)
@@ -277,13 +278,18 @@ final class QuickSetup
                 'new_password' => (string) ($answers['password'] ?? ''),
                 'new_email' => trim((string) ($answers['email'] ?? '')),
             ] + array_diff_key($dbGiven, ['database_name' => 1]);
+        $owner += self::portValues($answers, ['http_port' => 'http_port', 'console_port' => 'console_port']);
         if (is_array($answers['setup'] ?? null)) {
             $owner = array_replace($owner, SetupFile::simulatorValues($answers['setup'], 0));
         }
         $fixes = self::review($simulators->fields(), $simulators->problems($owner), $owner, $problems, $corrected);
         $simulator = $simulators->plan($fixes + $owner);
+        if ($standalone && $simulator->httpPort !== $plan->publicPort) {
+            $problems['http_port'] = _('must match the standalone Login URI port');
+        }
         $regions = RegionPlanner::forSimulator($simulator, $grid, $database, defaultName: $region);
         $regionAnswers = is_array($answers['setup'] ?? null) ? SetupFile::regionValues($answers['setup'], 0, 0) : ['name' => $region];
+        $regionAnswers += self::portValues($answers, ['port' => 'region_port']);
         $taken ||
             self::review(
                 $regions->fields(),
@@ -291,6 +297,7 @@ final class QuickSetup
                 $regionAnswers,
                 $problems,
                 $corrected,
+                ['port' => 'region_port'],
             );
         $regions->apply($simulator, $regionAnswers);
 
@@ -964,7 +971,7 @@ final class QuickSetup
                 'preset_hypergrid' => [_('Hypergrid'), false, true, $said['hypergrid'] ?? true ? 'yes' : 'no'],
                 'name' => [$adoptionFields !== [] ? _('Simulator name') : _('Region name'), false, false, $region_name],
                 'avatar' => [_('Avatar name'), false, false, $avatar_name],
-            ] + $adoptionFields;
+            ] + $adoptionFields + self::portFields($adoptionFields !== []);
         }
         if ($kind === 'remote') {
             return [
@@ -972,7 +979,7 @@ final class QuickSetup
                 'private_port' => [_('Grid\'s private port (empty: public + 1)'), false, false, null],
                 'name' => [$adoptionFields !== [] ? _('Simulator name') : _('Region name'), false, false, $region_name],
                 'avatar' => [_('Avatar name'), false, false, $avatar_name],
-            ] + $adoptionFields;
+            ] + $adoptionFields + self::portFields($adoptionFields !== []);
         }
 
         return [
@@ -982,7 +989,38 @@ final class QuickSetup
             'password' => [_('Password'), true, false, $avatar_password],
             'password2' => [_('Password again'), true, false, $avatar_password],
             'email' => [_('Email'), false, false, null],
+        ] + ($kind === 'standalone' ? [] : [
+            'private_port' => [_('Grid private port (auto)'), false, false, null],
+            'grid_console_port' => [_('Grid console port (auto)'), false, false, null],
+        ]) + self::portFields(standalone: $kind === 'standalone');
+    }
+
+    /** Optional listener overrides; an empty answer keeps the planner's proposal. */
+    private static function portFields(bool $existingRegion = false, bool $standalone = false): array
+    {
+        $fields = [
+            'http_port' => [_('Simulator HTTP port (auto)'), false, false, null],
+            'console_port' => [_('Simulator console port (auto)'), false, false, null],
         ];
+        if ($standalone) {
+            unset($fields['http_port']);
+        }
+        if (!$existingRegion) {
+            $fields['region_port'] = [_('Region UDP port (auto)'), false, false, null];
+        }
+        return $fields;
+    }
+
+    /** Nonempty port answers, using the field names of the corresponding planner. */
+    private static function portValues(array $answers, array $fields): array
+    {
+        $values = [];
+        foreach ($fields as $field => $question) {
+            if (trim((string) ($answers[$question] ?? '')) !== '') {
+                $values[$field] = $answers[$question];
+            }
+        }
+        return $values;
     }
 
     /**
@@ -1127,6 +1165,7 @@ final class QuickSetup
                 $answers,
                 array_flip(['database_host', 'database_name', 'database_user', 'database_password']),
             );
+        $owner += self::portValues($answers, ['http_port' => 'http_port', 'console_port' => 'console_port']);
         if (is_array($answers['setup'] ?? null)) {
             $owner = array_replace($owner, SetupFile::simulatorValues($answers['setup'], 0));
         }
@@ -1161,12 +1200,14 @@ final class QuickSetup
                 context: self::$region,
             );
             $regionAnswers = is_array($answers['setup'] ?? null) ? SetupFile::regionValues($answers['setup'], 0, 0) : ['name' => $region];
+            $regionAnswers += self::portValues($answers, ['port' => 'region_port']);
             self::review(
                 $regions->fields(),
                 $regions->problems($regionAnswers),
                 $regionAnswers,
                 $problems,
                 $corrected,
+                ['port' => 'region_port'],
             );
             $regions->apply($simulator, $regionAnswers);
         }
@@ -1237,13 +1278,14 @@ final class QuickSetup
         array $given,
         array &$problems,
         array &$corrected,
+        array $questions = [],
     ): array {
         foreach ($fieldProblems as $field => $message) {
-            $problems[self::QUESTIONS[$field] ?? $field] ??= $message;
+            $problems[$questions[$field] ?? self::QUESTIONS[$field] ?? $field] ??= $message;
         }
         $fixes = $fields->corrections($given);
         foreach ($fixes as $field => $value) {
-            $corrected[self::QUESTIONS[$field] ?? $field] = $value;
+            $corrected[$questions[$field] ?? self::QUESTIONS[$field] ?? $field] = $value;
         }
 
         return $fixes;
