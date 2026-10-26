@@ -40,6 +40,23 @@ describe('setup ports', function () {
             ->and($result['setup']['simulators'][0]['regions'][0]['port'])->toBe(19161);
     });
 
+    test('moves to the next block when any port in the selected block is occupied', function () {
+        $environment = (new Machine())->environment->onHostWithOccupiedPorts([8007, 9006]);
+        $result = QuickSetup::plan($environment, [
+            'type' => 'grid', 'name' => 'Port Test', 'avatar' => 'Ada Test',
+            'password' => 'test-password', 'password2' => 'test-password',
+        ]);
+
+        expect($result['problems'])->toBe([])
+            ->and($result['setup']['grid'])->toMatchArray([
+                'public_port' => 8012, 'private_port' => 8013, 'console_port' => 8014,
+            ])
+            ->and($result['setup']['simulators'][0])->toMatchArray([
+                'http_port' => 9010, 'console_port' => 9014,
+            ])
+            ->and($result['setup']['simulators'][0]['regions'][0]['port'])->toBe(9011);
+    });
+
     test('reports invalid fields by question', function () {
         $result = QuickSetup::plan((new Machine())->environment, port_setup_answers([
             'private_port' => 'bad', 'grid_console_port' => 'bad', 'http_port' => 'bad',
