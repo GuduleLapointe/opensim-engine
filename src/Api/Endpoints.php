@@ -605,7 +605,7 @@ final class Endpoints
             'tags' => ['Setup'],
             'summary' => 'Quick setup, one step',
             'description' =>
-                'The scenario of the quick setup, for a client that only draws screens. It sends back the screen it was given, filled (`answers`), the button it pressed and the `state` it got, and receives the next screen, the same one with what is wrong (`notice`), or an action: `quit` with a message, `abort` with an error. With no `state` it receives the first screen. A `screen` has a `kind`: `menu` (`items` with `key`, `label`, `note`; the answer is `{name: key}`), `form` (`fields` with `name`, `label`, `value`, `secret`; the answer is a value for each), `checks` (`items` with `name`, `label`, `checked`, `note`; the answer is true or false for each) or `review` (`rows`, to confirm). The last confirmation makes the folders and writes the files of the grid and of its first simulator.',
+                'The scenario of the quick setup, for a client that only draws screens. It sends back the screen it was given, filled (`answers`), the button it pressed and the `state` it got, and receives the next screen, the same one with what is wrong (`notice`), or an action: `quit` with a message, `abort` with an error. With no `state` it receives the first screen. A `screen` has a `kind`: `menu` (`items` with `key`, `label`, `note`; the answer is `{name: key}`), `form` (`fields` with `name`, `label`, `value`, `secret`; the answer is a value for each), `checks` (`items` with `name`, `label`, `checked`, `note`; the answer is true or false for each) or `review` (`rows`, to confirm). The last confirmation makes the folders and writes the files of the grid and of its first simulator. `occupied_ports`, when supplied, is the fresh TCP/UDP port snapshot of the deployment host; it replaces the local machine port scan.',
             'requestBody' => [
                 'required' => false,
                 'content' => [
@@ -624,6 +624,7 @@ final class Endpoints
                                                 'button' => ['type' => 'string', 'enum' => ['next', 'back', 'quit'], 'default' => 'next'],
                                                 'answers' => ['type' => 'object', 'description' => 'The screen, filled: a value for each of its fields, items or choice. For adoption, include existing_region INI contents with the type selection.'],
                                                 'mode' => ['type' => 'string', 'enum' => ['apply', 'prepare'], 'default' => 'apply', 'description' => 'Prepare collects answers, including database settings, without provisioning. Send the mode on each step.'],
+                                                'occupied_ports' => ['type' => 'array', 'items' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 65535], 'description' => 'Ports occupied on the selected deployment host; when present, local socket and config discovery is not used.'],
                                                 'configuration' => ['type' => 'object', 'description' => 'A versioned configuration returned by prepare. With mode apply, validates and provisions it directly without asking further questions. Secrets belong in the request body.'],
                                             ],
                                         ],

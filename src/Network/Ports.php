@@ -131,6 +131,10 @@ final class Ports
     {
         $ports = array_map('intval', $exclude);
 
+        if ($this->environment->occupiedPorts !== null) {
+            return array_values(array_unique([...$ports, ...$this->environment->occupiedPorts]));
+        }
+
         $layout = $this->environment->layout;
         foreach (self::configFiles($layout->etcRoot(), $layout->dataRoot()) as $file) {
             $text = GridFileService::read($file);

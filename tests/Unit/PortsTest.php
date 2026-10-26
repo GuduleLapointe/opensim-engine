@@ -4,6 +4,7 @@ use OpenSim\Network\Ports;
 use OpenSim\Runtime\SystemProcessTable;
 use OpenSim\Testing\EnvironmentFake;
 use OpenSim\Testing\ProcessTableFake;
+use OpenSim\Testing\Machine;
 
 /** The ports of a machine whose install is empty, where nothing listens. */
 function ports_of(array $layout = [], array $listening = []): Ports
@@ -22,6 +23,30 @@ function ports_of(array $layout = [], array $listening = []): Ports
  */
 
 describe('Ports of the simulators', function () {
+    test('uses only the selected host snapshot instead of local sockets and instance files', function () {
+        $machine = new Machine();
+        $machine->processes->listening = [8012, 9010];
+        $environment = $machine->environment->onHostWithOccupiedPorts([8002, 9000]);
+        $grid = OpenSim\Provisioning\QuickSetup::plan($environment, [
+            'type' => 'grid', 'name' => 'Remote grid', 'avatar' => 'Ada Love', 'password' => 'secret123', 'email' => 'ada@example.org',
+        ]);
+
+        expect($grid['setup']['grid']['public_port'])->toBe(8012)
+            ->and($grid['setup']['simulators'][0]['http_port'])->toBe(9010)
+            ->and($grid['setup']['simulators'][0]['regions'][0]['port'])->toBe(9011);
+    });
+
+    test('rejects a manually selected port occupied on the destination host', function () {
+        $machine = new Machine();
+        $environment = $machine->environment->onHostWithOccupiedPorts([8102]);
+        $result = OpenSim\Provisioning\QuickSetup::plan($environment, [
+            'type' => 'grid', 'name' => 'Remote grid', 'login_uri' => 'login.example.org:8102',
+            'avatar' => 'Ada Love', 'password' => 'secret123', 'email' => 'ada@example.org',
+        ]);
+
+        expect($result['problems'])->toHaveKey('login_uri', 'already in use on the selected host');
+    });
+
     test('start from 9000 for the usual grid', function () {
         expect(Ports::simulatorsFrom(8002))->toBe(9000);
         expect(Ports::simulatorsFrom(8012))->toBe(9000);

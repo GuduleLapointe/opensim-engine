@@ -31,6 +31,19 @@ function quick_answers(array $set = []): array
 }
 
 describe('quick setup of a grid', function () {
+    test('uses deployment host ports for interactive port proposals', function () {
+        $machine = new Machine();
+        $machine->processes->listening = [8012, 9010];
+        $menu = QuickSetup::next($machine->environment, ['mode' => 'prepare', 'occupied_ports' => [8002, 9000]]);
+        $form = QuickSetup::next($machine->environment, [
+            'mode' => 'prepare', 'state' => $menu['state'], 'answers' => ['type' => 'grid'], 'occupied_ports' => [8002, 9000],
+        ]);
+        $values = array_column($form['fields'], 'value', 'name');
+
+        expect($values['login_uri'])->toEndWith(':8012')
+            ->and($values['http_port'])->toBe('9010');
+    });
+
     test('is the grid and its first simulator, with the address, the avatar that owns them and the proposals for the rest', function () {
         $result = QuickSetup::plan((new Machine())->environment, quick_answers());
         $setup = $result['setup'];

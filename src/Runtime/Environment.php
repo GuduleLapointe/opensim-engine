@@ -29,6 +29,8 @@ final class Environment
         public readonly RuntimeProbe $probe = new RuntimeProbe(),
         /** @var ?\Closure(string):?string reads an address, the body of the answer, null when it does not answer */
         public readonly ?\Closure $http = null,
+        /** @var ?list<int> occupied ports reported by the deployment host; replaces local config/socket discovery */
+        public readonly ?array $occupiedPorts = null,
     ) {}
 
     /** The environment of this machine. */
@@ -65,6 +67,30 @@ final class Environment
             $this->portMapping,
             $this->probe,
             $this->http,
+            $this->occupiedPorts,
+        );
+    }
+
+    /** Use the selected deployment host's port snapshot instead of this PHP process's local ports. */
+    public function onHostWithOccupiedPorts(array $ports): self
+    {
+        foreach ($ports as $port) {
+            if (!is_int($port) || $port < 1 || $port > 65535) {
+                throw new \InvalidArgumentException('Occupied ports must be integers from 1 to 65535');
+            }
+        }
+
+        return new self(
+            $this->layout,
+            $this->processes,
+            $this->launcher,
+            $this->consoles,
+            $this->clock,
+            $this->reporter,
+            $this->portMapping,
+            $this->probe,
+            $this->http,
+            array_values(array_unique($ports)),
         );
     }
 }

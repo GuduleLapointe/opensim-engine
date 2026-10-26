@@ -304,6 +304,22 @@ final class QuickSetup
             );
         $regions->apply($simulator, $regionAnswers);
 
+        if ($environment->occupiedPorts !== null) {
+            $selected = [
+                'login_uri' => $plan->publicPort,
+                'private_port' => $plan->privatePort,
+                'grid_console_port' => $plan->consolePort,
+                'http_port' => $simulator->httpPort,
+                'console_port' => $simulator->consolePort,
+                'region_port' => $simulator->regionPort,
+            ];
+            foreach ($selected as $field => $port) {
+                if (in_array($port, $environment->occupiedPorts, true)) {
+                    $problems[$field] = _('already in use on the selected host');
+                }
+            }
+        }
+
         return [
             'problems' => $problems,
             'corrected' => $corrected,
@@ -332,11 +348,17 @@ final class QuickSetup
      * The screens are `menu` (a choice), `form` (fields), `checks` (check boxes) and `review` (what the setup will do, to confirm). The
      * last one, confirmed, makes the folders and writes the files of the grid and of its first simulator.
      *
-     * @param array{state?:string,button?:string,answers?:array<string,mixed>,mode?:string} $request mode: apply (default) or prepare
+     * @param array{state?:string,button?:string,answers?:array<string,mixed>,mode?:string,occupied_ports?:list<int>} $request mode: apply (default) or prepare
      * @return array<string,mixed> screen, quit, abort or prepared (configuration, including secret answers)
      */
     public static function next(Environment $environment, array $request): array
     {
+        if (array_key_exists('occupied_ports', $request)) {
+            if (!is_array($request['occupied_ports']) || !array_is_list($request['occupied_ports'])) {
+                throw new \InvalidArgumentException('Occupied ports must be a list');
+            }
+            $environment = $environment->onHostWithOccupiedPorts($request['occupied_ports']);
+        }
         $mode = $request['mode'] ?? 'apply';
         if (!in_array($mode, ['apply', 'prepare'], true)) {
             throw new \InvalidArgumentException('Unknown setup mode');
