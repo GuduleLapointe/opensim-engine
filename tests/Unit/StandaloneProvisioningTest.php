@@ -371,6 +371,45 @@ describe('The questions about a standalone', function () {
             ->and(SetupFile::problems(['grid' => ['standalone' => false] + $data['grid']] + $data))
             ->not->toContain('a standalone has one simulator (grid.standalone is true)');
     });
+
+    test('allow SQLite for a standalone without SQL account credentials', function () {
+        $data = [
+            'grid' => ['name' => 'Solo', 'standalone' => true, 'database' => ['driver' => 'sqlite']],
+            'simulators' => [['name' => 'Solo', 'regions' => [['name' => 'Solo']]]],
+        ];
+
+        expect(SetupFile::problems($data))->toBe([]);
+    });
+
+    test('refuse SQLite for a grid and unknown database drivers', function () {
+        $grid = [
+            'grid' => ['name' => 'Grid', 'database' => ['driver' => 'sqlite']],
+            'simulators' => [['name' => 'Welcome']],
+        ];
+        $unknown = [
+            'grid' => ['name' => 'Solo', 'standalone' => true, 'database' => ['driver' => 'postgres']],
+            'simulators' => [['name' => 'Solo']],
+        ];
+
+        expect(SetupFile::problems($grid))
+            ->toContain('grid.database.driver must be mysql for a grid')
+            ->and(SetupFile::problems($unknown))
+            ->toContain('grid.database.driver must be mysql or sqlite');
+    });
+
+    test('keep the selected driver in the grid plan and setup file', function () {
+        $plan = new GridPlan();
+        $plan->standalone = true;
+        $plan->dbDriver = 'sqlite';
+        $file = SetupFile::withGrid([], $plan);
+
+        expect($plan->dbDriver)
+            ->toBe('sqlite')
+            ->and($file['grid']['database']['driver'])
+            ->toBe('sqlite')
+            ->and(SetupFile::gridValues($file)['database_driver'])
+            ->toBe('sqlite');
+    });
 });
 
 describe('The master of a standalone', function () {

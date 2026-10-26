@@ -103,7 +103,10 @@ describe('A new grid', function () {
     test(
         'is proposed from the machine: its name, its host, the block of ports, the database named after the nick',
         function () {
-            $v = planner()->resolve();
+            $environment = EnvironmentFake::with([
+                'EtcRoot' => test_tmp() . '/grid-planner-empty-' . bin2hex(random_bytes(4)),
+            ]);
+            $v = planner(['environment' => $environment])->resolve();
 
             expect($v)
                 ->toMatchArray([

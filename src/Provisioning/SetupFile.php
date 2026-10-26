@@ -15,7 +15,7 @@ use Symfony\Component\Yaml\Yaml;
  *                options of a new grid: search (internal|shared|disabled), options (the presets that are on, by name: a list, or a
  *                map name => true|false: see GridOptions), or the answer each preset takes (economy: gloebit, ossl: true...),
  *                web_server (caddy|apache|nginx), web_site (helpers|website),
- *                database: host, name, user, password, admin_user, admin_password
+ *                database: driver (mysql|sqlite), host, name, user, password, admin_user, admin_password
  *   owner:       name (First Last), password, or password_hash and password_salt (as Robust keeps them),
  *                email (optional): the account that owns the estate
  *   simulators:  a list of: name, http_port, console, estate: name, owner, database: (as the grid's),
@@ -57,6 +57,7 @@ final class SetupFile
         'console' => 'grid.console',
         'console_port' => 'grid.console_port',
         'database_host' => 'grid.database.host',
+        'database_driver' => 'grid.database.driver',
         'database_name' => 'grid.database.name',
         'database_user' => 'grid.database.user',
         'database_password' => 'grid.database.password',
@@ -135,16 +136,25 @@ final class SetupFile
         $problems = [];
         $grid = $data['grid'] ?? [];
         $creates = is_array($grid) && trim((string) ($grid['name'] ?? '')) !== '';
+        $standalone = Result::isTrue(self::get($data, 'grid.standalone'));
+        $databaseDriver = strtolower(trim((string) self::get($data, 'grid.database.driver')));
+        $databaseDriver = $databaseDriver !== '' ? $databaseDriver : 'mysql';
+        if (!in_array($databaseDriver, ['mysql', 'sqlite'], true)) {
+            $problems[] = 'grid.database.driver must be mysql or sqlite';
+        } elseif (!$standalone && $databaseDriver !== 'mysql') {
+            $problems[] = 'grid.database.driver must be mysql for a grid';
+        }
         if ($creates) {
             // A grid with a name is a grid to make; with only a nick, it is the one the simulators join
-            foreach (['user', 'password'] as $key) {
-                if (trim((string) ($grid['database'][$key] ?? '')) === '') {
-                    $problems[] = "grid.database.$key is required";
+            if ($databaseDriver === 'mysql') {
+                foreach (['user', 'password'] as $key) {
+                    if (trim((string) ($grid['database'][$key] ?? '')) === '') {
+                        $problems[] = "grid.database.$key is required";
+                    }
                 }
             }
         }
         // A standalone is one simulator
-        $standalone = Result::isTrue(self::get($data, 'grid.standalone'));
         if ($standalone && count($data['simulators'] ?? []) > 1) {
             $problems[] = 'a standalone has one simulator (grid.standalone is true)';
         }
@@ -394,6 +404,7 @@ final class SetupFile
             'console' => $plan->consoleMode,
             'console_port' => $plan->consolePort,
             'database' => [
+                'driver' => $plan->dbDriver,
                 'host' => $plan->dbHost,
                 'name' => $plan->dbName,
                 'user' => $plan->dbUser,

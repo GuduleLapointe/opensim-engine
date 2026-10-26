@@ -61,6 +61,8 @@ final class GridPlan
     public string $webSite = 'helpers';
 
     // Database.
+    /** mysql (MySQL or MariaDB) or sqlite for a standalone. */
+    public string $dbDriver = 'mysql';
     public string $dbHost = 'localhost';
     public string $dbName = '';
     public string $dbUser = 'opensim';
