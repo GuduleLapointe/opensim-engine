@@ -587,6 +587,25 @@ describe('setup preparation', function () {
             ->and($prepared['setup']['simulators'][0]['console_port'])->toBe(9114);
     });
 
+    test('refuses a changed prepared location', function () {
+        $source = new Machine();
+        $review = quick_until($source, 'checks', 'simulator', ['name' => 'Garden']);
+        $database = QuickSetup::next($source->environment, ['mode' => 'prepare', 'state' => $review['state']]);
+        $configuration = QuickSetup::next($source->environment, [
+            'mode' => 'prepare', 'state' => $database['state'],
+            'answers' => array_column($database['fields'], 'value', 'name'),
+        ])['configuration'];
+        quick_doubles(['region' => [
+            'remoteHas' => static fn(): bool => false,
+            'freePlace' => static fn(int $x, int $y): array => [$x + 1, $y, true],
+        ]]);
+        $target = new Machine();
+        $result = QuickSetup::next($target->environment, ['configuration' => $configuration]);
+        expect($result['action'])->toBe('abort')
+            ->and($result['error'])->toContain('location')
+            ->and(is_dir($target->etc . '/grids/remote'))->toBeFalse();
+    });
+
     test('rejects a changed prepared identity', function () {
         $machine = new Machine();
         $result = QuickSetup::next($machine->environment, ['configuration' => [

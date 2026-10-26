@@ -504,6 +504,23 @@ final class QuickSetup
             }
             return ['action' => 'abort', 'error' => implode("\n", $problems)];
         }
+        foreach (['grid', 'simulator', 'region'] as $section) {
+            $given = match ($section) {
+                'grid' => SetupFile::gridValues($setup),
+                'simulator' => SetupFile::simulatorValues($setup, 0),
+                'region' => SetupFile::regionValues($setup, 0, 0),
+            };
+            $effective = match ($section) {
+                'grid' => SetupFile::gridValues($planned['setup']),
+                'simulator' => SetupFile::simulatorValues($planned['setup'], 0),
+                'region' => SetupFile::regionValues($planned['setup'], 0, 0),
+            };
+            foreach ($given as $field => $value) {
+                if ($value !== ($effective[$field] ?? null)) {
+                    return ['action' => 'abort', 'error' => sprintf(_('The prepared setting %s changed on the target; prepare the setup again.'), "$section.$field")];
+                }
+            }
+        }
         if ($planned['identity'] !== ($configuration['identity'] ?? null)) {
             return ['action' => 'abort', 'error' => _('The prepared instance identity does not match its settings.')];
         }
