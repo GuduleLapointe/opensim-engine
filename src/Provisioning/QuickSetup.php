@@ -243,6 +243,9 @@ final class QuickSetup
         [$uri, $uriProblem] = Grid::parseLoginUri((string) ($answers['login_uri'] ?? ''));
         $uriProblem !== null && ($problems['login_uri'] = $uriProblem);
         $gridAnswers += $uri;
+        if (is_array($answers['setup'] ?? null)) {
+            $gridAnswers = array_replace($gridAnswers, SetupFile::gridValues($answers['setup']));
+        }
         $planner = GridPlanner::forMachine($environment);
         $fixes = self::review(
             $planner->fields(),
@@ -269,18 +272,22 @@ final class QuickSetup
                 'new_password' => (string) ($answers['password'] ?? ''),
                 'new_email' => trim((string) ($answers['email'] ?? '')),
             ] + array_diff_key($dbGiven, ['database_name' => 1]);
+        if (is_array($answers['setup'] ?? null)) {
+            $owner = array_replace($owner, SetupFile::simulatorValues($answers['setup'], 0));
+        }
         $fixes = self::review($simulators->fields(), $simulators->problems($owner), $owner, $problems, $corrected);
         $simulator = $simulators->plan($fixes + $owner);
         $regions = RegionPlanner::forSimulator($simulator, $grid, $database, defaultName: $region);
+        $regionAnswers = is_array($answers['setup'] ?? null) ? SetupFile::regionValues($answers['setup'], 0, 0) : ['name' => $region];
         $taken ||
             self::review(
                 $regions->fields(),
-                $regions->problems(['name' => $region]),
-                ['name' => $region],
+                $regions->problems($regionAnswers),
+                $regionAnswers,
                 $problems,
                 $corrected,
             );
-        $regions->apply($simulator, ['name' => $region]);
+        $regions->apply($simulator, $regionAnswers);
 
         return [
             'problems' => $problems,
@@ -318,6 +325,12 @@ final class QuickSetup
         $mode = $request['mode'] ?? 'apply';
         if (!in_array($mode, ['apply', 'prepare'], true)) {
             throw new \InvalidArgumentException('Unknown setup mode');
+        }
+        if (array_key_exists('configuration', $request)) {
+            if ($mode !== 'apply' || !is_array($request['configuration'])) {
+                throw new \InvalidArgumentException('A prepared configuration requires apply mode');
+            }
+            return self::applyConfiguration($environment, $request['configuration']);
         }
         $prepare = $mode === 'prepare';
         $result = self::advance($environment, $request, $prepare);
@@ -465,9 +478,40 @@ final class QuickSetup
         }
         return [
             'action' => 'prepared',
-            'configuration' => ['identity' => $planned['identity'], 'answers' => $answers, 'setup' => $planned['setup']],
+            'configuration' => ['version' => 1, 'identity' => $planned['identity'], 'answers' => $answers, 'setup' => $planned['setup']],
             'message' => _('Setup configuration prepared.'),
         ];
+    }
+
+    /** Apply a confirmed, versioned configuration without repeating the questionnaire. */
+    private static function applyConfiguration(Environment $environment, array $configuration): array
+    {
+        if (($configuration['version'] ?? null) !== 1 || !is_array($configuration['answers'] ?? null) || !is_array($configuration['setup'] ?? null)) {
+            return ['action' => 'abort', 'error' => _('Invalid prepared setup configuration.')];
+        }
+        try {
+            $setup = SetupFile::parse(json_encode($configuration['setup'], JSON_THROW_ON_ERROR));
+        } catch (\InvalidArgumentException | \JsonException $error) {
+            return ['action' => 'abort', 'error' => $error->getMessage()];
+        }
+        $answers = $configuration['answers'];
+        $answers['setup'] = $setup;
+        $planned = self::plan($environment, self::answersOf($answers));
+        if (!$planned['valid']) {
+            $problems = [];
+            foreach ($planned['problems'] as $field => $message) {
+                $problems[] = "$field: $message";
+            }
+            return ['action' => 'abort', 'error' => implode("\n", $problems)];
+        }
+        if ($planned['identity'] !== ($configuration['identity'] ?? null)) {
+            return ['action' => 'abort', 'error' => _('The prepared instance identity does not match its settings.')];
+        }
+        $result = self::install($environment, $answers);
+        if (($result['action'] ?? '') === 'screen') {
+            return ['action' => 'abort', 'error' => (string) ($result['notice'] ?? _('The prepared setup could not be applied.'))];
+        }
+        return $result;
     }
 
     /** The first screen: what can be set up. */
@@ -1045,6 +1089,9 @@ final class QuickSetup
                 $answers,
                 array_flip(['database_host', 'database_name', 'database_user', 'database_password']),
             );
+        if (is_array($answers['setup'] ?? null)) {
+            $owner = array_replace($owner, SetupFile::simulatorValues($answers['setup'], 0));
+        }
         $fixes = self::review($simulators->fields(), $simulators->problems($owner), $owner, $problems, $corrected);
         $simulator = $simulators->plan($fixes + $owner);
         $regions = RegionPlanner::forSimulator(
@@ -1054,14 +1101,15 @@ final class QuickSetup
             defaultName: $region,
             context: self::$region,
         );
+        $regionAnswers = is_array($answers['setup'] ?? null) ? SetupFile::regionValues($answers['setup'], 0, 0) : ['name' => $region];
         self::review(
             $regions->fields(),
-            $regions->problems(['name' => $region]),
-            ['name' => $region],
+            $regions->problems($regionAnswers),
+            $regionAnswers,
             $problems,
             $corrected,
         );
-        $regions->apply($simulator, ['name' => $region]);
+        $regions->apply($simulator, $regionAnswers);
 
         return [
             'problems' => $problems,

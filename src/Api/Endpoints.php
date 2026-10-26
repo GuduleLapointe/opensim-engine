@@ -617,6 +617,7 @@ final class Endpoints
                                                 'button' => ['type' => 'string', 'enum' => ['next', 'back', 'quit'], 'default' => 'next'],
                                                 'answers' => ['type' => 'object', 'description' => 'The screen, filled: a value for each of its fields, items or choice'],
                                                 'mode' => ['type' => 'string', 'enum' => ['apply', 'prepare'], 'default' => 'apply', 'description' => 'Prepare collects answers, including database settings, without provisioning. Send the mode on each step.'],
+                                                'configuration' => ['type' => 'object', 'description' => 'A versioned configuration returned by prepare. With mode apply, validates and provisions it directly without asking further questions. Secrets belong in the request body.'],
                                             ],
                                         ],
                                     ],

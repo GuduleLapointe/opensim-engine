@@ -12,7 +12,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "OpenSim engine",
-        "version": "8dab1af",
+        "version": "fa58794",
         "license": {
             "name": "AGPL-3.0-or-later",
             "identifier": "AGPL-3.0-or-later"
@@ -4658,6 +4658,10 @@
                                                         ],
                                                         "default": "apply",
                                                         "description": "Prepare collects answers, including database settings, without provisioning. Send the mode on each step."
+                                                    },
+                                                    "configuration": {
+                                                        "type": "object",
+                                                        "description": "A versioned configuration returned by prepare. With mode apply, validates and provisions it directly without asking further questions. Secrets belong in the request body."
                                                     }
                                                 }
                                             }

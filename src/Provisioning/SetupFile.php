@@ -392,6 +392,7 @@ final class SetupFile
             'public_port' => $plan->publicPort,
             'private_port' => $plan->privatePort,
             'console' => $plan->consoleMode,
+            'console_port' => $plan->consolePort,
             'database' => [
                 'host' => $plan->dbHost,
                 'name' => $plan->dbName,
@@ -417,6 +418,7 @@ final class SetupFile
             'name' => $plan->simulatorName,
             'http_port' => $plan->httpPort,
             'console' => $plan->consoleMode,
+            'console_port' => $plan->consolePort,
             'database' => [
                 'host' => $plan->dbHost,
                 'name' => $plan->dbName,

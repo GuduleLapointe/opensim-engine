@@ -568,6 +568,47 @@ describe('setup preparation', function () {
         expect($done['configuration']['identity'])->toBe($expected);
     })->with(['grid' => ['grid', 'magic_grid'], 'standalone' => ['standalone', 'magic_grid.magic_grid']]);
 
+    test('applies prepared ports on another machine', function () {
+        $source = new Machine();
+        $source->processes->listening = [9100];
+        $review = quick_until($source, 'review');
+        $database = QuickSetup::next($source->environment, ['mode' => 'prepare', 'state' => $review['state']]);
+        $prepared = QuickSetup::next($source->environment, [
+            'mode' => 'prepare', 'state' => $database['state'],
+            'answers' => array_column($database['fields'], 'value', 'name'),
+        ])['configuration'];
+        $configuration = json_decode(json_encode($prepared), true);
+        $target = new Machine();
+        $done = QuickSetup::next($target->environment, ['configuration' => $configuration]);
+        expect($done['action'])->toBe('quit')
+            ->and(file_get_contents($target->etc . '/grids/magic_grid/sims/magic_grid.welcome.ini'))->toContain('9110')
+            ->and(file_get_contents($target->etc . '/grids/magic_grid/sims/magic_grid.welcome/regions/Welcome.ini'))->toContain('9111')
+            ->and($prepared['setup']['grid']['console_port'])->toBeInt()
+            ->and($prepared['setup']['simulators'][0]['console_port'])->toBe(9114);
+    });
+
+    test('rejects a changed prepared identity', function () {
+        $machine = new Machine();
+        $result = QuickSetup::next($machine->environment, ['configuration' => [
+            'version' => 1, 'identity' => 'another_grid', 'answers' => quick_answers(),
+            'setup' => QuickSetup::plan($machine->environment, quick_answers())['setup'],
+        ]]);
+        expect($result)->toMatchArray(['action' => 'abort'])
+            ->and($result['error'])->toContain('identity')
+            ->and(is_dir($machine->etc . '/grids/magic_grid'))->toBeFalse();
+    });
+
+    test('rejects an invalid prepared port', function () {
+        $machine = new Machine();
+        $setup = QuickSetup::plan($machine->environment, quick_answers())['setup'];
+        $setup['simulators'][0]['http_port'] = 0;
+        $result = QuickSetup::next($machine->environment, ['configuration' => [
+            'version' => 1, 'identity' => 'magic_grid', 'answers' => quick_answers(), 'setup' => $setup,
+        ]]);
+        expect($result['action'])->toBe('abort')
+            ->and(is_dir($machine->etc . '/grids/magic_grid'))->toBeFalse();
+    });
+
     test('keeps preparation cancellable', function () {
         $machine = new Machine();
         $review = quick_until($machine, 'review');

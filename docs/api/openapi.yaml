@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 'OpenSim engine'
-  version: 8dab1af
+  version: fa58794
   license:
     name: AGPL-3.0-or-later
     identifier: AGPL-3.0-or-later
@@ -4045,7 +4045,7 @@ paths:
                       const: steps
                     attributes:
                       type: object
-                      properties: { state: { type: string, description: 'As the last reply gave it; empty for the first screen' }, button: { type: string, enum: [next, back, quit], default: next }, answers: { type: object, description: 'The screen, filled: a value for each of its fields, items or choice' }, mode: { type: string, enum: [apply, prepare], default: apply, description: 'Prepare collects answers, including database settings, without provisioning. Send the mode on each step.' } }
+                      properties: { state: { type: string, description: 'As the last reply gave it; empty for the first screen' }, button: { type: string, enum: [next, back, quit], default: next }, answers: { type: object, description: 'The screen, filled: a value for each of its fields, items or choice' }, mode: { type: string, enum: [apply, prepare], default: apply, description: 'Prepare collects answers, including database settings, without provisioning. Send the mode on each step.' }, configuration: { type: object, description: 'A versioned configuration returned by prepare. With mode apply, validates and provisions it directly without asking further questions. Secrets belong in the request body.' } }
       responses:
         200:
           description: 'The next screen, or the action to do'
