@@ -521,6 +521,76 @@ function quick_core(Machine $machine): void
     file_put_contents("$bin/config-include/osslEnable.ini.example", "[OSSL]\n    AllowOSFunctions = false\n");
 }
 
+describe('setup preparation', function () {
+    beforeEach(fn() => quick_doubles());
+    afterEach(function () {
+        QuickSetup::through();
+        InstanceControl::runThrough(null);
+    });
+
+    test('collects database answers without provisioning', function () {
+        $machine = new Machine();
+        $called = false;
+        quick_doubles(['database' => static function () use (&$called): int {
+            $called = true;
+            return DatabaseService::OK;
+        }]);
+        $review = quick_until($machine, 'review');
+        $database = QuickSetup::next($machine->environment, [
+            'mode' => 'prepare', 'state' => $review['state'],
+        ]);
+        expect($database)->toMatchArray(['action' => 'screen', 'kind' => 'form', 'title' => 'Database']);
+        $answers = array_column($database['fields'], 'value', 'name');
+        $answers['admin_user'] = 'opensim_admin';
+        $answers['admin_password'] = 'admin-secret';
+        $done = QuickSetup::next($machine->environment, [
+            'mode' => 'prepare', 'state' => $database['state'], 'answers' => $answers,
+        ]);
+
+        expect($done['action'])->toBe('prepared')
+            ->and($done['configuration']['answers'])->toMatchArray([
+                'type' => 'grid', 'name' => 'Magic Grid', 'password' => 'secret123',
+                'admin_user' => 'opensim_admin', 'admin_password' => 'admin-secret',
+            ])
+            ->and($done['configuration']['setup']['grid']['nick'])->toBe('magic_grid')
+            ->and($called)->toBeFalse()
+            ->and(is_dir($machine->etc . '/grids/magic_grid'))->toBeFalse();
+    });
+
+    test('keeps preparation cancellable', function () {
+        $machine = new Machine();
+        $review = quick_until($machine, 'review');
+        $database = QuickSetup::next($machine->environment, ['mode' => 'prepare', 'state' => $review['state']]);
+        $back = QuickSetup::next($machine->environment, [
+            'mode' => 'prepare', 'state' => $database['state'], 'button' => 'back',
+        ]);
+        expect($back['kind'])->toBe('review')
+            ->and($back['buttons']['next'])->toBe('Continue')
+            ->and(QuickSetup::next($machine->environment, [
+                'mode' => 'prepare', 'state' => $database['state'], 'button' => 'quit',
+            ])['action'])->toBe('abort')
+            ->and(is_dir($machine->etc . '/grids/magic_grid'))->toBeFalse();
+    });
+
+    test('rejects an unknown mode before applying setup', function () {
+        expect(fn() => QuickSetup::next((new Machine())->environment, ['mode' => 'typo']))
+            ->toThrow(InvalidArgumentException::class, 'Unknown setup mode');
+    });
+
+    test('keeps answers over configured defaults', function () {
+        $previous = getenv('DEFAULT_OWNER_NAME');
+        putenv('DEFAULT_OWNER_NAME=Default Resident');
+        try {
+            $machine = new Machine();
+            $options = quick_until($machine, 'checks');
+            $form = quick_step($machine, $options, [], 'back');
+            expect(array_column($form['fields'], 'value', 'name')['avatar'])->toBe('Ada Love');
+        } finally {
+            putenv($previous === false ? 'DEFAULT_OWNER_NAME' : 'DEFAULT_OWNER_NAME=' . $previous);
+        }
+    });
+});
+
 describe('quick setup, the scenario', function () {
     beforeEach(fn() => quick_doubles());
     afterEach(function () {

@@ -615,6 +615,7 @@ final class Endpoints
                                                 'state' => ['type' => 'string', 'description' => 'As the last reply gave it; empty for the first screen'],
                                                 'button' => ['type' => 'string', 'enum' => ['next', 'back', 'quit'], 'default' => 'next'],
                                                 'answers' => ['type' => 'object', 'description' => 'The screen, filled: a value for each of its fields, items or choice'],
+                                                'mode' => ['type' => 'string', 'enum' => ['apply', 'prepare'], 'default' => 'apply', 'description' => 'Prepare collects answers, including database settings, without provisioning. Send the mode on each step.'],
                                             ],
                                         ],
                                     ],
@@ -628,7 +629,9 @@ final class Endpoints
                 '200' => [
                     'description' => 'The next screen, or the action to do',
                     'content' => $document('steps', [
-                        'action' => ['type' => 'string', 'enum' => ['screen', 'quit', 'abort']],
+                        'action' => ['type' => 'string', 'enum' => ['screen', 'quit', 'abort', 'prepared']],
+                        'configuration' => ['type' => 'object', 'description' => 'Of prepared: answers and setup preview. Contains credentials; save privately and do not log it.'],
+                        'mode' => ['type' => 'string', 'enum' => ['prepare'], 'description' => 'Returned on every prepare reply, confirming that no provisioning will run.'],
                         'kind' => ['type' => 'string', 'enum' => ['menu', 'form', 'checks', 'review'], 'description' => 'Of a screen'],
                         'name' => ['type' => 'string', 'description' => 'Of a menu: the name of its answer'],
                         'title' => ['type' => 'string'],

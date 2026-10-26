@@ -309,10 +309,34 @@ final class QuickSetup
      * The screens are `menu` (a choice), `form` (fields), `checks` (check boxes) and `review` (what the setup will do, to confirm). The
      * last one, confirmed, makes the folders and writes the files of the grid and of its first simulator.
      *
-     * @param array{state?:string,button?:string,answers?:array<string,mixed>} $request button: next, back or quit
-     * @return array<string,mixed> `action` screen (kind, title, notice, buttons, state...), quit (message) or abort (error)
+     * @param array{state?:string,button?:string,answers?:array<string,mixed>,mode?:string} $request mode: apply (default) or prepare
+     * @return array<string,mixed> screen, quit, abort or prepared (configuration, including secret answers)
      */
     public static function next(Environment $environment, array $request): array
+    {
+        $mode = $request['mode'] ?? 'apply';
+        if (!in_array($mode, ['apply', 'prepare'], true)) {
+            throw new \InvalidArgumentException('Unknown setup mode');
+        }
+        $prepare = $mode === 'prepare';
+        $result = self::advance($environment, $request, $prepare);
+        if ($prepare) {
+            $result['mode'] = 'prepare';
+        }
+        if ($prepare && in_array($result['kind'] ?? '', ['review', 'form'], true)) {
+            if (($result['kind'] ?? '') === 'review') {
+                $result['buttons']['next'] = _('Continue');
+                $result['wait'] = '';
+            } elseif (($result['title'] ?? '') === _('Database')) {
+                $result['buttons']['next'] = _('Save configuration');
+                $result['wait'] = '';
+            }
+        }
+        return $result;
+    }
+
+    /** Advance the questionnaire, optionally ending with collected answers instead of provisioning. */
+    private static function advance(Environment $environment, array $request, bool $prepare): array
     {
         $state = self::decode((string) ($request['state'] ?? ''));
         $button = in_array($request['button'] ?? 'next', ['next', 'back', 'quit'], true)
@@ -401,7 +425,7 @@ final class QuickSetup
                     return self::screenReview($environment, $answers);
                 }
 
-                return self::install($environment, $answers);
+                return $prepare ? self::prepared($environment, $answers) : self::install($environment, $answers);
 
             case 'review':
                 if ($button === 'back') {
@@ -418,10 +442,31 @@ final class QuickSetup
                     'admin_password',
                 ]);
 
+                if ($prepare) {
+                    $plan = $remote
+                        ? self::buildRemote($environment, self::answersOf($answers))['simulator']->databasePlan()
+                        : self::build($environment, self::answersOf($answers))['plan'];
+                    return self::screenDatabase($plan, $answers, '');
+                }
                 return self::install($environment, $answers);
         }
 
         return self::screenType($environment, [], '');
+    }
+
+    /** The collected answers and their preview; no database, account or file is created. */
+    private static function prepared(Environment $environment, array $answers): array
+    {
+        $answers = self::pinned($environment, $answers);
+        $planned = self::plan($environment, self::answersOf($answers));
+        if (!$planned['valid']) {
+            return self::screenForm($environment, $answers, implode("\n", $planned['problems']));
+        }
+        return [
+            'action' => 'prepared',
+            'configuration' => ['answers' => $answers, 'setup' => $planned['setup']],
+            'message' => _('Setup configuration prepared.'),
+        ];
     }
 
     /** The first screen: what can be set up. */
@@ -457,7 +502,7 @@ final class QuickSetup
             $fields[] = [
                 'name' => $name,
                 'label' => $label,
-                'value' => $fixed ?? (string) ($answers[$name] ?? ''),
+                'value' => $readonly ? ($fixed ?? '') : (string) ($answers[$name] ?? $fixed ?? ''),
                 'secret' => $secret,
                 'readonly' => $readonly,
             ];
