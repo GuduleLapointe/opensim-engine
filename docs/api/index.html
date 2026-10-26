@@ -12,7 +12,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "OpenSim engine",
-        "version": "72b13e2",
+        "version": "bc9a9b8",
         "license": {
             "name": "AGPL-3.0-or-later",
             "identifier": "AGPL-3.0-or-later"
@@ -4667,7 +4667,7 @@
                     "Setup"
                 ],
                 "summary": "Quick setup, one step",
-                "description": "The scenario of the quick setup, for a client that only draws screens. It sends back the screen it was given, filled (`answers`), the button it pressed and the `state` it got, and receives the next screen, the same one with what is wrong (`notice`), or an action: `quit` with a message, `abort` with an error. With no `state` it receives the first screen. A `screen` has a `kind`: `menu` (`items` with `key`, `label`, `note`; the answer is `{name: key}`), `form` (`fields` with `name`, `label`, `value`, `secret`; the answer is a value for each), `checks` (`items` with `name`, `label`, `checked`, `note`; the answer is true or false for each) or `review` (`rows`, to confirm). The last confirmation makes the folders and writes the files of the grid and of its first simulator.",
+                "description": "The scenario of the quick setup, for a client that only draws screens. It sends back the screen it was given, filled (`answers`), the button it pressed and the `state` it got, and receives the next screen, the same one with what is wrong (`notice`), or an action: `quit` with a message, `abort` with an error. With no `state` it receives the first screen. A `screen` has a `kind`: `menu` (`items` with `key`, `label`, `note`; the answer is `{name: key}`), `form` (`fields` with `name`, `label`, `value`, `secret`; the answer is a value for each), `checks` (`items` with `name`, `label`, `checked`, `note`; the answer is true or false for each) or `review` (`rows`, to confirm). The last confirmation makes the folders and writes the files of the grid and of its first simulator. `occupied_ports`, when supplied, is the fresh TCP/UDP port snapshot of the deployment host; it replaces the local machine port scan.",
                 "requestBody": {
                     "required": false,
                     "content": {
@@ -4709,6 +4709,15 @@
                                                         ],
                                                         "default": "apply",
                                                         "description": "Prepare collects answers, including database settings, without provisioning. Send the mode on each step."
+                                                    },
+                                                    "occupied_ports": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "integer",
+                                                            "minimum": 1,
+                                                            "maximum": 65535
+                                                        },
+                                                        "description": "Ports occupied on the selected deployment host; when present, local socket and config discovery is not used."
                                                     },
                                                     "configuration": {
                                                         "type": "object",
@@ -4754,7 +4763,7 @@
                                                         },
                                                         "configuration": {
                                                             "type": "object",
-                                                            "description": "Of prepared: instance identity, answers and setup preview. Contains credentials; save privately and do not log it."
+                                                            "description": "Of prepared: instance identity, answers, setup preview and engine-generated TCP/UDP port bindings. Contains credentials; save privately and do not log it."
                                                         },
                                                         "mode": {
                                                             "type": "string",
