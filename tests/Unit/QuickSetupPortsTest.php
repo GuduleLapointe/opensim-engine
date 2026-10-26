@@ -94,3 +94,22 @@ describe('setup ports', function () {
     });
 
 });
+
+test('setup proposes the destination hostname', function () {
+    $env = (new Machine())->environment;
+    $screen = QuickSetup::next($env, ['mode' => 'prepare']);
+    $form = QuickSetup::next($env, ['mode' => 'prepare', 'state' => $screen['state'], 'answers' => [
+        'type' => 'grid', 'hostname' => 'podman.example.test',
+    ]]);
+    $values = array_column($form['fields'], 'value', 'name');
+    expect($values['login_uri'])->toStartWith('podman.example.test:');
+});
+
+test('setup keeps an explicit login address', function () {
+    $env = (new Machine())->environment;
+    $screen = QuickSetup::next($env, ['mode' => 'prepare']);
+    $form = QuickSetup::next($env, ['mode' => 'prepare', 'state' => $screen['state'], 'answers' => [
+        'type' => 'grid', 'hostname' => 'podman.example.test', 'login_uri' => 'grid.example.test:18302',
+    ]]);
+    expect(array_column($form['fields'], 'value', 'name')['login_uri'])->toBe('grid.example.test:18302');
+});

@@ -130,7 +130,7 @@ final class QuickSetup
     ];
 
     /**
-     * @param array<string,mixed> $answers type, name, login_uri, avatar, password, email and the options (ssl, hypergrid, search,
+     * @param array<string,mixed> $answers type, name, hostname (destination proposal), login_uri, avatar, password, email and the options (ssl, hypergrid, search,
      *        gloebit, ossl): all optional, a missing one is proposed or, when it cannot be, told in the problems
      * @return array{valid:bool,problems:array<string,string>,corrected:array<string,string>,identity:string,setup:array<string,mixed>,rows:list<array{section:string,label:string,value:string}>,types:list<array{name:string,label:string,implemented:bool}>,options:list<array{name:string,label:string,default:bool,value:bool,implemented:bool}>}
      */
@@ -248,6 +248,9 @@ final class QuickSetup
         [$uri, $uriProblem] = Grid::parseLoginUri((string) ($answers['login_uri'] ?? ''));
         $uriProblem !== null && ($problems['login_uri'] = $uriProblem);
         $gridAnswers += $uri;
+        if (!isset($gridAnswers['hostname']) && trim((string) ($answers['hostname'] ?? '')) !== '') {
+            $gridAnswers['hostname'] = (string) $answers['hostname'];
+        }
         if (is_array($answers['setup'] ?? null)) {
             $gridAnswers = array_replace($gridAnswers, SetupFile::gridValues($answers['setup']));
         }
@@ -386,6 +389,7 @@ final class QuickSetup
                 }
                 $type = strtolower(trim((string) ($given['type'] ?? ($answers['type'] ?? ''))));
                 $answers['type'] = $type;
+                $answers = array_replace($answers, array_intersect_key($given, array_flip(['hostname', 'login_uri'])));
                 if (isset($given['existing_region'])) {
                     $answers['existing_region'] = (string) $given['existing_region'];
                     if ($answers['existing_region'] !== '') {
@@ -405,7 +409,7 @@ final class QuickSetup
                     $answers += ['name' => 'Welcome'];
                 } else {
                     // The proposals of the engine are what the form starts with
-                    $proposed = self::plan($environment, ['type' => $type])['setup']['grid'];
+                    $proposed = self::plan($environment, $answers)['setup']['grid'];
                     $answers += [
                         'name' => $proposed['name'],
                         'login_uri' => $proposed['hostname'] . ':' . $proposed['public_port'],
