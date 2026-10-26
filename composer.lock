@@ -12,12 +12,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/guzzle/guzzle.git",
-                "reference": "48723e1e34b757b773597138d74fa91d4feab9ce"
+                "reference": "81755d989b3007ca7f88a069857553cd08e7dc2e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/guzzle/guzzle/zipball/48723e1e34b757b773597138d74fa91d4feab9ce",
-                "reference": "48723e1e34b757b773597138d74fa91d4feab9ce",
+                "url": "https://api.github.com/repos/guzzle/guzzle/zipball/81755d989b3007ca7f88a069857553cd08e7dc2e",
+                "reference": "81755d989b3007ca7f88a069857553cd08e7dc2e",
                 "shasum": ""
             },
             "require": {
@@ -132,7 +132,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-10-25T01:35:30+00:00"
+            "time": "2026-10-25T21:35:21+00:00"
         },
         {
             "name": "guzzlehttp/promises",
@@ -1748,20 +1748,20 @@
         },
         {
             "name": "magicoli/build-tools",
-            "version": "0.1.9",
+            "version": "0.1.10",
             "source": {
                 "type": "git",
                 "url": "https://github.com/magicoli/build-tools.git",
-                "reference": "0296f73c8647e7363cd018511675636f2eda16ad"
+                "reference": "06c12d1b0d6698d9a5a7f22007182add62cf42ec"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/magicoli/build-tools/zipball/0296f73c8647e7363cd018511675636f2eda16ad",
-                "reference": "0296f73c8647e7363cd018511675636f2eda16ad",
+                "url": "https://api.github.com/repos/magicoli/build-tools/zipball/06c12d1b0d6698d9a5a7f22007182add62cf42ec",
+                "reference": "06c12d1b0d6698d9a5a7f22007182add62cf42ec",
                 "shasum": ""
             },
             "require": {
-                "magicoli/bash-tools": "^1.0.6"
+                "magicoli/bash-tools": "@dev"
             },
             "bin": [
                 "bin/build-tools",
@@ -1782,9 +1782,9 @@
             "description": "Build, release and publish a project: Debian packages, zip, GitHub release, apt repository.",
             "support": {
                 "issues": "https://github.com/magicoli/build-tools/issues",
-                "source": "https://github.com/magicoli/build-tools/tree/0.1.9"
+                "source": "https://github.com/magicoli/build-tools/tree/0.1.10"
             },
-            "time": "2026-10-24T04:02:05+00:00"
+            "time": "2026-10-26T12:23:07+00:00"
         },
         {
             "name": "magicoli/pest-failure-summary",
@@ -3035,12 +3035,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpstan/phpdoc-parser.git",
-                "reference": "7ed0100f3fd8d3ef1189153ddbf24696303cb472"
+                "reference": "4e50147c3bbeb285a2fb1cbaf3c224b96928947b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpstan/phpdoc-parser/zipball/7ed0100f3fd8d3ef1189153ddbf24696303cb472",
-                "reference": "7ed0100f3fd8d3ef1189153ddbf24696303cb472",
+                "url": "https://api.github.com/repos/phpstan/phpdoc-parser/zipball/4e50147c3bbeb285a2fb1cbaf3c224b96928947b",
+                "reference": "4e50147c3bbeb285a2fb1cbaf3c224b96928947b",
                 "shasum": ""
             },
             "require": {
@@ -3075,7 +3075,7 @@
                 "issues": "https://github.com/phpstan/phpdoc-parser/issues",
                 "source": "https://github.com/phpstan/phpdoc-parser/tree/2.3.x"
             },
-            "time": "2026-10-12T04:15:32+00:00"
+            "time": "2026-10-26T09:52:12+00:00"
         },
         {
             "name": "phpunit/php-code-coverage",
@@ -5251,12 +5251,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/process.git",
-                "reference": "a9fff7e1f8aefa0560d071db3c5ea2190f38b0b7"
+                "reference": "a5a6912edbbfc4c98cd080bc4bbe37c8e7eeb20a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/process/zipball/a9fff7e1f8aefa0560d071db3c5ea2190f38b0b7",
-                "reference": "a9fff7e1f8aefa0560d071db3c5ea2190f38b0b7",
+                "url": "https://api.github.com/repos/symfony/process/zipball/a5a6912edbbfc4c98cd080bc4bbe37c8e7eeb20a",
+                "reference": "a5a6912edbbfc4c98cd080bc4bbe37c8e7eeb20a",
                 "shasum": ""
             },
             "require": {
@@ -5308,7 +5308,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-10-23T16:51:52+00:00"
+            "time": "2026-10-25T14:40:16+00:00"
         },
         {
             "name": "symfony/service-contracts",
