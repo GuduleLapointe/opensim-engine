@@ -44,6 +44,16 @@ describe('quick setup of a grid', function () {
             ->and($values['http_port'])->toBe('9010');
     });
 
+    test('rejects a selected port already occupied on the deployment host', function () {
+        $environment = (new Machine())->environment->onHostWithOccupiedPorts([8002]);
+        $result = QuickSetup::plan($environment, quick_answers(['login_uri' => 'login.example.org:8002']));
+
+        expect($result['problems'])
+            ->toHaveKey('login_uri')
+            ->and($result['problems']['login_uri'])
+            ->toContain('already in use on the selected host');
+    });
+
     test('is the grid and its first simulator, with the address, the avatar that owns them and the proposals for the rest', function () {
         $result = QuickSetup::plan((new Machine())->environment, quick_answers());
         $setup = $result['setup'];
