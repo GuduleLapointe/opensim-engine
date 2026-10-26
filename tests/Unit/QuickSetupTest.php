@@ -940,6 +940,7 @@ describe('quick setup, the scenario', function () {
             ->and($done['message'])
             ->toContain('Grid name:  Magic Grid', 'Login URI:  http://login.example.org:8102', 'Avatar:     Ada Love')
             ->toContain('The grid and its simulator are running.')
+            ->toEndWith("Grid name:  Magic Grid\nLogin URI:  http://login.example.org:8102\nAvatar:     Ada Love")
             ->not->toContain('MoneyServer')
             ->not->toContain('chgrp');
         preg_match('/Written in (\S+)\./', $done['message'], $m);

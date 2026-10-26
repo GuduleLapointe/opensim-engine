@@ -890,6 +890,11 @@ final class QuickSetup
         return [
             'action' => 'quit',
             'message' => implode("\n", [
+                sprintf(_('Written in %s.'), $gridDir),
+                $plan === null ? _('The simulator is running.') : _('The grid and its simulator are running.'),
+                ...$notes,
+                ...$ui->report === [] ? [] : ['', ...$ui->report],
+                '',
                 sprintf('Grid name:  %s', $plan?->gridName ?? $grid?->name()),
                 sprintf(
                     'Login URI:  http://%s:%d',
@@ -897,11 +902,6 @@ final class QuickSetup
                     $plan?->publicPort ?? $grid?->publicPort(),
                 ),
                 sprintf('Avatar:     %s', $simulator->estateOwner),
-                '',
-                sprintf(_('Written in %s.'), $gridDir),
-                $plan === null ? _('The simulator is running.') : _('The grid and its simulator are running.'),
-                ...$notes,
-                ...$ui->report === [] ? [] : ['', ...$ui->report],
             ]),
         ];
     }
