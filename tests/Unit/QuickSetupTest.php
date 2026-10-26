@@ -521,6 +521,126 @@ function quick_core(Machine $machine): void
     file_put_contents("$bin/config-include/osslEnable.ini.example", "[OSSL]\n    AllowOSFunctions = false\n");
 }
 
+describe('existing region setup', function () {
+    beforeEach(function () {
+        quick_doubles(['region' => [
+            'remoteHas' => static fn(): bool => true,
+            'registeredUuid' => static fn(): string => 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+        ]]);
+    });
+    afterEach(function () {
+        QuickSetup::through();
+        InstanceControl::runThrough(null);
+    });
+
+    test('plans existing region', function () {
+        $result = QuickSetup::plan((new Machine())->environment, quick_answers([
+            'type' => 'simulator', 'name' => 'Imported', 'database_name' => 'existing_db',
+            'existing_region' => file_get_contents(dirname(__DIR__) . '/fixtures/existing-region.ini'),
+        ]));
+        expect($result['valid'])->toBeTrue()
+            ->and($result['identity'])->toBe('remote.imported')
+            ->and($result['setup']['simulators'][0]['regions'][0])->toMatchArray([
+                'name' => 'Existing Garden', 'uuid' => 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+                'location' => '120,130', 'port' => 9101,
+            ]);
+    });
+
+    test('prepares existing region', function () {
+        $machine = new Machine();
+        $source = file_get_contents(dirname(__DIR__) . '/fixtures/existing-region.ini');
+        $menu = QuickSetup::next($machine->environment, ['mode' => 'prepare']);
+        $form = QuickSetup::next($machine->environment, [
+            'mode' => 'prepare', 'state' => $menu['state'], 'answers' => ['type' => 'simulator', 'existing_region' => $source],
+        ]);
+        expect(array_column($form['fields'], 'value', 'name')['name'])->toBe('Existing Garden')
+            ->and(array_column($form['fields'], 'label', 'name')['database_name'])->toBe('Existing database');
+        $review = QuickSetup::next($machine->environment, [
+            'mode' => 'prepare', 'state' => $form['state'],
+            'answers' => quick_answers(['type' => 'simulator', 'name' => 'Imported', 'database_name' => 'existing_db']),
+        ]);
+        $database = QuickSetup::next($machine->environment, ['mode' => 'prepare', 'state' => $review['state']]);
+        $prepared = QuickSetup::next($machine->environment, [
+            'mode' => 'prepare', 'state' => $database['state'], 'answers' => array_column($database['fields'], 'value', 'name'),
+        ]);
+        expect($prepared['action'])->toBe('prepared')
+            ->and($prepared['configuration']['answers']['existing_region'])->toBe($source)
+            ->and($prepared['configuration']['setup']['simulators'][0]['regions'][0]['source'])->toBe($source)
+            ->and(is_dir($machine->etc . '/grids/remote'))->toBeFalse();
+    });
+
+    test('stages existing region', function () {
+        quick_doubles([
+            'database' => static fn(): int => throw new RuntimeException('unexpected database provisioning'),
+            'account' => static fn(): bool => throw new RuntimeException('unexpected account creation'),
+            'region' => ['registeredUuid' => static fn(): string => 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'],
+        ]);
+        InstanceControl::runThrough(static fn(): array => throw new RuntimeException('unexpected startup'));
+        $source = new Machine();
+        $answers = quick_answers([
+            'type' => 'simulator', 'name' => 'Imported', 'database_name' => 'existing_db',
+            'existing_region' => file_get_contents(dirname(__DIR__) . '/fixtures/existing-region.ini'),
+        ]);
+        $planned = QuickSetup::plan($source->environment, $answers);
+        $target = new Machine();
+        $done = QuickSetup::next($target->environment, ['configuration' => [
+            'version' => 1, 'identity' => $planned['identity'], 'answers' => $answers, 'setup' => $planned['setup'],
+        ]]);
+        expect($done['action'])->toBe('quit')
+            ->and($done['message'])->toContain('disabled')
+            ->and(file_get_contents($target->etc . '/grids/remote/sims/remote.imported/regions/ExistingGarden.ini'))
+            ->toBe(file_get_contents(dirname(__DIR__) . '/fixtures/existing-region.ini'))
+            ->and(glob($target->etc . '/opensim.d/remote.imported.ini'))->toBe([]);
+        $again = QuickSetup::next($target->environment, ['configuration' => [
+            'version' => 1, 'identity' => $planned['identity'], 'answers' => $answers, 'setup' => $planned['setup'],
+        ]]);
+        expect($again['action'])->toBe('quit')
+            ->and(file_get_contents($target->etc . '/grids/remote/sims/remote.imported/regions/ExistingGarden.ini'))
+            ->toBe(file_get_contents(dirname(__DIR__) . '/fixtures/existing-region.ini'));
+        $path = $target->etc . '/grids/remote/sims/remote.imported/regions/ExistingGarden.ini';
+        $edited = str_replace('preserve-me', 'locally-edited', file_get_contents($path));
+        file_put_contents($path, $edited);
+        $conflict = QuickSetup::next($target->environment, ['configuration' => [
+            'version' => 1, 'identity' => $planned['identity'], 'answers' => $answers, 'setup' => $planned['setup'],
+        ]]);
+        expect($conflict['action'])->toBe('abort')
+            ->and($conflict['error'])->toContain('target region')
+            ->and(file_get_contents($path))->toBe($edited);
+    });
+
+    test('rejects conflicting UUID', function () {
+        quick_doubles(['region' => ['registeredUuid' => static fn(): string => 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff']]);
+        $result = QuickSetup::plan((new Machine())->environment, quick_answers([
+            'type' => 'simulator', 'name' => 'Imported', 'database_name' => 'existing_db',
+            'existing_region' => file_get_contents(dirname(__DIR__) . '/fixtures/existing-region.ini'),
+        ]));
+        expect($result['valid'])->toBeFalse()
+            ->and($result['problems']['existing_region'])->toContain('another UUID');
+    });
+
+    test('rejects UUID/name conflict', function () {
+        quick_doubles(['region' => [
+            'registeredUuid' => static fn(): bool => false,
+            'registeredName' => static fn(): string => 'Another Garden',
+        ]]);
+        $result = QuickSetup::plan((new Machine())->environment, quick_answers([
+            'type' => 'simulator', 'name' => 'Imported', 'database_name' => 'existing_db',
+            'existing_region' => file_get_contents(dirname(__DIR__) . '/fixtures/existing-region.ini'),
+        ]));
+        expect($result['valid'])->toBeFalse()
+            ->and($result['problems']['existing_region'])->toContain('another name');
+    });
+
+    test('requires existing database', function () {
+        $result = QuickSetup::plan((new Machine())->environment, quick_answers([
+            'type' => 'simulator', 'name' => 'Imported',
+            'existing_region' => file_get_contents(dirname(__DIR__) . '/fixtures/existing-region.ini'),
+        ]));
+        expect($result['valid'])->toBeFalse()
+            ->and($result['problems'])->toHaveKey('database_name');
+    });
+});
+
 describe('setup preparation', function () {
     beforeEach(fn() => quick_doubles());
     afterEach(function () {
@@ -568,7 +688,7 @@ describe('setup preparation', function () {
         expect($done['configuration']['identity'])->toBe($expected);
     })->with(['grid' => ['grid', 'magic_grid'], 'standalone' => ['standalone', 'magic_grid.magic_grid']]);
 
-    test('applies prepared ports on another machine', function () {
+    test('applies confirmed ports', function () {
         $source = new Machine();
         $source->processes->listening = [9100];
         $review = quick_until($source, 'review');

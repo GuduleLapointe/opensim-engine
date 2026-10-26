@@ -83,6 +83,8 @@ final class SimulatorPlan
     public string $ownerUuid = '';
 
     // Its first region.
+    /** Original configuration of an adopted region; its data and ownership are not initialized again. */
+    public string $existingRegionConfig = '';
     public bool $createRegion = true;
     public string $regionName = '';
     public string $regionUuid = '';

@@ -12,7 +12,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "OpenSim engine",
-        "version": "fa58794",
+        "version": "d0c8e1f",
         "license": {
             "name": "AGPL-3.0-or-later",
             "identifier": "AGPL-3.0-or-later"
@@ -4428,11 +4428,15 @@
                                                 "properties": {
                                                     "type": {
                                                         "type": "string",
-                                                        "description": "grid, standalone; the other types of the reply are not implemented yet"
+                                                        "description": "grid, standalone, simulator, or an implemented grid preset"
                                                     },
                                                     "name": {
                                                         "type": "string",
                                                         "description": "Of the grid, and of the simulator and its region for a standalone"
+                                                    },
+                                                    "existing_region": {
+                                                        "type": "string",
+                                                        "description": "Original Region.ini contents for a simulator joining a grid. Preserves the region UUID and settings; application stages a disabled simulator without creating accounts, a database or a placeholder region. Restore data and stop the source before enabling it."
                                                     },
                                                     "login_uri": {
                                                         "type": "string",
@@ -4648,7 +4652,7 @@
                                                     },
                                                     "answers": {
                                                         "type": "object",
-                                                        "description": "The screen, filled: a value for each of its fields, items or choice"
+                                                        "description": "The screen, filled: a value for each of its fields, items or choice. For adoption, include existing_region INI contents with the type selection."
                                                     },
                                                     "mode": {
                                                         "type": "string",

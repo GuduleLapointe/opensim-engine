@@ -27,6 +27,20 @@ final class SimulatorProvisioner
      */
     public function apply(SimulatorPlan $plan, Environment $environment): void
     {
+        if ($plan->existingRegionConfig !== '') {
+            $conflict = is_file($plan->regionIni()) && GridFileService::read($plan->regionIni()) !== RegionAdoption::render($plan)
+                ? $plan->regionIni() : null;
+            foreach (Region::inDirectory($plan->regionsDir()) as $existing) {
+                if (($existing->name() === $plan->regionName || strcasecmp($existing->uuid() ?? '', $plan->regionUuid) === 0) && $existing->file() !== $plan->regionIni()) {
+                    $conflict = $existing->file();
+                }
+            }
+            if ($conflict !== null) {
+                $message = sprintf(_('The target region differs from the imported configuration: %s'), $conflict);
+                $this->ui->error($message);
+                throw new SetupFailedException($message);
+            }
+        }
         if ($plan->remoteGrid !== null) {
             $this->ui->note(sprintf(_('Wrote %s'), (new GridConf())->writeRemote($plan->remoteGrid, new Presets([], $environment->layout->etcRoot()))));
         }
@@ -90,7 +104,7 @@ final class SimulatorProvisioner
             }
         }
         $this->ui->note(sprintf(_('Wrote %s'), (new SimulatorConfig())->write($plan, new Presets([], $environment->layout->etcRoot()))));
-        if ($plan->createRegion) {
+        if ($plan->createRegion || $plan->existingRegionConfig !== '') {
             $region = (new SimulatorConfig())->writeRegion($plan, new Presets([], $environment->layout->etcRoot()));
             $this->ui->note(
                 $region !== null

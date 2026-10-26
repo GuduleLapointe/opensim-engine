@@ -136,6 +136,9 @@ final class SimulatorConfig
     /** The description of the first region of the simulator: the file of the preset `region`. */
     public function renderRegion(SimulatorPlan $plan, ?Presets $presets = null): string
     {
+        if ($plan->existingRegionConfig !== '') {
+            return RegionAdoption::render($plan);
+        }
         return self::file('region', $plan, $plan->variables(), $presets);
     }
 

@@ -38,3 +38,19 @@ describe('RobustGrid region by name', function () {
         expect(RobustGrid::named('not xml'))->toBeFalse();
     });
 });
+
+test('reads the registered region UUID', function () {
+    expect(RobustGrid::uuidOf('<ServerResponse><result type="List"><uuid>aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee</uuid></result></ServerResponse>'))
+        ->toBe('aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee')
+        ->and(RobustGrid::uuidOf('<ServerResponse><result>null</result></ServerResponse>'))->toBeFalse()
+        ->and(RobustGrid::uuidOf(null))->toBeNull()
+        ->and(RobustGrid::uuidOf('invalid XML'))->toBeNull();
+});
+
+
+test('reads the name registered for a UUID', function () {
+    expect(RobustGrid::nameOf('<ServerResponse><result type="List"><uuid>aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee</uuid><regionName>Existing Garden</regionName></result></ServerResponse>'))
+        ->toBe('Existing Garden')
+        ->and(RobustGrid::nameOf('<ServerResponse><result>null</result></ServerResponse>'))->toBeFalse()
+        ->and(RobustGrid::nameOf(null))->toBeNull();
+});

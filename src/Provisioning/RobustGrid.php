@@ -55,6 +55,50 @@ final class RobustGrid
         return $answer === null ? null : self::named($answer);
     }
 
+    /** The UUID registered for this name: false if absent, null if the grid cannot be checked. */
+    public static function regionUuid(string $host, int $port, string $name): string|false|null
+    {
+        return self::uuidOf(self::ask($host, $port, ['METHOD' => 'get_region_by_name', 'SCOPEID' => self::NO_SCOPE, 'NAME' => $name]));
+    }
+
+    /** The name registered for an existing UUID: false if absent, null if the grid cannot be checked. */
+    public static function regionName(string $host, int $port, string $uuid): string|false|null
+    {
+        return self::nameOf(self::ask($host, $port, ['METHOD' => 'get_region_by_uuid', 'SCOPEID' => self::NO_SCOPE, 'REGIONID' => $uuid]));
+    }
+
+    /** The name of a valid registered region, keeping an absent region distinct from an unavailable reply. */
+    public static function nameOf(?string $xml): string|false|null
+    {
+        $uuid = self::uuidOf($xml);
+        if (!is_string($uuid)) {
+            return $uuid;
+        }
+        $document = simplexml_load_string($xml);
+        $name = trim((string) ($document->result->regionName ?? ''));
+        return $name !== '' ? $name : null;
+    }
+
+    /** The UUID in a registry reply, keeping an absent region distinct from an invalid/unavailable reply. */
+    public static function uuidOf(?string $xml): string|false|null
+    {
+        if ($xml === null) {
+            return null;
+        }
+        $previous = libxml_use_internal_errors(true);
+        $document = simplexml_load_string($xml);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+        if ($document === false || !isset($document->result)) {
+            return null;
+        }
+        if (isset($document->result->uuid)) {
+            $uuid = (string) $document->result->uuid;
+            return \OpenSim\Text\Uuid::isValid($uuid) ? $uuid : null;
+        }
+        return in_array(strtolower(trim((string) $document->result)), ['null', 'false'], true) ? false : null;
+    }
+
     /** Whether an answer to get_region_by_name describes a region. */
     public static function named(string $xml): bool
     {

@@ -198,6 +198,9 @@ final class QuickSetup
                 : _('invalid');
         }
         $standalone = $type === 'standalone';
+        if (trim((string) ($answers['existing_region'] ?? ($answers['setup']['simulators'][0]['regions'][0]['source'] ?? ''))) !== '') {
+            $problems['existing_region'] = _('Use a simulator setup to adopt a region of an existing grid.');
+        }
 
         // The options: what is chosen, and what each sets in the plan of the grid
         $options = self::options($environment);
@@ -374,6 +377,17 @@ final class QuickSetup
                 }
                 $type = strtolower(trim((string) ($given['type'] ?? ($answers['type'] ?? ''))));
                 $answers['type'] = $type;
+                if (isset($given['existing_region'])) {
+                    $answers['existing_region'] = (string) $given['existing_region'];
+                    if ($answers['existing_region'] !== '') {
+                        try {
+                            $existing = RegionAdoption::describe($answers['existing_region']);
+                            $answers += ['name' => $existing['name']];
+                        } catch (\InvalidArgumentException $error) {
+                            return ['action' => 'abort', 'error' => $error->getMessage()];
+                        }
+                    }
+                }
                 $known = array_column(self::types($environment), 'implemented', 'name');
                 if (($known[$type] ?? false) !== true) {
                     return self::screenType($environment, $answers, self::notImplemented($environment));
@@ -621,7 +635,7 @@ final class QuickSetup
             'text' => implode("\n", $quick['warnings'] ?? []),
             'notice' => '',
             'rows' => $quick['rows'],
-            'buttons' => ['next' => _('Install'), 'back' => _('Back')],
+            'buttons' => ['next' => ($answers['existing_region'] ?? '') !== '' ? _('Stage import') : _('Install'), 'back' => _('Back')],
             'wait' => _('Installing, this can take a few minutes…'),
             'state' => self::encode('review', $answers),
         ];
@@ -655,7 +669,7 @@ final class QuickSetup
      * What replaces the work that needs a machine, for the tests: how the databases are checked and made (Closure(GridPlan, UiInterface):
      * int, a DatabaseService code), how the account of the avatar is made (Closure(Grid, SimulatorPlan, UiInterface): bool) and what a
      * grid says of itself (Closure(string $host, int $port): array<string,string>), and what the planner of a region of a grid on
-     * another machine asks it (the context of RegionPlanner: remoteHas, freePlace).
+     * another machine asks it (the context of RegionPlanner: remoteHas, freePlace, registeredUuid, registeredName).
      *
      * @param array{database?:?\Closure,account?:?\Closure,says?:?\Closure,region?:array<string,mixed>} $doubles none: the real work
      */
@@ -734,20 +748,14 @@ final class QuickSetup
         // The notes are told as they come: the install takes minutes, a client shows its progress from the error output
         $ui = new NullUi(live: true);
         // Nothing is written before the databases work: a problem of access is asked again, with the reasons
-        $databases =
-            $plan === null
-                ? [$simulator->databasePlan()]
-                : ($plan->standalone
-                    ? [$plan]
-                    : [$plan, $simulator->databasePlan()]);
-        if (isset($answers['admin_user'])) {
-            DatabaseService::rememberAdmin(
-                $databases[0]->dbHost,
-                (string) $answers['admin_user'],
-                (string) ($answers['admin_password'] ?? ''),
-            );
+        $databases = [];
+        if ($simulator->existingRegionConfig === '') {
+            $databases = $plan === null ? [$simulator->databasePlan()] : ($plan->standalone ? [$plan] : [$plan, $simulator->databasePlan()]);
+            if (isset($answers['admin_user'])) {
+                DatabaseService::rememberAdmin($databases[0]->dbHost, (string) $answers['admin_user'], (string) ($answers['admin_password'] ?? ''));
+            }
+            DatabaseService::remember($databases[0]->dbHost, $databases[0]->dbUser, $databases[0]->dbPass);
         }
-        DatabaseService::remember($databases[0]->dbHost, $databases[0]->dbUser, $databases[0]->dbPass);
         $check =
             self::$database ??
             static fn(GridPlan $db, UiInterface $said): int => (new DatabaseService($said))->ensure($db);
@@ -790,7 +798,9 @@ final class QuickSetup
                     }
                 }
             }
-            $simulator->enable = $simulator->start = true;
+            if ($simulator->existingRegionConfig === '') {
+                $simulator->enable = $simulator->start = true;
+            }
             $simulator->createOwner = false;
             (new SimulatorProvisioner($ui))->apply($simulator, $environment);
         } catch (SetupFailedException $failed) {
@@ -821,6 +831,12 @@ final class QuickSetup
             ];
         }
         $notes = array_column(array_filter($ui->said, static fn(array $said): bool => $said[0] === 'warn'), 1);
+        if ($simulator->existingRegionConfig !== '') {
+            return [
+                'action' => 'quit',
+                'message' => sprintf(_('Simulator %s imported and left disabled. Restore its database and files, stop the source, then enable and start it.'), $simulator->slug),
+            ];
+        }
 
         return [
             'action' => 'quit',
@@ -929,6 +945,9 @@ final class QuickSetup
         }
         $avatar_password = getenv('DEFAULT_OWNER_PASSWORD') ?: null;
         $region_name = sprintf(_("%s's Place"), strtok($avatar_name, ' '));
+        $adoptionFields = trim((string) ($answers['existing_region'] ?? '')) !== ''
+            ? ['database_name' => [_('Existing database'), false, false, null]]
+            : [];
         if ($kind === 'preset') {
             $said = (new Presets([], $environment->layout->etcRoot()))->describe($type) ?? [];
 
@@ -941,17 +960,17 @@ final class QuickSetup
                     ($said['host'] ?? '') . ':' . ($said['publicPort'] ?? ''),
                 ],
                 'preset_hypergrid' => [_('Hypergrid'), false, true, $said['hypergrid'] ?? true ? 'yes' : 'no'],
-                'name' => [_('Region name'), false, false, $region_name],
+                'name' => [$adoptionFields !== [] ? _('Simulator name') : _('Region name'), false, false, $region_name],
                 'avatar' => [_('Avatar name'), false, false, $avatar_name],
-            ];
+            ] + $adoptionFields;
         }
         if ($kind === 'remote') {
             return [
                 'login_uri' => [_('Login URI of the grid'), false, false, null],
                 'private_port' => [_('Grid\'s private port (empty: public + 1)'), false, false, null],
-                'name' => [_('Region name'), false, false, $region_name],
+                'name' => [$adoptionFields !== [] ? _('Simulator name') : _('Region name'), false, false, $region_name],
                 'avatar' => [_('Avatar name'), false, false, $avatar_name],
-            ];
+            ] + $adoptionFields;
         }
 
         return [
@@ -1111,22 +1130,44 @@ final class QuickSetup
         }
         $fixes = self::review($simulators->fields(), $simulators->problems($owner), $owner, $problems, $corrected);
         $simulator = $simulators->plan($fixes + $owner);
-        $regions = RegionPlanner::forSimulator(
-            $simulator,
-            $grid,
-            $database,
-            defaultName: $region,
-            context: self::$region,
-        );
-        $regionAnswers = is_array($answers['setup'] ?? null) ? SetupFile::regionValues($answers['setup'], 0, 0) : ['name' => $region];
-        self::review(
-            $regions->fields(),
-            $regions->problems($regionAnswers),
-            $regionAnswers,
-            $problems,
-            $corrected,
-        );
-        $regions->apply($simulator, $regionAnswers);
+        $existingRegion = (string) ($answers['existing_region'] ?? ($answers['setup']['simulators'][0]['regions'][0]['source'] ?? ''));
+        if ($existingRegion !== '') {
+            if (trim((string) ($answers['database_name'] ?? '')) === '') {
+                $problems['database_name'] = _('The existing simulator database name is required.');
+            }
+            try {
+                $description = RegionAdoption::describe($existingRegion);
+                $registered = isset(self::$region['registeredUuid'])
+                    ? (self::$region['registeredUuid'])($description['name'])
+                    : RobustGrid::regionUuid($grid->baseHostname(), $grid->privatePort(), $description['name']);
+                $registeredName = $description['name'];
+                if ($registered === false) {
+                    $registeredName = isset(self::$region['registeredName'])
+                        ? (self::$region['registeredName'])($description['uuid'])
+                        : RobustGrid::regionName($grid->baseHostname(), $grid->privatePort(), $description['uuid']);
+                }
+                RegionAdoption::apply($simulator, $existingRegion, $registered, $registeredName);
+            } catch (\InvalidArgumentException $error) {
+                $problems['existing_region'] = $error->getMessage();
+            }
+        } else {
+            $regions = RegionPlanner::forSimulator(
+                $simulator,
+                $grid,
+                $database,
+                defaultName: $region,
+                context: self::$region,
+            );
+            $regionAnswers = is_array($answers['setup'] ?? null) ? SetupFile::regionValues($answers['setup'], 0, 0) : ['name' => $region];
+            self::review(
+                $regions->fields(),
+                $regions->problems($regionAnswers),
+                $regionAnswers,
+                $problems,
+                $corrected,
+            );
+            $regions->apply($simulator, $regionAnswers);
+        }
 
         return [
             'problems' => $problems,

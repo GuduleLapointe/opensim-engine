@@ -512,8 +512,9 @@ final class Endpoints
                                         'attributes' => [
                                             'type' => 'object',
                                             'properties' => [
-                                                'type' => ['type' => 'string', 'description' => 'grid, standalone; the other types of the reply are not implemented yet'],
+                                                'type' => ['type' => 'string', 'description' => 'grid, standalone, simulator, or an implemented grid preset'],
                                                 'name' => ['type' => 'string', 'description' => 'Of the grid, and of the simulator and its region for a standalone'],
+                                                'existing_region' => ['type' => 'string', 'description' => 'Original Region.ini contents for a simulator joining a grid. Preserves the region UUID and settings; application stages a disabled simulator without creating accounts, a database or a placeholder region. Restore data and stop the source before enabling it.'],
                                                 'login_uri' => ['type' => 'string', 'description' => 'http://login.example.org:8002'],
                                                 'ssl' => ['type' => 'boolean', 'default' => false, 'description' => 'Not implemented yet'],
                                                 'hypergrid' => ['type' => 'boolean', 'default' => true],
@@ -615,7 +616,7 @@ final class Endpoints
                                             'properties' => [
                                                 'state' => ['type' => 'string', 'description' => 'As the last reply gave it; empty for the first screen'],
                                                 'button' => ['type' => 'string', 'enum' => ['next', 'back', 'quit'], 'default' => 'next'],
-                                                'answers' => ['type' => 'object', 'description' => 'The screen, filled: a value for each of its fields, items or choice'],
+                                                'answers' => ['type' => 'object', 'description' => 'The screen, filled: a value for each of its fields, items or choice. For adoption, include existing_region INI contents with the type selection.'],
                                                 'mode' => ['type' => 'string', 'enum' => ['apply', 'prepare'], 'default' => 'apply', 'description' => 'Prepare collects answers, including database settings, without provisioning. Send the mode on each step.'],
                                                 'configuration' => ['type' => 'object', 'description' => 'A versioned configuration returned by prepare. With mode apply, validates and provisions it directly without asking further questions. Secrets belong in the request body.'],
                                             ],
