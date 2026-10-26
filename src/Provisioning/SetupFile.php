@@ -67,6 +67,7 @@ final class SetupFile
     private const SIM = [
         'name' => 'simulators.$i.name',
         'http_port' => 'simulators.$i.http_port',
+        'external_host' => 'simulators.$i.external_host',
         'console' => 'simulators.$i.console',
         'console_port' => 'simulators.$i.console_port',
         'database_driver' => 'simulators.$i.database.driver',
@@ -438,6 +439,7 @@ final class SetupFile
         $simulator = [
             'name' => $plan->simulatorName,
             'http_port' => $plan->httpPort,
+            'external_host' => $plan->externalHost,
             'console' => $plan->consoleMode,
             'console_port' => $plan->consolePort,
             'database' => [

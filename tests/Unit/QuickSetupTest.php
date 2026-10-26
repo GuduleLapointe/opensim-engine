@@ -48,6 +48,14 @@ describe('quick setup of a grid', function () {
             ->and($grid['setup']['simulators'][0]['database']['driver'])->toBe('sqlite');
     });
 
+    test('keeps a container host for the simulator region', function () {
+        $result = QuickSetup::plan((new Machine())->environment, quick_answers([
+            'setup' => ['simulators' => [['external_host' => 'vonda.magiiic.com']]],
+        ]));
+
+        expect($result['setup']['simulators'][0]['external_host'])->toBe('vonda.magiiic.com');
+    });
+
     test('prepares a SQLite standalone without asking for SQL accounts', function () {
         $environment = (new Machine())->environment;
         $menu = QuickSetup::next($environment, ['mode' => 'prepare']);

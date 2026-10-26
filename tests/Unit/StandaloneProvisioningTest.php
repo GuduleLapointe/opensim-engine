@@ -205,6 +205,24 @@ describe('The shared files of a standalone', function () {
             ->toContain('StorageProvider = "OpenSim.Data.SQLite.dll"')
             ->toContain('ConnectionString = "URI=file:${Const|DataDirectory}/OpenSim.db,version=3,UseUTF16Encoding=True"');
     });
+
+    test('uses the reachable host for a region in a container', function () {
+        [$dir, $bin] = standalone_folder();
+        $plan = new SimulatorPlan();
+        $plan->gridDir = $dir;
+        $plan->configDir = $dir;
+        $plan->gridNick = 'grid';
+        $plan->gridName = 'Grid';
+        $plan->simulatorName = 'Welcome';
+        $plan->slug = 'grid.welcome';
+        $plan->dataDirectory = "$dir/data";
+        $plan->coreDirectory = $bin;
+        $plan->externalHost = 'vonda.magiiic.com';
+
+        expect((new SimulatorConfig())->renderRegion($plan))
+            ->toContain('ResolveAddress = True')
+            ->toContain('ExternalHostName = vonda.magiiic.com');
+    });
 });
 
 /** The plan of the services of a standalone over a folder made by standalone_folder(). */
@@ -503,6 +521,18 @@ describe('The questions about a standalone', function () {
             ->toBe('sqlite')
             ->and(SetupFile::gridValues($file)['database_driver'])
             ->toBe('sqlite');
+    });
+
+    test('keeps a simulator public address in its setup file', function () {
+        $values = SetupFile::simulatorValues([
+            'simulators' => [['external_host' => 'vonda.magiiic.com']],
+        ], 0);
+        $plan = new \OpenSim\Provisioning\SimulatorPlan();
+        $plan->externalHost = 'vonda.magiiic.com';
+
+        expect($values)->toMatchArray(['external_host' => 'vonda.magiiic.com']);
+        expect(SetupFile::withSimulator([], $plan)['simulators'][0])
+            ->toMatchArray(['external_host' => 'vonda.magiiic.com']);
     });
 });
 
