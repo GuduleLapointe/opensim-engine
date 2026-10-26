@@ -2,6 +2,20 @@
 
 ### Unreleased
 
+- feature (setup): collect explicit listener ports before provisioning
+- feature (setup): stage an existing region without creating a replacement
+- feature (setup): apply prepared settings without repeating the questionnaire
+- feature (setup): expose the prepared instance identity
+- feature (setup): collect configuration without provisioning
+- feature (container): attach interactive exec to terminal
+- feature (container): add Podman lifecycle library
+- fix (setup): propose portable grid names through the shared generator
+- fix (setup): preserve region identity when applying a move
+- fix (setup): reject changes to confirmed settings on the target
+- fix (api): retain an optional instance on internal errors
+- fix (api): advertise setup capabilities before provisioning
+- update (dependencies): record container tools integration
+
 ### 3.0.0-beta.8
 
 - Upgrading magicoli/bash-tools (1.0.7 => 1.0.8)
