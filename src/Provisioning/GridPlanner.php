@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace OpenSim\Provisioning;
 
-use Nubs\RandomNameGenerator\Alliteration;
 use OpenSim\Result;
 use OpenSim\Config\ConfigReader;
 use OpenSim\Forms\FieldSet;
@@ -141,20 +140,10 @@ final class GridPlanner
         return (new Ports($environment))->nextBlock(8000) + 2;
     }
 
-    /** The name a grid is proposed: the one of the machine. */
+    /** A portable grid name proposed by the shared name generator. */
     public static function defaultName(): string
     {
-        [, $host] = ShellService::capture('hostname -s');
-        $short = trim($host);
-        if ($short === '') {
-            [, $fqdn] = ShellService::capture('hostname -f');
-            $short = strtok(trim($fqdn), '.') ?: 'My';
-        }
-
-        $generator = new Alliteration();
-        $short .= "'s " . Slug::ascii($generator->getName()) ?: 'World';
-
-        return ucwords(trim($short));
+        return RandomName::make(static fn(string $name): ?string => Grid::validateName($name));
     }
 
     /** The cores that can run the grid (folder => name). */

@@ -92,6 +92,13 @@ function robust_current(array $set): RobustController
     return new RobustController(EnvironmentFake::with([]), "$directory/Robust.ini", 'amy');
 }
 
+test('proposes a portable grid name', function () {
+    $name = GridPlanner::defaultName();
+    expect($name)->not->toContain("'s ")
+        ->and(Grid::validateName($name))->toBeNull()
+        ->and($name)->toMatch('/^[A-Za-z]+(?: [A-Za-z]+)+$/');
+});
+
 describe('A new grid', function () {
     test(
         'is proposed from the machine: its name, its host, the block of ports, the database named after the nick',
