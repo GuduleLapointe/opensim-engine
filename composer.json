@@ -29,7 +29,8 @@
         "laminas/laminas-escaper": "^2.12@stable",
         "psr/http-message": "^2.0",
         "psr/http-factory": "^1.1",
-        "psr/http-server-handler": "^1.0"
+        "psr/http-server-handler": "^1.0",
+        "magicoli/container-tools": "dev-master"
     },
     "require-dev": {
         "dealerdirect/phpcodesniffer-composer-installer": "^1.2",
