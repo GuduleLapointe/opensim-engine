@@ -132,7 +132,7 @@ final class QuickSetup
     /**
      * @param array<string,mixed> $answers type, name, hostname (destination proposal), login_uri, avatar, password, email and the options (ssl, hypergrid, search,
      *        gloebit, ossl): all optional, a missing one is proposed or, when it cannot be, told in the problems
-     * @return array{valid:bool,problems:array<string,string>,corrected:array<string,string>,identity:string,setup:array<string,mixed>,rows:list<array{section:string,label:string,value:string}>,types:list<array{name:string,label:string,implemented:bool}>,options:list<array{name:string,label:string,default:bool,value:bool,implemented:bool}>}
+     * @return array{valid:bool,problems:array<string,string>,corrected:array<string,string>,identity:string,setup:array<string,mixed>,port_bindings:list<array{port:int,protocol:string,use:string,host_ip:?string}>,rows:list<array{section:string,label:string,value:string}>,types:list<array{name:string,label:string,implemented:bool}>,options:list<array{name:string,label:string,default:bool,value:bool,implemented:bool}>}
      */
     public static function plan(Environment $environment, array $answers): array
     {
@@ -146,13 +146,15 @@ final class QuickSetup
             return self::planRemote($environment, $answers);
         }
         $built = self::build($environment, $answers);
+        $setup = SetupFile::withSimulator(SetupFile::withGrid([], $built['plan']), $built['simulator']);
 
         return [
             'valid' => $built['problems'] === [],
             'problems' => $built['problems'],
             'corrected' => $built['corrected'],
             'identity' => $built['standalone'] ? $built['simulator']->slug : $built['plan']->gridNick,
-            'setup' => SetupFile::withSimulator(SetupFile::withGrid([], $built['plan']), $built['simulator']),
+            'setup' => $setup,
+            'port_bindings' => self::portBindings($setup),
             'rows' => self::rows(
                 $built['plan'],
                 $built['simulator'],
@@ -527,9 +529,62 @@ final class QuickSetup
         }
         return [
             'action' => 'prepared',
-            'configuration' => ['version' => 1, 'identity' => $planned['identity'], 'answers' => $answers, 'setup' => $planned['setup']],
+            'configuration' => [
+                'version' => 1,
+                'identity' => $planned['identity'],
+                'answers' => $answers,
+                'setup' => $planned['setup'],
+                'port_bindings' => $planned['port_bindings'],
+            ],
             'message' => _('Setup configuration prepared.'),
         ];
+    }
+
+    /**
+     * The host publications required by a prepared setup, preserving the controller access policy.
+     *
+     * @param array<string,mixed> $setup
+     * @return list<array{port:int,protocol:string,use:string,host_ip:?string}>
+     */
+    private static function portBindings(array $setup): array
+    {
+        $bindings = [];
+        $add = static function (mixed $port, string $protocol, string $use) use (&$bindings): void {
+            if (!is_numeric($port) || (int) $port < 1 || (int) $port > 65535 || $use === 'off') {
+                return;
+            }
+            $port = (int) $port;
+            $key = "$port/$protocol";
+            $binding = [
+                'port' => $port,
+                'protocol' => $protocol,
+                'use' => $use,
+                'host_ip' => $use === 'public' ? null : '127.0.0.1',
+            ];
+            if (!isset($bindings[$key]) || $use === 'public') {
+                $bindings[$key] = $binding;
+            }
+        };
+
+        $grid = is_array($setup['grid'] ?? null) ? $setup['grid'] : [];
+        $add($grid['public_port'] ?? null, 'tcp', 'public');
+        $add($grid['private_port'] ?? null, 'tcp', 'private');
+        ($grid['console'] ?? '') === 'rest' && $add($grid['console_port'] ?? null, 'tcp', 'console');
+
+        foreach (is_array($setup['simulators'] ?? null) ? $setup['simulators'] : [] as $simulator) {
+            if (!is_array($simulator)) {
+                continue;
+            }
+            $add($simulator['http_port'] ?? null, 'tcp', 'public');
+            ($simulator['console'] ?? '') === 'rest' && $add($simulator['console_port'] ?? null, 'tcp', 'console');
+            foreach (is_array($simulator['regions'] ?? null) ? $simulator['regions'] : [] as $region) {
+                is_array($region) && $add($region['port'] ?? null, 'udp', 'public');
+            }
+        }
+
+        uasort($bindings, static fn(array $a, array $b): int => [$a['port'], $a['protocol']] <=> [$b['port'], $b['protocol']]);
+
+        return array_values($bindings);
     }
 
     /** Apply a confirmed, versioned configuration without repeating the questionnaire. */
@@ -1130,13 +1185,15 @@ final class QuickSetup
     {
         $built = self::buildRemote($environment, $answers);
         $simulator = $built['simulator'];
+        $setup = $simulator !== null ? SetupFile::withSimulator([], $simulator) : [];
 
         return [
             'valid' => $built['problems'] === [],
             'problems' => $built['problems'],
             'corrected' => $built['corrected'],
             'identity' => $simulator?->slug ?? '',
-            'setup' => $simulator !== null ? SetupFile::withSimulator([], $simulator) : [],
+            'setup' => $setup,
+            'port_bindings' => self::portBindings($setup),
             'rows' => $simulator !== null ? self::remoteRows($built['grid'], $simulator, $built['preset']) : [],
             'types' => self::publicTypes(self::types($environment)),
             'options' => [],

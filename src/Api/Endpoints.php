@@ -640,7 +640,7 @@ final class Endpoints
                     'description' => 'The next screen, or the action to do',
                     'content' => $document('steps', [
                         'action' => ['type' => 'string', 'enum' => ['screen', 'quit', 'abort', 'prepared']],
-                        'configuration' => ['type' => 'object', 'description' => 'Of prepared: instance identity, answers and setup preview. Contains credentials; save privately and do not log it.'],
+                        'configuration' => ['type' => 'object', 'description' => 'Of prepared: instance identity, answers, setup preview and engine-generated TCP/UDP port bindings. Contains credentials; save privately and do not log it.'],
                         'mode' => ['type' => 'string', 'enum' => ['prepare'], 'description' => 'Returned on every prepare reply, confirming that no provisioning will run.'],
                         'kind' => ['type' => 'string', 'enum' => ['menu', 'form', 'checks', 'review'], 'description' => 'Of a screen'],
                         'name' => ['type' => 'string', 'description' => 'Of a menu: the name of its answer'],

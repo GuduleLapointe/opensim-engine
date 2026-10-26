@@ -54,6 +54,28 @@ describe('quick setup of a grid', function () {
             ->toContain('already in use on the selected host');
     });
 
+    test('describes TCP and UDP bindings for the prepared setup', function () {
+        $result = QuickSetup::plan((new Machine())->environment, quick_answers());
+
+        expect($result['port_bindings'])->toBe([
+            ['port' => 8102, 'protocol' => 'tcp', 'use' => 'public', 'host_ip' => null],
+            ['port' => 8103, 'protocol' => 'tcp', 'use' => 'private', 'host_ip' => '127.0.0.1'],
+            ['port' => 8104, 'protocol' => 'tcp', 'use' => 'console', 'host_ip' => '127.0.0.1'],
+            ['port' => 9100, 'protocol' => 'tcp', 'use' => 'public', 'host_ip' => null],
+            ['port' => 9101, 'protocol' => 'udp', 'use' => 'public', 'host_ip' => null],
+            ['port' => 9104, 'protocol' => 'tcp', 'use' => 'console', 'host_ip' => '127.0.0.1'],
+        ]);
+    });
+
+    test('deduplicates the standalone login listener', function () {
+        $result = QuickSetup::plan((new Machine())->environment, quick_answers(['type' => 'standalone']));
+        $login = array_values(array_filter($result['port_bindings'], static fn(array $binding): bool => $binding['port'] === 8102));
+
+        expect($login)->toBe([
+            ['port' => 8102, 'protocol' => 'tcp', 'use' => 'public', 'host_ip' => null],
+        ]);
+    });
+
     test('is the grid and its first simulator, with the address, the avatar that owns them and the proposals for the rest', function () {
         $result = QuickSetup::plan((new Machine())->environment, quick_answers());
         $setup = $result['setup'];
@@ -703,6 +725,8 @@ describe('setup preparation', function () {
                 'type' => 'grid', 'name' => 'Magic Grid', 'password' => 'secret123',
                 'admin_user' => 'opensim_admin', 'admin_password' => 'admin-secret',
             ])
+            ->and($done['configuration']['port_bindings'])
+            ->toBe(QuickSetup::plan($machine->environment, quick_answers())['port_bindings'])
             ->and($done['configuration']['setup']['grid']['nick'])->toBe('magic_grid')
             ->and($called)->toBeFalse()
             ->and(is_dir($machine->etc . '/grids/magic_grid'))->toBeFalse();
