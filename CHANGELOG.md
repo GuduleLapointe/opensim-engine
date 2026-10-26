@@ -1,6 +1,6 @@
 ## Changelog
 
-### Unreleased
+### 3.0.0-beta.9
 
 - feature (setup): collect explicit listener ports before provisioning
 - feature (setup): stage an existing region without creating a replacement
