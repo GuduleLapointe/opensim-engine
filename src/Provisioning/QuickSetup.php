@@ -130,7 +130,7 @@ final class QuickSetup
     /**
      * @param array<string,mixed> $answers type, name, login_uri, avatar, password, email and the options (ssl, hypergrid, search,
      *        gloebit, ossl): all optional, a missing one is proposed or, when it cannot be, told in the problems
-     * @return array{valid:bool,problems:array<string,string>,corrected:array<string,string>,setup:array<string,mixed>,rows:list<array{section:string,label:string,value:string}>,types:list<array{name:string,label:string,implemented:bool}>,options:list<array{name:string,label:string,default:bool,value:bool,implemented:bool}>}
+     * @return array{valid:bool,problems:array<string,string>,corrected:array<string,string>,identity:string,setup:array<string,mixed>,rows:list<array{section:string,label:string,value:string}>,types:list<array{name:string,label:string,implemented:bool}>,options:list<array{name:string,label:string,default:bool,value:bool,implemented:bool}>}
      */
     public static function plan(Environment $environment, array $answers): array
     {
@@ -149,6 +149,7 @@ final class QuickSetup
             'valid' => $built['problems'] === [],
             'problems' => $built['problems'],
             'corrected' => $built['corrected'],
+            'identity' => $built['standalone'] ? $built['simulator']->slug : $built['plan']->gridNick,
             'setup' => SetupFile::withSimulator(SetupFile::withGrid([], $built['plan']), $built['simulator']),
             'rows' => self::rows(
                 $built['plan'],
@@ -464,7 +465,7 @@ final class QuickSetup
         }
         return [
             'action' => 'prepared',
-            'configuration' => ['answers' => $answers, 'setup' => $planned['setup']],
+            'configuration' => ['identity' => $planned['identity'], 'answers' => $answers, 'setup' => $planned['setup']],
             'message' => _('Setup configuration prepared.'),
         ];
     }
@@ -974,6 +975,7 @@ final class QuickSetup
             'valid' => $built['problems'] === [],
             'problems' => $built['problems'],
             'corrected' => $built['corrected'],
+            'identity' => $simulator?->slug ?? '',
             'setup' => $simulator !== null ? SetupFile::withSimulator([], $simulator) : [],
             'rows' => $simulator !== null ? self::remoteRows($built['grid'], $simulator, $built['preset']) : [],
             'types' => self::publicTypes(self::types($environment)),

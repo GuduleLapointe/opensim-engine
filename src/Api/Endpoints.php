@@ -547,6 +547,7 @@ final class Endpoints
                             'description' => 'The answers the setup rewrote (a name with accents, transliterated), by question: show them in the form, the person validates the change by sending it again',
                             'additionalProperties' => ['type' => 'string'],
                         ],
+                        'identity' => ['type' => 'string', 'description' => 'The grid nick, or the complete simulator instance name for a standalone or remote simulator'],
                         'setup' => ['type' => 'object', 'description' => 'The grid, its simulator, its owner'],
                         'rows' => [
                             'type' => 'array',
@@ -630,7 +631,7 @@ final class Endpoints
                     'description' => 'The next screen, or the action to do',
                     'content' => $document('steps', [
                         'action' => ['type' => 'string', 'enum' => ['screen', 'quit', 'abort', 'prepared']],
-                        'configuration' => ['type' => 'object', 'description' => 'Of prepared: answers and setup preview. Contains credentials; save privately and do not log it.'],
+                        'configuration' => ['type' => 'object', 'description' => 'Of prepared: instance identity, answers and setup preview. Contains credentials; save privately and do not log it.'],
                         'mode' => ['type' => 'string', 'enum' => ['prepare'], 'description' => 'Returned on every prepare reply, confirming that no provisioning will run.'],
                         'kind' => ['type' => 'string', 'enum' => ['menu', 'form', 'checks', 'review'], 'description' => 'Of a screen'],
                         'name' => ['type' => 'string', 'description' => 'Of a menu: the name of its answer'],

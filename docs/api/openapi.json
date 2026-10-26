@@ -2,7 +2,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "OpenSim engine",
-        "version": "ff4d05f",
+        "version": "8dab1af",
         "license": {
             "name": "AGPL-3.0-or-later",
             "identifier": "AGPL-3.0-or-later"
@@ -4509,6 +4509,10 @@
                                                                 "type": "string"
                                                             }
                                                         },
+                                                        "identity": {
+                                                            "type": "string",
+                                                            "description": "The grid nick, or the complete simulator instance name for a standalone or remote simulator"
+                                                        },
                                                         "setup": {
                                                             "type": "object",
                                                             "description": "The grid, its simulator, its owner"
@@ -4685,7 +4689,7 @@
                                                         },
                                                         "configuration": {
                                                             "type": "object",
-                                                            "description": "Of prepared: answers and setup preview. Contains credentials; save privately and do not log it."
+                                                            "description": "Of prepared: instance identity, answers and setup preview. Contains credentials; save privately and do not log it."
                                                         },
                                                         "mode": {
                                                             "type": "string",

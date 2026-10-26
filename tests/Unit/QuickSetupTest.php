@@ -557,6 +557,17 @@ describe('setup preparation', function () {
             ->and(is_dir($machine->etc . '/grids/magic_grid'))->toBeFalse();
     });
 
+    test('prepares the instance identity', function (string $type, string $expected) {
+        $machine = new Machine();
+        $review = quick_until($machine, 'review', $type);
+        $database = QuickSetup::next($machine->environment, ['mode' => 'prepare', 'state' => $review['state']]);
+        $done = QuickSetup::next($machine->environment, [
+            'mode' => 'prepare', 'state' => $database['state'],
+            'answers' => array_column($database['fields'], 'value', 'name'),
+        ]);
+        expect($done['configuration']['identity'])->toBe($expected);
+    })->with(['grid' => ['grid', 'magic_grid'], 'standalone' => ['standalone', 'magic_grid.magic_grid']]);
+
     test('keeps preparation cancellable', function () {
         $machine = new Machine();
         $review = quick_until($machine, 'review');
