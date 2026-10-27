@@ -48,4 +48,58 @@ final class Snippets
             'listen_port' => (string) ($scheme === 'http' ? $port ?? 80 : 80),
         ];
     }
+
+    /**
+     * Render the web-server include for a grid from its shipped preset.
+     *
+     * @throws \InvalidArgumentException when the server has no preset
+     * @throws \RuntimeException when the preset file cannot be read
+     */
+    public static function render(
+        string $server,
+        string $nick,
+        string $gridDirectory,
+        string $docroot = '',
+        string $socket = '',
+        string $webUrl = '',
+    ): string {
+        $server = strtolower(trim($server));
+        if (!in_array($server, self::SERVERS, true)) {
+            throw new \InvalidArgumentException("unknown web server '$server'");
+        }
+
+        $preset = ((new Presets())->options()["webserver-$server"] ?? null)?->directory();
+        $templates = glob(($preset ?? '') . '/web/*') ?: [];
+        if ($preset === null || $templates === []) {
+            throw new \RuntimeException("web-server preset '$server' is not installed");
+        }
+        $template = $templates[0];
+        $text = file_get_contents($template);
+        if ($text === false) {
+            throw new \RuntimeException("cannot read web-server preset $template");
+        }
+
+        $webUrl = $webUrl !== '' ? $webUrl : HelpersConfig::webUrl($gridDirectory);
+        $services = HelpersConfig::services($gridDirectory);
+        $segments = [];
+        foreach ([...array_keys(Services::SCRIPTS), ...array_keys(Services::PAGES)] as $page) {
+            $segment = explode('/', trim($services->path($page), '/'))[0];
+            $segment === '' || ($segments[$segment] = true);
+        }
+        $segments['health'] = true;
+        $variables = self::siteVariables($webUrl) + [
+            'grid_nick' => $nick,
+            'grid_dir' => rtrim($gridDirectory, '/'),
+            'docroot' => $docroot !== '' ? $docroot : self::WEBROOT . '/html',
+            'php_socket' => $socket !== '' ? $socket : '/run/php/php-fpm.sock',
+            'web_globs' => implode(' ', array_map(static fn(string $path): string => "/$path*", array_keys($segments))),
+            'web_regex' => implode('|', array_map('preg_quote', array_keys($segments))),
+        ];
+
+        return (string) preg_replace_callback(
+            '/{{([a-z_]+)}}/',
+            static fn(array $match): string => $variables[$match[1]] ?? $match[0],
+            $text,
+        );
+    }
 }

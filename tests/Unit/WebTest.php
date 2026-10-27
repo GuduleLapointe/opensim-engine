@@ -132,3 +132,25 @@ describe('Pages', function () {
             ->toBe('/health');
     });
 });
+
+describe('Web server snippets', function () {
+    test('renders the selected preset with grid and runtime paths', function () {
+        $dir = test_tmp() . '/web-snippet-' . bin2hex(random_bytes(4));
+        mkdir($dir);
+        file_put_contents("$dir/Robust.ini", "[Const]\nWebURL = \"https://grid.example.test\"\n");
+
+        $snippet = Snippets::render('caddy', 'test_grid', $dir, '/srv/opensim-helpers/html', '/run/php/test.sock');
+
+        expect($snippet)
+            ->toContain('grid.example.test')
+            ->toContain('/srv/opensim-helpers/html')
+            ->toContain('/run/php/test.sock')
+            ->toContain('OPENSIM_GRID test_grid')
+            ->not->toContain('{{');
+    });
+
+    test('rejects an unknown web server', function () {
+        expect(fn() => Snippets::render('unknown', 'test_grid', '/tmp/grid'))
+            ->toThrow(InvalidArgumentException::class);
+    });
+});

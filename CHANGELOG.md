@@ -2,6 +2,8 @@
 
 ### Unreleased
 
+- feature (web): render web server snippets from shipped presets
+
 ### 3.0.0-beta.10
 
 - magicoli/build-tools 0.1.10 => 0.1.11
