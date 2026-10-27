@@ -72,6 +72,10 @@ final class Endpoints
                 'description' =>
                     'The rules of the setup, for the tools that make a grid: from a few answers, the whole setup they stand for and what is wrong with them. Nothing is written, the tool shows the setup, asks again what is wrong and applies it.',
             ],
+            [
+                'name' => 'System',
+                'description' => 'The resolved OpenSim system layout and its Unix identities.',
+            ],
         ];
 
         $document = static fn(string $type, array $attributes): array => [
@@ -484,6 +488,50 @@ final class Endpoints
                                 'example' => [
                                     'value' =>
                                         "<?xml version=\"1.0\"?>\n<gridinfo><gridname>Demo World</gridname><gridnick>demo</gridnick><login>http://grid.example.org:8002/</login><economy>https://web.example.org/helpers</economy><search>https://web.example.org/search</search></gridinfo>",
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $paths['/layout']['get'] = [
+            'operationId' => 'getLayout',
+            'tags' => ['System'],
+            'summary' => 'System layout',
+            'description' => 'The resolved `opensim.conf` layout, the configured SystemUser identity, and the current process identity. This operator endpoint is protected by the API key.',
+            'responses' => [
+                '200' => [
+                    'description' => 'The resolved layout and identities',
+                    'content' => [
+                        Response::JSON_API => [
+                            'schema' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'data' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'type' => ['const' => 'layout'],
+                                            'id' => ['const' => 'system'],
+                                            'attributes' => [
+                                                'type' => 'object',
+                                                'properties' => [
+                                                    'systemUser' => ['type' => 'string'],
+                                                    'systemUid' => ['type' => 'integer'],
+                                                    'systemGroup' => ['type' => 'string'],
+                                                    'systemGid' => ['type' => 'integer'],
+                                                    'currentUser' => ['type' => 'string'],
+                                                    'currentUid' => ['type' => 'integer'],
+                                                    'currentGroup' => ['type' => 'string'],
+                                                    'currentGid' => ['type' => 'integer'],
+                                                    'etcRoot' => ['type' => 'string'],
+                                                    'varRoot' => ['type' => 'string'],
+                                                    'logsRoot' => ['type' => 'string'],
+                                                ],
+                                            ],
+                                        ],
+                                    ],
                                 ],
                             ],
                         ],

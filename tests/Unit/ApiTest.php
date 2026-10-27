@@ -37,6 +37,38 @@ function first_attributes(Response $response): array
 }
 
 describe('The API', function () {
+    test('returns the resolved layout and system identities', function () {
+        $uid = posix_geteuid();
+        $gid = posix_getegid();
+        $user = posix_getpwuid($uid);
+        $group = posix_getgrgid($gid);
+        $environment = OpenSim\Testing\EnvironmentFake::with([
+            'SystemUser' => (string) $user['name'],
+            'EtcRoot' => '/etc/opensim-test',
+            'VarRoot' => '/var/lib/opensim-test',
+            'LogsRoot' => '/var/log/opensim-test',
+        ]);
+        $response = (new OpenSim\Api\Router(new Api($environment)))->get('/layout');
+        $systemGroup = posix_getgrgid((int) $user['gid']);
+
+        expect($response->status)
+            ->toBe(200)
+            ->and($response->document['data']['attributes'])
+            ->toMatchArray([
+                'systemUser' => $user['name'],
+                'systemUid' => $uid,
+                'systemGroup' => $systemGroup['name'],
+                'systemGid' => (int) $user['gid'],
+                'currentUser' => $user['name'],
+                'currentUid' => $uid,
+                'currentGroup' => $group['name'],
+                'currentGid' => $gid,
+                'etcRoot' => '/etc/opensim-test',
+                'varRoot' => '/var/lib/opensim-test',
+                'logsRoot' => '/var/log/opensim-test',
+            ]);
+    });
+
     test('lists the resources of a type in a JSON:API document, with the page and what was applied', function () {
         $api = machine_api();
         $response = $api->list('services', [
@@ -337,6 +369,7 @@ describe('The contract', function () {
                 ->toBe('3.1.0')
                 ->and(array_keys($paths))
                 ->toContain(
+                    '/layout',
                     '/grids',
                     '/grids/{id}',
                     '/services',
@@ -629,6 +662,7 @@ describe('The endpoints of a fixed format', function () {
         $paths = Contract::document()['paths'];
         $served = [
             ['get', '/openapi.json', false],
+            ['get', '/layout', true],
             ['post', '/tasks/{id}/runs', true],
             ['get', '/grids/{grid}/assets/{id}.{format}', true],
             ['get', '/text-images', true],

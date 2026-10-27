@@ -37,6 +37,28 @@ describe('script opensim-api', function () {
             ->toBe(['standalone' => false]);
     });
 
+    test('returns the resolved machine layout as JSON', function () {
+        [$status, $out] = api_script(['GET', '/layout']);
+        $attributes = json_decode($out, true)['data']['attributes'];
+
+        expect($status)
+            ->toBe(0)
+            ->and($attributes)
+            ->toHaveKeys([
+                'systemUser',
+                'systemUid',
+                'systemGroup',
+                'systemGid',
+                'currentUser',
+                'currentUid',
+                'currentGroup',
+                'currentGid',
+                'etcRoot',
+                'varRoot',
+                'logsRoot',
+            ]);
+    });
+
     test('fails with 1 for a problem of the request, says the usage for no words, and refuses an option it does not know', function () {
         expect(api_script(['GET', '/nowhere'])[0])
             ->toBe(1)

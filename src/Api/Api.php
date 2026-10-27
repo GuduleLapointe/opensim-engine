@@ -722,6 +722,19 @@ final class Api
         ]);
     }
 
+    /** The resolved system layout and the identities that own or access it. */
+    public function layout(): Response
+    {
+        return Response::document([
+            'data' => [
+                'type' => 'layout',
+                'id' => 'system',
+                'attributes' => $this->environment->layout->systemInfo(),
+            ],
+            'links' => ['self' => '/layout'],
+        ]);
+    }
+
     /**
      * What waits for the answer to be sent: a simulator that registers is read, then the tasks that are due run. The application calls
      * it once the response is on its way (a PSR-15 handler cannot).

@@ -179,6 +179,9 @@ final class Router
         if ($segments === ['openapi.json']) {
             $template = '/openapi.json';
             $routes = ['GET' => fn() => new Response(200, ['Content-Type' => self::OPENAPI], Contract::document())];
+        } elseif ($segments === ['layout']) {
+            $template = '/layout';
+            $routes = ['GET' => fn() => $this->api->layout()];
         } elseif (count($segments) === 3 && $segments[0] === 'tasks' && $segments[2] === 'runs') {
             $template = '/tasks/{id}/runs';
             $routes = ['POST' => fn() => $this->api->run($segments[1])];

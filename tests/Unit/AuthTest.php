@@ -113,6 +113,7 @@ describe('The API handler, closed', function () {
 
         $grids = auth_ask($closed, 'GET', '/api/grids');
         $health = auth_ask($closed, 'GET', '/api/grids/demo/health');
+        $layout = auth_ask($closed, 'GET', '/api/layout');
         $run = auth_ask($closed, 'POST', '/api/tasks/search-parse/runs');
 
         expect($grids->getStatusCode())
@@ -124,7 +125,9 @@ describe('The API handler, closed', function () {
             ->and(json_decode((string) $grids->getBody(), true)['detail'])
             ->toContain('API key')
             ->and([$health->getStatusCode(), $run->getStatusCode()])
-            ->toBe([401, 401]);
+            ->toBe([401, 401])
+            ->and($layout->getStatusCode())
+            ->toBe(401);
     });
 
     test('lets in a key that is valid, and refuses a forged one, a revoked one, and no key', function () {

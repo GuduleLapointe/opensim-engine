@@ -19,6 +19,7 @@
         "ext-mbstring": "*",
         "ext-mysqli": "*",
         "ext-pdo": "*",
+        "ext-posix": "*",
         "ext-session": "*",
         "ext-simplexml": "*",
         "magicoli/opensim-rest-php": "@dev",

@@ -198,6 +198,39 @@ final class Layout
         return $this->get('SystemUser');
     }
 
+    /** The resolved paths and Unix identities of this install. @return array<string,string|int> */
+    public function systemInfo(): array
+    {
+        if (!function_exists('posix_geteuid')) {
+            throw new \RuntimeException('The PHP POSIX extension is required to read system identities');
+        }
+
+        $currentUid = posix_geteuid();
+        $currentGid = posix_getegid();
+        $current = posix_getpwuid($currentUid);
+        $currentGroup = posix_getgrgid($currentGid);
+        $systemUser = $this->systemUser();
+        $system = $systemUser !== '' ? posix_getpwnam($systemUser) : $current;
+        if ($system === false) {
+            throw new \RuntimeException("SystemUser '$systemUser' does not exist");
+        }
+        $systemGroup = posix_getgrgid((int) $system['gid']);
+
+        return [
+            'systemUser' => $systemUser,
+            'systemUid' => (int) $system['uid'],
+            'systemGroup' => (string) ($systemGroup['name'] ?? ''),
+            'systemGid' => (int) $system['gid'],
+            'currentUser' => (string) ($current['name'] ?? ''),
+            'currentUid' => $currentUid,
+            'currentGroup' => (string) ($currentGroup['name'] ?? ''),
+            'currentGid' => $currentGid,
+            'etcRoot' => $this->etcRoot(),
+            'varRoot' => $this->varRoot(),
+            'logsRoot' => $this->logsRoot(),
+        ];
+    }
+
     /** @return list<string> the modules enabled for the regions (EnabledModules, comma or space separated) */
     public function enabledModules(): array
     {
