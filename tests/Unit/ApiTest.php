@@ -37,6 +37,16 @@ function first_attributes(Response $response): array
 }
 
 describe('The API', function () {
+    test('uses the current account when SystemUser is not configured', function () {
+        $uid = posix_geteuid();
+        $user = posix_getpwuid($uid);
+        $environment = OpenSim\Testing\EnvironmentFake::with();
+        $response = (new OpenSim\Api\Router(new Api($environment)))->get('/layout');
+
+        expect($response->document['data']['attributes']['systemUser'])
+            ->toBe($user['name']);
+    });
+
     test('returns the resolved layout and system identities', function () {
         $uid = posix_geteuid();
         $gid = posix_getegid();

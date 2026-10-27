@@ -217,7 +217,7 @@ final class Layout
         $systemGroup = posix_getgrgid((int) $system['gid']);
 
         return [
-            'systemUser' => $systemUser,
+            'systemUser' => (string) ($system['name'] ?? ''),
             'systemUid' => (int) $system['uid'],
             'systemGroup' => (string) ($systemGroup['name'] ?? ''),
             'systemGid' => (int) $system['gid'],
