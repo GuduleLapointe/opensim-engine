@@ -842,13 +842,11 @@ final class QuickSetup
         while ($existing !== dirname($existing) && !file_exists($existing)) {
             $existing = dirname($existing);
         }
-        // As root, a machine that has no system layout gets it: the account, the folders, opensim.conf
-        if ((!is_dir($existing) || !is_writable($existing)) && SystemLayout::needed($environment->layout)) {
-            (new SystemLayout(new NullUi(live: true)))->prepare($environment->layout);
-            $existing = $gridDir;
-            while ($existing !== dirname($existing) && !file_exists($existing)) {
-                $existing = dirname($existing);
-            }
+        if (SystemLayout::needed($environment->layout)) {
+            return [
+                'action' => 'abort',
+                'error' => _('The OpenSim system layout is missing: install opensim-engine before running setup.'),
+            ];
         }
         if (!is_dir($existing) || !is_writable($existing)) {
             return [

@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 use OpenSim\Api\Api;
 use OpenSim\Api\Router;
+use OpenSim\Config\Layout;
 use OpenSim\Models\Grid;
 use OpenSim\Provisioning\GridPlan;
 use OpenSim\Provisioning\QuickSetup;
@@ -15,6 +16,7 @@ use OpenSim\Provisioning\SimulatorPlan;
 use OpenSim\Provisioning\DatabaseService;
 use OpenSim\Provisioning\InstanceControl;
 use OpenSim\Provisioning\UiInterface;
+use OpenSim\Runtime\Environment;
 use OpenSim\Testing\Machine;
 
 /** The answers of a person who knows what they want. */
@@ -1078,6 +1080,38 @@ describe('quick setup, the scenario', function () {
             ->toBe('abort')
             ->and($done['error'])
             ->toContain('Cannot write in', "{$machine->etc}/grids");
+    });
+
+    test('requires the install to create the system layout', function () {
+        $machine = new Machine();
+        $etc = "{$machine->root}/not-a-directory";
+        file_put_contents($etc, '');
+        $current = $machine->environment;
+        $machine->environment = new Environment(
+            new Layout([
+                'EtcRoot' => $etc,
+                'CoreRoot' => "{$machine->root}/core",
+                'VarRoot' => "{$machine->root}/var",
+                'DataRoot' => "{$machine->root}/data",
+                'LogsRoot' => "{$machine->root}/logs",
+                'CacheRoot' => "{$machine->root}/cache",
+            ]),
+            $current->processes,
+            $current->launcher,
+            $current->consoles,
+            $current->clock,
+            $current->reporter,
+            $current->portMapping,
+            $current->probe,
+            $current->http,
+        );
+        $review = quick_until($machine, 'review');
+        $done = quick_step($machine, $review);
+
+        expect($done)->toMatchArray([
+            'action' => 'abort',
+            'error' => 'The OpenSim system layout is missing: install opensim-engine before running setup.',
+        ]);
     });
 
     test('puts the helpers on, and says so, when Gloebit needs them', function () {

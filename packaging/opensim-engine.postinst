@@ -8,8 +8,10 @@ engine=/usr/share/opensim-engine/bin
 
 case "$1" in
     configure)
-        php "$engine/opensim-layout.php" ||
-            echo "opensim-engine: could not make the system layout, 'opensim setup' will try again" >&2
+        php "$engine/opensim-layout.php" || {
+            echo "opensim-engine: could not make the system layout" >&2
+            exit 1
+        }
         php "$engine/opensim-profiles.php" ||
             echo "opensim-engine: could not update the install profiles in /etc/opensim/opensim.conf" >&2
         # The files a grid needs that it does not have yet, made as the account of the instances
