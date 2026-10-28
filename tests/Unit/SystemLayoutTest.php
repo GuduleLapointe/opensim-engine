@@ -68,6 +68,26 @@ describe('The system layout', function () {
         exec('rm -rf ' . escapeshellarg($base));
     });
 
+    test('does not modify membership when the system user is already in the web group', function () {
+        $base = sys_get_temp_dir() . '/syslayout-group-' . getmypid();
+        $commands = [];
+        $made = (new SystemLayout(
+            new NullUi(),
+            function (string $command) use (&$commands): int {
+                $commands[] = $command;
+
+                return 0;
+            },
+            fn() => true,
+            true,
+            fn(string $name): array|false => $name === 'www-data' ? ['members' => ['opensim']] : false,
+        ))->prepare(system_layout_roots($base));
+
+        expect($made)->toBeTrue()
+            ->and(implode("\n", $commands))->not->toContain('/usr/sbin/usermod');
+        exec('rm -rf ' . escapeshellarg($base));
+    });
+
     test('refuses when it is not root', function () {
         $ui = new NullUi();
 

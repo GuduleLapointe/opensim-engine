@@ -25,12 +25,14 @@ final class SystemLayout
      * @param ?\Closure(string):int $run runs a command, returns its status (default: the shell)
      * @param ?\Closure(string):bool $userExists whether an account exists (default: the system's)
      * @param ?bool $root whether this process is root (default: it is when its user id is 0)
+     * @param ?\Closure(string):array|false $groupInfo the members of a system group (default: the system's)
      */
     public function __construct(
         private readonly UiInterface $ui,
         private readonly ?\Closure $run = null,
         private readonly ?\Closure $userExists = null,
         private readonly ?bool $root = null,
+        private readonly ?\Closure $groupInfo = null,
     ) {}
 
     /** Whether the place of the grids cannot be written by whoever calls: the layout has to be made. */
@@ -85,8 +87,11 @@ final class SystemLayout
             $this->execute(sprintf('command -v dpkg-statoverride >/dev/null 2>&1 && { dpkg-statoverride --list %1$s >/dev/null || dpkg-statoverride --update --add %2$s %2$s 755 %1$s; } || true', ShellService::arg($dir), ShellService::arg($user)));
         }
         $this->ui->note(sprintf(_('Folders ready in %s, %s, %s.'), $etc, $layout->varRoot(), $layout->logsRoot()));
-        // The web server reads the ini files of the grids, which may hold a password: through the group of the account
-        $this->execute("getent group www-data >/dev/null 2>&1 && usermod -aG www-data " . ShellService::arg($user));
+        // The setup process needs this group to protect files for the web server
+        $webGroup = ($this->groupInfo ?? static fn(string $name): array|false => function_exists('posix_getgrnam') ? posix_getgrnam($name) : false)('www-data');
+        if ($webGroup !== false && !in_array($user, $webGroup['members'], true)) {
+            $this->execute(sprintf('/usr/sbin/usermod -aG www-data %s', ShellService::arg($user)));
+        }
 
         $conf = "$etc/opensim.conf";
         if (!is_file($conf)) {
