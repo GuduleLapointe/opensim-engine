@@ -1,6 +1,6 @@
 ## Changelog
 
-### Unreleased
+### 3.0.0-beta.11
 
 - feature (web): render web server snippets from shipped presets
 
