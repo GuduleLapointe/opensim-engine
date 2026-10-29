@@ -16,13 +16,21 @@
 
 The OpenSimulator Engine provides core functionality for managing OpenSim grids, but requires a parent application to function. It handles database operations, configuration management, and OpenSim protocol communication, but provides no user interface or web endpoints.
 
-## 📜 Project History
+## Quick Start for grid/simulator admin
+
+**Don't install this directly!** Instead, choose a complete solution:
+
+- **[OpenSim CLI](https://github.com/GuduleLapointe/opensim-cli)** - Command-line tools to install and manage your grid or standalone simulator. Includes this engine, web helpers and admin tools.
+- **[W4OS WordPress Plugin](https://github.com/GuduleLapointe/w4os/)** - Complete WordPress integration for OpenSim grids. **Best for:** Complete integration in a WordPress website.
+- **[OpenSim Helpers](https://github.com/magicoli/opensim-helpers)** - Provides mainly helpers/ required by OpenSim grids to function properly, as well as minimal webui features. **Best for:** Separate helpers management, with minimal integration with the website.
+
+## Project History
 
 This library consolidates **over a decade of OpenSimulator integration work** that was previously scattered across multiple projects. While the dedicated engine repository is recent, the functionality has evolved through years of real-world usage in production OpenSim grids.
 
 The code has been **battle-tested** across different implementations before being organized into this reusable, framework-agnostic library.
 
-## 🎯 What This Library Does
+## What This Library Does
 
 - ✅ **The models of a grid** - grids, simulators, services, avatars, regions, parcels, estates: listed, found, changed, the same way (`docs/data.md`)
 - ✅ **The controllers** - Robust and OpenSim processes: start, stop, restart, status, console
@@ -33,7 +41,7 @@ The code has been **battle-tested** across different implementations before bein
 - ✅ **A contract** - resources as JSON:API documents, errors as RFC 9457 problems, an OpenAPI document checked against the models
 - ✅ **Security functions, forms, archives (OAR, IAR), health checks**
 
-## 🚫 What This Library Does NOT Do
+## What This Library Does NOT Do
 
 - ❌ No web interface or HTML pages
 - ❌ No user HTTP request handling
@@ -45,13 +53,6 @@ The code has been **battle-tested** across different implementations before bein
 - Use this engine to build your own OpenSim management applications
 - Integrate OpenSim functionality into existing PHP projects
 - Create custom grid administration tools
-
-## 🚀 Quick Start for End Users
-
-**Don't install this directly!** Instead, choose a complete solution:
-
-- **[W4OS WordPress Plugin](https://github.com/GuduleLapointe/w4os/)** - Complete WordPress integration for OpenSim grids. **Best for:** Complete integration in a WordPress website.
-- **[OpenSim Helpers](https://github.com/magicoli/opensim-helpers)** - Provides mainly helpers/ required by OpenSim grids to function properly, as well as minimal webui features. **Best for:** Separate helpers management, with minimal integration with the website.
 
 ## Requirements
 
@@ -79,22 +80,22 @@ $grid->start(simulators: true);
 
 A grid has one or several Robust instances, each serving some of its services; a standalone grid has none, its simulator serves everything. The simulators inherit the services of their grid.
 
-| Namespace | What it is |
-| --- | --- |
-| `OpenSim\Models` | `Grid`, `Simulator`, `Service` (of the machine), `Avatar`, `Region`, `Parcel`, `Estate` (of a grid's databases) |
-| `OpenSim\Controllers` | `RobustController`, `OpenSimController`: the processes that serve |
-| `OpenSim\Runtime` | `Environment`, `Core` (an OpenSimulator release), the process table, the launcher |
-| `OpenSim\Config` | `Layout` (opensim.conf), `GridConfig` (the files of a grid), `ConfigReader`, `IniEditor` |
-| `OpenSim\Data` | `Database` (the databases of a grid), `Connections`, `OSPDO`, `Collection` |
-| `OpenSim\Provisioning` | planners and provisioners: they answer "what would this be" before "make it" |
-| `OpenSim\Scheduling` | `Scheduler`, `Task`: cron and pseudo cron |
-| `OpenSim\Api` | `Api`, `Contract`, `Problem`, `Handler`: the resources as JSON:API, the errors as RFC 9457, served as a PSR-15 handler; `Formats` and `Endpoints` describe what OpenSimulator and the viewers call; `Legacy` gives the old scripts the standard |
-| `OpenSim\Services` | the services the helpers serve: the search (`SearchQuery`, `SearchRegistry`, `SearchParser`, `EventsParser`), the offline messages, the currency and the land tools, XML-RPC |
-| `OpenSim\Archives`, `Health`, `Hypergrid`, `Network`, `Security`, `Forms`, `Testing` | archives, health checks, hypergrid links, ports, escaping, forms, fakes |
+| Namespace                                                                            | What it is                                                                                                                                                                                                                                      |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OpenSim\Models`                                                                     | `Grid`, `Simulator`, `Service` (of the machine), `Avatar`, `Region`, `Parcel`, `Estate` (of a grid's databases)                                                                                                                                 |
+| `OpenSim\Controllers`                                                                | `RobustController`, `OpenSimController`: the processes that serve                                                                                                                                                                               |
+| `OpenSim\Runtime`                                                                    | `Environment`, `Core` (an OpenSimulator release), the process table, the launcher                                                                                                                                                               |
+| `OpenSim\Config`                                                                     | `Layout` (opensim.conf), `GridConfig` (the files of a grid), `ConfigReader`, `IniEditor`                                                                                                                                                        |
+| `OpenSim\Data`                                                                       | `Database` (the databases of a grid), `Connections`, `OSPDO`, `Collection`                                                                                                                                                                      |
+| `OpenSim\Provisioning`                                                               | planners and provisioners: they answer "what would this be" before "make it"                                                                                                                                                                    |
+| `OpenSim\Scheduling`                                                                 | `Scheduler`, `Task`: cron and pseudo cron                                                                                                                                                                                                       |
+| `OpenSim\Api`                                                                        | `Api`, `Contract`, `Problem`, `Handler`: the resources as JSON:API, the errors as RFC 9457, served as a PSR-15 handler; `Formats` and `Endpoints` describe what OpenSimulator and the viewers call; `Legacy` gives the old scripts the standard |
+| `OpenSim\Services`                                                                   | the services the helpers serve: the search (`SearchQuery`, `SearchRegistry`, `SearchParser`, `EventsParser`), the offline messages, the currency and the land tools, XML-RPC                                                                    |
+| `OpenSim\Archives`, `Health`, `Hypergrid`, `Network`, `Security`, `Forms`, `Testing` | archives, health checks, hypergrid links, ports, escaping, forms, fakes                                                                                                                                                                         |
 
 `OpenSim\Testing\Machine` is a machine that is a folder (a grid `demo`, two simulators), `EnvironmentFake::with($layout)` an environment that touches nothing: the suite runs anywhere (`composer test`).
 
-## 🛠️ Developer Installation
+## Developer Installation
 
 ### As Composer Package
 
@@ -120,14 +121,14 @@ require 'vendor/autoload.php';   // PSR-4: OpenSim\ is src/; the gettext stand-i
 
 `OpenSim\Container\Podman` manages Podman containers without a shell. Pass a connection explicitly when targeting a remote Podman service; `bin/opensim-container.php` is the command-line adapter for Bash callers (`vendor/bin/opensim-container.php` when installed as a Composer dependency). Container integration tests are opt-in with `PODMAN_INTEGRATION=1`; `CONTAINER_CONNECTION` selects the Podman connection and `PODMAN_TEST_IMAGE` can select the test image.
 
-## 📚 Documentation
+## Documentation
 
 - **[Developer Guide](DEVELOPERS.md)** - Architecture rules and patterns
 - **[The data of a grid](docs/data.md)** - the models (avatars, regions, parcels), the collections and the databases
 - **[The API](docs/api/index.html)** - the resources, their attributes and what can be written, from the contract (`docs/api/openapi.yaml`); `composer docs` makes it again, the descriptions are written in `src/Api/Contract.php`
 - **[Migration of the consumers](docs/MIGRATION.md)** - what was renamed, moved or removed
 
-## 🤝 Contributing
+## Contributing
 
 This library follows strict architectural principles:
 
@@ -137,13 +138,12 @@ This library follows strict architectural principles:
 
 See [DEVELOPERS.md](DEVELOPERS.md) for complete guidelines.
 
-
-## 📄 License
+## License
 
 AGPLv3 - See [LICENSE](LICENSE) file for details.
 
-## 🆘 Support
+## Support
 
-- **End Users:** Get support from the project using this engine (W4OS, Helpers)
+- **End Users:** Get support from the parent project using this engine (W4OS, Helpers)
 - **Developers:** Create issues for bugs or feature requests https://github.com/magicoli/opensim-engine/issues
 - **Documentation:** Check the parent project documentation first

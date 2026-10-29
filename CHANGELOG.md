@@ -4,20 +4,11 @@
 
 - update: install container-tools as a sibling package
 
-### 3.0.0-beta.13
+### 3.0.0-beta.10 -> 3.0.0-beta.13
 
 - fix: force latest container-tools composer package
-
-### 3.0.0-beta.12
-
 - chore: bump composer dependencies
-
-### 3.0.0-beta.11
-
 - feature (web): render web server snippets from shipped presets
-
-### 3.0.0-beta.10
-
 - magicoli/build-tools 0.1.10 => 0.1.11
 
 ### 3.0.0-beta.9
