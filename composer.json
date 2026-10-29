@@ -31,7 +31,7 @@
         "psr/http-message": "^2.0",
         "psr/http-factory": "^1.1",
         "psr/http-server-handler": "^1.0",
-        "magicoli/container-tools": "0.1.0-alpha.3"
+        "magicoli/container-tools": "@dev"
     },
     "require-dev": {
         "dealerdirect/phpcodesniffer-composer-installer": "^1.2",
@@ -47,6 +47,14 @@
         {
             "name": "magicoli/opensim-rest-php",
             "url": "../opensim-rest-php/",
+            "type": "path",
+            "options": {
+                "symlink": true
+            }
+        },
+        {
+            "name": "magicoli/container-tools",
+            "url": "../container-tools/",
             "type": "path",
             "options": {
                 "symlink": true

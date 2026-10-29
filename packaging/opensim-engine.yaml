@@ -1,7 +1,6 @@
 # The framework-agnostic core of the OpenSimulator web tools, built by dev/build.sh (or apt-package) from
 # build/opensim-engine, prepared by packaging/build. ${VERSION} comes from build-tools.
-# The files and their vendor folder in /usr/share/opensim-engine; the projects of the family it needs are
-# their own packages (opensim-rest-php), linked into its vendor folder.
+# The files and their vendor folder in /usr/share/opensim-engine; sibling packages are linked into vendor.
 name: opensim-engine
 arch: all
 platform: linux
@@ -19,6 +18,7 @@ homepage: https://github.com/GuduleLapointe/opensim-engine
 license: AGPL-3.0-or-later
 
 depends:
+  - container-tools
   - opensim-rest-php
   - php-cli (>= 2:8.2)
   - php-curl
@@ -34,6 +34,9 @@ contents:
     type: tree
   - src: /usr/share/opensim-rest-php
     dst: /usr/share/opensim-engine/vendor/magicoli/opensim-rest-php
+    type: symlink
+  - src: /usr/share/container-tools
+    dst: /usr/share/opensim-engine/vendor/magicoli/container-tools
     type: symlink
 
 scripts:

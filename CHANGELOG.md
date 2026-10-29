@@ -2,6 +2,8 @@
 
 ### Unreleased
 
+- update: install container-tools as a sibling package
+
 ### 3.0.0-beta.13
 
 - fix: force latest container-tools composer package

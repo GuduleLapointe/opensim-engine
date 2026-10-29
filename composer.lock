@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f69756d83296a236340df655974fa10b",
+    "content-hash": "dc66f8850a13f5b762249f3e9c2e2f56",
     "packages": [
         {
             "name": "guzzlehttp/guzzle",
@@ -400,17 +400,11 @@
         },
         {
             "name": "magicoli/container-tools",
-            "version": "0.1.0-alpha.3",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/magicoli/container-tools.git",
-                "reference": "2cf3171dc988696ff80d206faba374f93689a0f8"
-            },
+            "version": "dev-dev",
             "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/magicoli/container-tools/zipball/2cf3171dc988696ff80d206faba374f93689a0f8",
-                "reference": "2cf3171dc988696ff80d206faba374f93689a0f8",
-                "shasum": ""
+                "type": "path",
+                "url": "../container-tools",
+                "reference": "5a3265973f3fe6678528a999cae0733f43b48e58"
             },
             "require": {
                 "ext-curl": "*",
@@ -431,7 +425,11 @@
                     "Magicoli\\ContainerTools\\": "src/"
                 }
             },
-            "notification-url": "https://packagist.org/downloads/",
+            "scripts": {
+                "test": [
+                    "pest"
+                ]
+            },
             "license": [
                 "AGPL-3.0-or-later"
             ],
@@ -442,11 +440,10 @@
                 }
             ],
             "description": "PHP library and command-line adapter for managing containers with Podman.",
-            "support": {
-                "issues": "https://github.com/magicoli/container-tools/issues",
-                "source": "https://github.com/magicoli/container-tools/tree/0.1.0-alpha.3"
-            },
-            "time": "2026-10-26T22:50:26+00:00"
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "magicoli/kick-inside",
@@ -5668,6 +5665,7 @@
     "minimum-stability": "dev",
     "stability-flags": {
         "laminas/laminas-escaper": 0,
+        "magicoli/container-tools": 20,
         "magicoli/opensim-rest-php": 20,
         "phpcompatibility/php-compatibility": 20
     },
